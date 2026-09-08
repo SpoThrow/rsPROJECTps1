@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<permissions>
+	<group>
+		<grouptitle>Topic Moderator</grouptitle>
+		<items>
+			<item>
+				<key>topicMod_add_moderator</key>
+				<string>Can add and edit topic moderators?</string>
+			</item>
+			<item>
+				<key>topicMod_delete_moderator</key>
+				<string>Can delete topic moderators?</string>
+			</item>
+		</items>
+	</group>
+</permissions>

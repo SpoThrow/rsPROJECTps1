@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8"?>
+<settingexport>
+  <settinggroup>
+    <setting>
+      <conf_is_title>1</conf_is_title>
+      <conf_title_keyword>reputationpoints</conf_title_keyword>
+      <conf_title_title>Reputation Points</conf_title_title>
+      <conf_title_desc>Settings for this app</conf_title_desc>
+      <conf_title_tab>Reputation</conf_title_tab>
+      <conf_title_app>reputationpoints</conf_title_app>
+      <conf_title_noshow>1</conf_title_noshow>
+    </setting>
+    <setting>
+      <conf_title>System Online ?</conf_title>
+      <conf_description/>
+      <conf_group>32</conf_group>
+      <conf_type>yes_no</conf_type>
+      <conf_key>reputacao_systemon</conf_key>
+      <conf_default>1</conf_default>
+      <conf_extra/>
+      <conf_evalphp></conf_evalphp>
+      <conf_protected>1</conf_protected>
+      <conf_position>1</conf_position>
+      <conf_start_group/>
+      <conf_end_group>0</conf_end_group>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>reputationpoints</conf_title_keyword>
+      <conf_start_group>Settings</conf_start_group>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Number of records ?</conf_title>
+      <conf_description><![CDATA[Specify how many reputations will show on list]]></conf_description>
+      <conf_group>32</conf_group>
+      <conf_type>input</conf_type>
+      <conf_key>reputacao_nr</conf_key>
+      <conf_default>30</conf_default>
+      <conf_extra/>
+      <conf_evalphp></conf_evalphp>
+      <conf_protected>1</conf_protected>
+      <conf_position>2</conf_position>
+      <conf_start_group/>
+      <conf_end_group>0</conf_end_group>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_start_group/>
+      <conf_title_keyword>reputationpoints</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Format username link ?</conf_title>
+      <conf_description>This setting will format username link according to his group color</conf_description>
+      <conf_id>32</conf_id>
+      <conf_group>36</conf_group>
+      <conf_type>yes_no</conf_type>
+      <conf_key>reputacao_format</conf_key>
+      <conf_value/>
+      <conf_default>1</conf_default>
+	  <conf_extra></conf_extra>
+      <conf_evalphp></conf_evalphp>
+      <conf_protected>1</conf_protected>
+      <conf_position>3</conf_position>
+      <conf_start_group/>
+      <conf_end_group>0</conf_end_group>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>reputationpoints</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Show banned users ?</conf_title>
+      <conf_description/>
+      <conf_id>32</conf_id>
+      <conf_group>36</conf_group>
+      <conf_type>yes_no</conf_type>
+      <conf_key>reputacao_banned</conf_key>
+      <conf_value/>
+      <conf_default></conf_default>
+	  <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>4</conf_position>
+      <conf_start_group></conf_start_group>
+      <conf_end_group>1</conf_end_group>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>reputationpoints</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Groups</conf_title>
+      <conf_description><![CDATA[Specify which user groups will can see the list]]></conf_description>
+      <conf_group>32</conf_group>
+      <conf_type>multi</conf_type>
+      <conf_key>reputacao_grupos</conf_key>
+      <conf_default/>
+	  <conf_extra>#show_groups#</conf_extra>
+      <conf_evalphp><![CDATA[if ( $save == 1)
+{
+	if ( is_array($_POST['reputacao_grupos']) )
+	{
+		$_POST['reputacao_grupos'] = implode(",",$_POST['reputacao_grupos']);
+	}
+	else
+	{
+		$_POST['reputacao_grupos'] = "";
+	}
+	
+	$key = 'reputacao_grupos';
+}
+if ( $show == 1 )
+{
+	$key = 'reputacao_grupos[]';
+}]]></conf_evalphp>
+      <conf_protected>1</conf_protected>
+      <conf_position>5</conf_position>
+      <conf_start_group/>
+      <conf_end_group>0</conf_end_group>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>reputationpoints</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+  </settinggroup>
+</settingexport>

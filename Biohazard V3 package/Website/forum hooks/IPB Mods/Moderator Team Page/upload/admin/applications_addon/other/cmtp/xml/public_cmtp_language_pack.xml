@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<languageexport>
+  <languagegroup>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>public_lang</word_pack>
+      <word_key>cmpt_public_php_nonefound</word_key>
+      <word_default>None Found</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>public_lang</word_pack>
+      <word_key>cmpt_public_php_leader_title</word_key>
+      <word_default>Title</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>public_lang</word_pack>
+      <word_key>cmpt_public_php_from</word_key>
+      <word_default>From</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>public_lang</word_pack>
+      <word_key>cmpt_public_php_since</word_key>
+      <word_default>Joined</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>public_lang</word_pack>
+      <word_key>cmpt_public_php_languages</word_key>
+      <word_default>Languages</word_default>
+    </lang>
+  </languagegroup>
+</languageexport>

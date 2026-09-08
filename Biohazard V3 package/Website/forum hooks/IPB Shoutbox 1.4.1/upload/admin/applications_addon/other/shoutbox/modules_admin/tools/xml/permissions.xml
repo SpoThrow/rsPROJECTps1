@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<permissions>
+	<group>
+		<grouptitle>Tools</grouptitle>
+		<items>
+			<item>
+				<key>shoutbox_tools_view</key>
+				<string>Can view list of tools?</string>
+			</item>
+			<item>
+				<key>shoutbox_tools_rebuild</key>
+				<string>Can run 'Rebuild Cache(s)' tool?</string>
+			</item>
+			<item>
+				<key>shoutbox_tools_prefs</key>
+				<string>Can run 'Reset Members Preferences' tool?</string>
+			</item>
+			<item>
+				<key>shoutbox_tools_empty</key>
+				<string>Can run 'Empty Shouts Table' tool?</string>
+			</item>
+		</items>
+	</group>
+</permissions>

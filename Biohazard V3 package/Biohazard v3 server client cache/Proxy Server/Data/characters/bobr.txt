@@ -1,0 +1,168 @@
+[ACCOUNT]
+character-username = bobr
+character-password = 9cdfb439c7876e703e307864c9167a15
+[CHARACTER]
+character-height = 0
+character-posx = 3088
+character-posy = 3502
+character-rights = 0
+donator = 0
+respected = 0
+veteran = 0
+fmod = 0
+UUID = To be filled by O.E.M.20240917123300.000000+480
+votePoints = 0
+donated = 0
+assaultPoints = 0
+cw-games = 0
+lockedEXP = 0
+music-unlocked = false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	true	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	true	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	true	true	true	true	true	true	true	true	true	true	true	true	true	true	true	true	true	true	true	true	true	true	true	true	true	true	true	true	true	true	true	true	true	
+membership = false
+expModifier = 0.1
+lastclanchat = help
+lastLoginDate = 0
+character-energy = 100
+desert-treasure = 0
+dt-kill = 0
+horror-from-deep = 0
+rfd-round = 0
+quest-points = 0
+cookAss = 0
+RuneMysteries = 0
+dorics-quest = 0
+demonSlayer = 0
+Incantation = 0
+boneSearchfalse
+captainRovfalse
+trailborn false
+crystal-bow-shots = 0
+skull-timer = 0
+play-time = 0
+magic-book = 0
+brother-info = 0	0
+brother-info = 1	0
+brother-info = 2	0
+brother-info = 3	0
+brother-info = 4	0
+brother-info = 5	0
+special-amount = 30.0
+selected-coffin = 0
+barrows-killcount = 0
+teleblock-length = 0
+pouch = 0	0	0	0
+pcPoints = 0
+slayerTask = 0
+taskAmount = 0
+slayerPoints = 0
+removedTask0 = 0
+removedTask1 = 0
+removedTask2 = 0
+removedTask3 = 0
+magePoints = 0
+pkpoints0
+fmPoints = 0
+autoRet = 1
+barrowskillcount = 0
+rogueKills = 0
+bountyKills = 0
+safeTimer = 0
+penaltyTimer = false
+killsMultiplier = 1
+flagged = false
+wave = 0
+gwkc = 0
+fightMode = 0
+void = 0	0	0	0	0
+completed-tut = true
+
+[EQUIPMENT]
+character-equip = 0	-1	1	
+character-equip = 1	-1	1	
+character-equip = 2	-1	1	
+character-equip = 3	-1	0	
+character-equip = 4	-1	1	
+character-equip = 5	-1	1	
+character-equip = 6	-1	0	
+character-equip = 7	-1	1	
+character-equip = 8	-1	0	
+character-equip = 9	-1	1	
+character-equip = 10	-1	1	
+character-equip = 11	-1	0	
+character-equip = 12	-1	1	
+character-equip = 13	-1	0	
+
+[LOOK]
+character-look = 0	0
+character-look = 1	0
+character-look = 2	18
+character-look = 3	26
+character-look = 4	33
+character-look = 5	36
+character-look = 6	42
+character-look = 7	10
+character-look = 8	0
+character-look = 9	0
+character-look = 10	0
+character-look = 11	0
+character-look = 12	0
+
+[SKILLS]
+character-skill = 0	1	0
+character-skill = 1	1	0
+character-skill = 2	1	0
+character-skill = 3	10	1300
+character-skill = 4	1	0
+character-skill = 5	1	0
+character-skill = 6	1	0
+character-skill = 7	1	0
+character-skill = 8	1	0
+character-skill = 9	1	0
+character-skill = 10	1	0
+character-skill = 11	1	0
+character-skill = 12	1	0
+character-skill = 13	1	0
+character-skill = 14	1	0
+character-skill = 15	1	0
+character-skill = 16	1	0
+character-skill = 17	1	0
+character-skill = 18	70	737628
+character-skill = 19	1	0
+character-skill = 20	70	737628
+character-skill = 21	1	0
+character-skill = 22	70	737628
+character-skill = 23	1	0
+character-skill = 24	1	0
+
+[ITEMS]
+character-item = 0	1705	1
+character-item = 1	2551	1
+character-item = 2	1130	1
+character-item = 3	1096	1
+character-item = 4	842	1
+character-item = 5	883	300
+character-item = 6	1154	1
+character-item = 7	1116	1
+character-item = 8	1068	1
+character-item = 9	1324	1
+character-item = 10	4588	1
+character-item = 11	1216	1
+character-item = 12	6108	1
+character-item = 13	6109	1
+character-item = 14	6110	1
+character-item = 15	1382	1
+character-item = 16	559	150
+character-item = 17	557	250
+character-item = 18	556	150
+character-item = 19	555	150
+character-item = 20	3106	1
+character-item = 21	563	150
+character-item = 22	375	100
+character-item = 23	2436	150
+character-item = 24	996	2000000
+
+[BANK]
+
+[FRIENDS]
+
+[EOF]
+

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<templates application="badges" templategroups="a:1:{s:12:&quot;skin_badges&quot;;s:5:&quot;exact&quot;;}">
+  <templategroup group="skin_badges">
+    <template>
+      <template_group>skin_badges</template_group>
+      <template_content><![CDATA[<h1 class="ipsType_pagetitle">
+	{parse expression="IPSLib::getAppTitle('aboutus')"}
+</h1>
+<p class="ipsType_pagedesc">
+	{$this->lang->words['aboutus_description']}
+</p>
+<br />
+<div class="ipsBox">
+	<div class="ipsBox_container ipsPad">
+		{$this->settings['aboutUsText']}
+	</div>
+</div>]]></template_content>
+      <template_name>viewBadges</template_name>
+      <template_data/>
+      <template_updated>1308325905</template_updated>
+      <template_removable>0</template_removable>
+      <template_user_added>0</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>root</template_master_key>
+    </template>
+  </templategroup>
+</templates>

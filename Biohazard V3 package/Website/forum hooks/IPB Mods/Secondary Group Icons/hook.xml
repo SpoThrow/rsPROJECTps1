@@ -1,0 +1,310 @@
+<?xml version="1.0" encoding="utf-8"?>
+<hookexport>
+  <hookdata>
+    <config>
+      <hook_name>(DP32) Secondary Group Icons</hook_name>
+      <hook_desc>With this hook you can show secondary group icons in topic view.</hook_desc>
+      <hook_author>DawPi</hook_author>
+      <hook_email>biuro@ipslink.pl</hook_email>
+      <hook_website>http://www.ipslink.pl</hook_website>
+      <hook_update_check>http://www.ipslink.pl/checkHook.php?hookKey=dp3_sgi</hook_update_check>
+      <hook_requirements><![CDATA[a:4:{s:20:"hook_ipb_version_min";i:31005;s:20:"hook_ipb_version_max";i:0;s:20:"hook_php_version_min";s:0:"";s:20:"hook_php_version_max";s:0:"";}]]></hook_requirements>
+      <hook_version_human>2.0.0</hook_version_human>
+      <hook_version_long>2000</hook_version_long>
+      <hook_extra_data><![CDATA[a:3:{s:13:"settingGroups";a:1:{s:0:"";s:2:"52";}s:8:"settings";a:0:{}s:7:"display";a:1:{s:8:"settings";s:44:"Setting groups: (DP32) Secondary Group Icons";}}]]></hook_extra_data>
+      <hook_key>dp3_sgi</hook_key>
+    </config>
+  </hookdata>
+  <hookfiles>
+    <file>
+      <hook_file_real>dp3sgi_topicView.php</hook_file_real>
+      <hook_type>skinHooks</hook_type>
+      <hook_classname>dp3sgi_topicView</hook_classname>
+      <hook_data><![CDATA[a:8:{s:12:"dataLocation";s:0:"";s:14:"libApplication";s:0:"";s:15:"classToOverload";s:11:"skin_global";s:9:"skinGroup";N;s:12:"skinFunction";N;s:4:"type";N;s:2:"id";N;s:8:"position";N;}]]></hook_data>
+      <hooks_source><![CDATA[//-----------------------------------------------
+// (DP32) Secondary Group Icons
+//-----------------------------------------------
+//-----------------------------------------------
+// Skin Overloader
+//-----------------------------------------------
+// Author: DawPi
+// Site: http://www.ipslink.pl/
+// Written on: 21 / 09 / 2010
+//-----------------------------------------------
+// Copyright (C) 2010 DawPi
+// All Rights Reserved
+//-----------------------------------------------     
+
+class dp3sgi_topicView extends skin_global(~id~)
+{
+	public $allow = 0;
+			
+	public function userInfoPane( $author, $contentid, $options )
+	{		
+		if( $this->allow || self::_checkAccess() )
+		{		
+			/* Copy current icon */
+			
+			if( $author['member_rank_img_i'] != 'pips' )
+			{
+				$icons = "<img src='" . $author['member_rank_img'] . "'>";		
+			}	
+						
+			/* Grab all available groups... */
+			
+			foreach( ipsRegistry::cache()->getCache( 'group_cache' ) as $i )
+			{
+				if ( $i['g_id'] == $this->settings['guest_group'] || $i['g_id'] == $this->settings['banned_group'] )
+				{
+					continue;
+				}
+	
+	        	$group_ids[ $i['g_id'] ] = $i['g_icon'];
+			}	
+	
+			/* Get all secondary groups... */
+			
+			$this->msgrps = explode(',', $author['mgroup_others'] );
+
+			/* Clean arrays */
+				
+			$this->msgrps = self::_cleanArray( $this->msgrps );
+							
+			if( is_array( $this->msgrps ) && count( $this->msgrps ) )
+			{			
+				/* Remove main group ID */
+				
+				if( in_array( $author['member_group_id'], $this->msgrps ) )
+				{		
+					unset( $this->msgrps[ array_search( $author['member_group_id'], $this->msgrps ) ] );
+				}
+				
+				/* Play with sorting */
+				
+				self::_sort();
+				
+				/* Do we have any secondary groups? */
+				
+				if( is_array( $this->msgrps ) && count( $this->msgrps ) )
+				{			
+					/* Check available secondary groups... */
+					
+					foreach( $this->msgrps as $gid )
+					{
+						if( array_key_exists( $gid, $group_ids ) )
+						{
+							$tmp_icon = $group_ids[ $gid ];
+							
+							if( IPSText::mbstrlen( $tmp_icon ) )
+							{
+								if ( substr( $tmp_icon, 0, 4 ) != 'http' )
+								{
+									$tmp_icon = ipsRegistry::$settings['_original_base_url'] . '/' . $tmp_icon;
+								}
+								
+								$icons .= "<br /> <img src='" . $tmp_icon . "'/>";
+								
+								unset( $tmp_icon );	
+							}					
+						}
+					}
+					/* Finally here! */
+					
+					$author['member_rank_img'] = $icons;
+			        $author['member_rank_img_i'] = '';  
+				}
+			}			
+		}
+		
+		return parent::userInfoPane( $author, $contentid, $options );
+	}
+	
+	private function _cleanArray( $a = array() )
+	{
+		if( is_array( $a ) && count( $a ) )
+		{
+			foreach( $a as $ai )
+			{
+				if( $ai && $ai != NULL )
+				{
+					$ta[] = $ai;
+				}
+			}
+			
+			$a = $ta;
+		}
+		
+		return $a;
+	}
+	
+	private function _sort()
+	{		
+		/* INIT */
+		
+		$goodGroups = array();
+		
+		$end		= array();
+		
+		/* Get sort order */
+		
+		$order = explode(',', $this->settings['dp3_sgi_order'] );
+		
+		if( is_array( $order ) && count( $order ) )
+		{ 
+			$order = array_unique( $order );
+			
+			$order = self::_cleanArray( $order );
+			
+			foreach( $this->msgrps as $mid )
+			{
+				if( in_array( $mid, $order ) )
+				{
+					$goodGroups[ array_search( $mid, $order ) ] = $mid;
+				}
+				else
+				{
+					$end[] = $mid;
+				}
+			}
+			
+			ksort( $goodGroups );
+	
+			if( is_array( $end ) && count( $end ) )
+			{
+				$this->msgrps = array_merge( $goodGroups, $end );
+			}
+			elseif( is_array( $goodGroups ) && count( $goodGroups ) )
+			{
+				$this->msgrps = $goodGroups;
+			}
+		}
+	}
+	
+	private function _checkAccess()
+	{		
+		/* INIT */
+		
+		$this->allow = false;
+		
+		/* Mod is enabled? */
+		
+		if( ! $this->settings['dp3_sgi_enable'] )
+		{
+			return false;
+		}
+		
+		/* Allowed group? */
+		
+		if( ! in_array( $this->memberData['member_group_id'], explode(',', $this->settings['dp3_sgi_groups'] ) ) )
+		{
+			return false;
+		}
+		
+		/* Still here? */
+
+		$this->allow = true;
+		
+		return true;
+	}
+} // End of class]]></hooks_source>
+    </file>
+  </hookfiles>
+  <hookextras_settings>
+    <setting>
+      <conf_is_title>1</conf_is_title>
+      <conf_title_title>(DP32) Secondary Group Icons</conf_title_title>
+      <conf_title_desc/>
+      <conf_title_noshow>0</conf_title_noshow>
+      <conf_title_keyword>dp3_sgi</conf_title_keyword>
+      <conf_title_app>core</conf_title_app>
+      <conf_title_tab>(DP3X) Mods</conf_title_tab>
+    </setting>
+    <setting>
+      <conf_id>612</conf_id>
+      <conf_title>Enable mod?</conf_title>
+      <conf_description/>
+      <conf_group>52</conf_group>
+      <conf_type>yes_no</conf_type>
+      <conf_key>dp3_sgi_enable</conf_key>
+      <conf_value/>
+      <conf_default/>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>1</conf_position>
+      <conf_start_group>Main Settings</conf_start_group>
+      <conf_end_group>0</conf_end_group>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>dp3_sgi</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_id>613</conf_id>
+      <conf_title>Allowed Groups</conf_title>
+      <conf_description>Which groups can see secondary group icons?</conf_description>
+      <conf_group>52</conf_group>
+      <conf_type>multi</conf_type>
+      <conf_key>dp3_sgi_groups</conf_key>
+      <conf_value/>
+      <conf_default/>
+      <conf_extra>#show_groups#</conf_extra>
+      <conf_evalphp><![CDATA[$key = 'dp3_sgi_groups';
+
+if ( $save == 1)
+{
+    if ( is_array($_POST[ $key ]) )
+    {
+        $_POST[ $key ] = implode(",",$_POST[ $key ]);
+    }
+    else
+    {
+        $_POST[ $key ] = "";
+    }
+}
+if ( $show == 1 )
+{
+    $key .= '[]';
+}]]></conf_evalphp>
+      <conf_protected>1</conf_protected>
+      <conf_position>2</conf_position>
+      <conf_start_group/>
+      <conf_end_group>0</conf_end_group>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>dp3_sgi</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_id>614</conf_id>
+      <conf_title>List Order</conf_title>
+      <conf_description><![CDATA[Enter groups ID's in your order. For example:
+4,2,3,1 will show groups with these ID's in order: first group 4, then group 2 and so on.]]></conf_description>
+      <conf_group>52</conf_group>
+      <conf_type>input</conf_type>
+      <conf_key>dp3_sgi_order</conf_key>
+      <conf_value/>
+      <conf_default>4,3,2,1</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>3</conf_position>
+      <conf_start_group/>
+      <conf_end_group>0</conf_end_group>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>dp3_sgi</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+  </hookextras_settings>
+  <hookextras_language/>
+  <hookextras_modules/>
+  <hookextras_help/>
+  <hookextras_templates/>
+  <hookextras_css/>
+  <hookextras_tasks/>
+  <hookextras_database_create/>
+  <hookextras_database_alter/>
+  <hookextras_database_update/>
+  <hookextras_database_insert/>
+</hookexport>

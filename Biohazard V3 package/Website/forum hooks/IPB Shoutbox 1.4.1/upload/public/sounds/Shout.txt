@@ -1,0 +1,20 @@
+JLogica is grateful to the following projects, whose work
+has been used in Shoutbox to add style, flair and functionality to our product.
+
+SoundManager 2		
+	Javascript/flash library for MP3 sounds
+	Scott Schiller (schillmania.com)
+	BSD License: http://www.schillmania.com/projects/soundmanager2/license.txt
+
+LICENCE CERTIFICATE : Envato Marketplace Item
+==============================================
+This document certifies the purchase of: ONE EXTENDED LICENSE
+as defined in the standard terms and conditions on the Envato Marketplaces.
+
+Licensor's Author Username: MrLukeFor
+For the item: Interface Sound
+
+http://audiojungle.net/item/interface-sound/1951490?sso
+Item ID: 1951490
+
+Item Purchase Code: 6d537ec5-ae67-4c91-b673-0827e4f7eb22

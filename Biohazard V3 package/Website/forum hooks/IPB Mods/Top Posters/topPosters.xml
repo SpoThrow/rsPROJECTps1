@@ -1,0 +1,237 @@
+<?xml version="1.0" encoding="utf-8"?>
+<hookexport>
+  <hookdata>
+    <config>
+      <hook_name>(SOS32) Top Posters</hook_name>
+      <hook_desc>Will show top posters in sidebar</hook_desc>
+      <hook_author>Adriano Faria</hook_author>
+      <hook_email>administracao@sosinvision.com.br</hook_email>
+      <hook_website>http://www.sosinvision.com.br</hook_website>
+      <hook_update_check><![CDATA[http://forum.sosinvision.com.br/resource_updates.php?resource=sos32_topposters]]></hook_update_check>
+      <hook_requirements><![CDATA[a:3:{s:21:"required_applications";a:1:{s:6:"forums";a:3:{s:8:"app_name";s:8:"IP.Board";s:11:"min_version";i:32000;s:11:"max_version";i:0;}}s:20:"hook_php_version_min";s:0:"";s:20:"hook_php_version_max";s:0:"";}]]></hook_requirements>
+      <hook_version_human>2.0.1</hook_version_human>
+      <hook_version_long>20001</hook_version_long>
+      <hook_extra_data><![CDATA[a:4:{s:7:"display";a:2:{s:8:"settings";s:175:"Setting groups: (SOS32) Top Posters<br />Settings: Allowed groups to view the list in sidebar, Show BANNED members?, Number of users to show?";s:9:"templates";s:38:"From skin_boards: boardIndexTopPosters";}s:13:"settingGroups";a:1:{s:0:"";s:10:"topposters";}s:8:"settings";a:3:{s:0:"";s:17:"topposters_groups";i:1;s:17:"topposters_banned";i:2;s:14:"topposters_qtd";}s:9:"templates";a:1:{s:11:"skin_boards";a:1:{s:0:"";s:20:"boardIndexTopPosters";}}}]]></hook_extra_data>
+      <hook_key>sos32_topposters</hook_key>
+      <hook_global_caches/>
+    </config>
+  </hookdata>
+  <hookfiles>
+    <file>
+      <hook_file_real>sos32_topposters.php</hook_file_real>
+      <hook_type>templateHooks</hook_type>
+      <hook_classname>sos32_topposters</hook_classname>
+      <hook_data><![CDATA[a:8:{s:12:"dataLocation";s:0:"";s:14:"libApplication";s:0:"";s:15:"classToOverload";s:0:"";s:9:"skinGroup";s:11:"skin_boards";s:12:"skinFunction";s:18:"boardIndexTemplate";s:4:"type";s:7:"foreach";s:2:"id";s:11:"side_blocks";s:8:"position";s:9:"outer.pre";}]]></hook_data>
+      <hooks_source><![CDATA[<?php
+
+class sos32_topposters
+{
+	public $registry;
+	public $member;
+	public $cache;
+	
+	public function __construct()
+	{
+		$this->registry = ipsRegistry::instance();
+		$this->DB		=  $this->registry->DB();
+		$this->settings =& $this->registry->fetchSettings();
+		$this->memberData =& $this->registry->member()->fetchMemberData();
+		$this->cache    = $this->registry->cache();
+		$this->caches   =& $this->registry->cache()->fetchCaches();
+		$this->registry->class_localization->loadLanguageFile( array( 'public_boards', 'forums' ) );
+	}
+
+	public function getOutput()
+	{
+		if( !in_array( $this->memberData['member_group_id'], explode( ',', $this->settings['sos32_topposters_groups'] ) ) )
+           {
+           	return false;
+		}
+
+		$qtd = $this->settings['sos32_topposters_qtd'] ? $this->settings['sos32_topposters_qtd'] : 5;
+
+		$banned = !$this->settings['sos32_topposters_banned'] ? "AND m.member_group_id <> ".$this->settings['banned_group']." AND m.member_banned = 0" : "";
+
+		$this->DB->build( array( 
+                                                                'select' => 'm.member_id, m.members_seo_name, m.members_display_name, m.member_group_id, m.posts',
+                                                                'from'   => array( 'members' => 'm' ),
+                                                'add_join' => array(
+                                                                0 => array( 'select' => 'pp.*',
+                                                                                         'from'   => array( 'profile_portal' => 'pp' ),
+                                                                                         'where'  => 'pp.pp_member_id=m.member_id',
+                                                                                         'type'   => 'left' )
+                                        ),
+                                        'where' => "m.posts > 0 ".$banned,
+'order' => 'm.posts DESC',
+                                                                'limit' => array( 0, $qtd )
+                ) );
+                                                                 
+		$q = $this->DB->execute();
+                        
+		if ( $this->DB->getTotalRows( $q ) )
+		{
+			$member_ids = array();
+	
+			while ( $r = $this->DB->fetch( $outer ) )
+	        {
+				$member_ids[ $r['member_id'] ] = $r['member_id'];
+			}
+	
+			if( count($member_ids) )
+			{
+				$users		= array();
+				$members	= IPSMember::load( $member_ids, 'all' );
+	
+				foreach( $members as $mid => $member )
+				{
+					$member = IPSMember::buildDisplayData( $member );
+					$users[ $mid ]  = $member;
+				}
+	
+				uasort( $users, array( $this, 'postSort' ) );
+			}
+	
+			return $this->registry->output->getTemplate( 'boards' )->boardIndexTopPosters( $users );
+        }
+	}
+
+	private function postSort( $a, $b )
+	{
+		if ( $a['posts'] == $b['posts'] )
+		{
+			return 0;
+		}
+
+		return ( $a['posts'] > $b['posts'] ) ? -1 : 1;
+	}
+}]]></hooks_source>
+    </file>
+  </hookfiles>
+  <hookextras_settings>
+    <setting>
+      <conf_is_title>1</conf_is_title>
+      <conf_title_title>(SOS32) Top Posters</conf_title_title>
+      <conf_title_desc>Settings for this hook</conf_title_desc>
+      <conf_title_noshow>0</conf_title_noshow>
+      <conf_title_keyword>topposters</conf_title_keyword>
+      <conf_title_app>forums</conf_title_app>
+      <conf_title_tab>Hooks</conf_title_tab>
+    </setting>
+    <setting>
+      <conf_id>440</conf_id>
+      <conf_title>Show BANNED members?</conf_title>
+      <conf_description/>
+      <conf_group>60</conf_group>
+      <conf_type>yes_no</conf_type>
+      <conf_key>sos32_topposters_banned</conf_key>
+      <conf_value/>
+      <conf_default>0</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>1</conf_position>
+      <conf_start_group>General Settings</conf_start_group>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>topposters</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_id>442</conf_id>
+      <conf_title>Allowed groups to view the list in sidebar</conf_title>
+      <conf_description/>
+      <conf_group>60</conf_group>
+      <conf_type>multi</conf_type>
+      <conf_key>sos32_topposters_groups</conf_key>
+      <conf_value/>
+      <conf_default/>
+      <conf_extra>#show_groups#</conf_extra>
+      <conf_evalphp><![CDATA[
+if ( $save == 1)
+{
+	if ( is_array($_POST['sos32_topposters_groups']) )
+	{
+		$_POST['sos32_topposters_groups'] = implode(",",$_POST['sos32_topposters_groups']);
+	}
+	else
+	{
+		$_POST['sos32_topposters_groups'] = "";
+	}
+	
+	$key = 'sos32_topposters_groups';
+}
+if ( $show == 1 )
+{
+	$key = 'sos32_topposters_groups[]';
+} ]]></conf_evalphp>
+      <conf_protected>1</conf_protected>
+      <conf_position>3</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>topposters</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_id>441</conf_id>
+      <conf_title>Number of users to show?</conf_title>
+      <conf_description/>
+      <conf_group>60</conf_group>
+      <conf_type>input</conf_type>
+      <conf_key>sos32_topposters_qtd</conf_key>
+      <conf_value/>
+      <conf_default>5</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>2</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>topposters</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+  </hookextras_settings>
+  <hookextras_language/>
+  <hookextras_modules/>
+  <hookextras_help/>
+  <hookextras_templates>
+    <templates>
+      <template_group>skin_boards</template_group>
+			<template_content><![CDATA[<if test="recenttopics:|:is_array( $users ) && count( $users )">
+<div class='ipsSideBlock clearfix'>
+	<h3>{$this->lang->words['sm_overall_posters']}</h3>
+	<div class='_sbcollapsable'>
+		<ul class='ipsList_withminiphoto'>
+		<foreach loop="topposters_hook:$users as $r">
+		<li class='clearfix'>
+			<a href='{parse url="showuser={$r['member_id']}" seotitle="{$r['members_seo_name']}" template="showuser" base="public"}' title='{$this->lang->words['view_profile']}' class='ipsUserPhotoLink left'><img src='{$r['pp_mini_photo']}' alt="{$r['members_display_name']}{$this->lang->words['users_photo']}" class='ipsUserPhoto ipsUserPhoto_mini' /></a>
+			<div class='list_content'>
+				{parse template="userHoverCard" group="global" params="$r"}
+				<p class='desc ipsType_smaller'>
+					{$this->lang->words['total_posts']}: {parse format_number="$r['posts']"}</a>
+				</p>
+			</div>
+		</li>
+		</foreach>
+		</ul>
+	</div>
+</div>
+</if>]]></template_content>
+      <template_name>boardIndexTopPosters</template_name>
+      <template_data>$users=array()</template_data>
+      <template_updated>1235666400</template_updated>
+      <template_removable>0</template_removable>
+      <template_added_to>1</template_added_to>
+      <template_user_added>1</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>root</template_master_key>
+    </templates>
+  </hookextras_templates>
+  <hookextras_css/>
+  <hookextras_tasks/>
+  <hookextras_database_create/>
+  <hookextras_database_alter/>
+  <hookextras_database_update/>
+  <hookextras_database_insert/>
+</hookexport>

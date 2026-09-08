@@ -1,0 +1,707 @@
+<?xml version="1.0" encoding="utf-8"?>
+<languageexport>
+  <languagegroup>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>total_shouts</word_key>
+      <word_default>Total Shouts</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>unique_shouters</word_key>
+      <word_default>Unique Shouters</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>tls_shouts_recached</word_key>
+      <word_default>Shoutbox shouts cache rebuilt</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>top_shouter</word_key>
+      <word_default>Top Shouter</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>tls_shouts_message</word_key>
+      <word_default>Succesfully rebuilt shouts cache</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>tls_reset_prefs_going</word_key>
+      <word_default>%d members processed so far, continuing...</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>tls_reset_prefs_done</word_key>
+      <word_default>Successfully reset all preferences</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>tls_reset_prefs_desc</word_key>
+      <word_default>This tool will reset the shoutbox preferences for all members.</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>tls_reset_prefs</word_key>
+      <word_default>Reset Members Preferences</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>tls_rebuild_caches_desc</word_key>
+      <word_default>This will rebuild the caches that contain commonly used data.</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>tls_rebuild_caches</word_key>
+      <word_default>Rebuild Cache(s)</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>tls_proceed_action</word_key>
+      <word_default>Proceed with this Action</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>tls_per_cycle</word_key>
+      <word_default>Per Cycle</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>tls_mods_recached</word_key>
+      <word_default>Shoutbox moderators cache rebuilt</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>tls_list</word_key>
+      <word_default>Tools List</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>tls_mods_message</word_key>
+      <word_default>Succesfully rebuilt moderators cache</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>tls_invalid_cache</word_key>
+      <word_default>Invalid cache provided, please go back and select a proper cache</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>tls_empty_table</word_key>
+      <word_default>Empty Shouts Table</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>tls_empty_table_desc</word_key>
+      <word_default>This tool will delete EVERY shout from the shoutbox. This process is not reversible so use it with care!</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>tls_empty_confirm</word_key>
+      <word_default>Empty Shouts Table Confirmation</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>tls_empty_confirm_desc</word_key>
+      <word_default>This is the last warning, are you sure you want to proceed with this action?</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>tls_empty_admin_mesg</word_key>
+      <word_default>Succesfully deleted all shouts</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>tls_empty_admin_log</word_key>
+      <word_default>Deleted all shouts from the shoutbox</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>tls_cache_all</word_key>
+      <word_default>All Caches</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>tls_cache_shouts</word_key>
+      <word_default>Shouts</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>tls_cache_mods</word_key>
+      <word_default>Moderators</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>shoutbox_version</word_key>
+      <word_default>Shoutbox Version</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>shoutbox_online</word_key>
+      <word_default>Shoutbox Online</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>ov_version</word_key>
+      <word_default>Version</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>ov_upgrade_history</word_key>
+      <word_default>Upgrade History (Last 5)</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>ov_title</word_key>
+      <word_default>Overview</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>ov_stats</word_key>
+      <word_default>Statistics</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>ov_general_info</word_key>
+      <word_default>General Informations</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>mod_type</word_key>
+      <word_default>Type</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>mod_save_message</word_key>
+      <word_default>Moderator %s</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>mod_save_admin_log</word_key>
+      <word_default>Shoutbox moderator %s: %s %s (ID: %d)</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>mod_permissions</word_key>
+      <word_default>Permissions</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>mod_overview</word_key>
+      <word_default>Moderators Overview</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>mod_no_mods_added</word_key>
+      <word_default>No moderators has been added to the shoutbox yet</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>mod_moderator</word_key>
+      <word_default>Moderator</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>mod_member_id</word_key>
+      <word_default>Member ID</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>mod_form_title</word_key>
+      <word_default>Moderator Form</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>mod_group</word_key>
+      <word_default>Group</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>mod_list</word_key>
+      <word_default>Moderators List</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>mod_member</word_key>
+      <word_default>Member</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>mod_member_display_name</word_key>
+      <word_default>Member Display Name</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>mod_edit_group</word_key>
+      <word_default>Edit Group</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>mod_edit_member</word_key>
+      <word_default>Edit Member</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>mod_edit_mod</word_key>
+      <word_default>Edit Moderator</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>mod_editing_group</word_key>
+      <word_default>Editing Group Moderator</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>mod_editing_member</word_key>
+      <word_default>Editing Member Moderator</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>mod_delete_message</word_key>
+      <word_default>Moderator deleted</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>mod_edited</word_key>
+      <word_default>Edited</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>mod_delete_mod</word_key>
+      <word_default>Delete Moderator...</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>mod_delete_admin_log</word_key>
+      <word_default>Shoutbox moderator deleted: %s %s (ID: %d)</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>mod_can_remove</word_key>
+      <word_default>Can remove moderators?</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>mod_can_unban</word_key>
+      <word_default>Can unban members?</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>mod_can_edit</word_key>
+      <word_default>Can edit shouts?</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>mod_add_new_member</word_key>
+      <word_default>Add New Member</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>mod_can_ban</word_key>
+      <word_default>Can ban members?</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>mod_can_delete_all</word_key>
+      <word_default>Can delete shouts by other users?</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>mod_can_delete</word_key>
+      <word_default>Can delete own shouts?</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>mod_add_new_group</word_key>
+      <word_default>Add New Group</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>mod_add_member</word_key>
+      <word_default>Add Member</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>mod_adding_member</word_key>
+      <word_default>Adding Member as Moderator</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>mod_add_group</word_key>
+      <word_default>Add Group</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>mod_adding_group</word_key>
+      <word_default>Adding Group as Moderator</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>moderators</word_key>
+      <word_default>Moderators</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>mod_added</word_key>
+      <word_default>Added</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>latest_shout_date</word_key>
+      <word_default>Latest Shout Date</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>latest_shout_by</word_key>
+      <word_default>Latest Shout By</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>g_shoutbox_view_archive_desc</word_key>
+      <word_default>Allow this group to view the Shoutbox archive?</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>g_shoutbox_view_desc</word_key>
+      <word_default><![CDATA[Allow this group to <strong>VIEW</strong> but not use the shoutbox?]]></word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>g_shoutbox_view</word_key>
+      <word_default>Can view the shoutbox?</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>g_shoutbox_view_archive</word_key>
+      <word_default>View Shoutbox Archive?</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>g_shoutbox_use</word_key>
+      <word_default>Can use the shoutbox?</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>g_shoutbox_use_desc</word_key>
+      <word_default><![CDATA[If this setting is set to <strong>NO</strong> below settings will have no effect!]]></word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>g_shoutbox_posts_req_display</word_key>
+      <word_default>Display # of posts required?</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>g_shoutbox_posts_req_display_desc</word_key>
+      <word_default>The number of posts required will be displayed in the error message</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>g_shoutbox_posts_req_desc</word_key>
+      <word_default><![CDATA[The number of posts required to be able to use the Shoutbox.<br /><em>Enter 0 or leave blank to not require any amount.</em>]]></word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>g_shoutbox_edit_desc</word_key>
+      <word_default>Moderator permissions overrides this setting!</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>g_shoutbox_posts_req</word_key>
+      <word_default>Posts required to use shoutbox?</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>g_shoutbox_edit</word_key>
+      <word_default>Permit users to edit their shouts?</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>g_shoutbox_delete_own_desc</word_key>
+      <word_default>For non-moderators, gives them ability to delete their own shouts.</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>g_shoutbox_delete_own</word_key>
+      <word_default>Permit users to delete their shouts?</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>g_shoutbox_bypass_flood</word_key>
+      <word_default>Bypass flood limit?</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>g_shoutbox_bypass_flood_desc</word_key>
+      <word_default>If enabled this group will be able to bypass the flood limit (if enabled)</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>group_permissions</word_key>
+      <word_default>Manage Group Settings</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>error_mod_id_not_found</word_key>
+      <word_default>Moderator ID specified not found, please try again</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>error_member_not_found</word_key>
+      <word_default>Member not found, please go back and try again</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>error_member_too_short</word_key>
+      <word_default>Member name is empty or too short, please try again</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>error_moderator_not_found</word_key>
+      <word_default>Moderator not found, please go back try again</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>error_member_id_invalid</word_key>
+      <word_default>Invalid member ID provided, please try again</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>error_group_not_found</word_key>
+      <word_default>Group not found, please try again</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>error_ban_yourself</word_key>
+      <word_default><![CDATA[You can't ban yourself from the shoutbox]]></word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>error_group_id_invalid</word_key>
+      <word_default>Invalid Group ID provided</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>error_ban_undo_yourself</word_key>
+      <word_default><![CDATA[You can't remove the ban from your account yourself from the shoutbox]]></word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>error_ban_not_banned</word_key>
+      <word_default>This member is not banned from the shoutbox, no need to remove a non-existent ban so</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>error_already_moderator</word_key>
+      <word_default>This %s is already a Moderator, no need to add it again</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>edit_group</word_key>
+      <word_default>Edit</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>error_already_banned</word_key>
+      <word_default>This member is already banned from the shoutbox, no need for a new ban</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>ctype__shouts</word_key>
+      <word_default>Shoutbox Shouts</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>ban_undo_done_message</word_key>
+      <word_default><![CDATA[Succesfully Unbanned '<strong>%s</strong>' from the shoutbox]]></word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>ban_undo_admin_log</word_key>
+      <word_default><![CDATA[Unbanned '%s' (ID: %d) from the shoutbox]]></word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>ban_remove_it</word_key>
+      <word_default>Remove Ban...</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>ban_no_banned_yet</word_key>
+      <word_default>No members banned from the shoutbox yet</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>ban_list_title</word_key>
+      <word_default>Banned Members</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>ban_member</word_key>
+      <word_default>Ban Member</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>ban_list_list</word_key>
+      <word_default>Banned Members List</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>ban_done_message</word_key>
+      <word_default><![CDATA[Succesfully Banned '<strong>%s</strong>' from the shoutbox]]></word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>upgrade_date</word_key>
+      <word_default>Upgrade Date</word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>ban_admin_log</word_key>
+      <word_default><![CDATA[Banned '%s' (ID: %d) from the shoutbox]]></word_default>
+    </lang>
+    <lang>
+      <word_app>shoutbox</word_app>
+      <word_pack>admin_shoutbox</word_pack>
+      <word_key>banned_members</word_key>
+      <word_default>Banned Members</word_default>
+    </lang>
+    <lang>
+     <word_app>shoutbox</word_app>
+     <word_pack>admin_shoutbox</word_pack>
+     <word_key>g_shoutbox_old_req</word_key>
+     <word_default>Registered since X days required to use shoutbox?</word_default>
+    </lang>
+    <lang>
+     <word_app>shoutbox</word_app>
+     <word_pack>admin_shoutbox</word_pack>
+     <word_key>g_shoutbox_old_req_desc</word_key>
+     <word_default><![CDATA[The number of days required to be able to use the Shoutbox.<br /><em>Enter 0 or leave blank to not require any amount.</em>]]></word_default>
+    </lang>
+    <lang>
+     <word_app>shoutbox</word_app>
+     <word_pack>admin_shoutbox</word_pack>
+     <word_key>g_shoutbox_old_req_display</word_key>
+     <word_default>Display # of days required?</word_default>
+    </lang>
+    <lang>
+     <word_app>shoutbox</word_app>
+     <word_pack>admin_shoutbox</word_pack>
+     <word_key>g_shoutbox_old_req_display_desc</word_key>
+     <word_default>The number of days required will be displayed in the error message</word_default>
+    </lang>
+  </languagegroup>
+</languageexport>

@@ -1,0 +1,519 @@
+<?xml version="1.0" encoding="utf-8"?>
+<hookexport>
+  <hookdata>
+    <config>
+      <hook_name>Shoutbox: Global</hook_name>
+      <hook_desc>This adds a global shoutbox in your forum</hook_desc>
+      <hook_author>Pete Treanor</hook_author>
+      <hook_email/>
+      <hook_website>http://www.ipbshoutbox.com</hook_website>
+      <hook_update_check/>
+      <hook_version_human>1.4.1</hook_version_human>
+      <hook_version_long>14100</hook_version_long>
+      <hook_requirements><![CDATA[a:3:{s:21:"required_applications";a:2:{s:4:"core";a:3:{s:8:"app_name";s:6:"System";s:11:"min_version";i:32000;s:11:"max_version";i:0;}s:8:"shoutbox";a:3:{s:8:"app_name";s:8:"Shoutbox";s:11:"min_version";i:12000;s:11:"max_version";i:0;}}s:20:"hook_php_version_min";s:0:"";s:20:"hook_php_version_max";s:0:"";}]]></hook_requirements>
+      <hook_extra_data><![CDATA[a:3:{s:7:"display";a:3:{s:8:"settings";s:37:"Setting groups: Hook: Global Shoutbox";s:9:"templates";s:0:"";s:6:"custom";s:29:"shoutboxGlobalHookInstall.php";}s:13:"settingGroups";a:1:{i:0;s:20:"shoutbox_hook_global";}s:8:"settings";a:9:{i:0;s:24:"shoutbox_default_gheight";i:1;s:21:"shoutbox_emos_perpage";i:2;s:20:"shoutbox_emos_perrow";i:3;s:27:"shoutbox_global_display_loc";i:4;s:20:"shoutbox_global_hook";i:5;s:26:"shoutbox_global_pages_list";i:6;s:26:"shoutbox_global_pages_type";i:7;s:30:"shoutbox_global_shout_ordering";i:8;s:21:"shoutbox_global_theme";}}]]></hook_extra_data>
+      <hook_key>ipshoutbox_global</hook_key>
+      <hook_global_caches/>
+    </config>
+  </hookdata>
+  <hookfiles>
+    <file>
+      <hook_file_real>shoutboxGlobalShoutbox.php</hook_file_real>
+      <hook_type>templateHooks</hook_type>
+      <hook_classname>shoutboxGlobalShoutbox</hook_classname>
+      <hook_data><![CDATA[a:8:{s:12:"dataLocation";s:0:"";s:14:"libApplication";s:0:"";s:15:"classToOverload";s:0:"";s:9:"skinGroup";s:11:"skin_global";s:12:"skinFunction";s:14:"globalTemplate";s:4:"type";s:2:"if";s:2:"id";s:15:"mainpageContent";s:8:"position";s:11:"pre.startif";}]]></hook_data>
+      <hooks_source><![CDATA[<?php
+
+class shoutboxGlobalShoutbox
+{
+	protected $registry;
+	protected $settings;
+	protected $request;
+	protected $member;
+	protected $memberData;
+	protected $cache;
+
+	public function __construct()
+	{
+        /* Make registry objects */
+		$this->registry   =  ipsRegistry::instance();
+		$this->settings   =& $this->registry->fetchSettings();
+		$this->request    =& $this->registry->fetchRequest();
+		$this->member     =  $this->registry->member();
+		$this->memberData =& $this->registry->member()->fetchMemberData();
+		$this->cache      =  $this->registry->cache();
+	}
+
+	public function getOutput()
+	{
+		/* Check temporary ban status */
+		if( $this->memberData['temp_ban'] )
+		{
+			# Let's just return, it is useless to process it since it is already done in ipsRegistry
+			return;
+		}
+
+		/* Check the new way to ban */
+		if ( $this->memberData['member_banned'] == 1 )
+		{
+			return;
+		}
+
+		/* No permission to view the board */
+		if ( $this->memberData['g_view_board'] != 1 )
+		{
+			return;
+		}
+
+		/* Offline or can't view? */
+		if ( !$this->settings['shoutbox_online'] || !$this->memberData['g_shoutbox_view'] || (!$this->memberData['g_shoutbox_view'] && !$this->memberData['g_shoutbox_use']) || ( $this->settings['board_offline'] && !$this->memberData['g_access_offline'] ) )
+		{
+			return;
+		}
+
+		/** Shoutbox app? - Are we shoutbox banned? **/
+		if ( ipsRegistry::$current_application == 'shoutbox' || $this->memberData['_cache']['shoutbox_banned'] )
+		{
+			return;
+		}
+
+		/* Login enforced? */
+		if ( !$this->memberData['member_id'] && $this->settings['force_login'] == 1 )
+		{
+			return;
+		}
+
+		/* Printing the page? */
+		if ( !empty( $_GET['forcePrint'] ) && ( $_GET['_k'] == $this->member->form_hash ) )
+		{
+			return;
+		}
+
+		/* Display only on index page? */
+		if ( $this->settings['shoutbox_global_display_loc'] == 'idx' )
+		{
+			// idx shortcut not used?
+			if ( $this->request['act'] == 'idx' || (IPS_APP_COMPONENT == 'forums' && ipsRegistry::$current_module == 'forums' && ipsRegistry::$current_section == 'boards') )
+			{
+				// Go on!
+			}
+			else
+			{
+				return;
+			}
+		}
+		else
+		{
+			// Check pages?
+			if ( !in_array( $this->settings['shoutbox_global_hook'], array( 's', 'ct', 'cb' ) ) && $this->pagesCheckList() )
+			{
+				return;
+			}
+		}
+//ipchat gonna be broken? don't REALLY care but... w/e
+
+if(ipsRegistry::$current_application == 'ipchat')
+{
+return;
+}
+
+		/* Our library is loaded? */
+		if( !class_exists('app_class_shoutbox') OR !$this->registry->isClassLoaded('shoutboxLibrary') )
+		{
+			require_once( IPSLib::getAppDir('shoutbox').'/app_class_shoutbox.php' );
+			$app_class_shoutbox = new app_class_shoutbox( ipsRegistry::instance() );
+		}
+
+		$this->registry->getClass('shoutboxLibrary')->global_on = true;
+		$this->registry->getClass('shoutboxLibrary')->_startup();
+
+		// Check prefs
+		if ( !$this->registry->getClass('shoutboxLibrary')->prefs['global_display'] )
+		{
+			return;
+		}
+
+		// We have the right amount of posts
+		// to use it if we can use it?
+		if ( $this->memberData['g_shoutbox_use'] && $this->memberData['g_shoutbox_posts_req'] )
+		{
+			$this->memberData['g_shoutbox_posts_req'] = intval($this->memberData['g_shoutbox_posts_req']);
+			if ($this->memberData['g_shoutbox_posts_req'] && $this->memberData['posts'] < $this->memberData['g_shoutbox_posts_req'])
+			{
+				$this->memberData['g_shoutbox_use'] = 0;
+				$this->registry->getClass('shoutboxLibrary')->moderator = 0;
+			}
+		}
+		
+		// We have the right amount of posts
+		// to use it if we can use it?
+		if ( $this->memberData['g_shoutbox_use'] && $this->memberData['g_shoutbox_old_req'] )
+		{
+			$this->memberData['g_shoutbox_old_req'] = intval($this->memberData['g_shoutbox_old_req']);
+			$joined = time() - intval($this->memberData['joined']);
+			$joined = floor($joined / 86400);
+			if ($this->memberData['g_shoutbox_old_req'] && $joined < $this->memberData['g_shoutbox_old_req'])
+			{
+				$this->memberData['g_shoutbox_use'] = 0;
+				$this->registry->getClass('shoutboxLibrary')->moderator = 0;
+			}
+		}
+
+		$d = array( 'shout_height' => $this->registry->getClass('shoutboxLibrary')->prefs['shoutbox_gheight'],
+					'announcement' => $this->registry->getClass('shoutboxLibrary')->_get_announcement(),
+					'noshouts'     => $this->registry->getClass('shoutboxLibrary')->_noShoutsMessage(),
+					'shouts'       => $this->registry->getClass('shoutboxLibrary')->return_shouts(true),
+					);
+
+		/* Setup JS things */
+		$d['js']  = $this->registry->getClass('output')->getTemplate('shoutbox')->javascript( $d );
+		$d['js'] .= $this->registry->getClass('shoutboxLibrary')->show_lang_for_js_use();
+
+		/* Which hook? - Added in 1.1.1 */
+		if ( $this->settings['shoutbox_global_hook'] == 's' )
+		{
+			$hook = 'hookGlobalShoutboxSidebar';
+		}
+		else
+		{
+			# Not sidebar? Use the normal one then
+			$hook = 'hookGlobalShoutbox';
+		}
+
+		return '<!--- ShoutBoxJsLoader --->'.$this->registry->getClass('output')->getTemplate('shoutbox_hooks')->$hook( $d );
+	}
+
+	private function pagesGetList()
+	{
+		$pages = array();
+
+		foreach ( explode("\n", $this->settings['shoutbox_global_pages_list']) as $row )
+		{
+			// We have a row?
+			$row = trim($row);
+			if ($row == '')
+			{
+				continue;
+			}
+
+			// We have segments?
+			$segments = explode(",", $row);
+			if ( count($segments) <= 0 )
+			{
+				continue;
+			}
+
+			// Parse segments
+			$list = array();
+			foreach ( $segments as $v )
+			{
+				if ( preg_match("#(.+?)=(.+?)#i", $v) )
+				{
+					list($key, $value) = explode('=', $v);
+					$list[ $key ] = $value;
+				}
+			}
+
+			if ( count($list) )
+			{
+				$pages[] = $list;
+			}
+		}
+
+		return $pages;
+	}
+
+	private function pagesCheckList()
+	{
+		if ( $this->settings['shoutbox_global_pages_type'] == 'd' || $this->settings['shoutbox_global_pages_list'] == '' )
+		{
+			return false;
+		}
+
+		// Get pages from cache
+		$pages = $this->pagesGetList();
+
+		// Go through pages if we have some
+		if ( count($pages) )
+		{
+			foreach ( $pages as $page )
+			{
+				/* Reset some vars */
+				$totalParts = count($page);
+				$foundParts = 0;
+
+				foreach ( $page as $key => $value )
+				{
+					/* If we have a main key let's reset with the ipsRegistry values */
+					if ( $key == 'app' )
+					{
+						$this->request[ $key ] = ipsRegistry::$current_application;
+					}
+					elseif ( $key == 'module' )
+					{
+						$this->request[ $key ] = ipsRegistry::$current_module;
+					}
+					elseif ( $key == 'section' )
+					{
+						$this->request[ $key ] = ipsRegistry::$current_section;
+					}
+
+					if ( $value == '*' && isset($this->request[ $key ]) )
+					{
+						$foundParts++;
+					}
+					elseif ( strtolower($this->request[ $key ]) == strtolower($value) )
+					{
+						$foundParts++;
+					}
+					else
+					{
+						break;
+					}
+				}
+
+				if ( $foundParts == $totalParts )
+				{
+					return $this->settings['shoutbox_global_pages_type'] == 'e' ? TRUE : FALSE;
+				}
+			}
+		}
+
+		return $this->settings['shoutbox_global_pages_type'] == 'e' ? FALSE: TRUE;
+	}
+}
+]]></hooks_source>
+    </file>
+  </hookfiles>
+  <hookextras_settings>
+    <setting>
+      <conf_is_title>1</conf_is_title>
+      <conf_title_title>Hook: Global Shoutbox</conf_title_title>
+      <conf_title_desc/>
+      <conf_title_noshow>1</conf_title_noshow>
+      <conf_title_keyword>shoutbox_hook_global</conf_title_keyword>
+      <conf_title_app>shoutbox</conf_title_app>
+      <conf_title_tab>Shoutbox</conf_title_tab>
+    </setting>
+    <setting>
+      <conf_id>515</conf_id>
+      <conf_title>Default height</conf_title>
+      <conf_description>Set the default height new users will have for the shout area.</conf_description>
+      <conf_group>61</conf_group>
+      <conf_type>input</conf_type>
+      <conf_key>shoutbox_default_gheight</conf_key>
+      <conf_value/>
+      <conf_default>132</conf_default>
+      <conf_extra/>
+      <conf_evalphp><![CDATA[if ( $save == 1 )
+{
+	if ( intval( $_POST['shoutbox_default_gheight'] ) < 100 )
+	{
+		$value = 100;
+	}
+}]]></conf_evalphp>
+      <conf_protected>1</conf_protected>
+      <conf_position>3</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_hook_global</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_id>516</conf_id>
+      <conf_title>Number of emoticons to display per page</conf_title>
+      <conf_description>In the emoticons popup, how many total emoticons do you want to display per page?</conf_description>
+      <conf_group>61</conf_group>
+      <conf_type>input</conf_type>
+      <conf_key>shoutbox_emos_perpage</conf_key>
+      <conf_value/>
+      <conf_default>20</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>8</conf_position>
+      <conf_start_group>Emoticon Settings</conf_start_group>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_hook_global</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_id>517</conf_id>
+      <conf_title>Number of emoticons to display per row</conf_title>
+      <conf_description>How many emoticons do you want to display on each row of the emoticons popup?</conf_description>
+      <conf_group>61</conf_group>
+      <conf_type>input</conf_type>
+      <conf_key>shoutbox_emos_perrow</conf_key>
+      <conf_value/>
+      <conf_default>5</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>9</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_hook_global</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_id>518</conf_id>
+      <conf_title>Display on?</conf_title>
+      <conf_description><![CDATA[Select where to display the global shoutbox.<br /><strong style="color:blue">NOTE: This setting won't have any effect if you are using the sidebar hook</strong>]]></conf_description>
+      <conf_group>61</conf_group>
+      <conf_type>dropdown</conf_type>
+      <conf_key>shoutbox_global_display_loc</conf_key>
+      <conf_value/>
+      <conf_default>all</conf_default>
+      <conf_extra>all=Every Page&#13;
+idx=Board Index Page</conf_extra>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>5</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_hook_global</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_id>519</conf_id>
+      <conf_title>Hook to enable?</conf_title>
+      <conf_description>Select which one of the hooks you want to enable</conf_description>
+      <conf_group>61</conf_group>
+      <conf_type>dropdown</conf_type>
+      <conf_key>shoutbox_global_hook</conf_key>
+      <conf_value/>
+      <conf_default>t</conf_default>
+      <conf_extra>t=Top of Each Page&#13;
+b=Bottom of Each Page&#13;
+s=Sidebar (Board Index Only)&#13;
+ct=Above Forum Categories (Board Index Only)&#13;
+cb=Below Forum Categories (Board Index Only)</conf_extra>
+      <conf_evalphp><![CDATA[if ( $save == 1 || ( $this->request['do'] == 'setting_revert' && $this->request['id'] == $r['conf_id'] ) )
+{
+	$_POST['shoutbox_global_hook'] = $_POST['shoutbox_global_hook'] ? $_POST['shoutbox_global_hook'] : $r['conf_default'];
+
+	switch( $_POST['shoutbox_global_hook'] )
+	{
+		case 's': $newHookData = 'a:6:{s:15:"classToOverload";s:0:"";s:9:"skinGroup";s:11:"skin_boards";s:12:"skinFunction";s:18:"boardIndexTemplate";s:4:"type";s:7:"foreach";s:2:"id";s:11:"side_blocks";s:8:"position";s:9:"outer.pre";}'; break;
+		case 'b': $newHookData = 'a:6:{s:15:"classToOverload";s:0:"";s:9:"skinGroup";s:11:"skin_global";s:12:"skinFunction";s:14:"globalTemplate";s:4:"type";s:2:"if";s:2:"id";s:15:"mainpageContent";s:8:"position";s:10:"post.endif";}'; break;
+		case 't': $newHookData = 'a:6:{s:15:"classToOverload";s:0:"";s:9:"skinGroup";s:11:"skin_global";s:12:"skinFunction";s:14:"globalTemplate";s:4:"type";s:2:"if";s:2:"id";s:15:"mainpageContent";s:8:"position";s:11:"pre.startif";}'; break;
+		case 'ct': $newHookData = 'a:6:{s:15:"classToOverload";s:0:"";s:9:"skinGroup";s:11:"skin_boards";s:12:"skinFunction";s:18:"boardIndexTemplate";s:4:"type";s:2:"if";s:2:"id";s:11:"cats_forums";s:8:"position";s:11:"pre.startif";}'; break;
+		case 'cb': $newHookData = 'a:6:{s:15:"classToOverload";s:0:"";s:9:"skinGroup";s:11:"skin_boards";s:12:"skinFunction";s:18:"boardIndexTemplate";s:4:"type";s:2:"if";s:2:"id";s:11:"cats_forums";s:8:"position";s:10:"post.endif";}'; break;
+	}
+
+	$this->DB->update( 'core_hooks_files', array( 'hook_data' => $newHookData ), "hook_classname='shoutboxGlobalShoutbox'" );
+	$this->cache->rebuildCache( 'hooks', 'global' );
+
+	require_once( IPS_ROOT_PATH . 'sources/classes/skins/skinFunctions.php' );
+	require_once( IPS_ROOT_PATH . 'sources/classes/skins/skinCaching.php' );
+	$skinCaching = new skinCaching( $this->registry );
+	$skinCaching->flagSetForRecache();
+}]]></conf_evalphp>
+      <conf_protected>1</conf_protected>
+      <conf_position>4</conf_position>
+      <conf_start_group>Location Settings</conf_start_group>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_hook_global</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_id>520</conf_id>
+      <conf_title>Pages list</conf_title>
+      <conf_description><![CDATA[Enter one command per line, separated with a comma.<br />
+Commands should consist of application, module, and/or section values for that page, or anything that is part of the $_POST data for that particular page's URL.<br /><br />
+For example, to include or exclude this from showing on the profile page for Member #1, use:<br />
+app=members,module=profile,id=1]]></conf_description>
+      <conf_group>61</conf_group>
+      <conf_type>textarea</conf_type>
+      <conf_key>shoutbox_global_pages_list</conf_key>
+      <conf_value/>
+      <conf_default/>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>7</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_hook_global</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_id>521</conf_id>
+      <conf_title>Type of Page Check</conf_title>
+      <conf_description><![CDATA[Page Check checks the address of the loaded page to see if you want to exclude or include the shoutbox there.<br /><strong style="color:blue">NOTE: This setting won't have any effect if you are using the sidebar hook</strong>]]></conf_description>
+      <conf_group>61</conf_group>
+      <conf_type>dropdown</conf_type>
+      <conf_key>shoutbox_global_pages_type</conf_key>
+      <conf_value/>
+      <conf_default>d</conf_default>
+      <conf_extra>d=DISABLE Page Check&#13;
+e=EXCLUDE from specified pages&#13;
+i=INCLUDE only in specified pages</conf_extra>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>6</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_hook_global</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_id>522</conf_id>
+      <conf_title>Shouts display ordering</conf_title>
+      <conf_description>Select which order to display the shouts.</conf_description>
+      <conf_group>61</conf_group>
+      <conf_type>dropdown</conf_type>
+      <conf_key>shoutbox_global_shout_ordering</conf_key>
+      <conf_value/>
+      <conf_default>desc</conf_default>
+      <conf_extra><![CDATA[asc=Older -> Newer
+desc=Newer -> Older]]></conf_extra>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>2</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_hook_global</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_id>523</conf_id>
+      <conf_title>Global Shoutbox Look</conf_title>
+      <conf_description><![CDATA[Select which global Shoutbox look to display.<br />Theme 1 - Input & buttons over to right of the shouts.<br />Theme 2 - Input is a single line and buttons are below the shouts.<br /><strong style="color:blue">NOTE: This setting won't have any effect if you are using the sidebar hook</strong>]]></conf_description>
+      <conf_group>61</conf_group>
+      <conf_type>dropdown</conf_type>
+      <conf_key>shoutbox_global_theme</conf_key>
+      <conf_value/>
+      <conf_default>1</conf_default>
+      <conf_extra>1=Theme 1&#13;
+2=Theme 2</conf_extra>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>1</conf_position>
+      <conf_start_group>Display Settings</conf_start_group>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_hook_global</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+  </hookextras_settings>
+  <hookextras_language/>
+  <hookextras_modules/>
+  <hookextras_help/>
+  <hookextras_templates/>
+  <hookextras_css/>
+  <hookextras_replacements/>
+  <hookextras_tasks/>
+  <hookextras_database_create/>
+  <hookextras_database_alter/>
+  <hookextras_database_update/>
+  <hookextras_database_insert/>
+</hookexport>

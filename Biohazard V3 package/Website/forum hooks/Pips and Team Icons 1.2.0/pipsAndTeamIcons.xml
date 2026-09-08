@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="utf-8"?>
+<hookexport>
+  <hookdata>
+    <config>
+      <hook_name>Pips and Team Icons</hook_name>
+      <hook_desc>Shows pips for people who have Team Icons</hook_desc>
+      <hook_author>Lewis Putz</hook_author>
+      <hook_email>lewis@putzy.net</hook_email>
+      <hook_website>http://putzy.net/</hook_website>
+      <hook_update_check>http://dev.putzy.net/skinning/resource_updates.php?resource=pipsAndTeamIcons</hook_update_check>
+      <hook_requirements><![CDATA[a:4:{s:20:"hook_ipb_version_min";i:30007;s:20:"hook_ipb_version_max";i:0;s:20:"hook_php_version_min";s:1:"0";s:20:"hook_php_version_max";s:1:"0";}]]></hook_requirements>
+      <hook_version_human>1.2.0</hook_version_human>
+      <hook_version_long>12000</hook_version_long>
+      <hook_extra_data><![CDATA[a:2:{s:7:"display";a:1:{s:8:"settings";s:35:"Setting groups: Pips and Team Icons";}s:13:"settingGroups";a:1:{i:0;s:13:"pats-settings";}}]]></hook_extra_data>
+      <hook_key>pipsAndTeamIcons</hook_key>
+      <hook_global_caches/>
+    </config>
+  </hookdata>
+  <hookfiles>
+    <file>
+      <hook_file_real>pipsAndTeamIcons.php</hook_file_real>
+      <hook_type>skinHooks</hook_type>
+      <hook_classname>pipsAndTeamIcons</hook_classname>
+      <hook_data><![CDATA[a:8:{s:12:"dataLocation";s:0:"";s:14:"libApplication";s:0:"";s:15:"classToOverload";s:11:"skin_global";s:9:"skinGroup";N;s:12:"skinFunction";N;s:4:"type";N;s:2:"id";N;s:8:"position";N;}]]></hook_data>
+      <hooks_source><![CDATA[class pipsAndTeamIcons extends (~extends~)
+{
+	public function userInfoPane( $author, $contentid, $options )
+	{
+		/* Only do something if they have a Team Icon */
+		if ( $this->caches['group_cache'][ $author['member_group_id'] ]['g_icon'] )
+		{
+			/* Check against setting for restricted groups */
+			if( !in_array( $author['member_group_id'], explode( ",", $this->settings['pats_hide_pips_groups'] ) ) )
+			{
+				/* INIT */
+				$_pips = "";
+				
+				/* Set our type to something other than 'img' */
+				$author['member_rank_img_i'] = 'foo';
+				
+				/* Loop through the ranks to find the pip level */
+				if ( is_array( $this->caches['ranks'] ) && count( $this->caches['ranks'] ) )
+				{
+					foreach ( $this->caches['ranks'] as $k => $v )
+					{
+						if ( $author['posts'] >= $v['POSTS'] )
+						{
+							$pips = $v['PIPS'];
+							break;
+						}
+					}
+				}
+				
+				/* Show a series of pip images? */
+				if ( is_numeric( $pips ) )
+				{
+					for ( $i = 1; $i <= $pips; ++$i )
+					{
+						$_pips .= $this->registry->output->getReplacement('pip_pip');
+					}
+				}
+				
+				/* Or show a specific pip image? */
+				else
+				{
+					$_pips = "<img src='" . $this->settings['public_dir'] . "style_extra/team_icons/" . $pips . " 'alt='' />";
+				}
+				
+				/* Do we want pips above or below the tag? */
+				if( $this->settings['pats_pips_above_tags'] )
+				{
+					/* Set the new Rank Image html */
+					if( !strstr( $author['member_rank_img'], 'img src' ) )
+					{
+						$author['member_rank_img'] = $_pips . "<br /><img src='{$author['member_rank_img']}' alt='' />";
+					}
+					else
+					{
+						$author['member_rank_img'] .= $_pips . "<br />";
+					}
+				}
+				else
+				{
+					/* Set the new Rank Image html */
+					if( !strstr( $author['member_rank_img'], 'img src' ) )
+					{
+						$author['member_rank_img'] = "<img src='{$author['member_rank_img']}' alt='' /><br />" . $_pips;
+					}
+					else
+					{
+						$author['member_rank_img'] .= "<br />" . $_pips;
+					}
+				}
+			}
+		}
+		
+		/* Return */
+		return parent::userInfoPane( $author, $contentid, $options );
+	}
+}]]></hooks_source>
+    </file>
+  </hookfiles>
+  <hookextras_settings>
+    <setting>
+      <conf_is_title>1</conf_is_title>
+      <conf_title_title>Pips and Team Icons</conf_title_title>
+      <conf_title_desc/>
+      <conf_title_noshow>0</conf_title_noshow>
+      <conf_title_keyword>pats-settings</conf_title_keyword>
+      <conf_title_app>core</conf_title_app>
+      <conf_title_tab>Hooks</conf_title_tab>
+    </setting>
+    <setting>
+      <conf_id>346</conf_id>
+      <conf_title>Hide Pips for Groups</conf_title>
+      <conf_description><![CDATA[Select the groups that you <strong>do not</strong> wish pips to appear alongside their team icons.<br /><br />
+
+Note: This does not affect pips appearing if no team icon is set]]></conf_description>
+      <conf_group>37</conf_group>
+      <conf_type>multi</conf_type>
+      <conf_key>pats_hide_pips_groups</conf_key>
+      <conf_value/>
+      <conf_default/>
+      <conf_extra>#show_groups#</conf_extra>
+      <conf_evalphp><![CDATA[if ( $save == 1)
+{
+	if ( is_array($_POST['pats_hide_pips_groups']) )
+	{
+		$_POST['pats_hide_pips_groups'] = implode(",",$_POST['pats_hide_pips_groups']);
+	}
+	else
+	{
+		$_POST['pats_hide_pips_groups'] = "";
+	}
+	
+	$key = 'pats_hide_pips_groups';
+}
+if ( $show == 1 )
+{
+    $key='pats_hide_pips_groups[]';
+}]]></conf_evalphp>
+      <conf_protected>1</conf_protected>
+      <conf_position>1</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>pats-settings</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_id>347</conf_id>
+      <conf_title>Show Pips Above Team Icons</conf_title>
+      <conf_description><![CDATA[Selecting this will show the pips above the team icons.]]></conf_description>
+      <conf_group>37</conf_group>
+      <conf_type>yes_no</conf_type>
+      <conf_key>pats_pips_above_tags</conf_key>
+      <conf_value/>
+      <conf_default/>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>2</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>pats-settings</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+  </hookextras_settings>
+  <hookextras_language/>
+  <hookextras_modules/>
+  <hookextras_help/>
+  <hookextras_templates/>
+  <hookextras_css/>
+  <hookextras_replacements/>
+  <hookextras_tasks/>
+  <hookextras_database_create/>
+  <hookextras_database_alter/>
+  <hookextras_database_update/>
+  <hookextras_database_insert/>
+</hookexport>

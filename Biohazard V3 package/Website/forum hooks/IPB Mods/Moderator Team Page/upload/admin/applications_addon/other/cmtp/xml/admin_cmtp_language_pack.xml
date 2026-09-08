@@ -1,0 +1,313 @@
+<?xml version="1.0" encoding="utf-8"?>
+<languageexport>
+  <languagegroup>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_php_overviewDescription</word_key>
+      <word_default>News, Update Information, Bug Reports, General Information</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_php_overviewlink</word_key>
+      <word_default>Overview</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_php_BugReportDisplayNone</word_key>
+      <word_default>No Current Bug Reports</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_php_BugReportDelete</word_key>
+      <word_default>Remove Report</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_php_BugReportDisplayLatest</word_key>
+      <word_default>Bug Report</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_php_BugReportUser</word_key>
+      <word_default>User</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_php_BugReportSend</word_key>
+      <word_default>Submit Bug Report</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_php_BugReportDisplay</word_key>
+      <word_default>Bugs Reported: Last 5 (Max)</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_php_BugReportReturn</word_key>
+      <word_default><![CDATA[Thank You, {$this->memberData['name']} for Submitting a Bug Report, we will look into it and get back to you soon! ]]></word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_php_BugReportContact</word_key>
+      <word_default>Contact Email</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_php_BugReportButton</word_key>
+      <word_default>File A Bug Report</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_php_BugReportBody</word_key>
+      <word_default>Found A Problem? Tell us about it</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_php_BugReportDate</word_key>
+      <word_default>Date Filed</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_php_NewsBad</word_key>
+      <word_default>Can not Make A connection or there is no News!</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_php_GeneralInfo</word_key>
+      <word_default>General Information</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_php_CurrentVersion</word_key>
+      <word_default>Current Version</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_php_News</word_key>
+      <word_default>News</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_php_BugReport</word_key>
+      <word_default>Bug Report</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_php_SelectGroups</word_key>
+      <word_default>Select Groups To Display</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_php_NewUpdates</word_key>
+      <word_default>New Updates Available!</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_php_OverView</word_key>
+      <word_default>Custom Moderator Team Page: Overview</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_php_displayed</word_key>
+      <word_default>Displayed?</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_php_groupTitle</word_key>
+      <word_default>Group Title</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_js_bug_BugReportSent</word_key>
+      <word_default>Bug Report Sent</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_php_members</word_key>
+      <word_default>Members</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_php_addRemove</word_key>
+      <word_default>Add/Remove</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_js_error</word_key>
+      <word_default>Something Bad has happened! Try Again</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_php_DisplayedGroups</word_key>
+      <word_default>Displayed Groups (drag and drop to reorder)</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_js_added</word_key>
+      <word_default>Added Successfully</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_js_bug_delete</word_key>
+      <word_default>Bug Report Deleted.</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_php_mainLink</word_key>
+      <word_default>Display Groups</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_js_doesNotExist</word_key>
+      <word_default>This Group Already Exist To Be Shown!</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_php_mainDescription</word_key>
+      <word_default>Add and Remove Groups From Moderator Team Page</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_js_deleted</word_key>
+      <word_default>Deleted Successfully</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_js_NotThere</word_key>
+      <word_default>For Whatever Reason, This Group Does Not Exist! Try Again!</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_js_bug_startBug</word_key>
+      <word_default>Bug Report Started</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_js_bug_BugReportBlank</word_key>
+      <word_default>Bug Report Message Can Not Be Blank!</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_js_edited</word_key>
+      <word_default>Changes Saved</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_php_DisplayName</word_key>
+      <word_default>Displayed Name</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_js_bug_NotValidEmail</word_key>
+      <word_default>Not A Valid Contact Email Address!</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_js_reorder</word_key>
+      <word_default>New Ordering Saved</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_php_Change_Group_Name</word_key>
+      <word_default>Change Group Name</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_php_NameChangeDesc</word_key>
+      <word_default><![CDATA[Leave Blank if you do not desire to alter display name.<br>
+(this does not change the groups actual name, just how <br>
+it displays in Moderator Team Page.)]]></word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_php_Original_Name</word_key>
+      <word_default>Original Name</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_php_NewName</word_key>
+      <word_default>New Name</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_php_BugReportDescription</word_key>
+      <word_default>Detailed description of the problem:</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_php_AddButton</word_key>
+      <word_default>Add</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_js_no_perms</word_key>
+      <word_default><![CDATA[You don't have permissions to use this feature.]]></word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_php_Installed</word_key>
+      <word_default>Installed Version</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_php_add_member</word_key>
+      <word_default>Add Member</word_default>
+    </lang>
+    <lang>
+      <word_app>cmtp</word_app>
+      <word_pack>admin_lang</word_pack>
+      <word_key>cmtp_php_add_member_name</word_key>
+      <word_default>Members Name</word_default>
+    </lang>
+  </languagegroup>
+</languageexport>

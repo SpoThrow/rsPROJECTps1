@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<permissions>
+	<group>
+		<grouptitle>Overview</grouptitle>
+		<items>
+			<item>
+				<key>shoutbox_view_overview</key>
+				<string>Can view overview?</string>
+			</item>
+		</items>
+	</group>
+</permissions>

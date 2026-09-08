@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<information>
+  <data>
+    <name>Badges</name>
+    <public_name>Badges</public_name>
+    <hide_tab>1</hide_tab>
+    <author>Gabriele Venturini</author>
+    <description>Show badges in topic view for any configured groups</description>
+    <disabledatinstall>0</disabledatinstall>
+    <global_caches/>
+    <website>http://lamoneta.it/</website>
+    <update_check/>
+    <templategroups>
+        <template match="exact">skin_badges</template>
+    </templategroups>
+  </data>
+</information>

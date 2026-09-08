@@ -1,0 +1,402 @@
+/*
++----------------------------------------------------
+| User Reputation System v1.0.1
+| ===================================================
+| by Nguyen Tuan Dung (ntd1712)
+| (c) 2005 - 2006 Vietnamese - Invision Resources
+| http://invisionviet.net/
+| ===================================================
+| Date Started: Wed, 08 Feb 2006 17:41 (GMT+07:00)
+| Release Data: Fri, 10 Mar 2006 02:32 (GMT+07:00)
+| License Info: http://invisionviet.net/license.php
++----------------------------------------------------
+*/
+
+File to edit:
+./cache/lang_cache/#/lang_global.php
+./cache/lang_cache/#/lang_topic.php
+./cache/lang_cache/#/lang_ucp.php
+./sources/action_public/profile.php
+./sources/action_public/topics.php
+./sources/action_public/usercp.php
+
+File to upload:
+.\cache\lang_cache\2\lang_reputation.php --> ./cache/lang_cache/#/
+.\sources\action_public\reputation.php --> ./sources/action_public/
+
+---------------------------------------------------------------------------------------------
+Open: ./cache/lang_cache/#/lang_global.php
+
+Find:
+
+$lang = array (
+
+Add Below:
+
+'reputation' => "Reputation",
+'rep_off' => "The reputation system is currently disabled.",
+'rep_power' => "Rep Power",
+
+=====================================
+
+Find & Remove:
+
+'tb_reputation' => "Reputation",
+
+---------------------------------------------------------------------------------------------
+Open: ./cache/lang_cache/#/lang_topic.php
+
+Find & Remove:
+
+'rep_power' => "Rep Power",
+
+---------------------------------------------------------------------------------------------
+Open: ./cache/lang_cache/#/lang_ucp.php
+
+Find:
+
+'splash_noattach' => 'No recent attachments to display',
+
+Add Below:
+
+'splash_rep5'   => "Latest Reputation Received",
+'splash_norep'  => "No entries to show",
+'splash_repcom' => "Comment",
+
+---------------------------------------------------------------------------------------------
+Open: ./sources/action_public/profile.php
+
+Find: [ In function view_profile() ]
+
+    	//-----------------------------------------
+    	// More info...
+    	//-----------------------------------------
+
+Add Above:
+
+		//-----------------------------------------
+		// User Reputation
+		//-----------------------------------------
+
+		if( $this->ipsclass->vars['rep_is_online'] )
+		{
+			$rep_power = $member['reputation'];
+			if( $member['reputation'] == 0 )
+			{
+				$rep_img   = 'balance';
+				$rep_power = $member['reputation'] * -1;
+			}
+			elseif( $member['reputation'] < 0 )
+			{
+				$rep_img   = 'neg';
+				$rep_img_2 = 'highneg';
+				$rep_power = $member['reputation'] * -1;
+			}
+			else
+			{
+				$rep_img   = 'pos';
+				$rep_img_2 = 'highpos';
+			}
+
+			if( $rep_power > 500 )
+			{
+				# bright green bars take 200 pts not the normal 100
+				$rep_power = ( $rep_power - ($rep_power - 500) ) + ( ($rep_power - 500) / 2 );
+			}
+
+			# award 1 reputation bar for every 100 points
+			$rep_bar = intval($rep_power / 100);
+			if( $rep_bar > 10 )
+			{
+				$rep_bar = 10;
+			}
+
+			if( $this->ipsclass->member['g_rep_hide'] )
+			{
+				$posneg = 'off';
+				$rep_level = $this->ipsclass->lang['rep_off'];
+			}
+			else
+			{
+				$rep_level = $this->ipsclass->cache['replevel'][ $member['reputation'] ] ? $this->ipsclass->cache['replevel'][ $member['reputation'] ] : $this->ipsclass->vars['rep_undefined'];
+
+				for( $i = 0; $i <= $rep_bar; $i++ )
+				{
+					if( $i >= 5 )
+					{
+						$posneg = $rep_img_2;
+					}
+					else
+					{
+						$posneg = $rep_img;
+					}
+				}
+			}
+
+			$info['member_reputation'] = "<br />{$this->ipsclass->lang['reputation']}: <img src='style_images/reputation/reputation_$posneg.gif' border='0' alt=\"{$this->ipsclass->lang['rep_power']}: $rep_power\n{$member['members_display_name']} $rep_level\" />";
+		}
+
+---------------------------------------------------------------------------------------------
+Open: ./sources/action_public/topics.php
+
+Find: [ In function parse_row( $row = array() ) ]
+
+		//-----------------------------------------
+		// User Reputation
+		//-----------------------------------------
+
+		if( $poster['id'] && ( $this->ipsclass->vars['rep_is_online'] == 1 ) )
+		{
+			$rep_power = $poster['reputation'];
+			if( $poster['reputation'] == 0 )
+			{
+				$rep_img   = 'balance';
+				$rep_power = $poster['reputation'] * -1;
+			}
+			elseif( $poster['reputation'] < 0 )
+			{
+				$rep_img   = 'neg';
+				$rep_img_2 = 'highneg';
+				$rep_power = $poster['reputation'] * -1;
+			}
+			else
+			{
+				$rep_img   = 'pos';
+				$rep_img_2 = 'highpos';
+			}
+
+			if( $rep_power > 500 )
+			{
+				# bright green bars take 200 pts not the normal 100
+				$rep_power = ( $rep_power - ($rep_power - 500) ) + ( ($rep_power - 500) / 2 );
+			}
+
+			# award 1 reputation bar for every 100 points
+			$rep_bar = intval($rep_power / 100);
+			if( $rep_bar > 10 )
+			{
+				$rep_bar = 10;
+			}
+
+			if( $this->ipsclass->member['g_rep_hide'] )
+			{
+				$posneg = 'off';
+				$rep_level = $this->ipsclass->lang['rep_disabled'];
+			}
+			else
+			{
+				$rep_level = $this->ipsclass->cache['replevel'][ $poster['reputation'] ] ? $this->ipsclass->cache['replevel'][ $poster['reputation'] ] : $this->ipsclass->vars['rep_undefined'];
+
+				for( $i = 0; $i <= $rep_bar; $i++ )
+				{
+					if( $i >= 5 )
+					{
+						$posneg = $rep_img_2;
+					}
+					else
+					{
+						$posneg = $rep_img;
+					}
+				}
+			}
+
+			$poster['member_reputation'] = $this->ipsclass->lang['tb_reputation'].": <img src='style_images/reputation/reputation_$posneg.gif' border='0' alt=\"{$this->ipsclass->lang['rep_power']}: $rep_power\n{$poster['members_display_name']} $rep_level\" /> &nbsp;(<a href='javascript:;' onclick=\"PopUp('{$this->ipsclass->base_url}act=reputation&amp;fid={$this->topic['forum_id']}&amp;pid={$row['pid']}','Reputation',400,241,1,1);\"><img src='style_images/<#IMG_DIR#>/add.gif' border='0' alt=\"".sprintf($this->ipsclass->lang['add_reputation'], $poster['members_display_name'])."\" /></a>)";
+		}
+
+Replace With:
+
+		//-----------------------------------------
+		// User Reputation
+		//-----------------------------------------
+
+		if( $poster['id'] && ( $this->ipsclass->vars['rep_is_online'] == 1 ) )
+		{
+			$rep_power = $poster['reputation'];
+			if( $poster['reputation'] == 0 )
+			{
+				$rep_img   = 'balance';
+				$rep_power = $poster['reputation'] * -1;
+			}
+			elseif( $poster['reputation'] < 0 )
+			{
+				$rep_img   = 'neg';
+				$rep_img_2 = 'highneg';
+				$rep_power = $poster['reputation'] * -1;
+			}
+			else
+			{
+				$rep_img   = 'pos';
+				$rep_img_2 = 'highpos';
+			}
+
+			if( $rep_power > 500 )
+			{
+				# bright green bars take 200 pts not the normal 100
+				$rep_power = ( $rep_power - ($rep_power - 500) ) + ( ($rep_power - 500) / 2 );
+			}
+
+			# award 1 reputation bar for every 100 points
+			$rep_bar = intval($rep_power / 100);
+			if( $rep_bar > 10 )
+			{
+				$rep_bar = 10;
+			}
+
+			if( $this->ipsclass->member['g_rep_hide'] )
+			{
+				$posneg = 'off';
+				$rep_level = $this->ipsclass->lang['rep_off'];
+			}
+			else
+			{
+				$rep_level = $this->ipsclass->cache['replevel'][ $poster['reputation'] ] ? $this->ipsclass->cache['replevel'][ $poster['reputation'] ] : $this->ipsclass->vars['rep_undefined'];
+
+				for( $i = 0; $i <= $rep_bar; $i++ )
+				{
+					if( $i >= 5 )
+					{
+						$posneg = $rep_img_2;
+					}
+					else
+					{
+						$posneg = $rep_img;
+					}
+				}
+			}
+
+			$poster['member_reputation'] = $this->ipsclass->lang['reputation'].": <img src='style_images/reputation/reputation_$posneg.gif' border='0' alt=\"{$this->ipsclass->lang['rep_power']}: $rep_power\n{$poster['members_display_name']} $rep_level\" /> &nbsp;(<a href='javascript:;' onclick=\"PopUp('{$this->ipsclass->base_url}act=reputation&amp;fid={$this->topic['forum_id']}&amp;pid={$row['pid']}','Reputation',400,241,1,1);\"><img src='style_images/<#IMG_DIR#>/add.gif' border='0' alt=\"".sprintf($this->ipsclass->lang['add_reputation'], $poster['members_display_name'])."\" /></a>)";
+		}
+
+---------------------------------------------------------------------------------------------
+Open: ./sources/action_public/usercp.php
+
+Find: [ In function splash() ]
+
+		//-----------------------------------------
+		// Write the data..
+		//-----------------------------------------
+
+Add Above:
+
+ 		//-----------------------------------------
+		// Grab the last 5 reputation
+		//-----------------------------------------
+
+		if( $this->ipsclass->vars['rep_is_online'] )
+		{
+			$this->ipsclass->DB->build_query( array( 'select'   => 'r.*',
+													 'from'     => array( 'reputation' => 'r' ),
+													 'where'    => 'userid='.$this->ipsclass->member['id'],
+													 'add_join' => array(
+													 # POST TABLE JOIN
+												 					  1 => array( 'select' => 'p.topic_id',
+												 								  'from'   => array( 'posts' => 'p' ),
+												 								  'where'  => 'p.pid=r.postid',
+												 								  'type'   => 'left' ),
+													 # TOPIC TABLE JOIN 					  			  
+																	  0 => array( 'select' => 't.title',
+												 								  'from'   => array( 'topics' => 't' ),
+								 												  'where'  => 'p.topic_id=t.tid',
+								 												  'type'   => 'left' )
+											 							),
+													 'order'	=> 'dateline DESC',
+													 'limit'    => array(0, 5) ) );
+			$this->ipsclass->DB->exec_query();
+
+			if( $this->ipsclass->DB->get_num_rows() )
+			{
+				while( $row = $this->ipsclass->DB->fetch_row() )
+				{
+					$row['dateline'] = $this->ipsclass->get_date( $row['dateline'], 'LONG' );
+					if( $row['reputation'] > 0 )
+					{
+						$row['posneg'] = 'pos';
+					}
+					elseif( $row['reputation'] < 0 )
+					{
+						$row['posneg'] = 'neg';
+					}
+					else
+					{
+						$row['posneg'] = 'balance';
+					}
+
+					$info['rep_html'] .= $this->ipsclass->compiled_templates['skin_ucp']->reputation_row( $row );
+				}
+			}
+		}
+
+---------------------------------------------------------------------------------------------
+
+Goto: Admin CP: Skin & Templates: Skin Manager: Edit Template HTML:
+
+1/ Profile View: show_profile
+
+Find:
+
+					{$this->ipsclass->lang['joined']}: {$info['joined']}
+
+Add Below:
+
+					{$info['member_reputation']}
+
+=====================================
+
+2/ Topic View: RenderRow
+
+Find:
+
+        		{$author['member_number']}<br />
+
+Add Below:
+
+        		{$author['member_reputation']}<br />
+
+=====================================
+
+3/ User Control Panel: splash
+
+Find:
+
+<div class="formsubtitle">{ipb.lang['note_pad']}</div>
+
+Add Above:
+
+<div class='borderwrapm'>
+<div class='maintitle'>{ipb.lang['splash_rep5']}</div>
+	<table class='ipbtable' cellspacing='1'>
+<if="member['rep_html'] != """>
+	<tr>
+		<th width='45%' colspan='2'>{ipb.lang['attach_topic']}</th>
+		<th width='10%'>{ipb.lang['attach_date']}</th>
+		<th width='45%'>{ipb.lang['splash_repcom']}</th>
+	</tr>
+	{$member['rep_html']}
+</if>
+<else>
+	<tr><td colspan='4' align='center'><b>{ipb.lang['splash_norep']}</b></td></tr>
+</else>
+	</table>
+</div>
+
+=====================================
+
+4/ User Control Panel: Click on "Add Template Bit" button
+
+- New Template Bit Name: reputation_row
+- New Template Bit Incoming Data Variables: $data=""
+- New Template Bit Group...: skin_ucp
+- Add New Template Bit:
+
+	<tr>
+		<td class='row2' width='5%'><img src="style_images/reputation/reputation_{$data['posneg']}.gif" border='0' alt='' /></td>
+		<td class='row2'><a href="{ipb.script_url}showtopic={$data['topic_id']}&amp;view=findpost&amp;p={$data['postid']}" target='_blank'>{$data['title']}</a></td>
+		<td class='row2' nowrap='nowrap'>{$data['dateline']}</td>
+		<td class='row2'>{$data['reason']}</td>
+	</tr>
+
+- Save Template Bit
+
+---------------------------------------------------------------------------------------------
+Your are done! Enjoy ... =)
+©2006 ntd1712

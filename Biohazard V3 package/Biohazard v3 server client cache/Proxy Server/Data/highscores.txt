@@ -1,0 +1,12 @@
+//Rank# PlayerName TotalLevel XPTotal
+0	The Pack Rat	1682	241821181
+1	Orient	982	106430296
+2	Bryce	717	99030337
+3	Arcxher9938	723	33812209
+4	Lol	689	78379031
+5	Bam	608	15757430
+6	Aragornian	249	19120500
+7	Skynet	315	9561440
+8	Lolz	30	1300
+9	Lol2	30	1300
+.

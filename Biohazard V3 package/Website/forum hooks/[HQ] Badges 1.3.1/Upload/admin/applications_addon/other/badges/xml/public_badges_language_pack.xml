@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<languageexport>
+  <languagegroup>
+    <lang>
+      <word_app>badges</word_app>
+      <word_pack>public_main</word_pack>
+      <word_key>badges_description</word_key>
+      <word_default>A brief description of what this badge is.</word_default>
+    </lang>
+  </languagegroup>
+</languageexport>

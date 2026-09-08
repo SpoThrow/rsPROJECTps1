@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<moduleexport>
+  <modulegroup>
+    <module>
+      <sys_module_title>View</sys_module_title>
+      <sys_module_application>shoutbox</sys_module_application>
+      <sys_module_key>view</sys_module_key>
+      <sys_module_description>View is the main module to display the main shoutbox</sys_module_description>
+      <sys_module_version>1.3.12</sys_module_version>
+      <sys_module_protected>1</sys_module_protected>
+      <sys_module_visible>1</sys_module_visible>
+      <sys_module_position>1</sys_module_position>
+      <sys_module_admin>0</sys_module_admin>
+    </module>
+    <module>
+      <sys_module_title>Ajax</sys_module_title>
+      <sys_module_application>shoutbox</sys_module_application>
+      <sys_module_key>ajax</sys_module_key>
+      <sys_module_description>All ajax calls are handled by this module</sys_module_description>
+      <sys_module_version>1.3.12</sys_module_version>
+      <sys_module_protected>1</sys_module_protected>
+      <sys_module_visible>1</sys_module_visible>
+      <sys_module_position>2</sys_module_position>
+      <sys_module_admin>0</sys_module_admin>
+    </module>
+    <module>
+      <sys_module_title>Overview</sys_module_title>
+      <sys_module_application>shoutbox</sys_module_application>
+      <sys_module_key>overview</sys_module_key>
+      <sys_module_description>Here you can see an overview of your Shoutbox</sys_module_description>
+      <sys_module_version>1.3.12</sys_module_version>
+      <sys_module_protected>1</sys_module_protected>
+      <sys_module_visible>1</sys_module_visible>
+      <sys_module_position>1</sys_module_position>
+      <sys_module_admin>1</sys_module_admin>
+    </module>
+    <module>
+      <sys_module_title>Settings</sys_module_title>
+      <sys_module_application>shoutbox</sys_module_application>
+      <sys_module_key>settings</sys_module_key>
+      <sys_module_description>Shows links to the various settings for the app</sys_module_description>
+      <sys_module_version>1.3.12</sys_module_version>
+      <sys_module_protected>1</sys_module_protected>
+      <sys_module_visible>1</sys_module_visible>
+      <sys_module_position>2</sys_module_position>
+      <sys_module_admin>1</sys_module_admin>
+    </module>
+    <module>
+      <sys_module_title>Management</sys_module_title>
+      <sys_module_application>shoutbox</sys_module_application>
+      <sys_module_key>manage</sys_module_key>
+      <sys_module_description>Manage moderators and banned members for your shoutbox</sys_module_description>
+      <sys_module_version>1.3.12</sys_module_version>
+      <sys_module_protected>1</sys_module_protected>
+      <sys_module_visible>1</sys_module_visible>
+      <sys_module_position>3</sys_module_position>
+      <sys_module_admin>1</sys_module_admin>
+    </module>
+    <module>
+      <sys_module_title>Tools</sys_module_title>
+      <sys_module_application>shoutbox</sys_module_application>
+      <sys_module_key>tools</sys_module_key>
+      <sys_module_description>Useful tools for your shoutbox</sys_module_description>
+      <sys_module_version>1.3.12</sys_module_version>
+      <sys_module_protected>1</sys_module_protected>
+      <sys_module_visible>1</sys_module_visible>
+      <sys_module_position>4</sys_module_position>
+      <sys_module_admin>1</sys_module_admin>
+    </module>
+  </modulegroup>
+</moduleexport>

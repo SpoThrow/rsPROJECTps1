@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<export>
+  <group>
+    <row>
+      <task_id>87</task_id>
+      <task_title>Prune Old Shouts</task_title>
+      <task_file>shoutbox_pruneshouts.php</task_file>
+      <task_next_run>1342016411</task_next_run>
+      <task_week_day>-1</task_week_day>
+      <task_month_day>-1</task_month_day>
+      <task_hour>1</task_hour>
+      <task_minute>0</task_minute>
+      <task_cronkey>6703936b262586b2271d8b95be705172</task_cronkey>
+      <task_log>1</task_log>
+      <task_description>This task removes from Shoutbox shouts older than X days</task_description>
+      <task_enabled>1</task_enabled>
+      <task_key>shoutbox_pruneshouts</task_key>
+      <task_safemode>0</task_safemode>
+      <task_locked>0</task_locked>
+      <task_application>shoutbox</task_application>
+    </row>
+    <row>
+      <task_id>65</task_id>
+      <task_title>Tweet Importer</task_title>
+      <task_file>shoutbox_tweet.php</task_file>
+      <task_next_run>1352593980</task_next_run>
+      <task_week_day>-1</task_week_day>
+      <task_month_day>-1</task_month_day>
+      <task_hour>-1</task_hour>
+      <task_minute>5</task_minute>
+      <task_cronkey>881050115913b673caefee8b8fe14b63</task_cronkey>
+      <task_log>1</task_log>
+      <task_description>Import tweets from varous feeds</task_description>
+      <task_enabled>1</task_enabled>
+      <task_key>shoutbox_tweet</task_key>
+      <task_safemode>0</task_safemode>
+      <task_locked>0</task_locked>
+      <task_application>shoutbox</task_application>
+    </row>
+   <row>
+     <task_id>45</task_id>
+     <task_title>Unbann shoutbox members</task_title>
+     <task_file>shoutbox_unban.php</task_file>
+     <task_next_run>1242435600</task_next_run>
+     <task_week_day>-1</task_week_day>
+     <task_month_day>-1</task_month_day>
+     <task_hour>4</task_hour>
+     <task_minute>0</task_minute>
+     <task_cronkey>dcc3d65190a9acc5fc99c32cc417b3be</task_cronkey>
+     <task_log>1</task_log>
+     <task_description>This task unban members from Shoutbox banned X days ago</task_description>
+     <task_enabled>1</task_enabled>
+     <task_key>shoutbox_unban</task_key>
+     <task_safemode>0</task_safemode>
+     <task_locked>0</task_locked>
+     <task_application>shoutbox</task_application>
+   </row>
+  </group>
+</export>

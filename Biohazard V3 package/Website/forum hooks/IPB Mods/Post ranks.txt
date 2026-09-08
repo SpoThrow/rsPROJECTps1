@@ -1,0 +1,1 @@
+Or pip image - image must be uploaded into 'public/style_extra/team_icons/'

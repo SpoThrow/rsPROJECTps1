@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<menu>
+	<tabitems>
+		<item>
+			<title>List moderators</title>
+			<subitems>
+				<subitem>
+					<subitemtitle>List moderators</subitemtitle>
+					<subsection>moderators</subsection>
+					<subitemurl>do=listModerators</subitemurl>
+					<subitemrolekey></subitemrolekey>
+					<subisredirect>0</subisredirect>
+				</subitem>
+			</subitems>
+		</item>
+	</tabitems>
+</menu>

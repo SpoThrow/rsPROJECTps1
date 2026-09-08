@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<moduleexport>
+  <modulegroup>
+    <module>
+      <sys_module_title>Overview</sys_module_title>
+      <sys_module_application>cmtp</sys_module_application>
+      <sys_module_key>overview</sys_module_key>
+      <sys_module_description>Bug reports and News.</sys_module_description>
+      <sys_module_version>2.1.2</sys_module_version>
+      <sys_module_protected>0</sys_module_protected>
+      <sys_module_visible>1</sys_module_visible>
+      <sys_module_position>1</sys_module_position>
+      <sys_module_admin>1</sys_module_admin>
+    </module>
+    <module>
+      <sys_module_title>Groups</sys_module_title>
+      <sys_module_application>cmtp</sys_module_application>
+      <sys_module_key>groups</sys_module_key>
+      <sys_module_description/>
+      <sys_module_version>2.1.2</sys_module_version>
+      <sys_module_protected>0</sys_module_protected>
+      <sys_module_visible>1</sys_module_visible>
+      <sys_module_position>2</sys_module_position>
+      <sys_module_admin>1</sys_module_admin>
+    </module>
+    <module>
+      <sys_module_title>Settings</sys_module_title>
+      <sys_module_application>cmtp</sys_module_application>
+      <sys_module_key>settings</sys_module_key>
+      <sys_module_description>settings for cmtp</sys_module_description>
+      <sys_module_version>2.1.2</sys_module_version>
+      <sys_module_protected>0</sys_module_protected>
+      <sys_module_visible>1</sys_module_visible>
+      <sys_module_position>23</sys_module_position>
+      <sys_module_admin>1</sys_module_admin>
+    </module>
+  </modulegroup>
+</moduleexport>

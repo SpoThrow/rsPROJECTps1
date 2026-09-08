@@ -1,0 +1,3 @@
+@echo off
+echo Running ShopEditor...
+java ShopEditor

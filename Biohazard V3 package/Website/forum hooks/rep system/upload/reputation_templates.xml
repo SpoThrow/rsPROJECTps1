@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<templateexport exported="1115137035" versionid="20000" type="master">
+	<templategroup>
+		<template>
+			<group_name>skin_reputation</group_name>
+			<section_content><![CDATA[<div class='borderwrap'>
+	<div class='maintitle'>{ipb.lang['tb_reputation']}</div>
+	<table class='ipbtable' cellspacing='1'>
+		$reputationbit
+		<if="show['closewindow']"><tr><td class='darkrow1' align='center'><a href='javascript:;' onclick='self.close();'><b>{ipb.lang['rep_close']}</b></a></td></tr></if>
+	</table>
+</div>]]></section_content>
+			<func_name>reputation</func_name>
+			<func_data><![CDATA[$show="",$reputationbit=""]]></func_data>
+		</template>
+
+		<template>
+			<group_name>skin_reputation</group_name>
+			<section_content><![CDATA[<tr>
+	<td class='row2' width='1%'><img src='style_images/reputation/reputation_$posneg.gif' border='0' alt='' /></td>
+	<td class='row2'>$reason</td>
+</tr>]]></section_content>
+			<func_name>reputation_reasonbits</func_name>
+			<func_data><![CDATA[$posneg="",$reason=""]]></func_data>
+		</template>
+
+		<template>
+			<group_name>skin_reputation</group_name>
+			<section_content><![CDATA[<tr><td class='darkrow1'>{ipb.lang['rep_info']}</td></tr>
+<tr>
+	<td class='row2'>
+	<div class='tablepad'>
+		<if="reasonbits">
+		<fieldset class='fieldset'>
+			<legend>{ipb.lang['rep_comments']}</legend>
+			<table class='ipbtable' cellpadding='0'>
+			$reasonbits
+			</table>
+		</fieldset><br />
+		</if>
+		<div class='formsubtitle' align='center'><strong>{ipb.lang['rep_points']}</strong></div>
+	</div>
+	</td>
+</tr>]]></section_content>
+			<func_name>reputation_yourpost</func_name>
+			<func_data><![CDATA[$reasonbits]]></func_data>
+		</template>
+
+		<template>
+			<group_name>skin_reputation</group_name>
+			<section_content><![CDATA[<tr><td class='darkrow1'>{ipb.lang['rep_add']}: <b>$user</b></td></tr>
+<tr>
+	<td class='row2'>
+	<form action='{ipb.script_url}' method='post'>	
+	<div class='tablepad'>
+		<fieldset>
+			<legend>{ipb.lang['rep_text']}</legend>
+			<table class='ipbtable' cellspacing='0'>
+			<tr>
+				<td>
+					<div><label for='rb_reputation_pos'><input type='radio' name='reputation' value='pos' id='rb_reputation_pos' checked='checked' class='radiobutton' style='margin:0px;' /> &nbsp;{ipb.lang['rep_approve']}</label></div>
+					<if="show['negativerep']"><div><label for='rb_reputation_neg'><input type='radio' name='reputation' value='neg' id='rb_reputation_neg' class='radiobutton' style='margin:0px;' /> &nbsp;{ipb.lang['rep_disapprove']}</label></div></if>
+				</td>
+			</tr>
+			<tr>
+				<td>
+					{ipb.lang['rep_comment']}:<br />
+					<input type='text' size='40' maxlength='250' name='reason' style='margin:0px;' />
+				</td>
+			</tr>
+			</table>
+		</fieldset>
+	</div>
+	<div align='center' style='margin-top:3px;'>
+		<input type='hidden' name='act' value='reputation' />
+		<input type='hidden' name='do' value='addrep' />
+		<input type='hidden' name='fid' value='$fid' />
+		<input type='hidden' name='pid' value='$pid' />
+		<input type='submit' value="{ipb.lang['rep_add']}" class='button' accesskey='s' />
+	</div>	
+	</form>	
+	</td>
+</tr>]]></section_content>
+			<func_name>reputationbit</func_name>
+			<func_data><![CDATA[$show="",$fid="",$pid="",$user=""]]></func_data>
+		</template>
+	</templategroup>
+</templateexport>

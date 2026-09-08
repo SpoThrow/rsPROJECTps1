@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<templates application="cmtp" templategroups="a:1:{s:9:&quot;skin_cmtp&quot;;s:5:&quot;exact&quot;;}">
+  <templategroup group="skin_cmtp">
+    <template>
+      <template_group>skin_cmtp</template_group>
+      <template_content><![CDATA[<!--no data in this master skin-->]]></template_content>
+      <template_name>group_strip_fix</template_name>
+      <template_data/>
+      <template_updated>1334703212</template_updated>
+      <template_removable>0</template_removable>
+      <template_user_added>0</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>xmlskin</template_master_key>
+    </template>
+  </templategroup>
+</templates>

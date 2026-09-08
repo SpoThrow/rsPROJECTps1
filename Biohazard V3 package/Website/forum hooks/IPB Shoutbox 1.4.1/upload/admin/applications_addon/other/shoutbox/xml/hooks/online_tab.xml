@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<hookexport>
+  <hookdata>
+    <config>
+      <hook_name>Shoutbox: Online Tab</hook_name>
+      <hook_desc>Shows a count of how many are online in the Shoutbox on the Shoutbox navigation tab</hook_desc>
+      <hook_author>IPB Shoutbox</hook_author>
+      <hook_email/>
+      <hook_website>http://www.ipbshoutbox.com</hook_website>
+      <hook_update_check/>
+	  <hook_version_human>1.4.1</hook_version_human>
+      <hook_version_long>14100</hook_version_long>
+      <hook_requirements><![CDATA[a:3:{s:21:"required_applications";a:2:{s:4:"core";a:3:{s:8:"app_name";s:6:"System";s:11:"min_version";i:32000;s:11:"max_version";i:0;}s:8:"shoutbox";a:3:{s:8:"app_name";s:8:"Shoutbox";s:11:"min_version";i:12000;s:11:"max_version";i:0;}}s:20:"hook_php_version_min";s:0:"";s:20:"hook_php_version_max";s:0:"";}]]></hook_requirements>
+      <hook_extra_data><![CDATA[a:2:{s:7:"display";N;s:8:"database";a:0:{}}]]></hook_extra_data>
+      <hook_key>ipshoutbox_online_tab</hook_key>
+      <hook_global_caches/>
+    </config>
+  </hookdata>
+  <hookfiles>
+    <file>
+      <hook_file_real>shoutboxOnlineTab.php</hook_file_real>
+      <hook_type>templateHooks</hook_type>
+      <hook_classname>shoutboxOnlineTab</hook_classname>
+      <hook_data><![CDATA[a:8:{s:12:"dataLocation";s:0:"";s:14:"libApplication";s:0:"";s:15:"classToOverload";s:0:"";s:9:"skinGroup";s:11:"skin_global";s:12:"skinFunction";s:14:"globalTemplate";s:4:"type";s:2:"if";s:2:"id";s:13:"accessreports";s:8:"position";s:11:"pre.startif";}]]></hook_data>
+      <hooks_source><![CDATA[<?php
+
+class shoutboxOnlineTab
+{
+	protected $registry;
+	protected $settings;
+	protected $memberData;
+
+	public function __construct()
+	{
+		/* Make registry objects */
+		$this->registry   =  ipsRegistry::instance();
+		$this->settings   =& $this->registry->fetchSettings();
+		$this->memberData =& $this->registry->member()->fetchMemberData();
+	}
+
+	public function getOutput()
+	{
+		/* All the ways we can return nothing */
+		if ( !$this->settings['shoutbox_online'] || !$this->memberData['g_shoutbox_view'] || !$this->memberData['g_shoutbox_use'] || $this->memberData['_cache']['shoutbox_banned'] )
+		{
+			return '';
+		}
+
+		/* Our library is loaded? */
+		if ( !class_exists('app_class_shoutbox') || !$this->registry->isClassLoaded('shoutboxLibrary') )
+		{
+			ipsRegistry::getAppClass( 'shoutbox' );
+		}
+
+		/* Start me up */
+		$this->registry->shoutboxLibrary->_startup();
+
+		/* Run our common 'active users' function */
+		$active = $this->registry->shoutboxLibrary->getMembersViewing( false );
+
+		if ( $active['TOTAL'] )
+		{
+			return $this->registry->output->getTemplate('shoutbox_hooks')->hookOnlineTab( $active['TOTAL'] );
+		}
+	}
+}]]></hooks_source>
+    </file>
+  </hookfiles>
+  <hookextras_settings/>
+  <hookextras_language/>
+  <hookextras_modules/>
+  <hookextras_help/>
+  <hookextras_templates/>
+  <hookextras_css/>
+  <hookextras_replacements/>
+  <hookextras_tasks/>
+  <hookextras_database_create/>
+  <hookextras_database_alter/>
+  <hookextras_database_update/>
+  <hookextras_database_insert/>
+</hookexport>

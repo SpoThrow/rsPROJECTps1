@@ -1,0 +1,74 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+	<head>
+		<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+		<meta name="author" content="Lewis Putz" />
+		<title>Pips and Team Icons</title>
+		<style type="text/css" media="all">
+			html, body, h1, h2, h3, h4, div, p, dl { margin: 0; padding: 0; }
+			body { background: #021e2c; color: #fff; font-size: 12px; font-family: Verdana, Arial, "Trebuchet MS", "Times New Roman"; width: 800px; margin: auto; }
+			h1, h2, h3, h4 { font-weight: normal; }
+			a { color: #444; } a:hover { text-decoration: underline; }
+			#header { background: #021e2c; padding: 20px; color: #f1f1f1; font-size: 22px; border-bottom: 1px solid #222; }
+			#fileInfo { color: #444; background: #f1f1f1; padding: 20px; border-top: 1px solid #fff; border-bottom: 1px solid #222; -moz-border-radius: 10px; -webkit-border-radius: 10px; }
+			#fileInfo h3 { font-size: 16px; padding: 0 0 3px 0; margin: 0 0 3px 0; border-bottom: 1px solid #999; letter-spacing: -0.5px; }
+			#fileInfo p { margin: 0 0 15px 0; }
+			ul#attribList { margin-bottom: 10px; list-style-type: none; padding-left: 0; }
+			ul#attribList li { padding: 3px 0; border-bottom: 1px solid #e1e1e1; overflow: auto; }
+			ul#attribList span.title { font-weight: bold; }
+			ul#attribList span.value { float: right; text-align: right; }
+			ul#attribList span.yes { color: #008000; font-weight: bold; }
+			ul#attribList span.no { color: #FF0000; font-weight: bold; }
+			#content { padding: 20px; }
+			#content h3 { font-size: 16px; padding: 0 0 5px 0; margin: 0 0 5px 0; border-bottom: 1px solid #03283a; }
+			#content p { margin: 0 0 20px 0; }
+			#content a { color: #fff; text-decoration: underline; }
+			#content li { padding: 0 0 6px 0; }
+			#cr { color: #818f96; font-style: italic; }
+			#cr a { color: #818f96; }
+		</style>
+	</head>
+	<body>
+		<div id="header">Pips and Team Icons 1.2.0</div>
+		<div id="fileInfo">
+			<h3>Description</h3>
+			<p>
+				Whenever a member has a Team Icon, that always shows below their avatar in posts instead of the 
+				pip images.  With this hook, members who have Team Icons will also display the pip image(s) 
+				associated with the number of posts they have made directly below their Team Icon.
+			</p>
+			<h3>File Information</h3>
+			<ul id="attribList">
+				<li>
+					<span class="title">Compatibility:</span>
+					<span class="value">
+						IP.Board 3.x.x - <span class="yes">Yes</span><br />
+					</span>
+				</li>
+				<li>
+					<span class="title">Author:</span>
+					<span class="value">Lewis Putz (Originally by Michael McCune)</span>
+				</li>
+			</ul>
+			
+		</div>
+		<div id="content">
+			<h3>Step 1: Import the Hook File</h3>
+			<p>
+				Log in to your IP.Board Admin CP and visit the System tab -&gt; Applications &amp; Modules -&gt; 
+				Manage Hooks page. In the 'Install a New Hook' section, browse to the XML file included with these 
+				instructions and click Open.
+			</p>
+			<h3>Step 2: Change Hook Settings (Optional)</h3>
+			<p>
+				You can optionally hide pips for specific groups alongside their team icons, and optionally choose 
+				to have pips above the team icons instead of below. You can change these settings by visiting your 
+				IP.Board Admin CP -&gt; System tab -&gt; System Settings page. Click on the 'Hooks' tab, followed 
+				by 'Pips and Team Icons'.
+			</p>
+			<div id="cr">
+				Copyright &copy; 2012 <a href="http://putzy.net/">Lewis Putz</a>
+			</div>
+		</div>
+	</body>
+</html>

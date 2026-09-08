@@ -1,0 +1,378 @@
+<?xml version="1.0" encoding="utf-8"?>
+<hookexport>
+  <hookdata>
+    <config>
+      <hook_name>(SOS32) Group Title Permission</hook_name>
+      <hook_desc>Allow users to edit their member title without number of posts restriction</hook_desc>
+      <hook_author>Adriano Faria</hook_author>
+      <hook_email>administracao@sosinivision.com.br</hook_email>
+      <hook_website>http://www.sosinivision.com.br</hook_website>
+      <hook_update_check/>
+      <hook_requirements><![CDATA[a:3:{s:21:"required_applications";a:1:{s:4:"core";a:3:{s:8:"app_name";s:6:"System";s:11:"min_version";i:32000;s:11:"max_version";i:0;}}s:20:"hook_php_version_min";s:0:"";s:20:"hook_php_version_max";s:0:"";}]]></hook_requirements>
+      <hook_version_human>2.0.1</hook_version_human>
+      <hook_version_long>20001</hook_version_long>
+      <hook_extra_data><![CDATA[a:4:{s:7:"display";a:2:{s:8:"settings";s:99:"Setting groups: (SOS32) Group Title Permission<br />Settings: Allowed Groups, Hook enabled ?";s:9:"templates";s:38:"From skin_ucp: sos32_changeMemberTitle";}s:13:"settingGroups";a:1:{s:0:"";s:17:"sos32_membertitle";}s:8:"settings";a:2:{s:0:"";s:24:"sos32_membertitle_groups";i:1;s:25:"sos32_membertitle_enabled";}s:9:"templates";a:1:{s:8:"skin_ucp";a:1:{s:0:"";s:23:"sos32_changeMemberTitle";}}}]]></hook_extra_data>
+      <hook_key>sos32_membertitle</hook_key>
+      <hook_global_caches/>
+    </config>
+  </hookdata>
+  <hookfiles>
+    <file>
+      <hook_file_real>sos32_membertitle.php</hook_file_real>
+      <hook_type>skinHooks</hook_type>
+      <hook_classname>sos32_membertitle</hook_classname>
+      <hook_data><![CDATA[a:8:{s:12:"dataLocation";s:0:"";s:14:"libApplication";s:0:"";s:15:"classToOverload";s:8:"skin_ucp";s:9:"skinGroup";N;s:12:"skinFunction";N;s:4:"type";N;s:2:"id";N;s:8:"position";N;}]]></hook_data>
+        <hooks_source><![CDATA[
+		
+class sos32_membertitle extends skin_ucp(~id~)
+{
+	public function membersProfileForm( $custom_fields='',$group_titles='',$day='',$mon='',$year='', $amEditor='', $times=array() )
+	{
+		$temp = $this->settings['post_titlechange'];
+		$this->settings['post_titlechange'] = false;
+		
+		$original = parent::membersProfileForm( $custom_fields,$group_titles,$day,$mon,$year,$amEditor, $times );
+	    
+	    $this->settings['post_titlechange'] = $temp;
+	    
+	    return $original;
+	}
+}]]></hooks_source>
+    </file>
+    <file>
+      <hook_file_real>sos32_membertitle_template.php</hook_file_real>
+      <hook_type>templateHooks</hook_type>
+      <hook_classname>sos32_membertitle_template</hook_classname>
+      <hook_data><![CDATA[a:8:{s:12:"dataLocation";s:0:"";s:14:"libApplication";s:0:"";s:15:"classToOverload";s:0:"";s:9:"skinGroup";s:8:"skin_ucp";s:12:"skinFunction";s:18:"membersProfileForm";s:4:"type";s:2:"if";s:2:"id";s:17:"changeMemberTitle";s:8:"position";s:11:"pre.startif";}]]></hook_data>
+      <hooks_source><![CDATA[<?php
+
+class sos32_membertitle_template
+{
+	public $registry;
+	public $member;
+	
+	public function __construct()
+	{
+		$this->registry   = ipsRegistry::instance();
+	}
+	
+	public function getOutput()
+	{
+		return $this->registry->getClass('output')->getTemplate('ucp')->sos32_changeMemberTitle();
+	}
+}?>]]></hooks_source>
+    </file>
+    <file>
+      <hook_file_real>sos32_membertitle_save.php</hook_file_real>
+      <hook_type>libraryHooks</hook_type>
+      <hook_classname>sos32_membertitle_save</hook_classname>
+      <hook_data><![CDATA[a:8:{s:12:"dataLocation";s:0:"";s:14:"libApplication";s:4:"core";s:15:"classToOverload";s:16:"usercpForms_core";s:9:"skinGroup";N;s:12:"skinFunction";N;s:4:"type";N;s:2:"id";N;s:8:"position";N;}]]></hook_data>
+      <hooks_source><![CDATA[<?php
+
+class sos32_membertitle_save extends (~extends~)
+{
+	/**
+	 * UserCP Save Form: Profile Info
+	 *
+	 * @return	array	Errors
+	 */
+	public function saveProfileInfo()
+	{
+		/* Load editor stuff */
+		$classToLoad = IPSLib::loadLibrary( IPS_ROOT_PATH . 'sources/classes/editor/composite.php', 'classes_editor_composite' );
+		$this->editor = new $classToLoad();
+		
+		//-----------------------------------------
+		// INIT
+		//-----------------------------------------
+		
+		$pp_setting_moderate_comments = intval( $this->request['pp_setting_moderate_comments'] );
+		$pp_setting_moderate_friends  = intval( $this->request['pp_setting_moderate_friends'] );
+		$pp_setting_count_visitors    = intval( $this->request['pp_setting_count_visitors'] );
+		$pp_setting_count_comments    = intval( $this->request['pp_setting_count_comments'] );
+		$pp_setting_count_friends     = intval( $this->request['pp_setting_count_friends'] );
+		
+		//-----------------------------------------
+		// Check to make sure that we can edit profiles..
+		//-----------------------------------------
+		
+		if ( ! $this->memberData['g_edit_profile'] )
+		{
+			$this->registry->getClass('output')->showError( 'members_profile_disabled', 10214, null, null, 403 );
+		}
+		
+		//-----------------------------------------
+		// make sure that either we entered
+		// all calendar fields, or we left them
+		// all blank
+		//-----------------------------------------
+		
+		$c_cnt = 0;
+		
+		foreach ( array('day','month','year') as $v )
+		{
+			if ( $this->request[ $v ] )
+			{
+				$c_cnt++;
+			}
+		}
+		
+		if( $c_cnt > 0 && $c_cnt < 2 )
+		{
+			$this->registry->getClass('output')->showError( 'member_bad_birthday', 10215 );
+		}
+		else if( $c_cnt > 0 )
+		{
+			//-----------------------------------------
+			// Make sure it's a legal date
+			//-----------------------------------------
+			
+			$_year = $this->request['year'] ? $this->request['year'] : 1999;
+			
+			if ( ! checkdate( $this->request['month'], $this->request['day'], $_year ) )
+			{
+				$this->registry->getClass('output')->showError( 'member_bad_birthday', 10216 );
+			}
+		}
+
+		//-----------------------------------------
+		// Start off our array
+		//-----------------------------------------
+		
+		$core = array( 'bday_day'    => $this->request['day'],
+					   'bday_month'  => $this->request['month'],
+					   'bday_year'   => $this->request['year'],
+					  );
+
+		$extendedProfile = array( 'pp_setting_moderate_comments' => $pp_setting_moderate_comments,
+								  'pp_setting_moderate_friends'  => $pp_setting_moderate_friends,
+								  'pp_setting_count_visitors'    => $pp_setting_count_visitors,
+								  'pp_setting_count_comments'    => $pp_setting_count_comments,
+								  'pp_setting_count_friends'     => $pp_setting_count_friends );
+		
+		//-----------------------------------------
+		// check to see if we can enter a member title
+		// and if one is entered, update it.
+		//-----------------------------------------
+		
+		if ( !$this->settings['sos32_membertitle_enabled'] )
+		{
+			if( isset( $this->request['member_title'] ) and ( $this->settings['post_titlechange'] ) and ( $this->memberData['posts'] >= $this->settings['post_titlechange']) )
+			{
+				$core['title'] = IPSText::getTextClass( 'bbcode' )->stripBadWords( $this->request['member_title'] );
+			}
+		}
+		else
+		{
+			if ( IPSMember::isInGroup( $this->memberData, explode(  ",",  IPSText::cleanPermString(ipsRegistry::$settings['sos32_membertitle_groups'] ) ) ) )
+			{
+				$core['title'] = IPSText::getTextClass( 'bbcode' )->stripBadWords( $this->request['member_title'] );
+			}
+		}
+		
+		//-----------------------------------------
+		// Custom profile field stuff
+		//-----------------------------------------
+		
+		$classToLoad = IPSLib::loadLibrary( IPS_ROOT_PATH . 'sources/classes/customfields/profileFields.php', 'customProfileFields' );
+		$fields      = new $classToLoad();
+		
+		$fields->member_data = $this->member->fetchMemberData();
+		$fields->initData( 'edit' );
+		/* Use $_POST and not ipsRegistry::$request as the custom profile field kernel class has its own cleaning routines for saving and showing
+		   which means we end up with double & -> &amp; conversion (&amp;lt;, etc) */
+		$fields->parseToSave( $_POST );
+		
+		if( $fields->error_messages )
+		{
+			return $fields->error_messages;
+		}
+		
+		/* Check the website url field */
+		$website_field = $fields->getFieldIDByKey( 'website' );
+
+		if( $website_field && $fields->out_fields[ 'field_' . $website_field ] )
+		{
+			if( ! stristr( $fields->out_fields[ 'field_' . $website_field ], 'http://' ) )
+			{
+				$fields->out_fields[ 'field_' . $website_field ] = 'http://' . $fields->out_fields[ 'field_' . $website_field ];
+			}
+		}
+
+		//-----------------------------------------
+		// Check...
+		//-----------------------------------------
+		
+		if ( count( $fields->error_fields['empty'] ) )
+		{
+			$this->registry->getClass('output')->showError( array( 'customfields_empty', $fields->error_fields['empty'][0]['pf_title'] ), 10217 );
+		}
+		
+		if ( count( $fields->error_fields['invalid'] ) )
+		{
+			$this->registry->getClass('output')->showError( array( 'customfields_invalid', $fields->error_fields['invalid'][0]['pf_title'] ), 10218 );
+		}
+		
+		if ( count( $fields->error_fields['toobig'] ) )
+		{
+			$this->registry->getClass('output')->showError( array( 'customfields_toobig', $fields->error_fields['toobig'][0]['pf_title'] ), 10219 );
+		}
+		
+		/* About me */	
+		$extendedProfile['pp_about_me'] = $this->editor->process( $_POST['Post'] );
+		
+		/* Open ID & times*/
+		$timeZone    = IPSText::alphanumericalClean( $this->request['timeZone'], '+.' );
+		$dst_correct = intval( $this->request['dst_correct'] );
+		
+		/* Ensure 1 account per openID */
+		if ( $this->request['identity_url'] )
+		{
+			$account	= $this->DB->buildAndFetch( array( 'select' => 'member_id', 'from' => 'members', 'where' => "identity_url='" . trim($this->request['identity_url']) . "' AND member_id<>" . $this->memberData['member_id'] ) );
+
+			if( $account['member_id'] )
+			{
+				return array( 0 => $this->lang->words['identity_url_assoc'] );
+			}
+
+			$identityUrl	= trim($this->request['identity_url']);
+			$identityUrl	= rtrim( $identityUrl, "/" );
+
+			if( !strpos( $identityUrl, 'http://' ) === 0 AND !strpos( $identityUrl, 'https://' ) === 0 )
+			{
+				$identityUrl = 'http://' . $identityUrl;
+			}
+		}
+		
+		/* Add into array */
+		$core['time_offset']      = $timeZone;
+		$core['dst_in_use']       = $this->settings['time_dst_auto_correction'] ? ( ( $this->request['dstOption'] AND intval($this->request['dstCheck']) == 0 ) ? intval($this->request['dstOption']) : 0 ) : $this->memberData['dst_in_use'];
+		$core['members_auto_dst'] = $this->settings['time_dst_auto_correction'] ? intval($this->request['dstCheck']) : $this->memberData['members_auto_dst'];
+		$core['identity_url']	  = isset($identityUrl) ? $identityUrl : $this->memberData['identity_url'];
+		
+		//-----------------------------------------
+		// Update the DB
+		//-----------------------------------------
+		
+		IPSMember::save( $this->memberData['member_id'], array( 'core'            => $core,
+													 		    'customFields'    => $fields->out_fields,
+													 		    'extendedProfile' => $extendedProfile ) );
+
+		//-----------------------------------------
+		// Update birthdays cache if user set to today
+		// or if birthday was today but isn't now
+		//-----------------------------------------
+		
+		if( $core['bday_month'] == date('m') AND $core['bday_day'] == date('d') )
+		{
+			$this->cache->rebuildCache( 'birthdays', 'calendar' );
+		}
+		else if( $this->memberData['bday_month'] == date('m') AND $this->memberData['bday_day'] == date('d') AND ( $core['bday_month'] != date('m') OR $core['bday_day'] != date('d') ) )
+		{
+			$this->cache->rebuildCache( 'birthdays', 'calendar' );
+		}
+
+		return TRUE;
+	}
+}]]></hooks_source>
+    </file>
+  </hookfiles>
+  <hookextras_settings>
+    <setting>
+      <conf_is_title>1</conf_is_title>
+      <conf_title_title>(SOS32) Group Title Permission</conf_title_title>
+      <conf_title_desc>Settings for this hook</conf_title_desc>
+      <conf_title_noshow>0</conf_title_noshow>
+      <conf_title_keyword>sos32_membertitle</conf_title_keyword>
+      <conf_title_app>forums</conf_title_app>
+      <conf_title_tab>Hooks</conf_title_tab>
+    </setting>
+    <setting>
+      <conf_id>929</conf_id>
+      <conf_title>Hook enabled ?</conf_title>
+      <conf_description>If disabled, members will only edit their member title when they reach a certain number of posts</conf_description>
+      <conf_group>133</conf_group>
+      <conf_type>yes_no</conf_type>
+      <conf_key>sos32_membertitle_enabled</conf_key>
+      <conf_value/>
+      <conf_default/>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>1</conf_position>
+      <conf_start_group>Settings</conf_start_group>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>sos32_membertitle</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_id>930</conf_id>
+      <conf_title>Allowed Groups</conf_title>
+      <conf_description>Select which user groups can edit their member title</conf_description>
+      <conf_group>133</conf_group>
+      <conf_type>multi</conf_type>
+      <conf_key>sos32_membertitle_groups</conf_key>
+      <conf_value/>
+      <conf_default/>
+      <conf_extra>#show_groups#</conf_extra>
+      <conf_evalphp><![CDATA[$key = 'sos32_membertitle_groups';
+
+if ( $save == 1)
+{
+    if ( is_array($_POST[ $key ]) )
+    {
+        $_POST[ $key ] = implode(",",$_POST[ $key ]);
+    }
+    else
+    {
+        $_POST[ $key ] = "";
+    }
+}
+if ( $show == 1 )
+{
+    $key .= '[]';
+}]]></conf_evalphp>
+      <conf_protected>1</conf_protected>
+      <conf_position>2</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>sos32_membertitle</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+  </hookextras_settings>
+  <hookextras_language/>
+  <hookextras_modules/>
+  <hookextras_help/>
+  <hookextras_templates>
+    <templates>
+      <template_group>skin_ucp</template_group>
+      <template_content><![CDATA[<if test="changeMemberTitle:|:$this->settings['sos32_membertitle_enabled'] AND in_array( $this->memberData['member_group_id'], explode( ',', $this->settings['sos32_membertitle_groups'] ) )">
+	<br />
+	<ul>
+		<li>
+			<label for='member_title' class='ipsSettings_fieldtitle'>{$this->lang->words['member_title']}</label>
+			<input type='text' class='input_text' size='40' id='member_title' name='member_title' value='{$this->memberData['title']}' />
+			<br />
+			<span class='desc'>{$this->lang->words['member_title_desc']}</span>
+		</li>
+	</ul>
+</if>]]></template_content>
+      <template_name>sos32_changeMemberTitle</template_name>
+      <template_data/>
+      <template_updated>1268237314</template_updated>
+      <template_removable>1</template_removable>
+      <template_added_to>1</template_added_to>
+      <template_user_added>1</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>root</template_master_key>
+    </templates>
+  </hookextras_templates>
+  <hookextras_css/>
+  <hookextras_tasks/>
+  <hookextras_database_create/>
+  <hookextras_database_alter/>
+  <hookextras_database_update/>
+  <hookextras_database_insert/>
+</hookexport>

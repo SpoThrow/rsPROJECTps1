@@ -1,0 +1,681 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hookexport>
+  <hookdata>
+    <config>
+      <hook_name>(SOS33) Total Time Spent On Forums</hook_name>
+      <hook_desc>Will show how much time each member spends logged into the site</hook_desc>
+      <hook_author>Adriano Faria</hook_author>
+      <hook_email>administracao@sosinvision.com.br</hook_email>
+      <hook_website>http://forum.sosinvision.com.br</hook_website>
+      <hook_update_check>http://forum.sosinvision.com.br/resource_updates.php?resource=sos33_timespent</hook_update_check>
+      <hook_requirements><![CDATA[a:4:{s:20:"hook_ipb_version_min";i:32000;s:20:"hook_ipb_version_max";i:0;s:20:"hook_php_version_min";s:0:"";s:20:"hook_php_version_max";s:0:"";}]]></hook_requirements>
+      <hook_version_human>3.1.0</hook_version_human>
+      <hook_version_long>31000</hook_version_long>
+      <hook_extra_data><![CDATA[a:6:{s:7:"display";N;s:13:"settingGroups";a:1:{i:0;s:22:"sidebar_toponlineusers";}s:8:"settings";a:5:{i:0;s:28:"sidebar_toponlineusers_onoff";i:1;s:32:"sidebar_toponlineusers_registros";i:2;s:26:"sidebar_toponlineusers_cor";i:3;s:29:"sidebar_toponlineusers_grupos";i:4;s:27:"sidebar_toponlineusers_hide";}s:8:"language";a:2:{s:13:"public_global";a:2:{i:0;s:10:"time_spent";i:1;s:16:"time_spent_title";}s:14:"public_profile";a:1:{i:0;s:10:"time_spent";}}s:9:"templates";a:2:{s:12:"skin_profile";a:1:{s:15:"sos33_timespent";s:15:"sos33_timespent";}s:11:"skin_boards";a:1:{s:23:"sos33_timespent_sidebar";s:23:"sos33_timespent_sidebar";}}s:8:"database";a:1:{s:5:"alter";a:1:{i:0;a:6:{s:9:"altertype";s:3:"add";s:5:"table";s:14:"profile_portal";s:5:"field";s:10:"time_spent";s:8:"newfield";s:0:"";s:9:"fieldtype";s:7:"int(10)";s:7:"default";s:1:"0";}}}}]]></hook_extra_data>
+      <hook_key>sos31_timespent</hook_key>
+    </config>
+  </hookdata>
+  <hookfiles>
+    <file>
+      <hook_file_real>sos33_timespent.php</hook_file_real>
+      <hook_type>templateHooks</hook_type>
+      <hook_classname>sos33_timespent</hook_classname>
+      <hook_data><![CDATA[a:8:{s:12:"dataLocation";s:0:"";s:14:"libApplication";s:0:"";s:15:"classToOverload";s:0:"";s:9:"skinGroup";s:11:"skin_global";s:12:"skinFunction";s:12:"userInfoPane";s:4:"type";s:2:"if";s:2:"id";s:13:"authorcfields";s:8:"position";s:10:"post.endif";}]]></hook_data>
+      <hooks_source><![CDATA[<?php
+
+	/**
+	 * Product Title:		(SOS33) Total Time Spent On Forums
+	 * Product Version:		3.1.0
+	 * Author:				Adriano Faria
+	 * Website:				SOS Invision
+	 * Website URL:			http://forum.sosinvision.com.br/
+	 * Email:				administracao@sosinvision.com.br
+	 */
+
+class sos33_timespent
+{
+	public $registry;
+	public $settings;
+	public $pids = array();
+	
+	public function __construct()
+	{
+		$this->registry   =  ipsRegistry::instance();
+		$this->memberData =& $this->registry->member()->fetchMemberData();
+		$this->settings   =& $this->registry->fetchSettings();
+		$this->DB         =  $this->registry->DB();
+		$this->lang		  =  $this->registry->getClass('class_localization');
+		$this->cache	  =& $this->registry->cache()->fetchCaches();
+		$this->request    =& $this->registry->fetchRequest();
+	
+		$this->registry->class_localization->loadLanguageFile( array( 'public_global', 'core' ) );
+	}
+	
+	public function getOutput()
+	{
+		return '';
+	}
+	
+	public function replaceOutput( $output, $key )
+	{
+		if( is_array($this->registry->output->getTemplate('global')->functionData['userInfoPane']) AND count($this->registry->output->getTemplate('global')->functionData['userInfoPane']) )
+		{
+			$tag	= '<!--hook.' . $key . '-->';
+			$last	= 0;
+			$canUse = ( $this->settings['sidebar_toponlineusers_hide'] ) ? explode(",", $this->settings['sidebar_toponlineusers_hide']) : array();
+
+			if ( is_array( $canUse) AND count( $canUse) AND $this->settings['sidebar_toponlineusers_userinfopane'] )
+			{
+				foreach( $this->registry->output->getTemplate('global')->functionData['userInfoPane'] as $_id => $_data )
+				{
+					$pos = strpos( $output, $tag, $last );
+			
+					if( $pos !== FALSE )
+					{
+						$days = 0; $hrs = 0; $mins = 0;
+						$secs = $_data['author']['time_spent'];
+						while( $secs >= 86400 ){ $days++; $secs -= 86400; }
+						while( $secs >= 3600 ){ $hrs++; $secs -= 3600; }
+						while( $secs >= 60 ){ $mins++; $secs -= 60; }
+	
+						$days = $days ? $days.$this->settings['sidebar_toponlineusers_acronymd'].' ' : '';
+						$hrs  = $hrs  ? $hrs .$this->settings['sidebar_toponlineusers_acronymh'].' ' : '';
+						$mins = $mins ? $mins.$this->settings['sidebar_toponlineusers_acronymm'].' ' : '';
+						$secs = $secs ? $secs.$this->settings['sidebar_toponlineusers_acronyms'].' ' : '';
+	
+						$text = $_data['author']['time_spent'] > 0 ? $this->lang->words['time_spent'] : '';
+						
+						$string	= ( $_data['author']['member_id'] && in_array($_data['author']['member_group_id'], $canUse) ) ? "<ul class='basic_info'><li class='post_count desc lighter'>{$text}: {$days}{$hrs}{$mins}{$secs}</li></ul>" : '';
+						
+						//$string =  $_data['author']['time_spent'] > 0 ? "<li><span class='ft'>{$text}</span><span class='fc'>{$days}{$hrs}{$mins}{$secs}</span></li>" : "";
+	
+						$output	= substr_replace( $output, $string . $tag, $pos, strlen( $tag ) ); 
+						$last	= $pos + strlen( $tag . $string );
+						
+						$string = "";
+						$days	= "";
+						$hrs	= "";
+						$mins	= "";
+						$secs 	= "";
+					}
+					else
+					{
+						break;
+					}
+				}
+			}
+		}
+		
+		return $output;
+	}
+}]]></hooks_source>
+    </file>
+    <file>
+      <hook_file_real>sos33_timespent_showcard.php</hook_file_real>
+      <hook_type>templateHooks</hook_type>
+      <hook_classname>sos33_timespent_showcard</hook_classname>
+      <hook_data><![CDATA[a:8:{s:12:"dataLocation";s:0:"";s:14:"libApplication";s:0:"";s:15:"classToOverload";s:0:"";s:9:"skinGroup";s:12:"skin_profile";s:12:"skinFunction";s:8:"showCard";s:4:"type";s:2:"if";s:2:"id";s:7:"isadmin";s:8:"position";s:11:"pre.startif";}]]></hook_data>
+      <hooks_source><![CDATA[<?php
+
+	/**
+	 * Product Title:		(SOS33) Total Time Spent On Forums
+	 * Product Version:		3.1.0
+	 * Author:				Adriano Faria
+	 * Website:				SOS Invision
+	 * Website URL:			http://forum.sosinvision.com.br/
+	 * Email:				administracao@sosinvision.com.br
+	 */
+	 
+class sos33_timespent_showcard
+{
+	public $registry;
+	public $member;
+	public $cache;
+	
+	public function __construct()
+	{
+		$this->registry = ipsRegistry::instance();
+		$this->DB		=  $this->registry->DB();
+		$this->settings =& $this->registry->fetchSettings();
+		$this->cache    = $this->registry->cache();
+		$this->caches   =& $this->registry->cache()->fetchCaches();
+		$this->memberData =& $this->registry->member()->fetchMemberData();
+		$this->lang       =  $this->registry->getClass('class_localization');
+		$this->request    =& $this->registry->fetchRequest();
+		$this->registry->class_localization->loadLanguageFile( array( 'public_profile', 'members' ) );
+	}
+	
+	public function getOutput()
+	{
+		$string = "";
+		
+		$member_id	= intval( $this->request['mid'] );
+				
+		$member	    = $this->registry->output->getTemplate('profile')->functionData['showCard'][0]['member'];
+
+		if ( !in_array( $member['member_group_id'], explode(',',$this->settings['sidebar_toponlineusers_hide'] ) ) )
+		{
+			return false;
+		}
+		
+		if ( $member['time_spent'] > 0 )
+		{
+			$days = 0; $hrs = 0; $mins = 0;
+			$secs = $member['time_spent'];
+			while( $secs >= 86400 ){ $days++; $secs -= 86400; }
+			while( $secs >= 3600 ){ $hrs++; $secs -= 3600; }
+			while( $secs >= 60 ){ $mins++; $secs -= 60; }
+		}
+
+		$days = $days ? $days.$this->settings['sidebar_toponlineusers_acronymd'].' ' : '';
+		$hrs  = $hrs  ? $hrs .$this->settings['sidebar_toponlineusers_acronymh'].' ' : '';
+		$mins = $mins ? $mins.$this->settings['sidebar_toponlineusers_acronymm'].' ' : '';
+		$secs = $secs ? $secs.$this->settings['sidebar_toponlineusers_acronyms'].' ' : '';
+		
+		if ( $member['time_spent'] > 0 )
+		{
+			$text = $member['time_spent'] > 0 ? $this->lang->words['time_spent'] : '';
+			$string = "<dt>{$text}</dt><dd>{$days}{$hrs}{$mins}{$secs}</dd>";
+			
+			return $this->registry->output->getTemplate( 'profile' )->sos33_timespent( $string );
+		}
+	}
+}]]></hooks_source>
+    </file>
+    <file>
+      <hook_file_real>sos33_timespent_profile.php</hook_file_real>
+      <hook_type>templateHooks</hook_type>
+      <hook_classname>sos33_timespent_profile</hook_classname>
+      <hook_data><![CDATA[a:8:{s:12:"dataLocation";s:0:"";s:14:"libApplication";s:0:"";s:15:"classToOverload";s:0:"";s:9:"skinGroup";s:12:"skin_profile";s:12:"skinFunction";s:13:"profileModern";s:4:"type";s:2:"if";s:2:"id";s:12:"member_title";s:8:"position";s:11:"pre.startif";}]]></hook_data>
+      <hooks_source><![CDATA[<?php
+
+	/**
+	 * Product Title:		(SOS33) Total Time Spent On Forums
+	 * Product Version:		3.1.0
+	 * Author:				Adriano Faria
+	 * Website:				SOS Invision
+	 * Website URL:			http://forum.sosinvision.com.br/
+	 * Email:				administracao@sosinvision.com.br
+	 */
+	 
+class sos33_timespent_profile
+{
+	public $registry;
+	public $member;
+	public $cache;
+	
+	public function __construct()
+	{
+		$this->registry = ipsRegistry::instance();
+		$this->DB		=  $this->registry->DB();
+		$this->settings =& $this->registry->fetchSettings();
+		$this->cache    = $this->registry->cache();
+		$this->caches   =& $this->registry->cache()->fetchCaches();
+		$this->memberData =& $this->registry->member()->fetchMemberData();
+		$this->lang       =  $this->registry->getClass('class_localization');
+		$this->request    =& $this->registry->fetchRequest();
+		$this->registry->class_localization->loadLanguageFile( array( 'public_profile', 'members' ) );
+	}
+	
+	public function getOutput()
+	{
+		$string = "";
+			
+		$member	    = $this->registry->output->getTemplate('profile')->functionData['profileModern'][0]['member'];
+
+		if ( !in_array( $member['member_group_id'], explode(',',$this->settings['sidebar_toponlineusers_hide'] ) ) )
+		{
+			return false;
+		}
+		
+		if ( $member['time_spent'] > 0 )
+		{
+			$days = 0; $hrs = 0; $mins = 0;
+			$secs = $member['time_spent'];
+			while( $secs >= 86400 ){ $days++; $secs -= 86400; }
+			while( $secs >= 3600 ){ $hrs++; $secs -= 3600; }
+			while( $secs >= 60 ){ $mins++; $secs -= 60; }
+		}
+
+		$days = $days ? $days.$this->settings['sidebar_toponlineusers_acronymd'].' ' : '';
+		$hrs  = $hrs  ? $hrs .$this->settings['sidebar_toponlineusers_acronymh'].' ' : '';
+		$mins = $mins ? $mins.$this->settings['sidebar_toponlineusers_acronymm'].' ' : '';
+		$secs = $secs ? $secs.$this->settings['sidebar_toponlineusers_acronyms'].' ' : '';
+		
+		if ( $member['time_spent'] > 0 )
+		{
+			$text = $member['time_spent'] > 0 ? $this->lang->words['time_spent'] : '';
+			$string = "<li><span class='row_title'>{$text}</span><span class='row_data'>{$days}{$hrs}{$mins}{$secs}</span></li>";
+			
+			return $this->registry->output->getTemplate( 'profile' )->sos33_timespent( $string );
+		}
+	}
+}]]></hooks_source>
+    </file>
+    <file>
+      <hook_file_real>sos33_timespent_sidebarhook.php</hook_file_real>
+      <hook_type>templateHooks</hook_type>
+      <hook_classname>sos33_timespent_sidebarhook</hook_classname>
+      <hook_data><![CDATA[a:8:{s:12:"dataLocation";s:0:"";s:14:"libApplication";s:0:"";s:15:"classToOverload";s:0:"";s:9:"skinGroup";s:11:"skin_boards";s:12:"skinFunction";s:18:"boardIndexTemplate";s:4:"type";s:7:"foreach";s:2:"id";s:11:"side_blocks";s:8:"position";s:9:"outer.pre";}]]></hook_data>
+      <hooks_source><![CDATA[<?php
+
+	/**
+	 * Product Title:		(SOS33) Total Time Spent On Forums
+	 * Product Version:		3.1.0
+	 * Author:				Adriano Faria
+	 * Website:				SOS Invision
+	 * Website URL:			http://forum.sosinvision.com.br/
+	 * Email:				administracao@sosinvision.com.br
+	 */
+
+class sos33_timespent_sidebarhook
+{
+	public $registry;
+	public $member;
+	public $cache;
+	
+	public function __construct()
+	{
+		$this->registry = ipsRegistry::instance();
+		$this->DB		=  $this->registry->DB();
+		$this->settings =& $this->registry->fetchSettings();
+		$this->cache    = $this->registry->cache();
+		$this->caches   =& $this->registry->cache()->fetchCaches();
+		$this->memberData =& $this->registry->member()->fetchMemberData();
+		$this->registry->class_localization->loadLanguageFile( array( 'public_global', 'core' ) );
+	}
+	
+	public function getOutput()
+	{
+		if ( !$this->settings['sidebar_toponlineusers_onoff'] )
+		{
+			return '';
+		}
+	
+		if ( IPSMember::isInGroup( $this->memberData, explode( ",", IPSText::cleanPermString($this->settings['sidebar_toponlineusers_grupos'] ) ) ) )
+		{
+			$this->DB->build( array( 
+									'select' => 'm.member_id, m.members_seo_name, m.members_display_name, m.member_group_id',
+									'from'   => array( 'members' => 'm' ),
+				                    'add_join' => array(
+									0 => array( 'select' => 'pp.*',
+						  	  					 'from'   => array( 'profile_portal' => 'pp' ),
+	 							  				 'where'  => 'pp.pp_member_id=m.member_id',
+							  					 'type'   => 'left' )
+                                	),
+            						'where'  => "pp.time_spent > 0 AND m.member_group_id IN (".$this->settings['sidebar_toponlineusers_hide'].")",
+									'order' => "pp.time_spent desc",
+									'limit' => array( 0, $this->settings['sidebar_toponlineusers_registros'])
+			) );
+								 
+			$q = $this->DB->execute();
+			
+			if ( $this->DB->getTotalRows( $q ) )
+			{
+				$users = array();
+						
+				while( $r = $this->DB->fetch( $q ) )
+				{
+					$r = IPSMember::buildDisplayData( $r );
+	
+					$days = 0; $hrs = 0; $mins = 0;
+					$secs = $r['time_spent'];
+					while( $secs >= 86400 ){ $days++; $secs -= 86400; }
+					while( $secs >= 3600 ){ $hrs++; $secs -= 3600; }
+					while( $secs >= 60 ){ $mins++; $secs -= 60; }
+			
+					$days = $days ? $days.$this->settings['sidebar_toponlineusers_acronymd'].' ' : '';
+					$hrs  = $hrs  ? $hrs .$this->settings['sidebar_toponlineusers_acronymh'].' ' : '';
+					$mins = $mins ? $mins.$this->settings['sidebar_toponlineusers_acronymm'].' ' : '';
+					$secs = $secs ? $secs.$this->settings['sidebar_toponlineusers_acronyms'].' ' : '';
+
+					$r['time'] = "{$days}{$hrs}{$mins}{$secs}";
+
+					$users[ $r['member_id'] ] = $r;
+				}
+				
+				return $this->registry->output->getTemplate( 'boards' )->sos33_timespent_sidebar( $users );
+			}
+		}
+	}
+}]]></hooks_source>
+    </file>
+  </hookfiles>
+  <hookextras_settings>
+    <setting>
+      <conf_is_title>1</conf_is_title>
+      <conf_title_title>(SOS33) Total Time Spent On Forums</conf_title_title>
+      <conf_title_desc>Settings for this hook</conf_title_desc>
+      <conf_title_noshow>0</conf_title_noshow>
+      <conf_title_keyword>sidebar_toponlineusers</conf_title_keyword>
+      <conf_title_app>members</conf_title_app>
+	  <conf_title_tab>Hooks</conf_title_tab>
+    </setting>
+    <setting>
+      <conf_id>400</conf_id>
+      <conf_title>Show total time in UserInfoPane (posts, PMs, Apps, etc.) ?</conf_title>
+      <conf_description/>
+      <conf_group>36</conf_group>
+      <conf_type>yes_no</conf_type>
+      <conf_key>sidebar_toponlineusers_userinfopane</conf_key>
+      <conf_value/>
+      <conf_default>1</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>1</conf_position>
+      <conf_start_group>General Settings</conf_start_group>
+      <conf_end_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>sidebar_toponlineusers</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_id>401</conf_id>
+      <conf_title>Show TOP X users in sidebar?</conf_title>
+      <conf_description/>
+      <conf_group>36</conf_group>
+      <conf_type>yes_no</conf_type>
+      <conf_key>sidebar_toponlineusers_onoff</conf_key>
+      <conf_value/>
+      <conf_default>1</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>2</conf_position>
+      <conf_start_group/>
+      <conf_end_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>sidebar_toponlineusers</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_id>402</conf_id>
+      <conf_title>Format user links with group color on sidebar ?</conf_title>
+      <conf_description/>
+      <conf_group>36</conf_group>
+      <conf_type>yes_no</conf_type>
+      <conf_key>sidebar_toponlineusers_cor</conf_key>
+      <conf_value/>
+      <conf_default>1</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>3</conf_position>
+      <conf_start_group/>
+      <conf_end_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>sidebar_toponlineusers</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_id>403</conf_id>
+      <conf_title>Acronym for days</conf_title>
+      <conf_description/>
+      <conf_group>36</conf_group>
+      <conf_type>input</conf_type>
+      <conf_key>sidebar_toponlineusers_acronymd</conf_key>
+      <conf_value/>
+      <conf_default>d</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>4</conf_position>
+      <conf_start_group/>
+      <conf_end_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>sidebar_toponlineusers</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_id>404</conf_id>
+      <conf_title>Acronym for hours</conf_title>
+      <conf_description/>
+      <conf_group>36</conf_group>
+      <conf_type>input</conf_type>
+      <conf_key>sidebar_toponlineusers_acronymh</conf_key>
+      <conf_value/>
+      <conf_default>h</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>5</conf_position>
+      <conf_start_group/>
+      <conf_end_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>sidebar_toponlineusers</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_id>405</conf_id>
+      <conf_title>Acronym for minutes</conf_title>
+      <conf_description/>
+      <conf_group>36</conf_group>
+      <conf_type>input</conf_type>
+      <conf_key>sidebar_toponlineusers_acronymm</conf_key>
+      <conf_value/>
+      <conf_default>m</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>6</conf_position>
+      <conf_start_group/>
+      <conf_end_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>sidebar_toponlineusers</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_id>406</conf_id>
+      <conf_title>Acronym for seconds</conf_title>
+      <conf_description/>
+      <conf_group>36</conf_group>
+      <conf_type>input</conf_type>
+      <conf_key>sidebar_toponlineusers_acronyms</conf_key>
+      <conf_value/>
+      <conf_default>s</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>7</conf_position>
+      <conf_start_group/>
+      <conf_end_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>sidebar_toponlineusers</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_id>407</conf_id>
+      <conf_title>Number of users to show in sidebar?</conf_title>
+      <conf_description/>
+      <conf_group>36</conf_group>
+      <conf_type>input</conf_type>
+      <conf_key>sidebar_toponlineusers_registros</conf_key>
+      <conf_value/>
+      <conf_default>5</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>8</conf_position>
+      <conf_start_group/>
+      <conf_end_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>sidebar_toponlineusers</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_id>408</conf_id>
+      <conf_title><![CDATA[SHOW TOP X sidebar hook to groups]]></conf_title>
+      <conf_description><![CDATA[Select which user groups WILL see the sidebar hook]]></conf_description>
+      <conf_group>36</conf_group>
+      <conf_type>multi</conf_type>
+      <conf_key>sidebar_toponlineusers_grupos</conf_key>
+      <conf_value/>
+      <conf_default>desc</conf_default>
+	  <conf_extra>#show_groups#</conf_extra>
+      <conf_evalphp><![CDATA[if ( $save == 1)
+{
+	if ( is_array($_POST['sidebar_toponlineusers_grupos']) )
+	{
+		$_POST['sidebar_toponlineusers_grupos'] = implode(",",$_POST['sidebar_toponlineusers_grupos']);
+	}
+	else
+	{
+		$_POST['sidebar_toponlineusers_grupos'] = "";
+	}
+	
+	$key = 'sidebar_toponlineusers_grupos';
+}
+if ( $show == 1 )
+{
+	$key = 'sidebar_toponlineusers_grupos[]';
+}]]></conf_evalphp>
+      <conf_protected>1</conf_protected>
+      <conf_position>9</conf_position>
+      <conf_start_group/>
+      <conf_end_group>1</conf_end_group>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>sidebar_toponlineusers</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_id>410</conf_id>
+      <conf_title>SHOW total time spent on forums to groups</conf_title>
+      <conf_description>Select for which user groups WILL appear the total time spent on forums</conf_description>
+      <conf_group>36</conf_group>
+      <conf_type>multi</conf_type>
+      <conf_key>sidebar_toponlineusers_hide</conf_key>
+      <conf_value/>
+      <conf_default>desc</conf_default>
+	  <conf_extra>#show_groups#</conf_extra>
+      <conf_evalphp><![CDATA[if ( $save == 1)
+{
+	if ( is_array($_POST['sidebar_toponlineusers_hide']) )
+	{
+		$_POST['sidebar_toponlineusers_hide'] = implode(",",$_POST['sidebar_toponlineusers_hide']);
+	}
+	else
+	{
+		$_POST['sidebar_toponlineusers_hide'] = "";
+	}
+	
+	$key = 'sidebar_toponlineusers_hide';
+}
+if ( $show == 1 )
+{
+	$key = 'sidebar_toponlineusers_hide[]';
+}]]></conf_evalphp>
+      <conf_protected>1</conf_protected>
+      <conf_position>11</conf_position>
+      <conf_start_group/>
+      <conf_end_group>1</conf_end_group>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>sidebar_toponlineusers</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+  </hookextras_settings>
+  <hookextras_language>
+    <language>
+      <word_app>core</word_app>
+      <word_pack>public_global</word_pack>
+      <word_key>time_spent</word_key>
+      <word_default>Time Online</word_default>
+      <word_custom/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_app>core</word_app>
+      <word_pack>public_global</word_pack>
+      <word_key>time_spent_title</word_key>
+      <word_default><![CDATA[TOP %s Online Users]]></word_default>
+      <word_custom/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_app>members</word_app>
+      <word_pack>public_profile</word_pack>
+      <word_key>time_spent</word_key>
+      <word_default>Time Online</word_default>
+      <word_custom/>
+      <word_js>0</word_js>
+    </language>
+  </hookextras_language>
+  <hookextras_modules/>
+  <hookextras_help/>
+  <hookextras_templates>
+    <templates>
+      <template_set_id>0</template_set_id>
+      <template_group>skin_profile</template_group>
+      <template_content>{$string}</template_content>
+      <template_name>sos33_timespent</template_name>
+      <template_data>$string</template_data>
+      <template_updated>1235666400</template_updated>
+      <template_removable>0</template_removable>
+      <template_added_to>1</template_added_to>
+      <template_user_added>1</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>root</template_master_key>
+      <template_set_type/>
+    </templates>
+    <templates>
+      <template_group>skin_boards</template_group>
+      <template_content><![CDATA[<if test="recenttopics:|:is_array( $users ) && count( $users )">
+<div class='ipsSideBlock clearfix'>
+	<h3>{parse expression="sprintf( $this->lang->words['time_spent_title'], $this->settings['sidebar_toponlineusers_registros'] )"}</h3>
+	<div class='_sbcollapsable'>
+		<ul class='ipsList_withminiphoto'>
+		<foreach loop="topics_hook:$users as $r">
+		<li class='clearfix'>
+			<a href='{parse url="showuser={$r['member_id']}" seotitle="{$r['members_seo_name']}" template="showuser" base="public"}' title='{$this->lang->words['view_profile']}' class='ipsUserPhotoLink left'><img src='{$r['pp_mini_photo']}' alt="{$r['members_display_name']}{$this->lang->words['users_photo']}" class='ipsUserPhoto ipsUserPhoto_mini' /></a>
+			<div class='list_content'>
+				<if test="!$this->settings['sidebar_toponlineusers_cor']">
+					{parse template="userHoverCard" group="global" params="$r"}
+				<else />
+					{IPSMember::makeProfileLink(IPSMember::makeNameFormatted( $r['members_display_name'], $r['member_group_id']), $r['member_id'])}
+				</if>
+				<p class='desc ipsType_smaller'>
+					{$this->lang->words['time_spent']}: {$r['time']}
+				</p>
+			</div>
+		</li>
+		</foreach>
+		</ul>
+	</div>
+</div>
+</if>]]></template_content>
+      <template_name>sos33_timespent_sidebar</template_name>
+      <template_data>$users=array()</template_data>
+      <template_updated>1235666400</template_updated>
+      <template_removable>0</template_removable>
+      <template_added_to>1</template_added_to>
+      <template_user_added>1</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>root</template_master_key>
+    </templates>
+  </hookextras_templates>
+  <hookextras_css/>
+  <hookextras_tasks/>
+  <hookextras_database_create/>
+  <hookextras_database_alter>
+    <alter>
+      <altertype>add</altertype>
+      <table>profile_portal</table>
+      <field>time_spent</field>
+      <newfield/>
+      <fieldtype>int(10)</fieldtype>
+      <default>0</default>
+    </alter>
+  </hookextras_database_alter>
+  <hookextras_database_update/>
+  <hookextras_database_insert/>
+</hookexport>

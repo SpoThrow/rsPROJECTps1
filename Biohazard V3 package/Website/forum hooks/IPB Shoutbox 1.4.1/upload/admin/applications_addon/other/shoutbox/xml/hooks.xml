@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hooks>
+	<hook>
+		<file>global_shoutbox.xml</file>
+		<enabled>1</enabled>
+	</hook>
+	<hook>
+		<file>active_users.xml</file>
+		<enabled>1</enabled>
+	</hook>
+	<hook>
+		<file>online_tab.xml</file>
+		<enabled>1</enabled>
+	</hook>
+<hook>
+		<file>shoutbox_javascript.xml</file>
+		<enabled>1</enabled>
+	</hook>
+</hooks>

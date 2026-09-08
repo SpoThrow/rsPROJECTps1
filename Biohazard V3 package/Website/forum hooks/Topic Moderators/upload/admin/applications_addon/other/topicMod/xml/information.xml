@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<information>
+  <data>
+    <name>Topic Moderators</name>
+    <public_name/>
+    <hide_tab>0</hide_tab>
+    <author>Invision Modding</author>
+    <description>Allows you to assign a moderator to a single topic</description>
+    <disabledatinstall>0</disabledatinstall>
+    <global_caches/>
+    <website>http://invisionmodding.com</website>
+    <update_check>http://invisionmodding.com/resource_updates.php?resource=topicMod</update_check>
+    <templategroups/>
+  </data>
+</information>

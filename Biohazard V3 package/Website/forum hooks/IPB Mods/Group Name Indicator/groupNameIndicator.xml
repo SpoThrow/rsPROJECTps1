@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="utf-8"?>
+<hookexport>
+  <hookdata>
+    <config>
+      <hook_name>Group Name Indicator</hook_name>
+      <hook_desc>Show a legend of your group names below the Board Index Active Users list</hook_desc>
+      <hook_author>Michael McCune</hook_author>
+      <hook_email>michael.mccune@gmail.com</hook_email>
+      <hook_website>http://invisionfocus.com/</hook_website>
+      <hook_update_check>http://invisionfocus.com/resource_updates.php?resource=groupNameIndicator</hook_update_check>
+      <hook_requirements><![CDATA[a:3:{s:21:"required_applications";a:1:{s:4:"core";a:3:{s:8:"app_name";s:6:"System";s:11:"min_version";i:32000;s:11:"max_version";i:0;}}s:20:"hook_php_version_min";s:1:"0";s:20:"hook_php_version_max";s:1:"0";}]]></hook_requirements>
+      <hook_version_human>1.1.0</hook_version_human>
+      <hook_version_long>11000</hook_version_long>
+      <hook_extra_data><![CDATA[a:5:{s:7:"display";a:4:{s:8:"language";s:211:"From members_admin_group_name_indicator: disable, enable, enabled, group_name_indicator, g_hidden, g_shown, g_successfully, g_title, hidden_groups, m_display_order, no_toggle_guest, postform_badmd5, shown_groups";s:7:"modules";s:47:"Modules: Members:: Group Name Indicator (ADMIN)";s:9:"templates";s:43:"From skin_boards: 0, hookGroupNameIndicator";s:8:"database";s:57:"ALTER TABLE groups ADD g_display smallint(3) DEFAULT NULL";}s:8:"language";a:1:{s:34:"members_admin_group_name_indicator";a:13:{s:0:"";s:7:"disable";i:1;s:6:"enable";i:2;s:7:"enabled";i:3;s:20:"group_name_indicator";i:4;s:8:"g_hidden";i:5;s:7:"g_shown";i:6;s:14:"g_successfully";i:7;s:7:"g_title";i:8;s:13:"hidden_groups";i:9;s:15:"m_display_order";i:10;s:15:"no_toggle_guest";i:11;s:15:"postform_badmd5";i:12;s:12:"shown_groups";}}s:7:"modules";a:1:{s:0:"";s:32:"admin-members-groupNameIndicator";}s:9:"templates";a:1:{s:11:"skin_boards";a:2:{s:0:"";s:1:"0";i:1;s:22:"hookGroupNameIndicator";}}s:8:"database";a:1:{s:5:"alter";a:1:{i:0;a:6:{s:9:"altertype";s:3:"add";s:5:"table";s:6:"groups";s:5:"field";s:9:"g_display";s:8:"newfield";s:0:"";s:9:"fieldtype";s:11:"smallint(3)";s:7:"default";s:4:"NULL";}}}}]]></hook_extra_data>
+      <hook_key>groupNameIndicator</hook_key>
+      <hook_global_caches/>
+    </config>
+  </hookdata>
+  <hookfiles>
+    <file>
+      <hook_file_real>groupNameIndicator.php</hook_file_real>
+      <hook_type>templateHooks</hook_type>
+      <hook_classname>boardIndexGroupNameIndicator</hook_classname>
+      <hook_data><![CDATA[a:8:{s:12:"dataLocation";s:0:"";s:14:"libApplication";s:0:"";s:15:"classToOverload";s:0:"";s:9:"skinGroup";s:11:"skin_boards";s:12:"skinFunction";s:18:"boardIndexTemplate";s:4:"type";s:2:"if";s:2:"id";s:11:"activeNames";s:8:"position";s:10:"post.endif";}]]></hook_data>
+      <hooks_source><![CDATA[<?php
+
+class boardIndexGroupNameIndicator
+{
+	protected $registry;
+	protected $settings;
+	protected $caches;
+	
+	public function __construct()
+	{
+		/* Make registry objects */
+		$this->registry =  ipsRegistry::instance();
+		$this->settings =& $this->registry->fetchSettings();
+		$this->caches   =& $this->registry->cache()->fetchCaches();
+	}
+	
+	public function getOutput()
+	{
+		/* INIT */
+		$data = array();
+		
+		/* Loop through each group */
+		foreach ( $this->caches['group_cache'] as $id => $group )
+		{
+			/* Displaying?  Filter out Guest group */
+			if ( isset( $group['g_display'] ) && $group['g_display'] && $id != $this->settings['guest_group'] )
+			{
+				/* Link, or just text? */
+				if ( $group['g_hide_from_list'] )
+				{
+					$data[ $group['g_display'] ] = IPSMember::makeNameFormatted( $group['g_title'], $id );
+				}
+				else
+				{
+					$data[ $group['g_display'] ] = "<a href='" . $this->registry->getClass( 'output' )->buildUrl( 'app=members&amp;section=view&amp;module=list&amp;filter='.$id, 'public' ) . "'>" . IPSMember::makeNameFormatted( $group['g_title'], $id ) . "</a>";
+				}
+			}
+		}
+		
+		/* Put in Group Name Indicator order */
+		ksort( $data );
+		
+		/* Return */
+		return $this->registry->output->getTemplate('boards')->hookGroupNameIndicator( $data );
+	}
+}]]></hooks_source>
+    </file>
+  </hookfiles>
+  <hookextras_settings/>
+  <hookextras_language>
+    <language>
+      <word_app>members</word_app>
+      <word_pack>admin_group_name_indicator</word_pack>
+      <word_key>group_name_indicator</word_key>
+      <word_default>Group Name Indicator</word_default>
+      <word_custom/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_app>members</word_app>
+      <word_pack>admin_group_name_indicator</word_pack>
+      <word_key>postform_badmd5</word_key>
+      <word_default>Bad key supplied</word_default>
+      <word_custom/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_app>members</word_app>
+      <word_pack>admin_group_name_indicator</word_pack>
+      <word_key>shown_groups</word_key>
+      <word_default>Shown Groups</word_default>
+      <word_custom/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_app>members</word_app>
+      <word_pack>admin_group_name_indicator</word_pack>
+      <word_key>no_toggle_guest</word_key>
+      <word_default><![CDATA[Can&#39;t toggle the Guest group]]></word_default>
+      <word_custom/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_app>members</word_app>
+      <word_pack>admin_group_name_indicator</word_pack>
+      <word_key>m_display_order</word_key>
+      <word_default>Manage Display Order</word_default>
+      <word_custom/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_app>members</word_app>
+      <word_pack>admin_group_name_indicator</word_pack>
+      <word_key>disable</word_key>
+      <word_default>Disable</word_default>
+      <word_custom/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_app>members</word_app>
+      <word_pack>admin_group_name_indicator</word_pack>
+      <word_key>enable</word_key>
+      <word_default>Enable</word_default>
+      <word_custom/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_app>members</word_app>
+      <word_pack>admin_group_name_indicator</word_pack>
+      <word_key>enabled</word_key>
+      <word_default>Enabled</word_default>
+      <word_custom/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_app>members</word_app>
+      <word_pack>admin_group_name_indicator</word_pack>
+      <word_key>g_hidden</word_key>
+      <word_default>hidden</word_default>
+      <word_custom/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_app>members</word_app>
+      <word_pack>admin_group_name_indicator</word_pack>
+      <word_key>g_shown</word_key>
+      <word_default>shown</word_default>
+      <word_custom/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_app>members</word_app>
+      <word_pack>admin_group_name_indicator</word_pack>
+      <word_key>g_successfully</word_key>
+      <word_default>The group was successfully </word_default>
+      <word_custom/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_app>members</word_app>
+      <word_pack>admin_group_name_indicator</word_pack>
+      <word_key>g_title</word_key>
+      <word_default>Group Title</word_default>
+      <word_custom/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_app>members</word_app>
+      <word_pack>admin_group_name_indicator</word_pack>
+      <word_key>hidden_groups</word_key>
+      <word_default>Hidden Groups</word_default>
+      <word_custom/>
+      <word_js>0</word_js>
+    </language>
+  </hookextras_language>
+  <hookextras_modules>
+    <module>
+      <sys_module_title>Group Name Indicator</sys_module_title>
+      <sys_module_application>members</sys_module_application>
+      <sys_module_key>groupNameIndicator</sys_module_key>
+      <sys_module_description>Manages the display order in the Group Name Indicator hook</sys_module_description>
+      <sys_module_version>1.1.0</sys_module_version>
+      <sys_module_parent/>
+      <sys_module_protected>0</sys_module_protected>
+      <sys_module_tables/>
+      <sys_module_hooks/>
+      <sys_module_visible>1</sys_module_visible>
+      <sys_module_position>2</sys_module_position>
+      <sys_module_admin>1</sys_module_admin>
+    </module>
+  </hookextras_modules>
+  <hookextras_help/>
+  <hookextras_templates>
+    <templates>
+      <template_group>skin_boards</template_group>
+      <template_content><![CDATA[<if test="showGroupNameIndicator:|:count( $groups )">
+				<br />
+				<ul>
+					<li>{parse expression="implode( " | ", $groups )"}</li>
+				</ul>
+</if>]]></template_content>
+      <template_name>hookGroupNameIndicator</template_name>
+      <template_data>$groups=array()</template_data>
+      <template_updated>1235574298</template_updated>
+      <template_removable>0</template_removable>
+      <template_added_to>0</template_added_to>
+      <template_user_added>1</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>root</template_master_key>
+    </templates>
+  </hookextras_templates>
+  <hookextras_css/>
+  <hookextras_tasks/>
+  <hookextras_database_create/>
+  <hookextras_database_alter>
+    <alter>
+      <altertype>add</altertype>
+      <table>groups</table>
+      <field>g_display</field>
+      <newfield/>
+      <fieldtype>smallint(3)</fieldtype>
+      <default>NULL</default>
+    </alter>
+  </hookextras_database_alter>
+  <hookextras_database_update/>
+  <hookextras_database_insert/>
+</hookexport>

@@ -1,0 +1,1036 @@
+<?xml version="1.0" encoding="utf-8"?>
+<templates application="shoutbox" templategroups="a:1:{s:13:&quot;skin_shoutbox&quot;;s:8:&quot;contains&quot;;}">
+  <templategroup group="skin_shoutbox">
+    <template>
+      <template_group>skin_shoutbox</template_group>
+      <template_content><![CDATA[Event.observe(window, 'load', function() {
+<if test="$data['type'] == 'mod-shout' && $data['id'] > 0">ipb.shoutbox.modOptsLoadShout({$data['id']});</if>
+<if test="$data['type'] == 'mod-member' && $data['mid'] > 0">ipb.shoutbox.modOptsLoadMember({$data['mid']});</if>
+<if test="$data['type'] == 'archive'">ipb.shoutbox.displayArchive();</if>
+<if test="$data['type'] == 'myprefs'">ipb.shoutbox.myPrefsLoad();</if>
+<if test="$data['type'] == 'edit-shout' && $data['id']">ipb.shoutbox.editShout({$data['id']});</if>
+});]]></template_content>
+      <template_name>ajax_jscmd</template_name>
+      <template_data><![CDATA[$data='']]></template_data>
+      <template_updated>1352131747</template_updated>
+      <template_removable>0</template_removable>
+      <template_user_added>0</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>root</template_master_key>
+    </template>
+    <template>
+      <template_group>skin_shoutbox</template_group>
+      <template_content><![CDATA[<tr id='shoutbox-announcement-row' class='row2'<if test="$hide"> style='display:none;'</if>>
+	<td class='altrow' valign='middle'<if test="$global"> colspan='2'</if>>
+		<div id='shoutbox-announcement-text' class='message'>
+			{$this->settings['shoutbox_announcement']}
+		</div>
+	</td>
+</tr>]]></template_content>
+      <template_name>announcement</template_name>
+      <template_data>$global=true, $hide=true</template_data>
+      <template_updated>1352131747</template_updated>
+      <template_removable>0</template_removable>
+      <template_user_added>0</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>root</template_master_key>
+    </template>
+    <template>
+      <template_group>skin_shoutbox</template_group>
+      <template_content><![CDATA[<h3>{$this->lang->words['sb_archive']}</h3>
+{parse template="popupInlineError" group="skin_shoutbox" params="archive"}
+<div id='beforeButtonClick' class='ipsBox_container'>
+	<table class='ipb_table'>
+		<tr>
+			<td valign='top' colspan='2'>
+			  {$this->lang->words['sb_archive_welcome']}
+			</td>
+			<td style="vertical-align: top;">
+				<input type='button' id='shoutbox_archive_filters' value='{$this->lang->words['quick_filters']}' class='input_submit ipbmenu right' style='width:140px'/>
+				<ul class='ipbmenu_content' id='shoutbox_archive_filters_menucontent' style='width:138px'>
+					<li id='filter_mine' class='clickable'><a href="#">{$this->lang->words['my_shouts']}</a></li>
+					<li id='filter_today' class='clickable'><a href="#">{$this->lang->words['today_shouts']}</a></li>
+					<li id='filter_yesterday' class='clickable'><a href="#">{$this->lang->words['yesterday_shouts']}</a></li>
+					<li id='filter_month' class='clickable'><a href="#">{$this->lang->words['month_shouts']}</a></li>
+					<li id='filter_all' class='clickable'><a href="#">{$this->lang->words['all_shouts']}</a></li>
+				</ul>
+			</td>
+		</tr>
+		<tr class='row2'>
+			<td class='altrow' valign='top' colspan='3'>
+				<strong><span id='shoutbox-popup-status'></span></strong>
+			</td>
+		</tr>
+		<tr>
+			<td valign='middle' width='5%'>
+				<strong>{$this->lang->words['start']}:</strong>
+			</td>
+			<td valign='top' width='70%'>
+				<select class='input_text' id='filter_start_month'>{$d['s_months']}</select>
+				<select class='input_text' id='filter_start_day'>{$d['s_days']}</select>
+				<select class='input_text' id='filter_start_year'>{$d['s_years']}</select>
+				<select class='input_text' id='filter_start_hour'>{$d['s_hours']}</select>
+				<select class='input_text' id='filter_start_minute'>{$d['s_minutes']}</select>
+				<if test="ampmForStart:|:$this->settings['shoutbox_archive_clock'] == 'ampm'">
+					<select class='input_text' id='filter_start_meridiem'>{$d['s_meridiems']}</select>
+				</if>
+			</td>
+			<td valign='bottom' width='25%'>
+			  <strong>{$this->lang->words['filter_by_names']}:</strong>
+			</td>
+		</tr>
+		<tr>
+			<td valign='middle'>
+				<strong>{$this->lang->words['end']}:</strong>
+			</td>
+			<td valign='top'>
+				<select class='input_text' id='filter_end_month'>{$d['e_months']}</select>
+				<select class='input_text' id='filter_end_day'>{$d['e_days']}</select>
+				<select class='input_text' id='filter_end_year'>{$d['e_years']}</select>
+				<select class='input_text' id='filter_end_hour'>{$d['e_hours']}</select>
+				<select class='input_text' id='filter_end_minute'>{$d['e_minutes']}</select>
+				<if test="ampmForEnd:|:$this->settings['shoutbox_archive_clock'] == 'ampm'">
+					<select class='input_text' id='filter_end_meridiem'>{$d['e_meridiems']}</select>
+				</if>
+			</td>
+			<td valign='top'>
+			  <input class='input_text' type='text' id='filter_member_name' value='' />
+			</td>
+		</tr>
+		<tr>
+			<td colspan='3' style='padding:0;margin:0;'>
+				<p class='submit' width='100%'>
+					<input type='button' id='shoutbox-archive-filter-button' value='{$this->lang->words['filter']}' class='input_submit' />
+				</p>
+			</td>
+		</tr>
+	</table>
+</div>
+<div id='afterButtonClick' class='ipsBox_container' style='display:none;'>
+	<table class='ipb_table'>
+		<tr>
+			<td align='left'>
+				<div id='shoutbox-archive-pages-floater' class='right'>
+					<div id='shoutbox-archive-pages-data'>abc</div>
+				</div>
+				<a href='javascript:void(0);' id='backToFilters'>{$this->lang->words['back_to_filters']}</a><br />
+				<div id='shoutbox-popup-content' style='position:relative'>
+					<div id='shoutbox-archive-shouts-div' style='width:100%;height:{$d['height']}px;overflow:auto'>
+						<table id='shoutbox-archive-shouts'>
+							<tbody>
+							</tbody>
+						</table>
+					</div>
+				</div>
+			</td>
+	  </tr>
+	</table>
+</div>
+<script type='text/javascript'>
+ipb.shoutbox.my_dname     = "{parse expression="str_replace( '"', '"', $this->memberData['members_display_name'] )"}";
+ipb.shoutbox.oldest_shout = "{$d['oldestShout']}";
+//$('shoutbox-archive-shouts-div').observe('scroll', ipb.shoutbox.archive_update_floaters );
+$('filter_member_name').observe('click', function() {
+	if( $('filter_member_name').value == "{parse expression="str_replace( '"', '"', $this->lang->words['member_name'] )"}" )
+	{
+		$('filter_member_name').value='';
+	}
+} );
+$('filter_member_name').observe('focus', function() {
+	ipb.shoutbox.popupUpdateStatus('filter_member_name_status');
+} );
+$('filter_member_name').observe('blur', function() {
+	ipb.shoutbox.popupUpdateStatus('sb_archive_loaded');
+} );
+</script>]]></template_content>
+      <template_name>archive</template_name>
+      <template_data><![CDATA[$d='']]></template_data>
+      <template_updated>1352131747</template_updated>
+      <template_removable>0</template_removable>
+      <template_user_added>0</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>root</template_master_key>
+    </template>
+    <template>
+      <template_group>skin_shoutbox</template_group>
+      <template_content><![CDATA[<script type='text/javascript'>
+ipb.shoutbox.shout_pages = {$d['pages']};
+ipb.shoutbox.archive_update_pager({$d['curpage']});
+</script>]]></template_content>
+      <template_name>archive_ajax</template_name>
+      <template_data><![CDATA[$d='']]></template_data>
+      <template_updated>1352131747</template_updated>
+      <template_removable>0</template_removable>
+      <template_user_added>0</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>root</template_master_key>
+    </template>
+    <template>
+      <template_group>skin_shoutbox</template_group>
+      <template_content><![CDATA[<div class='desc'>{$m}</div>]]></template_content>
+      <template_name>archive_message</template_name>
+      <template_data><![CDATA[$m='']]></template_data>
+      <template_updated>1352131747</template_updated>
+      <template_removable>0</template_removable>
+      <template_user_added>0</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>root</template_master_key>
+    </template>
+    <template>
+      <template_group>skin_shoutbox</template_group>
+      <template_content><![CDATA[<table id='shoutbox-inactive-prompt' style='display:none;'>
+	<tr class='row1'>
+		<td class='altrow short' valign='middle'>
+			{parse expression="str_replace( "<#MINUTES#>", $this->registry->getClass('shoutboxLibrary')->inactivity_cutoff, $this->lang->words['inactive_text'] )"}
+			<br /><br />
+			<input type='button' value="{$this->lang->words['im_back']}" class='input_submit' onclick='ipb.shoutbox.processInactivePrompt();' />
+		</td>
+	</tr>
+</table>]]></template_content>
+      <template_name>inactivePrompt</template_name>
+      <template_data><![CDATA[$d='']]></template_data>
+      <template_updated>1352131747</template_updated>
+      <template_removable>0</template_removable>
+      <template_user_added>0</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>root</template_master_key>
+    </template>
+    <template>
+      <template_group>skin_shoutbox</template_group>
+      <template_content><![CDATA[ipb.shoutbox.myMemberID       = parseInt({$this->memberData['member_id']});
+ipb.shoutbox.can_use          = parseInt({$this->memberData['g_shoutbox_use']});
+ipb.shoutbox.can_edit         = parseInt({$this->memberData['g_shoutbox_edit']});
+ipb.shoutbox.flood_limit      = parseInt({$this->settings['shoutbox_flood_limit']});
+ipb.shoutbox.bypass_flood     = parseInt({$this->memberData['g_shoutbox_bypass_flood']});
+ipb.shoutbox.can_access_acp   = parseInt({$this->memberData['g_access_cp']});
+ipb.shoutbox.view_archive     = <if test="$this->memberData['g_shoutbox_view_archive']">true<else />false</if>;
+ipb.shoutbox.enable_fade      = parseInt({$this->settings['shoutbox_shout_fade']});
+ipb.shoutbox.inactive_timeout = parseInt({$this->registry->getClass('shoutboxLibrary')->inactivity_cutoff});
+ipb.shoutbox.hide_refresh     = parseInt({$this->settings['shoutbox_autohide_refresh']});
+ipb.shoutbox.members_refresh  = $this->settings['shoutbox_members_viewing_refresh'] < 30 ? 30000 : parseInt({$this->settings['shoutbox_members_viewing_refresh']})*1000;
+ipb.shoutbox.shouts_refresh   = $this->settings['shoutbox_shouts_refresh'] < 30 ? 30000 : parseInt({$this->settings['shoutbox_shouts_refresh']})*1000;
+ipb.shoutbox.total_shouts     = parseInt({$this->registry->getClass('shoutboxLibrary')->shout_total});
+ipb.shoutbox.shout_order      = '{$this->registry->getClass('shoutboxLibrary')->shouts_order}';
+ipb.shoutbox.moderator        = {$this->registry->getClass('shoutboxLibrary')->moderator};
+<if test="$this->registry->getClass('shoutboxLibrary')->moderator">
+ipb.shoutbox.mod_perms        = { {$this->registry->getClass('shoutboxLibrary')->mod_perms_js} };
+</if>
+ipb.shoutbox.my_prefs         = { {$this->registry->getClass('shoutboxLibrary')->prefs_js} };
+ipb.shoutbox.img_disable      = parseInt({$this->settings['shoutbox_disable_refresh_image']});
+ipb.shoutbox.member_name      = '{$this->memberData['members_display_name']}';
+ipb.shoutbox.can_me_tag       = parseInt({$this->settings['shoutbox_me_tag']});]]></template_content>
+      <template_name>javascript</template_name>
+      <template_data><![CDATA[$d='']]></template_data>
+      <template_updated>1352131747</template_updated>
+      <template_removable>0</template_removable>
+      <template_user_added>0</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>root</template_master_key>
+    </template>
+    <template>
+      <template_group>skin_shoutbox</template_group>
+      <template_content><![CDATA[<span class='name'>{$link}<if test="$this->registry->getClass('shoutboxLibrary')->moderator">&nbsp;<a href='{parse url="app=shoutbox" seotitle="false" base="public"}#member{$id}' onclick='return ipb.shoutbox.modOptsLoadMember({$id})' title='{$this->lang->words['mmenu_load_mod_opts']}'><img src="{$this->settings['img_url']}/user_edit.png" alt="{$this->lang->words['macro__useredit']}" /></a></if></span>]]></template_content>
+      <template_name>memberViewingName</template_name>
+      <template_data>$id, $link</template_data>
+      <template_updated>1352131747</template_updated>
+      <template_removable>0</template_removable>
+      <template_user_added>0</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>root</template_master_key>
+    </template>
+    <template>
+      <template_group>skin_shoutbox</template_group>
+      <template_content><![CDATA[<if test="substr( $action, 0, 4 ) != 'edit'">
+	<if test="$action == 'delete'">
+		{$this->lang->words['mod_opt_confirm_delete']}
+	</if>
+	<if test="$action == 'delete-all'">
+		{$this->lang->words['mod_opt_confirm_delete_all']}<br /><br />
+		<em>{$this->lang->words['mod_shouts_to_delete']}:&nbsp;&nbsp;&nbsp;{$data['total']}</em>
+	</if>
+	<if test="$action == 'ban'">
+		{$this->lang->words['mod_opt_confirm_ban']}
+	</if>
+	<if test="$action == 'ban24'">
+		{$this->lang->words['mod_opt_confirm_ban']}
+	</if>
+	<if test="$action == 'ban48'">
+		{$this->lang->words['mod_opt_confirm_ban']}
+	</if>
+	<if test="$action == 'unban'">
+		{$this->lang->words['mod_opt_confirm_unban']}
+	</if>
+	<if test="$action == 'delmod'">
+		{$this->lang->words['mod_opt_confirm_delmod']}
+	</if>
+	<br /><br />
+	<div class="short">
+		<input type="button" id="confirm_option_yes" value="{$this->lang->words['yes']}" class="input_submit" />&nbsp;&nbsp;&nbsp;
+		<input type="button" id="confirm_option_no" value="{$this->lang->words['no']}" class="ipsButton_secondary" />
+	</div>
+<else />
+	<if test="$action == 'editHistory'">
+		{$this->lang->words['mod_edit_history_text']}
+		<br /><br />
+		<table class="ipb_table">
+			<tr class="header">
+				<th style="width: 75%;">{$this->lang->words['member_name']}</th>
+				<th class="short" style="width: 25%;">{$this->lang->words['date']}</th>
+			</tr>
+			<foreach loop="$data as $edit">
+				<tr class="{$edit['class']}">
+					<td valign="top">
+						<a href="{parse url="showuser={$edit['member_id']}" base="public"}">{$edit['_name']}</a><br />
+						<span class="desc">{$this->lang->words['ip']}: <em>{$edit['ip']}</em></span>
+					</td>
+					<td class="short" valign="middle">{$edit['_date']}</td>
+				</tr>
+			</foreach>
+		</table>
+		<br />
+	<else />
+		<if test="$this->registry->getClass('shoutboxLibrary')->global_on">
+			<h3>{$this->lang->words['mod_opt_edit']}</h3>
+			{parse template="popupInlineError" group="skin_shoutbox" params="editShout"}
+		</if>
+		<div class="ipsPad">
+			{parse editor="shout_msg" content="$data[text]" options="array( 'height' => 100 )"}
+			<div class="short ipsPad">
+				<input type="button" id="mod_edit_shout_confirm" value="{$this->lang->words['mod_edit_shout']}" class="input_submit" />
+				<input type="button" id="mod_edit_shout_clear" value="{$this->lang->words['clear']}" class="ipsButton_secondary" />
+				<input type="button" id="mod_edit_shout_cancel" value="{$this->lang->words['cancel']}" class="ipsButton_secondary" />
+			</div>
+		</div>
+	</if>
+</if>]]></template_content>
+      <template_name>mod_opts_content</template_name>
+      <template_data><![CDATA[$action='',$data=array()]]></template_data>
+      <template_updated>1352131747</template_updated>
+      <template_removable>0</template_removable>
+      <template_user_added>0</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>root</template_master_key>
+    </template>
+    <template>
+      <template_group>skin_shoutbox</template_group>
+      <template_content><![CDATA[<div id='shoutbox-no-mods-message' class='message error short block_wrap'>{$this->lang->words['error_no_mods']}</div>]]></template_content>
+      <template_name>no_mods</template_name>
+      <template_data/>
+      <template_updated>1352131747</template_updated>
+      <template_removable>0</template_removable>
+      <template_user_added>0</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>root</template_master_key>
+    </template>
+    <template>
+      <template_group>skin_shoutbox</template_group>
+      <template_content><![CDATA[<div id='shoutbox-no-shouts-message' class='message error short block_wrap'>{$this->lang->words['error_no_shouts']}</div>]]></template_content>
+      <template_name>no_shouts</template_name>
+      <template_data/>
+      <template_updated>1352131747</template_updated>
+      <template_removable>0</template_removable>
+      <template_user_added>0</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>root</template_master_key>
+    </template>
+    <template>
+      <template_group>skin_shoutbox</template_group>
+      <template_content><![CDATA[<div id='shoutbox-inline-error-{$area}' class='message error block_wrap' style='display:none;'></div>]]></template_content>
+      <template_name>popupInlineError</template_name>
+      <template_data><![CDATA[$area='app']]></template_data>
+      <template_updated>1352131747</template_updated>
+      <template_removable>0</template_removable>
+      <template_user_added>0</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>root</template_master_key>
+    </template>
+    <template>
+      <template_group>skin_shoutbox</template_group>
+      <template_content><![CDATA[<h3>{$this->lang->words['mod_panel_title']}</h3>
+<div class="ipsBox table_wrap">
+	<div class="ipsBox_container">
+		{parse template="popupInlineError" group="skin_shoutbox" params="moderator"}
+		<table class="ipb_table">
+			<tr>
+				<td valign='top' width='25%'>
+					<if test="$t == 'shout'">
+						<strong>{$this->lang->words['shout_number']} #{$d['s_id']}</strong><br />
+						<strong>{$this->lang->words['by']}</strong>: {$d['shouted_by']}
+					<else />
+						<strong>{$this->lang->words['member']}</strong>:
+						<br />
+						<a href='{parse url="showuser={$d['member_id']}" template="showuser" seotitle="{$d['members_seo_name']}" base="public"}' title='{$d['members_display_name']}'>{$d['_members_display_name']}</a>
+					</if>
+				</td>
+				<td valign='top' width='75%'>
+					{$this->lang->words['mod_opts_welcome']}
+				</td>
+			</tr>
+			<tr>
+				<td colspan='2'>
+					<span class='shoutbox_text'>{$d['s_message']}</span>
+				</td>
+			</tr>
+			<tr  class='row2'>
+				<td class='altrow' colspan='2'>
+					<strong id='shoutbox-popup-status'>{$this->lang->words['mod_opts_start_status']}</strong>
+				</td>
+			</tr>
+			<tr class='row2'>
+				<td id='shoutbox-popup-content' colspan='2'>
+					{$this->lang->words['mod_opts_start_content']}
+				</td>
+			</tr>
+			<tr>
+				<td colspan='2'>
+					<ul class="topic_buttons">
+						<if test="$m['m_edit_shouts'] && $t == 'shout'">
+							<li id='edit_shout' class='clickable'><img src="{$this->settings['img_url']}/comment_edit.png" alt="{$this->lang->words['macro__edit']}" /> {$this->lang->words['mod_opt_edit']}</li>
+							<li id='editHistory_shout' class='clickable'<if test="!is_array($d['s_edit_history']) || !count($d['s_edit_history'])"> style='display:none;'</if>>{parse replacement="display_name"} {$this->lang->words['mod_opt_edit_history']}</li>
+						</if>
+						<if test="( ($m['m_delete_shouts'] && $own) || $m['m_delete_shouts_user'] ) && $t == 'shout'">
+							<li id='delete_shout' class='clickable'><img src="{$this->settings['img_url']}/comment_delete.png" alt="{$this->lang->words['macro__delete']}" /> {$this->lang->words['mod_opt_delete']}</li>
+						</if>
+						<if test="($m['m_delete_shouts'] && $own) || $m['m_delete_shouts_user']">
+							<li id='deleteAll_shout' class='clickable'><img src="{$this->settings['img_url']}/comment_delete.png" alt="{$this->lang->words['macro__delete']}" /> {$this->lang->words['mod_opt_delete_all']}</li>
+						</if>
+						<if test="$d['member_id'] > 0 && $this->memberData['member_id'] != $d['member_id']">
+							<if test="$m['m_ban_members']">
+								<li id='ban_shout' class='clickable'<if test="$d['_cache']['shoutbox_banned']"> style='display:none;'</if>>{parse replacement="spammer_on"} {$this->lang->words['mod_opt_ban']}</li>
+							</if>
+						<if test="$m['m_ban_members']">
+						<li id='ban24_shout' class='clickable'<if test="$d['_cache']['shoutbox_banned']"> style='display:none;'</if>>{parse replacement="spammer_on"} {$this->lang->words['mod_opt_ban_24']}</li>
+						</if>
+							<if test="$m['m_ban_members']">
+							<li id='ban48_shout' class='clickable'<if test="$d['_cache']['shoutbox_banned']"> style='display:none;'</if>>{parse replacement="spammer_on"} {$this->lang->words['mod_opt_ban_48']}</li>
+						</if>
+						<if test="$m['m_unban_members']">
+							<li id='unban_shout' class='clickable'<if test="!$d['_cache']['shoutbox_banned']"> style='display:none;'</if>>{parse replacement="spammer_off"} {$this->lang->words['mod_opt_unban']}</li>
+						</if>
+						<if test="$m['m_remove_mods'] && $d['_is_a_mod'] && $d['member_id'] > 0">
+							<li id='removeMod_shout' class='clickable'><img src="{$this->settings['img_url']}/cross.png" title="{$this->lang->words['macro__deletedmsg']}" alt="*" /> {$this->lang->words['mod_opt_delmod']}</li>
+						</if>
+						</if>
+					</ul>
+				</td>
+			</tr>
+		</table>
+	</div>
+</div>
+<script type='text/javascript'>
+<if test="$t == 'shout'">
+	ipb.shoutbox.mod_shout_id = parseInt({$d['s_id']});
+<else />
+	ipb.shoutbox.mod_member_id = parseInt({$d['member_id']});
+</if>
+</script>]]></template_content>
+      <template_name>popupModerator</template_name>
+      <template_data><![CDATA[$d='',$m='',$t='', $own=0]]></template_data>
+      <template_updated>1352131747</template_updated>
+      <template_removable>0</template_removable>
+      <template_user_added>0</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>root</template_master_key>
+    </template>
+    <template>
+      <template_group>skin_shoutbox</template_group>
+      <template_content><![CDATA[<h3>{$this->lang->words['my_prefs_panel']}</h3>
+<div class="ipsBox table_wrap">
+	<div class="ipsBox_container">
+		{parse template="popupInlineError" group="skin_shoutbox" params="myprefs"}
+		<table class="ipb_table">
+			<tr>
+				<td colspan="2">
+					{$this->lang->words['my_prefs_welcome']}
+				</td>
+			</tr>
+			<tr class="row2">
+				<td class="altrow" colspan="2">
+					<strong id="shoutbox-popup-status">{$this->lang->words['my_prefs_loaded']}</strong>
+				</td>
+			</tr>
+			<tr>
+				<td style="width: 50%;" class="short">
+					<strong>{$this->lang->words['my_prefs_gsb']}</strong>
+					<br />
+					<if test="$d['global_shoutbox']">
+						<label for="my_prefs_gsb_y">{$this->lang->words['yes']}</label> <input type="radio" class="input_radio" name="my_prefs_gsb" value="1" id="my_prefs_gsb_y" {$d['gsb_y']}/> <input type="radio" class="input_radio" name="my_prefs_gsb" value="0" id="my_prefs_gsb_n" {$d['gsb_n']}/> <label for="my_prefs_gsb_n">{$this->lang->words['no']}</label>
+					<else />
+						<span class="shoutbox_disabled">{$this->lang->words['global_shoutbox_off']}</span>
+						<input type="hidden" name="my_prefs_gsb" value="<if test="$d['gsb_y'] == 'checked'">1<else />0</if>" id="my_prefs_gsb_y" />
+					</if>
+				</td>
+				<td style="width: 50%;" class="short">
+					<strong>{$this->lang->words['my_prefs_ets']}</strong>
+					<br />
+					<label for="my_prefs_ets_y">{$this->lang->words['yes']}</label> <input type="radio" class="input_radio" name="my_prefs_ets" value="1" id="my_prefs_ets_y" {$d['ets_y']}/> <input type="radio" class="input_radio" name="my_prefs_ets" value="0" id="my_prefs_ets_n" {$d['ets_n']}/> <label for="my_prefs_ets_n">{$this->lang->words['no']}</label>
+				</td>
+			</tr>
+			<tr>
+				<td class="short">
+					<strong>{$this->lang->words['my_prefs_drb']}</strong>
+					<br />
+					<label for="my_prefs_drb_y">{$this->lang->words['yes']}</label> <input type="radio" class="input_radio" name="my_prefs_drb" value="1" id="my_prefs_drb_y" {$d['drb_y']}/> <input type="radio" class="input_radio" name="my_prefs_drb" value="0" id="my_prefs_drb_n" {$d['drb_n']}/> <label for="my_prefs_drb_n">{$this->lang->words['no']}</label>
+				</td>
+				<td class="short">
+					<strong>{$this->lang->words['my_prefs_eqc']}</strong>
+					<br />
+					<label for="my_prefs_eqc_y">{$this->lang->words['yes']}</label> <input type="radio" class="input_radio" name="my_prefs_eqc" value="1" id="my_prefs_eqc_y" {$d['eqc_y']}/> <input type="radio" class="input_radio" name="my_prefs_eqc" value="0" id="my_prefs_eqc_n" {$d['eqc_n']}/> <label for="my_prefs_eqc_n">{$this->lang->words['no']}</label>
+				</td>
+			</tr>
+			<tr>
+				<td class="short">
+					<strong>{$this->lang->words['my_prefs_sdo']}</strong>
+					<br />
+					<select name="my_prefs_sdo" id="my_prefs_sdo">
+						<option value=''<if test="$d['sdo'] == ''"> selected</if>>{$this->lang->words['default']}</option>
+						<option value='1'<if test="$d['sdo'] == '1'"> selected</if>>{$this->lang->words['olderNewer']}</option>
+						<option value='2'<if test="$d['sdo'] == '2'"> selected</if>>{$this->lang->words['newerOlder']}</option>
+					</select>
+					<br />
+					<span class='error'>{$this->lang->words['refreshMe']}</span>
+				</td>
+				<td class="short">
+					<strong>{$this->lang->words['my_prefs_snd']}</strong>
+					<br />
+					<label for="my_prefs_snd_y">{$this->lang->words['yes']}</label> <input type="radio" class="input_radio" name="my_prefs_snd" value="1" id="my_prefs_snd_y" {$d['snd_y']}/> <input type="radio" class="input_radio" name="my_prefs_snd" value="0" id="my_prefs_snd_n" {$d['snd_n']}/> <label for="my_prefs_snd_n">{$this->lang->words['no']}</label>
+				</td>
+			</tr>
+
+			<tr>
+				<td class="short" colspan="2">
+					<input type="button" id="myprefs_save" value="{$this->lang->words['save_prefs']}" class="input_submit" />
+					<input type="button" id="myprefs_restore" value="{$this->lang->words['restore_default']}" class="ipsButton_secondary" />
+				</td>
+			</tr>
+		</table>
+	</div>
+</div>]]>
+      </template_content>
+      <template_name>popupMyPrefs</template_name>
+      <template_data><![CDATA[$d='']]></template_data>
+      <template_updated>1352131747</template_updated>
+      <template_removable>0</template_removable>
+      <template_user_added>0</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>root</template_master_key>
+    </template>
+    <template>
+      <template_group>skin_shoutbox</template_group>
+      <template_content><![CDATA[<script type='text/javascript'>
+ipb.shoutbox.my_prefs = { {$d['prefs']} };
+ipb.shoutbox.popupUpdateStatus("{$d['msg']}", true);
+ipb.shoutbox.updateJSPreferences();
+</script>]]></template_content>
+      <template_name>popupMyPrefsUpdate</template_name>
+      <template_data><![CDATA[$d='']]></template_data>
+      <template_updated>1352131747</template_updated>
+      <template_removable>0</template_removable>
+      <template_user_added>0</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>root</template_master_key>
+    </template>
+    <template>
+      <template_group>skin_shoutbox</template_group>
+      <template_content><![CDATA[<if test="jsBugPatch:|:$this->caches['app_cache']['core']['app_long_version'] < 32007">
+	<script type="text/javascript">
+	//<!#^#|CDATA|
+		inACP				= false;
+		ipb.vars['is_touch']		= <if test="istl:|:$this->registry->output->isLargeTouchDevice()">'large';<else /><if test="istm:|:$this->registry->output->isSmallTouchDevice()">'small';<else />false;</if></if>
+		ipb.vars['member_group']	= {parse expression="json_encode( array( 'g_mem_info' => $this->memberData['g_mem_info'] ) )"}
+	//|#^#]>
+	</script>
+</if>
+<div id="content">
+	{$output}
+</div>]]></template_content>
+      <template_name>popupWrapper</template_name>
+      <template_data>$output</template_data>
+      <template_updated>1352131747</template_updated>
+      <template_removable>0</template_removable>
+      <template_user_added>0</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>root</template_master_key>
+    </template>
+    <template>
+      <template_group>skin_shoutbox</template_group>
+      <template_content><![CDATA[<if test="$ajax==false"><tr class='row2' id='shout-{$d['_archive']}row-{$d['s_id']}'></if>
+	<if test="$this->settings['shoutbox_show_photos']"><td style='width: 1%; white-space: nowrap;'>{$d['photo']}</td></if>
+	<td style='width: 1%; white-space: nowrap;'>
+		<if test="showAtTag:|:$this->settings['shoutbox_at_tag']">
+			<a href="#" class="at_member" data-store="{$d['members_display_name']}" title="{$this->lang->words['insert_name']}">@</a>&nbsp;
+		</if>
+		<if test="$d['member_id']">
+			{IPSMember::makeProfileLink($d['_members_display_name'], $d['member_id'], $d['members_seo_name'])}
+		<else />
+			<abbr title="{$d['members_display_name']}">{$d['_members_display_name']}</abbr>
+		</if>
+	</td>
+	<if test="showColon:|:$this->settings['shoutbox_format_colon']"><td style='width: 1%; white-space: nowrap;'>:</td></if>
+	<td style='width: 98%;'>
+		<span class='right desc' title='{$d['_date']}'>({$d['s_date']})<if test="$can_edit || ($this->registry->getClass('shoutboxLibrary')->moderator && $this->registry->getClass('shoutboxLibrary')->checkModeratorPerm('edit_shouts', true))">&nbsp;<a href='{parse url="app=shoutbox" seotitle="false" base="public"}#edit{$d['s_id']}' onclick='return ipb.shoutbox.editShout({$d['s_id']})' title='{$this->lang->words['mod_opt_edit']}'><img src="{$this->settings['img_url']}/comment_edit.png" alt="{$this->lang->words['macro__edit']}" /></a></if><if test="$this->registry->getClass('shoutboxLibrary')->moderator">&nbsp;<a href='{parse url="app=shoutbox" seotitle="false" base="public"}#shout{$d['s_id']}' onclick='return ipb.shoutbox.modOptsLoadShout({$d['s_id']})' title='{$this->lang->words['mmenu_load_mod_opts']}'>{parse replacement="edit_folder"}</a></if><if test="!$this->registry->shoutboxLibrary->checkModeratorPerm('delete_shouts', true) && $this->memberData['g_shoutbox_delete_own'] && $d['member_id'] == $this->memberData['member_id']">&nbsp;<a class="deleteMyShout" id="delete_{$d['s_id']}" href="#" title="{$this->lang->words['mod_opt_delete']}"><img src="{$this->settings['img_url']}/delete.png" alt="" /></a></if></span>
+		<if test="$d['_ignored'] == 1">
+			<span id='unhide_shout_{$d['s_id']}' class='desc'>{$this->lang->words['ignored_shouter']} <a href='#shout{$d['s_id']}' onclick='return ipb.shoutbox.showHiddenShout({$d['s_id']})' title='{$this->lang->words['ignored_shouter_view']}'>{$this->lang->words['ignored_shouter_view']}</a></span>
+			<span id='hidden_shout_{$d['s_id']}' class='shoutbox_text' style='display:none'>{$d['s_message']}</span>
+		<else />
+			<span class='shoutbox_text'>{$d['s_message']}</span>
+		</if>
+	</td>
+<if test="$ajax==false"></tr></if>]]></template_content>
+      <template_name>shout_row</template_name>
+      <template_data><![CDATA[$d='',$can_edit=false,$ajax=false]]></template_data>
+      <template_updated>1352131747</template_updated>
+      <template_removable>0</template_removable>
+      <template_user_added>0</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>root</template_master_key>
+    </template>
+    <template>
+      <template_group>skin_shoutbox</template_group>
+      <template_content><![CDATA[<if test="$ajax==false"><tr class='row1' id='shout-{$d['_archive']}row-{$d['s_id']}'></if>
+	<td align='top' class='sidebar_shout'>
+		<div class='sidebar_shout_div'>
+			<if test="$this->settings['shoutbox_show_photos']">{$d['photo']}&nbsp;</if>
+			<if test="showAtTag:|:$this->settings['shoutbox_at_tag']">
+				&nbsp;<a href="#" class="at_member" data-store="{$d['members_display_name']}" title="{$this->lang->words['insert_name']}">@</a>&nbsp;
+			</if>
+			<if test="$d['member_id']">
+				{IPSMember::makeProfileLink($d['_members_display_name'], $d['member_id'], $d['members_seo_name'])}
+			<else />
+				<abbr title="{$d['members_display_name']}">{$d['_members_display_name']}</abbr>
+			</if>&nbsp;-&nbsp;<span class='desc' title='{$d['_date']}'>({$d['s_date']})<if test="$can_edit || ($this->registry->getClass('shoutboxLibrary')->moderator && $this->registry->getClass('shoutboxLibrary')->checkModeratorPerm('edit_shouts',true))">&nbsp;<a href='{parse url="app=shoutbox" seotitle="false" base="public"}#edit{$d['s_id']}' onclick='return ipb.shoutbox.editShout({$d['s_id']})' title='{$this->lang->words['mod_opt_edit']}'><img src="{$this->settings['img_url']}/comment_edit.png" alt="{$this->lang->words['macro__edit']}" /></a></if><if test="$this->registry->getClass('shoutboxLibrary')->moderator">&nbsp;<a href='{parse url="app=shoutbox" seotitle="false" base="public"}#shout{$d['s_id']}' onclick='return ipb.shoutbox.modOptsLoadShout({$d['s_id']})' title='{$this->lang->words['mmenu_load_mod_opts']}'>{parse replacement="edit_folder"}</a></if><if test="!$this->registry->shoutboxLibrary->checkModeratorPerm('delete_shouts', true) && $this->memberData['g_shoutbox_delete_own'] && $d['member_id'] == $this->memberData['member_id']">&nbsp;<a class="deleteMyShout" id="delete_{$d['s_id']}" href="#" title="{$this->lang->words['mod_opt_delete']}"><img src="{$this->settings['img_url']}/delete.png" alt="" /></a></if></span>
+		</div>
+		<div style='padding: 5px;'>
+			<if test="$d['_ignored'] == 1">
+				<span id='unhide_shout_{$d['s_id']}' class='desc'>{$this->lang->words['ignored_shouter']} <a href='#shout{$d['s_id']}' onclick='return ipb.shoutbox.showHiddenShout({$d['s_id']})' title='{$this->lang->words['ignored_shouter_view']}'>{$this->lang->words['ignored_shouter_view']}</a></span>
+				<span id='hidden_shout_{$d['s_id']}' class='shoutbox_text' style='display:none'>{$d['s_message']}</span>
+			<else />
+				<span class='shoutbox_text'>{$d['s_message']}</span>
+			</if>
+		</div>
+	</td>
+<if test="$ajax==false"></tr></if>]]></template_content>
+      <template_name>shout_row_sidebar</template_name>
+      <template_data><![CDATA[$d='',$can_edit=false,$ajax=false]]></template_data>
+      <template_updated>1352131747</template_updated>
+      <template_removable>0</template_removable>
+      <template_user_added>0</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>root</template_master_key>
+    </template>
+    <template>
+      <template_group>skin_shoutbox</template_group>
+      <template_content><![CDATA[<!--- ShoutBoxJsLoader --->
+{parse template="editorLoadJs" group="editors" params="$data"}
+<h3 id='category_shoutbox' class='maintitle'>
+	{$this->settings['shoutbox_title']}
+	<if test="showPopupLink:|:$this->settings['shoutbox_popup'] && $this->request['do'] != 'popup'">
+		<a href="#" id="shoutbox-popup-button" title="{$this->lang->words['open_popup']}">
+			<img src="{$this->settings['img_url']}/shoutbox/popup.png" alt="{$this->lang->words['open_popup']}" />
+		</a>
+	</if>
+</h3>
+<div id='shoutbox-wrapper' class='ipsBox table_wrap'><div class='ipsBox_container'>
+	<table class='ipb_table shoutbox_table'>
+		<tr class='header'>
+			<th scope='col'>
+				<if test="$this->memberData['g_shoutbox_use'] && $this->memberData['g_shoutbox_view_archive']">
+					<div id='shoutbox-archive-link' class='right'>[ <a href='#' id='load-shoutbox-archive'>{$this->lang->words['archive']}</a> ]</div>
+				</if>
+				{$this->lang->words['latest_shouts']}
+			</th>
+		</tr>
+		{$data['announcement']}
+		<tr class='row1'>
+			<td id='shoutbox-shouts-td' valign='top' class='altrow'>
+				{$data['nomods']}
+				{$data['noshouts']}
+				<div id='shoutbox-shouts' style='height:{$data['shout_height']}px;overflow:auto;'>
+					<table id='shoutbox-shouts-table'>
+						<tbody>
+							{$data['shouts']}
+						</tbody>
+					</table>
+				</div>
+				<div id="shouts-resizer"></div>
+				{parse template="popupInlineError" group="skin_shoutbox" params="app"}
+			</td>
+		</tr>
+		<if test="$this->memberData['g_shoutbox_use']">
+			<tr class='row1'>
+				<td class='short' class='altrow'>
+					{parse editor="shout_msg" content="" options="array( 'height' => 100 )"}
+				</td>
+			</tr>
+			<tr class='row2'>
+			  	<td class='altrow short'>
+					<input type='button' id='shoutbox-submit-button' value='{$this->lang->words['shout']}' class='input_submit'/>
+					<input type='button' id='shoutbox-clear-button' value='{$this->lang->words['clear']}' class='input_submit alt'/>
+					<input type='button' id='shoutbox-refresh-button' value='{$this->lang->words['refresh']}' class='input_submit alt'/>
+					<input type='button' id='shoutbox-myprefs-button' value='{$this->lang->words['my_prefs']}' class='input_submit alt'/>
+				</td>
+			</tr>
+		</if>
+	</table>
+</div></div>
+{parse template="inactivePrompt" group="skin_shoutbox" params=""}
+<br />
+<div id='board_stats'>
+	<ul class='ipsType_small ipsList_inline'>
+		<li class='clear'>
+			<span id="shoutbox-total-shouts" class='value'>{$this->registry->getClass('shoutboxLibrary')->shout_total}</span>
+			{$this->lang->words['total_shouts']}
+		</li>
+		<if test="myShoutCount:|:$this->memberData['member_id']">
+			<li class='clear'>
+				<span class='value'>{$stats['my_shouts_num']}</span>
+				{$this->lang->words['my_shouts']}
+			</li>
+		</if>
+		<li class='clear'>
+			<span class='value'><if test="$stats['top_shouter_id']">{$stats['top_shouter_name']}{parse template="user_popup" group="global" params="$stats['top_shouter_id'], $stats['top_shouter_seo']"} ({$stats['top_shouts_num']})<else />--</if></span>
+			{$this->lang->words['top_shouter']}
+		</li>
+		<li class='clear'>
+			<span class='value'>{parse expression="count($this->caches['shoutbox_mods']['groups'])"}</span>
+			{$this->lang->words['total_mods_groups']}
+		</li>
+		<li class='clear'>
+			<span class='value'>{parse expression="count($this->caches['shoutbox_mods']['members'])"}</span>
+			{$this->lang->words['total_mods_members']}
+		</li>
+	</ul>
+</div>
+<div id='board_statistics' class='statistics clearfix'>
+	<h4 class='statistics_head'>
+		<div id='shoutbox-active-total' class='left'>{$stats['TOTAL']}</div>&nbsp;{$this->lang->words['active_users_text']} <span>{$this->lang->words['active_users']}</span><br />
+		<span class='desc'><span id='shoutbox-active-member'>{$stats['MEMBERS']}</span> {$this->lang->words['members']}, <if test="hideGuestCount:|:$this->caches['group_cache'][ $this->settings['guest_group'] ]['g_shoutbox_view']"><span id='shoutbox-active-guests'>{$stats['GUESTS']}</span> {$this->lang->words['guests']}, </if><span id='shoutbox-active-anon'>{$stats['ANON']}</span> {$this->lang->words['anon_users']}</span>
+	</h4>
+	<p id='shoutbox-active-names'>
+		<if test="count($stats['NAMES'])">
+			{parse expression="implode( ", ", $stats['NAMES'] )"}
+		</if>
+	</p>
+</div>
+<script type='text/javascript'>
+/* Setup global value */
+ipb.shoutbox.shoutboxGLOBAL = false;
+{$data['js']}
+{$data['langs']}
+if (ipb.textEditor.getEditor().CKEditor) { ipb.textEditor.getEditor().CKEditor.on('key', ipb.shoutbox.keypress_handler ); }
+</script>]]></template_content>
+      <template_name>shoutbox</template_name>
+      <template_data><![CDATA[$data='', $stats]]></template_data>
+      <template_updated>1352131747</template_updated>
+      <template_removable>0</template_removable>
+      <template_user_added>0</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>root</template_master_key>
+    </template>
+    <template>
+      <template_group>skin_shoutbox</template_group>
+      <template_content><![CDATA[{$d['shouts']}
+<script type='text/javascript'>
+{$d['sound']}
+ipb.shoutbox.shouts_fade([{$d['ids']}]);
+</script>]]></template_content>
+      <template_name>shouts_ajax</template_name>
+      <template_data><![CDATA[$d='']]></template_data>
+      <template_updated>1352131747</template_updated>
+      <template_removable>0</template_removable>
+      <template_user_added>0</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>root</template_master_key>
+    </template>
+  </templategroup>
+  <templategroup group="skin_shoutbox_hooks">
+    <template>
+      <template_group>skin_shoutbox_hooks</template_group>
+      <template_content><![CDATA[<!--- ShoutBoxJsLoader ---><br />
+<h4 class='statistics_head'>
+	<div id='shoutbox-active-total' class='left<if test="$this->settings['shoutbox_active_ajax']"> ajax_update</if>'>{$stats['TOTAL']}</div>&nbsp;{$this->lang->words['active_users_text']}&nbsp;{$this->lang->words['on']}&nbsp;<a href="{parse url="app=shoutbox" seotitle="false" base="public"}" title='{$this->lang->words['view_main_shoutbox']}'>{$this->settings['shoutbox_title']}</a> <span>{$this->lang->words['active_users']}</span><br />
+	<span class='desc'><span id='shoutbox-active-member'>{$stats['MEMBERS']}</span> {$this->lang->words['members']}, <if test="hideGuestCount:|:$this->caches['group_cache'][ $this->settings['guest_group'] ]['g_shoutbox_view']"><span id='shoutbox-active-guests'>{$stats['GUESTS']}</span> {$this->lang->words['guests']}, </if><span id='shoutbox-active-anon'>{$stats['ANON']}</span> {$this->lang->words['anon_users']}</span>
+</h2>
+<p id='shoutbox-active-names'>
+	<if test="count($stats['NAMES'])">
+		{parse expression="implode( ", ", $stats['NAMES'] )"}
+	</if>
+</p>]]></template_content>
+      <template_name>hookActiveUsers</template_name>
+      <template_data>$stats</template_data>
+      <template_updated>1352131747</template_updated>
+      <template_removable>0</template_removable>
+      <template_user_added>0</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>root</template_master_key>
+    </template>
+    <template>
+      <template_group>skin_shoutbox_hooks</template_group>
+      <template_content><![CDATA[<!--- ShoutBoxJsLoader ---><div id='active_users' class='ipsSideBlock clearfix'>
+	<h3><a href="{parse url="app=shoutbox" seotitle="false" base="public"}" title='{$this->lang->words['view_main_shoutbox']}'>{$this->lang->words['sb_hook_active_users']} (<span id='shoutbox-active-total'<if test="$this->settings['shoutbox_active_ajax']"> class='ajax_update''</if>>{$stats['TOTAL']}</span>)</a></h3>
+	<div>
+		<span class='desc'><span id='shoutbox-active-member'>{$stats['MEMBERS']}</span> {$this->lang->words['members']}, <if test="hideGuestCount:|:$this->caches['group_cache'][ $this->settings['guest_group'] ]['g_shoutbox_view']"><span id='shoutbox-active-guests'>{$stats['GUESTS']}</span> {$this->lang->words['guests']}, </if><span id='shoutbox-active-anon'>{$stats['ANON']}</span> {$this->lang->words['anon_users']}</span>
+		<br /><br />
+		<p id='shoutbox-active-names'>
+			<if test="count($stats['NAMES'])">
+				{parse expression="implode( ", ", $stats['NAMES'] )"}
+			</if>
+		</p>
+	</div>
+</div>]]></template_content>
+      <template_name>hookActiveUsersSidebar</template_name>
+      <template_data>$stats</template_data>
+      <template_updated>1352131747</template_updated>
+      <template_removable>0</template_removable>
+      <template_user_added>0</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>root</template_master_key>
+    </template>
+    <template>
+      <template_group>skin_shoutbox_hooks</template_group>
+      <template_content><![CDATA[<!--- ShoutBoxJsLoader --->
+<script type='text/javascript'>
+/* Setup some value */
+ipb.shoutbox.shoutboxGLOBAL = true;
+</script>
+<if test="in_array( $this->settings['shoutbox_global_hook'], array( 'b' ) )"><br class="clear"/></if>
+<div class='category_block block_wrap' id='category_shoutbox'>
+	<h3 class='maintitle'>
+		<a class='toggle right' href='#' title='{$this->lang->words['toggle_shoutbox']}'>{$this->lang->words['toggle_shoutbox']}</a>
+		<a href="{parse url="app=shoutbox" seotitle="false" base="public"}" title='{$this->lang->words['view_main_shoutbox']}'>{$this->settings['shoutbox_title']}</a>
+		<if test="showPopupLink:|:$this->settings['shoutbox_popup']"><a href="#" id="shoutbox-popup-button" title="{$this->lang->words['open_popup']}"><img src="{$this->settings['img_url']}/shoutbox/popup.png" alt="{$this->lang->words['open_popup']}" /></a></if>
+	</h3>
+	<div class='ipsBox table_wrap'><div class='ipsBox_container'>
+		<table class='ipb_table shoutbox_table'>
+			{$d['announcement']}
+			<if test="$this->settings['shoutbox_global_theme'] == 2">
+				<tr class='row1'>
+					<td valign='top' class='altrow' colspan='2'>
+						<div id='shoutbox-shouts' style='height:{$d['shout_height']}px;overflow:auto'>
+							{$d['noshouts']}
+							{parse template="inactivePrompt" group="skin_shoutbox" params=""}
+							<table id='shoutbox-shouts-table'>
+								<tbody>
+									{$d['shouts']}
+								</tbody>
+							</table>
+						</div>
+						<div id='shouts-global-resizer'></div>
+						{parse template="popupInlineError" group="skin_shoutbox" params="glb"}
+					</td>
+				</tr>
+				<if test="$this->memberData['g_shoutbox_use']">
+					<tr class='row1'>
+						<td class='altrow' valign='top' colspan='2'>
+							<input type='text' id='shoutbox-global-shout' size='70' class='input_text' />
+							<input type='button' id='shoutbox-submit-button' value='{$this->lang->words['shout']}' class='input_submit' />
+							<input type='button' id='shoutbox-clear-button' value='{$this->lang->words['clear']}' class='input_submit alt' />
+							<input type='button' id='shoutbox-refresh-button' value='{$this->lang->words['refresh']}' class='input_submit alt' />
+							<if test="$this->settings['shoutbox_allow_smilies']"> <input type='button' id='shoutbox-smilies-button' value='{$this->lang->words['smilies']}' class='input_submit alt' data-clicklaunch="populateSmilies" data-scope="shoutbox" /></if>
+							<if test="$this->settings['shoutbox_allow_bbcode']"> <input type='button' id='shoutbox-bbcode-button' value='{$this->lang->words['bbcode']}' class='input_submit alt' /></if>
+							<input type='button' id='shoutbox-myprefs-button' value='{$this->lang->words['my_prefs']}' class='input_submit alt' />
+						</td>
+					</tr>
+				</if>
+			<else />
+				<tr class='row1'>
+					<td class='altrow' valign='top'<if test="$this->memberData['g_shoutbox_use']"> style='width:75%'<else /> colspan='2'</if>>
+						<div id='shoutbox-shouts' style='height:{$d['shout_height']}px;overflow:auto'>
+							{$d['noshouts']}
+							{parse template="inactivePrompt" group="skin_shoutbox" params=""}
+							<table id='shoutbox-shouts-table'>
+								<tbody>
+									{$d['shouts']}
+								</tbody>
+							</table>
+						</div>
+						<div id='shouts-global-resizer'></div>
+						{parse template="popupInlineError" group="skin_shoutbox" params="glb"}
+					</td>
+					<if test="$this->memberData['g_shoutbox_use']">
+						<td class='short row2 altrow' style='width:25%;min-width:250px;' valign='top'>
+							<textarea id='shoutbox-global-shout' style='width:92%;overflow:auto;' rows='3' cols='50' class='input_text'></textarea>
+							<br /><br />
+							<input type='button' id='shoutbox-submit-button' value='{$this->lang->words['shout']}' class='input_submit' />
+							<input type='button' id='shoutbox-clear-button' value='{$this->lang->words['clear']}' class='input_submit alt' />
+							<input type='button' id='shoutbox-refresh-button' value='{$this->lang->words['refresh']}' class='input_submit alt' />
+							<br /><br />
+							<if test="$this->settings['shoutbox_allow_smilies']"> <input type='button' id='shoutbox-smilies-button' value='{$this->lang->words['smilies']}' class='input_submit alt' data-clicklaunch="populateSmilies" data-scope="shoutbox" /></if>
+							<if test="$this->settings['shoutbox_allow_bbcode']"> <input type='button' id='shoutbox-bbcode-button' value='{$this->lang->words['bbcode']}' class='input_submit alt' /></if>
+							<input type='button' id='shoutbox-myprefs-button' value='{$this->lang->words['my_prefs']}' class='input_submit alt' />
+						</td>
+					</if>
+				</tr>
+			</if>
+		</table>
+	</div></div>
+</div>
+<if test="in_array( $this->settings['shoutbox_global_hook'], array( 't', 'ct' ) )"><br class="clear"/></if>
+<script type='text/javascript'>
+//<!#^#|CDATA|
+{$d['js']}
+//|#^#]>
+</script>]]></template_content>
+      <template_name>hookGlobalShoutbox</template_name>
+      <template_data><![CDATA[$d='']]></template_data>
+      <template_updated>1352131747</template_updated>
+      <template_removable>0</template_removable>
+      <template_user_added>0</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>root</template_master_key>
+    </template>
+    <template>
+      <template_group>skin_shoutbox_hooks</template_group>
+      <template_content><![CDATA[<if test="showPagination:|:$total>count($emoticons)">
+	<h3 class="maintitle short">
+		<span class="pager"><if test="showPrevious:|:$prev!=-1"><a href="#" class="emoticonPager" id="page_{$prev}">&#0171;</a></if>&nbsp;</span>
+		{$this->lang->words['more']}
+		<span class="pager">&nbsp;<if test="showNext:|:(count($emoticons)+(($next-1)*$this->settings['shoutbox_emos_perpage']))<$total"><a href="#" class="emoticonPager" id="page_{$next}">&#0187;</a></if></span>
+	</h3>
+</if>
+<table class="ipb_table">
+	{parse striping="shoutboxEmo" classes="row1,row2"}
+	<php>$count=0;</php>
+	<foreach loop="$emoticons as $emo">
+		<php>$count++;</php>
+		<if test="startRow:|:$count%$this->settings['shoutbox_emos_perrow']==1">
+			<tr class="{parse striping="shoutboxEmo"}">
+		</if>
+		<td class="short">
+			<a title="{$emo['image']}" onclick='ipb.shoutbox.emoticonOnclick("{$emo['text']}"); return false;' href="#">
+				<img alt="{$emo['image']}" src="{$this->settings['emoticons_url']}/{$emo['image']}" />
+			</a>
+		</td>
+		<if test="endRow:|:$count%$this->settings['shoutbox_emos_perrow']==0">
+			</tr>
+		</if>
+	</foreach>
+	<if test="cellCleanup:|:count($emoticons)%$this->settings['shoutbox_emos_perrow']>0">
+		<php>$extra = ""; for ( $i=count($emoticons)%$this->settings['shoutbox_emos_perrow']; $i<$this->settings['shoutbox_emos_perrow']; $i++ ) { $extra .= "<td>&nbsp;</td>"; }</php>
+		{$extra}
+		</tr>
+	</if>
+</table>]]></template_content>
+      <template_name>hookGlobalShoutboxEmoticons</template_name>
+      <template_data>$emoticons=array(), $total=0, $prev=0, $next=0</template_data>
+      <template_updated>1352131747</template_updated>
+      <template_removable>0</template_removable>
+      <template_user_added>0</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>root</template_master_key>
+    </template>
+    <template>
+      <template_group>skin_shoutbox_hooks</template_group>
+      <template_content><![CDATA[<!--- ShoutBoxJsLoader --->
+<script type='text/javascript'>
+/* Setup some value */
+ipb.shoutbox.shoutboxGLOBAL = true;
+</script>
+{$d['emoticons']}
+<div id='shoutbox_sidebar' class='ipsSideBlock clearfix'>
+	<h3>
+		{$this->settings['shoutbox_title']}
+		<if test="showPopupLink:|:$this->settings['shoutbox_popup']"><a href="#" id="shoutbox-popup-button" title="{$this->lang->words['open_popup']}"><img src="{$this->settings['img_url']}/shoutbox/popup.png" alt="{$this->lang->words['open_popup']}" /></a></if>
+</h3>
+	<ul class='hfeed block_list'>
+		<table class='ipb_table shoutbox_table'>
+			{$d['announcement']}
+			<tr class='row1'>
+				<td valign='top' class='altrow'>
+					<div id='shoutbox-shouts' style='height: {$d['shout_height']}px; overflow-x: hidden;'>
+						{$d['noshouts']}
+						{parse template="inactivePrompt" group="skin_shoutbox" params=""}
+						<table id='shoutbox-shouts-table'>
+							<tbody>
+								{$d['shouts']}
+							</tbody>
+						</table>
+					</div>
+					<img src='{$this->settings['img_url']}/spacer.gif' id='shouts-global-resizer' border='0' height='4px' alt='{$this->lang->words['resize_shouts_area']}' style='cursor:n-resize;width:100%;' />
+					{parse template="popupInlineError" group="skin_shoutbox" params="glb"}
+					<if test="$this->memberData['g_shoutbox_use']">
+						<br />
+						<input type='text' id='shoutbox-global-shout' style='width:95%;' class='input_text' /><br /><br />
+						<div class='short'>
+							<input type='button' id='shoutbox-submit-button' value='{$this->lang->words['shout']}' class='input_submit' />
+							<input type='button' id='shoutbox-clear-button' value='{$this->lang->words['clear']}' class='input_submit alt' />
+							<input type='button' id='shoutbox-refresh-button' value='{$this->lang->words['refresh']}' class='input_submit alt' />
+						</div><br />
+						<div class='short'>
+							<if test="$this->settings['shoutbox_allow_smilies']"> <input type='button' id='shoutbox-smilies-button' value='{$this->lang->words['smilies']}' class='input_submit alt' data-clicklaunch="populateSmilies" data-scope="shoutbox" /></if>
+							<if test="$this->settings['shoutbox_allow_bbcode']"> <input type='button' id='shoutbox-bbcode-button' value='{$this->lang->words['bbcode']}' class='input_submit alt' /></if>
+							<input type='button' id='shoutbox-myprefs-button' value='{$this->lang->words['my_prefs']}' class='input_submit alt' />
+						</div>
+					</if>
+				</td>
+			</tr>
+		</table>
+	</ul>
+</div>
+<script type='text/javascript'>
+{$d['js']}
+</script>]]></template_content>
+      <template_name>hookGlobalShoutboxSidebar</template_name>
+      <template_data><![CDATA[$d='']]></template_data>
+      <template_updated>1352131747</template_updated>
+      <template_removable>0</template_removable>
+      <template_user_added>0</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>root</template_master_key>
+    </template>
+    <template>
+      <template_group>skin_shoutbox_hooks</template_group>
+      <template_content><![CDATA[<if test="hasSomeToShow:|:$count > 0">
+	<div id="shoutbox-tab-count-wrap"><span id="shoutbox-tab-count" class="ipsHasNotifications" style="display: none;">{$count}</span></div>
+	<script type="text/javascript">
+		document.observe("dom:loaded", function(){
+			var _thisHtml	= $('nav_app_shoutbox').innerHTML;
+			_thisHtml = _thisHtml.replace( /\<\/a\>/ig, '' ) + $('shoutbox-tab-count-wrap').innerHTML + "</a>";
+			$('nav_app_shoutbox').update( _thisHtml );
+			$('shoutbox-tab-count-wrap').remove();
+			$('shoutbox-tab-count').show();
+		});
+	</script>
+</if>]]></template_content>
+      <template_name>hookOnlineTab</template_name>
+      <template_data>$count=0</template_data>
+      <template_updated>1352131747</template_updated>
+      <template_removable>0</template_removable>
+      <template_user_added>0</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>root</template_master_key>
+    </template>
+    <template>
+      <template_group>skin_shoutbox_hooks</template_group>
+      <template_content><![CDATA[<if test="hasSomeToShow:|:$member['shoutbox_shouts'] > 0">
+	<li>
+		<a href='{parse url="showuser={$member['member_id']}&amp;tab=shoutbox" seotitle="{$member['members_seo_name']}" template="showuser" base="public"}'>
+			<img src="{$this->settings['img_url']}/shoutbox/shout.png" title="{$member['shoutbox_shouts']} {$this->lang->words['shouts']}" alt="{$member['shoutbox_shouts']} {$this->lang->words['shouts']}" /></a>
+		</a>
+	</li>
+</if>]]></template_content>
+      <template_name>hookVCard</template_name>
+      <template_data>$member</template_data>
+      <template_updated>1352131747</template_updated>
+      <template_removable>0</template_removable>
+      <template_user_added>0</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>root</template_master_key>
+    </template>
+    <template>
+      <template_group>skin_shoutbox_hooks</template_group>
+      <template_content><![CDATA[<script type='text/javascript' src='{$this->settings['js_base_url']}js/shoutbox.js'></script>
+<if test="soundsOn:|:$this->settings['shoutbox_enable_sound']">
+<script type='text/javascript' src='{$this->settings['public_dir']}sounds/soundmanager2-nodebug-jsmin.js'></script>
+<script type='text/javascript'>document.observe('dom:loaded', function() { soundManager.url = '{$this->settings['public_dir']}sounds/';soundManager.debugMode=false; });</script>
+</if>]]></template_content>
+      <template_name>shoutboxJavascript</template_name>
+      <template_data/>
+      <template_updated>1352131747</template_updated>
+      <template_removable>0</template_removable>
+      <template_user_added>0</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>root</template_master_key>
+    </template>
+  </templategroup>
+</templates>

@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<menu>
+	<tabitems>
+		<item>
+			<title>Global</title>
+			<subitems>
+				<subitem>
+					<subitemtitle>Global Configuration</subitemtitle>
+					<subsection>settings</subsection>
+					<subitemurl>do=global</subitemurl>
+					<subitemrolekey></subitemrolekey>
+					<subisredirect>0</subisredirect>
+				</subitem>
+			</subitems>
+		</item>
+		<item>
+			<title>Online/Offline</title>
+			<subitems>
+				<subitem>
+					<subitemtitle>Online/Offline</subitemtitle>
+					<subsection>settings</subsection>
+					<subitemurl>do=online</subitemurl>
+					<subitemrolekey></subitemrolekey>
+					<subisredirect>0</subisredirect>
+				</subitem>
+			</subitems>
+		</item>
+		<item>
+			<title>Shouts</title>
+			<subitems>
+				<subitem>
+					<subitemtitle>Shouts</subitemtitle>
+					<subsection>settings</subsection>
+					<subitemurl>do=shouts</subitemurl>
+					<subitemrolekey></subitemrolekey>
+					<subisredirect>0</subisredirect>
+				</subitem>
+			</subitems>
+		</item>
+		<item>
+			<title>Ajax Refresh</title>
+			<subitems>
+				<subitem>
+					<subitemtitle>Ajax Refresh</subitemtitle>
+					<subsection>settings</subsection>
+					<subitemurl>do=refresh</subitemurl>
+					<subitemrolekey></subitemrolekey>
+					<subisredirect>0</subisredirect>
+				</subitem>
+			</subitems>
+		</item>
+		<item>
+			<title>Hook: Global Shoutbox</title>
+			<subitems>
+				<subitem>
+					<subitemtitle>Hook: Global Shoutbox</subitemtitle>
+					<subsection>settings</subsection>
+					<subitemurl>do=hook_global</subitemurl>
+					<subitemrolekey></subitemrolekey>
+					<subisredirect>0</subisredirect>
+				</subitem>
+			</subitems>
+			<condition><![CDATA[
+					$check = ipsRegistry::DB()->buildAndFetch( array( 'select' => 'hook_enabled', 'from' => 'core_hooks', 'where' => "hook_key='ipshoutbox_global'" ) );
+					return $check['hook_enabled'];
+				]]></condition>
+		</item>
+		<item>
+			<title>Hook: Active Users</title>
+			<subitems>
+				<subitem>
+					<subitemtitle>Hook: Active Users</subitemtitle>
+					<subsection>settings</subsection>
+					<subitemurl>do=hook_active</subitemurl>
+					<subitemrolekey></subitemrolekey>
+					<subisredirect>0</subisredirect>
+				</subitem>
+			</subitems>
+			<condition><![CDATA[
+					$check = ipsRegistry::DB()->buildAndFetch( array( 'select' => 'hook_enabled', 'from' => 'core_hooks', 'where' => "hook_key='ipshoutbox_active_users'" ) );
+					return $check['hook_enabled'];
+				]]></condition>
+		</item>
+		<item>
+			<title>Task: Twitter Import</title>
+			<subitems>
+				<subitem>
+					<subitemtitle>Task: Twitter Import</subitemtitle>
+					<subsection>settings</subsection>
+					<subitemurl>do=twitter</subitemurl>
+					<subitemrolekey></subitemrolekey>
+					<subisredirect>0</subisredirect>
+				</subitem>
+			</subitems>
+		</item>
+	</tabitems>
+</menu>

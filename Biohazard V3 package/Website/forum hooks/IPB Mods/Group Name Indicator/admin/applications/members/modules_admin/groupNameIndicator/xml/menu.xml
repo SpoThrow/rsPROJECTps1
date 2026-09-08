@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<menu>
+	<tabitems>
+		<item>
+			<title>Group Name Indicator</title>
+			<subitems>
+				<subitem>
+					<subitemtitle>Group Name Indicator</subitemtitle>
+					<subsection>groupNameIndicator</subsection>
+					<subitemurl>do=display_order</subitemurl>
+					<subitemrolekey></subitemrolekey>
+					<subisredirect>0</subisredirect>
+				</subitem>
+			</subitems>
+		</item>
+	</tabitems>
+</menu>

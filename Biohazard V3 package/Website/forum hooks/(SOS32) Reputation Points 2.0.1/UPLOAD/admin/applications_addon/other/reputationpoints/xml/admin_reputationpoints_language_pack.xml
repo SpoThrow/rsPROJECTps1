@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<languageexport>
+  <languagegroup>
+    <lang>
+      <word_app>reputationpoints</word_app>
+      <word_pack>admin_reputation</word_pack>
+      <word_key>visao_geral</word_key>
+      <word_default><![CDATA[Overview]]></word_default>
+      <word_custom/>
+      <word_default_version>30006</word_default_version>
+      <word_custom_version/>
+      <word_js>0</word_js>
+    </lang>
+    <lang>
+      <word_app>reputationpoints</word_app>
+      <word_pack>admin_reputation</word_pack>
+      <word_key>versao</word_key>
+      <word_default><![CDATA[Version]]></word_default>
+      <word_custom/>
+      <word_default_version>30006</word_default_version>
+      <word_custom_version/>
+      <word_js>0</word_js>
+    </lang>
+    <lang>
+      <word_app>reputationpoints</word_app>
+      <word_pack>admin_reputation</word_pack>
+      <word_key>autor</word_key>
+      <word_default><![CDATA[Author]]></word_default>
+      <word_custom/>
+      <word_default_version>30006</word_default_version>
+      <word_custom_version/>
+      <word_js>0</word_js>
+    </lang>
+    <lang>
+      <word_app>reputationpoints</word_app>
+      <word_pack>admin_reputation</word_pack>
+      <word_key>site</word_key>
+      <word_default><![CDATA[Site]]></word_default>
+      <word_custom/>
+      <word_default_version>30006</word_default_version>
+      <word_custom_version/>
+      <word_js>0</word_js>
+    </lang>
+  </languagegroup>
+</languageexport>

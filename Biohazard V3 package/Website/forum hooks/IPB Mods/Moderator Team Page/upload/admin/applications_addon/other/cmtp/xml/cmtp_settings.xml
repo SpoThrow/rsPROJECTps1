@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="utf-8"?>
+<settingexport>
+  <settinggroup>
+    <setting>
+      <conf_is_title>1</conf_is_title>
+      <conf_title_keyword>cmtp</conf_title_keyword>
+      <conf_title_title>Custom Moderator Team Page</conf_title_title>
+      <conf_title_desc>Settings for custom moderator team page.</conf_title_desc>
+      <conf_title_tab>Custom Moderator Team Page</conf_title_tab>
+      <conf_title_app>cmtp</conf_title_app>
+      <conf_title_noshow>0</conf_title_noshow>
+    </setting>
+    <setting>
+      <conf_title>Search Secondary Group</conf_title>
+      <conf_description>Display members who also belong to this secondary group.</conf_description>
+      <conf_group>112</conf_group>
+      <conf_type>yes_no</conf_type>
+      <conf_key>cmtp_secondary_group</conf_key>
+      <conf_default>0</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>0</conf_protected>
+      <conf_position>1</conf_position>
+      <conf_start_group>General Settings</conf_start_group>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>cmtp</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Order By</conf_title>
+      <conf_description>what information to order the members by.</conf_description>
+      <conf_group>112</conf_group>
+      <conf_type>dropdown</conf_type>
+      <conf_key>cmtp_order_by</conf_key>
+      <conf_default>members_l_display_name</conf_default>
+      <conf_extra>members_l_display_name=Member Name&#13;
+member_group_id=Group&#13;
+joined=Joined Date&#13;
+last_visit=Last Login</conf_extra>
+      <conf_evalphp/>
+      <conf_protected>0</conf_protected>
+      <conf_position>2</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>cmtp</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Sort By</conf_title>
+      <conf_description>sorting option.</conf_description>
+      <conf_group>112</conf_group>
+      <conf_type>dropdown</conf_type>
+      <conf_key>cmtp_sort_by</conf_key>
+      <conf_default>0</conf_default>
+      <conf_extra>0= Ascending (a to z)&#13;
+1=Descending (z to a)</conf_extra>
+      <conf_evalphp/>
+      <conf_protected>0</conf_protected>
+      <conf_position>3</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>cmtp</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>New Layout?</conf_title>
+      <conf_description>Select Yes if you want the new layout (uses pagination and puts all the selected groups into one column with pagination) or choose No, for the old style, where it breaks up groups into their own blocks.</conf_description>
+      <conf_group>112</conf_group>
+      <conf_type>yes_no</conf_type>
+      <conf_key>cmtp_layout_new</conf_key>
+      <conf_default>0</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>0</conf_protected>
+      <conf_position>4</conf_position>
+      <conf_start_group>New Layout Settings</conf_start_group>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>cmtp</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>New Layout Title</conf_title>
+      <conf_description>What to call the block for the new layout.</conf_description>
+      <conf_group>112</conf_group>
+      <conf_type>input</conf_type>
+      <conf_key>cmtp_layout_new_title</conf_key>
+      <conf_default>The Moderating Team</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>0</conf_protected>
+      <conf_position>5</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>cmtp</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Per Page</conf_title>
+      <conf_description>How many Users to show per page in New Layout</conf_description>
+      <conf_group>112</conf_group>
+      <conf_type>input</conf_type>
+      <conf_key>cmtp_layout_new_per_page</conf_key>
+      <conf_default>25</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>0</conf_protected>
+      <conf_position>6</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>cmtp</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Use Member Title</conf_title>
+      <conf_description><![CDATA[Instead of displaying "group", it will display member's title.]]></conf_description>
+      <conf_group>112</conf_group>
+      <conf_type>yes_no</conf_type>
+      <conf_key>cmtp_template_use_title</conf_key>
+      <conf_default>0</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>0</conf_protected>
+      <conf_position>7</conf_position>
+      <conf_start_group>Template Settings</conf_start_group>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>cmtp</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Show Joined Date</conf_title>
+      <conf_description>Shows joined date instead of last active date.</conf_description>
+      <conf_group>112</conf_group>
+      <conf_type>yes_no</conf_type>
+      <conf_key>cmtp_template_use_join</conf_key>
+      <conf_default>0</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>0</conf_protected>
+      <conf_position>8</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>cmtp</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+  </settinggroup>
+</settingexport>

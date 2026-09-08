@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<languageexport>
+  <languagegroup>
+    <lang>
+      <word_app>topicMod</word_app>
+      <word_pack>admin_topicMod</word_pack>
+      <word_key>frm_m_group</word_key>
+      <word_default>-- OR -- select a group</word_default>
+    </lang>
+    <lang>
+      <word_app>topicMod</word_app>
+      <word_pack>admin_topicMod</word_pack>
+      <word_key>frm_m_topicId</word_key>
+      <word_default>Enter the ID of the topic he/she can moderate</word_default>
+    </lang>
+    <lang>
+      <word_app>topicMod</word_app>
+      <word_pack>admin_topicMod</word_pack>
+      <word_key>frm_m_moderateOwn</word_key>
+      <word_default>Can moderate own topics?</word_default>
+    </lang>
+    <lang>
+      <word_app>topicMod</word_app>
+      <word_pack>admin_topicMod</word_pack>
+      <word_key>frm_m_moderateOwn_desc</word_key>
+      <word_default>This will add the member or group as moderator to all topics started by them.</word_default>
+    </lang>
+    <lang>
+      <word_app>topicMod</word_app>
+      <word_pack>admin_topicMod</word_pack>
+      <word_key>frm_m_modOptions</word_key>
+      <word_default>Moderator Options</word_default>
+    </lang>
+    <lang>
+      <word_app>topicMod</word_app>
+      <word_pack>admin_topicMod</word_pack>
+      <word_key>frm_m_allForums</word_key>
+      <word_default>-- ALL FORUMS --</word_default>
+    </lang>
+    <lang>
+      <word_app>topicMod</word_app>
+      <word_pack>admin_topicMod</word_pack>
+      <word_key>frm_m_forumDesc</word_key>
+      <word_default>You may choose more than one.</word_default>
+    </lang>
+    <lang>
+      <word_app>topicMod</word_app>
+      <word_pack>admin_topicMod</word_pack>
+      <word_key>frm_m_forums</word_key>
+      <word_default>Restrict it to the following forums:</word_default>
+    </lang>
+    <lang>
+      <word_app>topicMod</word_app>
+      <word_pack>admin_topicMod</word_pack>
+      <word_key>frm_m_memberName</word_key>
+      <word_default>Enter the members display name</word_default>
+    </lang>
+    <lang>
+      <word_app>topicMod</word_app>
+      <word_pack>admin_topicMod</word_pack>
+      <word_key>frm_m_topic</word_key>
+      <word_default>Can edit topic title?</word_default>
+    </lang>
+    <lang>
+      <word_app>topicMod</word_app>
+      <word_pack>admin_topicMod</word_pack>
+      <word_key>gf_bw_soft_delete_see_post</word_key>
+      <word_default><![CDATA[Can see 'Soft Deleted' content for posts]]></word_default>
+    </lang>
+    <lang>
+      <word_app>topicMod</word_app>
+      <word_pack>admin_topicMod</word_pack>
+      <word_key>gf_bw_soft_delete_reason</word_key>
+      <word_default><![CDATA[Can see 'Soft Deleted' reason for posts]]></word_default>
+    </lang>
+  </languagegroup>
+</languageexport>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<permissions>
+	<group>
+		<grouptitle>Group Permissions</grouptitle>
+		<grouplang>cmpt_php_admin_permissions</grouplang>
+		<items>
+			<item>
+				<key>cmtp_add_groups_display</key>
+				<string>Make Changes to Groups, include adding, removing, renaming Groups</string>
+			</item>
+			<item>
+				<key>cmtp_manage_members</key>
+				<string>Make changes to members, including add and remove members.</string>
+			</item>				
+			<item>
+				<key>cmtp_can_reorder</key>
+				<string>Can Reorder Groups?</string>
+			</item>	
+		</items>
+	</group>
+</permissions>

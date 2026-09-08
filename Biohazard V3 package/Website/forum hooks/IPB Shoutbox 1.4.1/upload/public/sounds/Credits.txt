@@ -1,0 +1,13 @@
+Invision Power Services, Inc. is grateful to the following projects, whose work
+has been used in IP.Chat to add style, flair and functionality to our product.
+
+SoundManager 2		
+	Javascript/flash library for MP3 sounds
+	Scott Schiller (schillmania.com)
+	BSD License: http://www.schillmania.com/projects/soundmanager2/license.txt
+
+PacDV.com
+	MP3 sound effects
+	Hugh Burns (PacDV.com)
+	Proprietary: PacDV.com has graciously given us permission to use their sound effects in
+	IP.Chat, however the MP3 sound files are not available for public redistribution

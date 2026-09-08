@@ -1,0 +1,393 @@
+/*
++----------------------------------------------------
+| User Reputation System v1.0.1
+| ===================================================
+| by Nguyen Tuan Dung (ntd1712)
+| (c) 2005 - 2006 Vietnamese - Invision Resources
+| http://invisionviet.net/
+| ===================================================
+| Date Started: Wed, 08 Feb 2006 17:41 (GMT+07:00)
+| Release Data: Fri, 10 Mar 2006 02:32 (GMT+07:00)
+| License Info: http://invisionviet.net/license.php
++----------------------------------------------------
+*/
+
+File to edit:
+./index.php
+./cache/lang_cache/#/lang_global.php
+./cache/lang_cache/#/lang_topic.php
+./cache/lang_cache/#/lang_ucp.php
+./sources/acp_loaders/acp_content.php
+./sources/acp_loaders/acp_pages_content.php
+./sources/action_admin/groups.php
+./sources/action_public/register.php
+./sources/action_public/profile.php
+./sources/action_public/topics.php
+./sources/action_public/usercp.php
+./sources/sql/mysql_queries.php
+
+Folder to remove:
+./style_images/reputation
+
+File to remove:
+./cache/lang_cache/#/lang_reputation.php
+./cache/skin_cache/cacheid_#/skin_reputation.php
+./sources/action_admin/reputation.php
+./sources/action_public/reputation.php
+
+Run the installer: reputation_install.php --> Click on "Uninstall" button.
+After done, please remove: reputation_install.php, reputation_mysql.php, reputation_settings.xml, for added security.
+
+---------------------------------------------------------------------------------------------
+
+Open: ./index.php
+
+Find & Remove:
+
+'reputation' => array( 'reputation'         , 'reputation'   , array('badwords','bbcode','emoticons') ),
+
+=====================================
+
+Find & Remove:
+
+,'replevel'
+
+---------------------------------------------------------------------------------------------
+
+Open: ./cache/lang_cache/#/lang_global.php
+
+Find & Remove:
+
+'reputation' => "Reputation",
+'rep_off' => "The reputation system is currently disabled.",
+'rep_power' => "Rep Power",
+
+---------------------------------------------------------------------------------------------
+
+Open: ./cache/lang_cache/#/lang_topic.php
+
+Find & Remove:
+
+'rep_add' => "Add to %s&#39;s Reputation",
+
+---------------------------------------------------------------------------------------------
+
+Open: ./sources/acp_loaders/acp_content.php
+
+Find & Remove:
+
+'reputation'   => 'reputation',
+
+---------------------------------------------------------------------------------------------
+
+Open: ./sources/acp_loaders/acp_pages_content.php
+
+Find & Remove:
+
+$CATS[]  = array( 'User Reputations' );
+
+$PAGES[] = array(
+					1 => array( 'User Reputation Manager' , 'section=content&amp;act=reputation&amp;code=modify'  ),
+					2 => array( 'Add New User Reputation' , 'section=content&amp;act=reputation&amp;code=add'     ),
+					3 => array( 'View Reputation Comments', 'section=content&amp;act=reputation&amp;code=list'    ),
+					4 => array( 'View Reputation Settings', 'section=tools&amp;act=op&amp;code=findsetting&amp;key='.urlencode('repoptions'), '', 0, 1 ),
+				);
+
+---------------------------------------------------------------------------------------------
+
+Open: ./sources/action_admin/groups.php
+
+Find & Remove:
+
+							 'g_rep_use'            => $this->ipsclass->input['g_rep_use'],
+							 'g_rep_negative'       => $this->ipsclass->input['g_rep_negative'],
+							 'g_rep_seeown'         => $this->ipsclass->input['g_rep_seeown'],
+							 'g_rep_hide'           => $this->ipsclass->input['g_rep_hide'],
+
+Find & Remove:
+
+		#User Reputation System, written by ntd1712
+		$this->ipsclass->adskin->td_header[] = array( " "  , "40%" );
+		$this->ipsclass->adskin->td_header[] = array( " "  , "60%" );
+
+		$this->ipsclass->html .= $this->ipsclass->adskin->start_table( "User Reputation Permissions" );
+
+		$this->ipsclass->html .= $this->ipsclass->adskin->add_td_row( array( "<b>Can use reputation?</b>" ,
+												  $this->ipsclass->adskin->form_yes_no( "g_rep_use", $group['g_rep_use']  )
+										 )      );
+
+		$this->ipsclass->html .= $this->ipsclass->adskin->add_td_row( array( "<b>Can leave negative reputation?</b>" ,
+												  $this->ipsclass->adskin->form_yes_no( "g_rep_negative", $group['g_rep_negative']  )
+										 )      );
+
+		$this->ipsclass->html .= $this->ipsclass->adskin->add_td_row( array( "<b>Can see who left user ratings?</b>" ,
+												  $this->ipsclass->adskin->form_yes_no( "g_rep_seeown", $group['g_rep_seeown']  )
+										 )      );
+
+		$this->ipsclass->html .= $this->ipsclass->adskin->add_td_row( array( "<b>Can hide reputation from others?</b>" ,
+												  $this->ipsclass->adskin->form_yes_no( "g_rep_hide", $group['g_rep_hide']  )
+										 )      );
+
+		$this->ipsclass->html .= $this->ipsclass->adskin->end_table();
+
+---------------------------------------------------------------------------------------------
+
+Open: ./sources/action_public/register.php
+
+Find & Remove: [ In function create_account() ]
+
+'reputation'           => intval($this->ipsclass->vars['rep_default']) ? intval($this->ipsclass->vars['rep_default']) : 10,
+
+---------------------------------------------------------------------------------------------
+
+Open: ./sources/action_public/profile.php
+
+Find & Remove: [ In function view_profile() ]
+
+		//-----------------------------------------
+		// User Reputation
+		//-----------------------------------------
+
+		if( $this->ipsclass->vars['rep_is_online'] )
+		{
+			$rep_power = $member['reputation'];
+			if( $member['reputation'] == 0 )
+			{
+				$rep_img   = 'balance';
+				$rep_power = $member['reputation'] * -1;
+			}
+			elseif( $member['reputation'] < 0 )
+			{
+				$rep_img   = 'neg';
+				$rep_img_2 = 'highneg';
+				$rep_power = $member['reputation'] * -1;
+			}
+			else
+			{
+				$rep_img   = 'pos';
+				$rep_img_2 = 'highpos';
+			}
+
+			if( $rep_power > 500 )
+			{
+				# bright green bars take 200 pts not the normal 100
+				$rep_power = ( $rep_power - ($rep_power - 500) ) + ( ($rep_power - 500) / 2 );
+			}
+
+			# award 1 reputation bar for every 100 points
+			$rep_bar = intval($rep_power / 100);
+			if( $rep_bar > 10 )
+			{
+				$rep_bar = 10;
+			}
+
+			if( $this->ipsclass->member['g_rep_hide'] )
+			{
+				$posneg = 'off';
+				$rep_level = $this->ipsclass->lang['rep_off'];
+			}
+			else
+			{
+				$rep_level = $this->ipsclass->cache['replevel'][ $member['reputation'] ] ? $this->ipsclass->cache['replevel'][ $member['reputation'] ] : $this->ipsclass->vars['rep_undefined'];
+
+				for( $i = 0; $i <= $rep_bar; $i++ )
+				{
+					if( $i >= 5 )
+					{
+						$posneg = $rep_img_2;
+					}
+					else
+					{
+						$posneg = $rep_img;
+					}
+				}
+			}
+
+			$info['member_reputation'] = "<br />{$this->ipsclass->lang['reputation']}: <img src='style_images/reputation/reputation_$posneg.gif' border='0' alt=\"{$this->ipsclass->lang['rep_power']}: $rep_power\n{$member['members_display_name']} $rep_level\" />";
+		}
+
+---------------------------------------------------------------------------------------------
+
+Open: ./sources/action_public/topics.php
+
+Find & Remove: [ In function parse_row( $row = array() ) ]
+
+		//-----------------------------------------
+		// User Reputation
+		//-----------------------------------------
+
+		if( $poster['id'] && ( $this->ipsclass->vars['rep_is_online'] == 1 ) )
+		{
+			$rep_power = $poster['reputation'];
+			if( $poster['reputation'] == 0 )
+			{
+				$rep_img   = 'balance';
+				$rep_power = $poster['reputation'] * -1;
+			}
+			elseif( $poster['reputation'] < 0 )
+			{
+				$rep_img   = 'neg';
+				$rep_img_2 = 'highneg';
+				$rep_power = $poster['reputation'] * -1;
+			}
+			else
+			{
+				$rep_img   = 'pos';
+				$rep_img_2 = 'highpos';
+			}
+
+			if( $rep_power > 500 )
+			{
+				# bright green bars take 200 pts not the normal 100
+				$rep_power = ( $rep_power - ($rep_power - 500) ) + ( ($rep_power - 500) / 2 );
+			}
+
+			# award 1 reputation bar for every 100 points
+			$rep_bar = intval($rep_power / 100);
+			if( $rep_bar > 10 )
+			{
+				$rep_bar = 10;
+			}
+
+			if( $this->ipsclass->member['g_rep_hide'] )
+			{
+				$posneg = 'off';
+				$rep_level = $this->ipsclass->lang['rep_off'];
+			}
+			else
+			{
+				$rep_level = $this->ipsclass->cache['replevel'][ $poster['reputation'] ] ? $this->ipsclass->cache['replevel'][ $poster['reputation'] ] : $this->ipsclass->vars['rep_undefined'];
+
+				for( $i = 0; $i <= $rep_bar; $i++ )
+				{
+					if( $i >= 5 )
+					{
+						$posneg = $rep_img_2;
+					}
+					else
+					{
+						$posneg = $rep_img;
+					}
+				}
+			}
+
+			$poster['member_reputation'] = $this->ipsclass->lang['reputation'].": <img src='style_images/reputation/reputation_$posneg.gif' border='0' alt=\"{$this->ipsclass->lang['rep_power']}: $rep_power\n{$poster['members_display_name']} $rep_level\" /> &nbsp;(<a href='javascript:;' onclick=\"PopUp('{$this->ipsclass->base_url}act=reputation&amp;fid={$this->topic['forum_id']}&amp;pid={$row['pid']}','Reputation',400,241,1,1);\"><img src='style_images/<#IMG_DIR#>/add.gif' border='0' alt=\"".sprintf($this->ipsclass->lang['add_reputation'], $poster['members_display_name'])."\" /></a>)";
+		}
+
+---------------------------------------------------------------------------------------------
+
+Open: ./sources/action_public/usercp.php
+
+Find & Remove: [ In function splash() ]
+
+ 		//-----------------------------------------
+		// Grab the last 5 reputation
+		//-----------------------------------------
+
+		if( $this->ipsclass->vars['rep_is_online'] )
+		{
+			$this->ipsclass->DB->build_query( array( 'select'   => 'r.*',
+													 'from'     => array( 'reputation' => 'r' ),
+													 'where'    => 'userid='.$this->ipsclass->member['id'],
+													 'add_join' => array(
+													 # POST TABLE JOIN
+												 					  1 => array( 'select' => 'p.topic_id',
+												 								  'from'   => array( 'posts' => 'p' ),
+												 								  'where'  => 'p.pid=r.postid',
+												 								  'type'   => 'left' ),
+													 # TOPIC TABLE JOIN 					  			  
+																	  0 => array( 'select' => 't.title',
+												 								  'from'   => array( 'topics' => 't' ),
+								 												  'where'  => 'p.topic_id=t.tid',
+								 												  'type'   => 'left' )
+											 							),
+													 'order'	=> 'dateline DESC',
+													 'limit'    => array(0, 5) ) );
+			$this->ipsclass->DB->exec_query();
+
+			if( $this->ipsclass->DB->get_num_rows() )
+			{
+				while( $row = $this->ipsclass->DB->fetch_row() )
+				{
+					$row['dateline'] = $this->ipsclass->get_date( $row['dateline'], 'LONG' );
+					if( $row['reputation'] > 0 )
+					{
+						$row['posneg'] = 'pos';
+					}
+					elseif( $row['reputation'] < 0 )
+					{
+						$row['posneg'] = 'neg';
+					}
+					else
+					{
+						$row['posneg'] = 'balance';
+					}
+
+					$info['rep_html'] .= $this->ipsclass->compiled_templates['skin_ucp']->reputation_row( $row );
+				}
+			}
+		}
+
+---------------------------------------------------------------------------------------------
+
+Open: ./sources/sql/mysql_queries.php
+
+Find & Remove: [ In function topics_get_posts( $a ) ]
+
+m.reputation,
+
+=====================================
+
+Find & Remove: [ In function topics_get_posts_with_join( $a ) ]
+
+m.reputation,
+
+---------------------------------------------------------------------------------------------
+
+Goto: Admin CP: Skin & Templates: Skin Manager: Edit Template HTML:
+
+1/ Profile View: show_profile
+
+Find & Remove:
+
+					{$info['member_reputation']}
+
+=====================================
+
+2/ Topic View: RenderRow
+
+Find & Remove:
+
+        		{$author['member_reputation']}<br />
+
+=====================================
+
+3/ User Control Panel: splash
+
+Find & Remove:
+
+<div class='borderwrapm'>
+<div class='maintitle'>{ipb.lang['splash_rep5']}</div>
+	<table class='ipbtable' cellspacing='1'>
+<if="member['rep_html'] != """>
+	<tr>
+		<th width='45%' colspan='2'>{ipb.lang['attach_topic']}</th>
+		<th width='10%'>{ipb.lang['attach_date']}</th>
+		<th width='45%'>{ipb.lang['splash_repcom']}</th>
+	</tr>
+	{$member['rep_html']}
+</if>
+<else>
+	<tr><td colspan='4' align='center'><b>{ipb.lang['splash_norep']}</b></td></tr>
+</else>
+	</table>
+</div>
+
+=====================================
+
+4/ User Control Panel: remove template bit "reputation_row"
+
+---------------------------------------------------------------------------------------------
+
+Your are done! :(
+©2006 ntd1712

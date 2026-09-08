@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<information>
+  <data>
+    <name>IPB Shoutbox</name>
+    <public_name>IPB Shoutbox</public_name>
+    <hide_tab>0</hide_tab>
+    <author>Pete Treanor</author>
+    <description><![CDATA[Shoutbox adds a feature rich shoutbox to your existing IP.Board&#33;]]></description>
+    <disabledatinstall>0</disabledatinstall>
+    <global_caches/>
+    <website>http://www.ipbshoutbox.com</website>
+    <update_check/>
+    <templategroups>
+        <template match="contains">skin_shoutbox</template>
+    </templategroups>
+  </data>
+</information>

@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<hookexport>
+  <hookdata>
+    <config>
+      <hook_name>Custom Moderator Team Page</hook_name>
+      <hook_desc>Allows To Show The Moderator Team Customization</hook_desc>
+      <hook_author>Coding Jungle (Sub-division Provisionists LLC)</hook_author>
+      <hook_email>admin@codingjungle.com</hook_email>
+      <hook_website>codingjungle.com</hook_website>
+      <hook_update_check/>
+      <hook_requirements><![CDATA[a:3:{s:21:"required_applications";a:0:{}s:20:"hook_php_version_min";s:0:"";s:20:"hook_php_version_max";s:0:"";}]]></hook_requirements>
+      <hook_version_human>2.1.2</hook_version_human>
+      <hook_version_long>212</hook_version_long>
+      <hook_extra_data/>
+      <hook_key>cmtp_display</hook_key>
+      <hook_global_caches/>
+    </config>
+  </hookdata>
+  <hookfiles>
+    <file>
+      <hook_file_real>cmtp_display.php</hook_file_real>
+      <hook_type>commandHooks</hook_type>
+      <hook_classname>cmtp_display</hook_classname>
+      <hook_data><![CDATA[a:8:{s:12:"dataLocation";s:0:"";s:14:"libApplication";s:0:"";s:15:"classToOverload";s:26:"public_forums_extras_stats";s:9:"skinGroup";N;s:12:"skinFunction";N;s:4:"type";N;s:2:"id";N;s:8:"position";N;}]]></hook_data>
+      <hooks_source><![CDATA[<?php
+/**
+ * @ Application : 		Custom Moderator Team Page v2.0.0
+ * @ Last Updated : 	June 13th, 2012 
+ * @ Author :			Michael S. Edwards
+ * @ Copyright :		(c) 2011 Coding Jungle
+ * @ Link	 :			http://www.codingjungle.com/
+ */    	
+class cmtp_display extends public_forums_extras_stats {
+	public function _showLeaders() {
+		if (!IPSLib::appIsInstalled('cmtp') && $this -> caches['app_cache']['cmtp']['app_enabled'] == 0) {
+			parent::_showLeaders();
+		} else {
+
+			if (!$this -> registry -> isClassLoaded('cmtp')) {
+
+				$classToLoad = IPSLib::loadLibrary(IPSLib::getAppDir('cmtp') . '/sources/cmtp.php', 'cmtp', 'cmtp');
+
+				$this -> registry -> setClass('cmtp', new $classToLoad($registry));
+			}
+
+			if ($this -> settings['cmtp_layout_new'] == 0) {	                            								$this -> registry -> getClass('cmtp') -> CustomModTeam();
+
+				if (strlen($this -> registry -> getClass('cmtp') -> CustomModTeam()) <= 0) {
+					parent::_showLeaders();
+				}
+			} else if ($this -> settings['cmtp_layout_new'] == 1) {
+				$this -> registry -> getClass('cmtp') -> CustomModTeamNew();
+
+				if (strlen($this -> registry -> getClass('cmtp') -> CustomModTeam()) <= 0) {
+					parent::_showLeaders();
+				}
+			}
+		}
+	}
+}]]></hooks_source>
+    </file>
+  </hookfiles>
+  <hookextras_settings/>
+  <hookextras_language/>
+  <hookextras_modules/>
+  <hookextras_help/>
+  <hookextras_templates/>
+  <hookextras_css/>
+  <hookextras_tasks/>
+  <hookextras_database_create/>
+  <hookextras_database_alter/>
+  <hookextras_database_update/>
+  <hookextras_database_insert/>
+</hookexport>

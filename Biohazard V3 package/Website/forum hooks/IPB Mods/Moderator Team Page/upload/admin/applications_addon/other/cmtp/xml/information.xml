@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<information>
+  <data>
+    <name>Custom Moderator Team Page</name>
+    <public_name>cmtp</public_name>
+    <hide_tab>1</hide_tab>
+    <author>Coding Jungle</author>
+    <description>Gives ability to select what Groups and what order they appear,on the "moderating team" page in forums/elsewhere</description>
+    <disabledatinstall>0</disabledatinstall>
+    <global_caches/>
+    <website>http://codingjungle.com</website>
+    <update_check/>
+    <templategroups>
+        <template match="exact">skin_cmtp</template>
+    </templategroups>
+  </data>
+</information>

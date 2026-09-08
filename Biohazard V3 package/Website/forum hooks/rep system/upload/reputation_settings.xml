@@ -1,0 +1,265 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<settingexport exported="1099667778">
+	<settinggroup>
+		<setting>
+			<conf_is_title>1</conf_is_title>
+			<conf_title_keyword>repoptions</conf_title_keyword>
+			<conf_title_title>User Reputation Settings</conf_title_title>
+			<conf_title_desc>This section allows you to configure the User Reputation system.</conf_title_desc>
+			<conf_title_noshow>0</conf_title_noshow>
+		</setting>
+
+		<setting>
+			<conf_id>266</conf_id>
+			<conf_title>Enable User Reputation system?</conf_title>
+			<conf_description><![CDATA[Turn the User Reputation system on and off.]]></conf_description>
+			<conf_group>50</conf_group>
+			<conf_type>yes_no</conf_type>
+			<conf_key>rep_is_online</conf_key>
+			<conf_value></conf_value>
+			<conf_default>1</conf_default>
+			<conf_extra></conf_extra>
+			<conf_evalphp></conf_evalphp>
+			<conf_protected>1</conf_protected>
+			<conf_position>1</conf_position>
+			<conf_start_group></conf_start_group>
+			<conf_end_group>0</conf_end_group>
+			<conf_help_key></conf_help_key>
+			<conf_add_cache>1</conf_add_cache>
+			<conf_title_keyword>repoptions</conf_title_keyword>
+			<conf_is_title>0</conf_is_title>
+		</setting>
+
+		<setting>
+			<conf_id>267</conf_id>
+			<conf_title>Default Reputation</conf_title>
+			<conf_description><![CDATA[What reputation level shall new users receive upon registration? Make sure that you have a reputation level that is at least equal to or less than this value.]]></conf_description>
+			<conf_group>50</conf_group>
+			<conf_type>input</conf_type>
+			<conf_key>rep_default</conf_key>
+			<conf_value></conf_value>
+			<conf_default>10</conf_default>
+			<conf_extra></conf_extra>
+			<conf_evalphp></conf_evalphp>
+			<conf_protected>1</conf_protected>
+			<conf_position>2</conf_position>
+			<conf_start_group></conf_start_group>
+			<conf_end_group>0</conf_end_group>
+			<conf_help_key></conf_help_key>
+			<conf_add_cache>1</conf_add_cache>
+			<conf_title_keyword>repoptions</conf_title_keyword>
+			<conf_is_title>0</conf_is_title>
+		</setting>
+
+		<setting>
+			<conf_id>268</conf_id>
+			<conf_title>Reputation Undefined</conf_title>
+			<conf_description><![CDATA[If you have any user gain a reputation that exceeds your lowest negative level, then this phrase will be used for them. If you do not wish to use this phrase, make sure you set a negative reputation that is larger than the largest score (negative) that a user on your forum has.]]></conf_description>
+			<conf_group>50</conf_group>
+			<conf_type>input</conf_type>
+			<conf_key>rep_undefined</conf_key>
+			<conf_value></conf_value>
+			<conf_default>is off the scale</conf_default>
+			<conf_extra></conf_extra>
+			<conf_evalphp></conf_evalphp>
+			<conf_protected>1</conf_protected>
+			<conf_position>3</conf_position>
+			<conf_start_group></conf_start_group>
+			<conf_end_group>0</conf_end_group>
+			<conf_help_key></conf_help_key>
+			<conf_add_cache>1</conf_add_cache>
+			<conf_title_keyword>repoptions</conf_title_keyword>
+			<conf_is_title>0</conf_is_title>
+		</setting>
+
+		<setting>
+			<conf_id>269</conf_id>
+			<conf_title>Number of Reputation Ratings to Display</conf_title>
+			<conf_description><![CDATA[Controls how many ratings to display in the user&#39;s control panel.]]></conf_description>
+			<conf_group>50</conf_group>
+			<conf_type>input</conf_type>
+			<conf_key>rep_userrates</conf_key>
+			<conf_value></conf_value>
+			<conf_default>5</conf_default>
+			<conf_extra></conf_extra>
+			<conf_evalphp></conf_evalphp>
+			<conf_protected>1</conf_protected>
+			<conf_position>4</conf_position>
+			<conf_start_group></conf_start_group>
+			<conf_end_group>0</conf_end_group>
+			<conf_help_key></conf_help_key>
+			<conf_add_cache>1</conf_add_cache>
+			<conf_title_keyword>repoptions</conf_title_keyword>
+			<conf_is_title>0</conf_is_title>
+		</setting>
+
+		<setting>
+			<conf_id>270</conf_id>
+			<conf_title>Administrator&#39;s Reputation Power</conf_title>
+			<conf_description><![CDATA[How many reputation points does an administrator give or take away with each click?<br />Set to 0 to have administrators follow the same rules as everyone else.]]></conf_description>
+			<conf_group>50</conf_group>
+			<conf_type>input</conf_type>
+			<conf_key>rep_adminpower</conf_key>
+			<conf_value></conf_value>
+			<conf_default>10</conf_default>
+			<conf_extra></conf_extra>
+			<conf_evalphp></conf_evalphp>
+			<conf_protected>1</conf_protected>
+			<conf_position>5</conf_position>
+			<conf_start_group></conf_start_group>
+			<conf_end_group>0</conf_end_group>
+			<conf_help_key></conf_help_key>
+			<conf_add_cache>1</conf_add_cache>
+			<conf_title_keyword>repoptions</conf_title_keyword>
+			<conf_is_title>0</conf_is_title>
+		</setting>
+
+		<setting>
+			<conf_id>271</conf_id>
+			<conf_title>Register Date Factor</conf_title>
+			<conf_description><![CDATA[For every X number of days, users gain 1 point of reputation-altering power.]]></conf_description>
+			<conf_group>50</conf_group>
+			<conf_type>input</conf_type>
+			<conf_key>rep_rdpower</conf_key>
+			<conf_value></conf_value>
+			<conf_default>365</conf_default>
+			<conf_extra></conf_extra>
+			<conf_evalphp></conf_evalphp>
+			<conf_protected>1</conf_protected>
+			<conf_position>6</conf_position>
+			<conf_start_group></conf_start_group>
+			<conf_end_group>0</conf_end_group>
+			<conf_help_key></conf_help_key>
+			<conf_add_cache>1</conf_add_cache>
+			<conf_title_keyword>repoptions</conf_title_keyword>
+			<conf_is_title>0</conf_is_title>
+		</setting>
+
+		<setting>
+			<conf_id>272</conf_id>
+			<conf_title>Post Count Factor</conf_title>
+			<conf_description><![CDATA[For every X number of posts, users gain 1 point of reputation-altering power.]]></conf_description>
+			<conf_group>50</conf_group>
+			<conf_type>input</conf_type>
+			<conf_key>rep_pcpower</conf_key>
+			<conf_value></conf_value>
+			<conf_default>1000</conf_default>
+			<conf_extra></conf_extra>
+			<conf_evalphp></conf_evalphp>
+			<conf_protected>1</conf_protected>
+			<conf_position>7</conf_position>
+			<conf_start_group></conf_start_group>
+			<conf_end_group>0</conf_end_group>
+			<conf_help_key></conf_help_key>
+			<conf_add_cache>1</conf_add_cache>
+			<conf_title_keyword>repoptions</conf_title_keyword>
+			<conf_is_title>0</conf_is_title>
+		</setting>
+
+		<setting>
+			<conf_id>273</conf_id>
+			<conf_title>Reputation Point Factor</conf_title>
+			<conf_description><![CDATA[For every X points of reputation, users gain 1 point of reputation-altering power.]]></conf_description>
+			<conf_group>50</conf_group>
+			<conf_type>input</conf_type>
+			<conf_key>rep_kppower</conf_key>
+			<conf_value></conf_value>
+			<conf_default>100</conf_default>
+			<conf_extra></conf_extra>
+			<conf_evalphp></conf_evalphp>
+			<conf_protected>1</conf_protected>
+			<conf_position>8</conf_position>
+			<conf_start_group></conf_start_group>
+			<conf_end_group>0</conf_end_group>
+			<conf_help_key></conf_help_key>
+			<conf_add_cache>1</conf_add_cache>
+			<conf_title_keyword>repoptions</conf_title_keyword>
+			<conf_is_title>0</conf_is_title>
+		</setting>
+
+		<setting>
+			<conf_id>274</conf_id>
+			<conf_title>Minimum Post Count</conf_title>
+			<conf_description><![CDATA[How many posts must a user have before his reputation hits count on others?]]></conf_description>
+			<conf_group>50</conf_group>
+			<conf_type>input</conf_type>
+			<conf_key>rep_minpost</conf_key>
+			<conf_value></conf_value>
+			<conf_default>50</conf_default>
+			<conf_extra></conf_extra>
+			<conf_evalphp></conf_evalphp>
+			<conf_protected>1</conf_protected>
+			<conf_position>9</conf_position>
+			<conf_start_group></conf_start_group>
+			<conf_end_group>0</conf_end_group>
+			<conf_help_key></conf_help_key>
+			<conf_add_cache>1</conf_add_cache>
+			<conf_title_keyword>repoptions</conf_title_keyword>
+			<conf_is_title>0</conf_is_title>
+		</setting>
+
+		<setting>
+			<conf_id>275</conf_id>
+			<conf_title>Minimum Reputation Count</conf_title>
+			<conf_description><![CDATA[How much reputation must a user have before his reputation hits count on others?]]></conf_description>
+			<conf_group>50</conf_group>
+			<conf_type>input</conf_type>
+			<conf_key>rep_minrep</conf_key>
+			<conf_value></conf_value>
+			<conf_default>10</conf_default>
+			<conf_extra></conf_extra>
+			<conf_evalphp></conf_evalphp>
+			<conf_protected>1</conf_protected>
+			<conf_position>10</conf_position>
+			<conf_start_group></conf_start_group>
+			<conf_end_group>0</conf_end_group>
+			<conf_help_key></conf_help_key>
+			<conf_add_cache>1</conf_add_cache>
+			<conf_title_keyword>repoptions</conf_title_keyword>
+			<conf_is_title>0</conf_is_title>
+		</setting>
+
+		<setting>
+			<conf_id>276</conf_id>
+			<conf_title>Daily Reputation Clicks Limit</conf_title>
+			<conf_description><![CDATA[How many reputation clicks can a user give over each 24 hour period? Administrators are exempt from this limit.]]></conf_description>
+			<conf_group>50</conf_group>
+			<conf_type>input</conf_type>
+			<conf_key>rep_maxperday</conf_key>
+			<conf_value></conf_value>
+			<conf_default>10</conf_default>
+			<conf_extra></conf_extra>
+			<conf_evalphp></conf_evalphp>
+			<conf_protected>1</conf_protected>
+			<conf_position>11</conf_position>
+			<conf_start_group></conf_start_group>
+			<conf_end_group>0</conf_end_group>
+			<conf_help_key></conf_help_key>
+			<conf_add_cache>1</conf_add_cache>
+			<conf_title_keyword>repoptions</conf_title_keyword>
+			<conf_is_title>0</conf_is_title>
+		</setting>
+
+		<setting>
+			<conf_id>277</conf_id>
+			<conf_title>Reputation User Spread</conf_title>
+			<conf_description><![CDATA[How many different users must you give reputation to before you can hit the same person again? Administrators are exempt from this limit.]]></conf_description>
+			<conf_group>50</conf_group>
+			<conf_type>input</conf_type>
+			<conf_key>rep_repeat</conf_key>
+			<conf_value></conf_value>
+			<conf_default>20</conf_default>
+			<conf_extra></conf_extra>
+			<conf_evalphp></conf_evalphp>
+			<conf_protected>1</conf_protected>
+			<conf_position>12</conf_position>
+			<conf_start_group></conf_start_group>
+			<conf_end_group>0</conf_end_group>
+			<conf_help_key></conf_help_key>
+			<conf_add_cache>1</conf_add_cache>
+			<conf_title_keyword>repoptions</conf_title_keyword>
+			<conf_is_title>0</conf_is_title>
+		</setting>
+	</settinggroup>
+
+</settingexport>

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<permissions>
+	<group>
+		<grouptitle>Settings</grouptitle>
+		<items>
+			<item>
+				<key>shoutbox_settings_global</key>
+				<string>Can manage 'Global Configuration' settings?</string>
+			</item>
+			<item>
+				<key>shoutbox_settings_online</key>
+				<string>Can manage 'Online/Offline' settings?</string>
+			</item>
+			<item>
+				<key>shoutbox_settings_shouts</key>
+				<string>Can manage 'Shouts' settings?</string>
+			</item>
+			<item>
+				<key>shoutbox_settings_refresh</key>
+				<string>Can manage 'Ajax Refresh' settings?</string>
+			</item>
+			<item>
+				<key>shoutbox_settings_hook_global</key>
+				<string>Can manage 'Hook: Global Shoutbox' settings?</string>
+			</item>
+			<item>
+				<key>shoutbox_settings_hook_active</key>
+				<string>Can manage 'Hook: Active Users' settings?</string>
+			</item>
+		</items>
+	</group>
+</permissions>

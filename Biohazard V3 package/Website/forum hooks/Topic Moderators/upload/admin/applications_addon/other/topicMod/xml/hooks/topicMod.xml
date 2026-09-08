@@ -1,0 +1,841 @@
+<?xml version="1.0" encoding="utf-8"?>
+<hookexport>
+  <hookdata>
+    <config>
+      <hook_name>Topic Moderators</hook_name>
+      <hook_desc/>
+      <hook_author>Invision Modding</hook_author>
+      <hook_email/>
+      <hook_website>http://www.invisionmodding.com</hook_website>
+      <hook_update_check>http://invisionmodding.com/resource_updates.php?resource=topicMod</hook_update_check>
+      <hook_requirements><![CDATA[a:3:{s:21:"required_applications";a:2:{s:4:"core";a:3:{s:8:"app_name";s:6:"System";s:11:"min_version";i:33000;s:11:"max_version";i:0;}s:8:"topicMod";a:3:{s:8:"app_name";s:16:"Topic Moderators";s:11:"min_version";i:21001;s:11:"max_version";i:0;}}s:20:"hook_php_version_min";s:0:"";s:20:"hook_php_version_max";s:0:"";}]]></hook_requirements>
+      <hook_version_human>2.1.1</hook_version_human>
+      <hook_version_long>21001</hook_version_long>
+      <hook_extra_data><![CDATA[a:3:{s:7:"display";a:2:{s:8:"language";s:38:"From forums_public_topic: topic_led_by";s:9:"templates";s:72:"From skin_topic: topicLedByWithActiveUsers, topicLedByWithoutActiveUsers";}s:8:"language";a:1:{s:12:"public_topic";a:1:{i:0;s:12:"topic_led_by";}}s:9:"templates";a:1:{s:10:"skin_topic";a:2:{s:25:"topicLedByWithActiveUsers";s:25:"topicLedByWithActiveUsers";s:28:"topicLedByWithoutActiveUsers";s:28:"topicLedByWithoutActiveUsers";}}}]]></hook_extra_data>
+      <hook_key>im_topicMod</hook_key>
+      <hook_global_caches>topicmod</hook_global_caches>
+    </config>
+  </hookdata>
+  <hookfiles>
+    <file>
+      <hook_file_real>topicMod_classTopics.php</hook_file_real>
+      <hook_type>libraryHooks</hook_type>
+      <hook_classname>topicMod_classTopics</hook_classname>
+      <hook_data><![CDATA[a:8:{s:12:"dataLocation";s:0:"";s:14:"libApplication";s:6:"forums";s:15:"classToOverload";s:25:"app_forums_classes_topics";s:9:"skinGroup";N;s:12:"skinFunction";N;s:4:"type";N;s:2:"id";N;s:8:"position";N;}]]></hook_data>
+      <hooks_source><![CDATA[<?php
+
+/**
+ *	Topic Moderators
+ *
+ * @author 		Martin Aronsen
+ * @copyright	2008 - 2012 Invision Modding
+ * @web: 		http://invisionmodding.com
+ * @IPB ver.:	IP.Board 3.3
+ * @version:	2.1.1  (21001)
+ *
+ */
+
+
+class topicMod_classTopics extends (~extends~)
+{
+	public function canView( $topicData=false, $memberData=false )
+	{
+		if ( is_array( $topicData ) && isset( $topicData['tid'] ) )
+		{
+			$this->setTopicData( $topicData );
+		}
+		
+		if ( is_array( $memberData ) && isset( $memberData['member_id'] ) )
+		{
+			$this->setMemberData( $memberData );
+		}
+		
+		
+		if ( $this->moderatorData === null AND $this->memberData['member_id'] AND ! $this->memberData['g_is_supmod'] )
+		{
+			/* OK, this member can moderate own topics */
+			if ( isset( $this->caches['topicmod']['moderate_own']['member'][ $this->memberData['member_id'] ] ) )
+			{
+				/* But is this my topic? */
+				foreach( $this->caches['topicmod']['moderate_own']['member'][ $this->memberData['member_id'] ] as $mod )
+				{
+					if ( $mod['forums'] == '*' OR strstr( ',' . $mod['forums'] . ',', ',' . $this->request['f'] . ',' ) )
+					{
+						if ( $this->topicData['starter_id'] == $this->memberData['member_id'] )
+						{
+							$this->moderatorData = $mod;
+							$this->memberData['is_mod'] = 1;
+							
+							break;
+						}
+					}
+				}
+			}
+			else if ( isset( $this->caches['topicmod']['moderate_own']['group'][ $this->memberData['member_group_id'] ] ) )
+			{
+				/* But is this my topic? */
+				foreach( $this->caches['topicmod']['moderate_own']['group'][ $this->memberData['member_group_id'] ] as $mod )
+				{
+					if ( $mod['forums'] == '*' OR strstr( ',' . $mod['forums'] . ',', ',' . $this->request['f'] . ',' ) )
+					{
+						if ( $this->topicData['starter_id'] == $this->memberData['member_id'] )
+						{
+							$this->moderatorData = $mod;
+							$this->memberData['is_mod'] = 1;
+							
+							break;
+						}
+					}
+				}
+			}
+			
+			
+			if( isset( $this->caches['topicmod']['member'][ $this->getTopicData( 'tid' ) ][ $this->memberData['member_id'] ] ) )
+			{
+				$this->moderatorData = $this->caches['topicmod']['member'][ $this->getTopicData( 'tid' ) ][ $this->memberData['member_id'] ];
+				$this->memberData['is_mod'] = 1;
+			}
+			else if ( isset( $this->caches['topicmod']['group'][ $this->getTopicData( 'tid' ) ][ $this->memberData['member_group_id'] ] ) )
+			{
+				$this->moderatorData = $this->caches['topicmod']['group'][ $this->getTopicData( 'tid' ) ][ $this->memberData['member_group_id'] ];
+				$this->memberData['is_mod'] = 1;	
+			}
+			
+			if ( $this->moderatorData !== null )
+			{
+				if ( $this->moderatorData['close_topic'] AND $this->moderatorData['open_topic'] )
+				{
+					$this->memberData['g_post_closed'] = 1;
+				}
+				
+				$this->memberData['forumsModeratorData'][ $this->getTopicData( 'forum_id' ) ] = $this->moderatorData;
+				
+				$this->setMemberData( 'gbw_soft_delete', 			$this->moderatorData['gbw_soft_delete'] );
+				$this->setMemberData( 'gbw_un_soft_delete', 		$this->moderatorData['gbw_un_soft_delete'] );
+				$this->setMemberData( 'gbw_soft_delete_see', 		$this->moderatorData['gbw_soft_delete_see'] );
+				$this->setMemberData( 'gbw_soft_delete_reason', 	$this->moderatorData['gbw_soft_delete_reason'] );
+				$this->setMemberData( 'gbw_soft_delete_see_post',	$this->moderatorData['gbw_soft_delete_see_post'] );
+				$this->setMemberData( 'g_post_closed', 				$this->memberData['g_post_closed'] );
+				$this->setMemberData( 'is_mod',						1 );
+				$this->setMemberData( 'forumsModeratorData',		$this->memberData['forumsModeratorData'] );
+
+			}
+		}
+		
+		return parent::canView( $this->getTopicData(), $this->getMemberData() );
+	}
+	
+	public function setMemberData( $k, $v='' )
+	{
+		if ( in_array( $k, array( 'gbw_soft_delete', 'gbw_un_soft_delete',  'gbw_soft_delete_see','gbw_soft_delete_reason', 'gbw_soft_delete_see_post', 'g_post_closed', 'is_mod', 'forumsModeratorData' ) ) )
+		{
+			$this->_memberData[ $k ] = $v;
+		}
+		else
+		{
+			parent::setMemberData( $k, $v );
+		}
+	}
+}]]></hooks_source>
+    </file>
+    <file>
+      <hook_file_real>topicMod_withoutActiveUsers_template.php</hook_file_real>
+      <hook_type>templateHooks</hook_type>
+      <hook_classname>topicMod_withoutActiveUsers_template</hook_classname>
+      <hook_data><![CDATA[a:8:{s:12:"dataLocation";s:0:"";s:14:"libApplication";s:0:"";s:15:"classToOverload";s:0:"";s:9:"skinGroup";s:10:"skin_topic";s:12:"skinFunction";s:17:"topicViewTemplate";s:4:"type";s:2:"if";s:2:"id";s:16:"topicActiveUsers";s:8:"position";s:10:"post.endif";}]]></hook_data>
+      <hooks_source><![CDATA[<?php
+
+/**
+ *	Topic Moderators
+ *
+ * @author 		Martin Aronsen
+ * @copyright	2008 - 2012 Invision Modding
+ * @web: 		http://invisionmodding.com
+ * @IPB ver.:	IP.Board 3.3
+ * @version:	2.1.1  (21001)
+ *
+ */
+
+
+class topicMod_withoutActiveUsers_template
+{
+	public function __construct()
+	{
+		$this->registry 	=  ipsRegistry::instance();
+		$this->DB       	=  $this->registry->DB();
+		$this->settings 	=& $this->registry->fetchSettings();
+		$this->request  	=& $this->registry->fetchRequest();
+		$this->cache    	=  $this->registry->cache();
+		$this->caches   	=& $this->registry->cache()->fetchCaches();
+		
+	}
+	
+	public function getOutput()
+	{
+		
+		if ( $this->settings['im_topicMod-showTopicLedBy'] == 0 )
+		{
+			return;
+		}
+		
+		if ( $this->settings['no_au_topic'] == 0 )
+		{
+			return;
+		}
+		
+		$mods = $modsGID = $modsID = array();
+				
+		if ( isset( $this->caches['topicmod']['group'][ $this->request['t'] ] ) )
+		{
+			foreach( $this->caches['topicmod']['group'][ $this->request['t'] ] as $mod )
+			{
+				$mod['g_title'] = IPSMember::makeNameFormatted( $mod['g_title'], $mod['g_id'] );
+				
+				$mods[] = array( $this->registry->getClass( 'output' )->buildUrl( "app=members&section=view&module=list&filter={$mod['g_id']}", "public" ), $mod['g_title'] );
+				$modsGID[ $mod['group_id'] ] = $mod['group_id'];
+			}
+		}
+		
+		if ( isset( $this->caches['topicmod']['moderate_own']['group'] ) AND count( $this->caches['topicmod']['moderate_own']['group'] ) )
+		{
+			$topicData = $this->DB->buildAndFetch( 
+				array( 
+					'select' 	=> 't.starter_id, t.forum_id', 
+					'from' 		=> array( 'topics' => 't' ), 
+					'where' 	=> 't.tid=' . $this->request['t'],
+					'add_join'	=> array(
+										array(
+											'select' => 'm.member_group_id',
+											'from'		=> array( 'members' => 'm' ),
+											'where'		=> 't.starter_id=m.member_id'
+										)
+					)
+			) );
+			if ( isset( $this->caches['topicmod']['moderate_own']['group'][ $topicData['member_group_id'] ] ) AND count( $this->caches['topicmod']['moderate_own']['group'][ $topicData['member_group_id'] ] ) )
+			{
+				foreach ( $this->caches['topicmod']['moderate_own']['group'][ $topicData['member_group_id'] ] as $mod )
+				{
+					if ( $topicData['member_group_id'] == $mod['group_id'] AND ! isset( $modsGID[ $mod['group_id'] ] ) )
+					{
+						if ( $mod['forums'] == '*' OR strstr( ',' . $mod['forums'] . ',', ',' . $topicData['forum_id'] . ',' ) )
+						{
+							$mod['g_title'] = IPSMember::makeNameFormatted( $mod['g_title'], $mod['g_id'] );
+							
+							$mods[] = array( $this->registry->getClass( 'output' )->buildUrl( "app=members&section=view&module=list&filter={$mod['g_id']}", "public" ), $mod['g_title'] );
+						}
+					}
+				}
+			}
+		}
+		
+		if ( isset( $this->caches['topicmod']['member'][ $this->request['t'] ] ) )
+		{
+			foreach( $this->caches['topicmod']['member'][ $this->request['t'] ] as $mod )
+			{
+				$mod['members_display_name'] = IPSMember::makeNameFormatted( $mod['members_display_name'], $mod['member_group_id'] );
+				
+				$mods[] = array( $this->registry->getClass( 'output' )->buildSEOUrl( "showuser={$mod['member_id']}", "public", $mod['seoname'], 'showuser' ), $mod['members_display_name'], $mod['member_id'] );
+				
+				/* Used to prevent duplicate entries and complex foreaches() */
+				$modsID[ $mod['member_id'] ] = $mod['member_id'];
+			}
+		}
+		
+		if ( isset( $this->caches['topicmod']['moderate_own']['member'] ) AND count( $this->caches['topicmod']['moderate_own']['member'] ) )
+		{
+			if ( ! count( $topicData ) )
+			{
+				$topicData = $this->DB->buildAndFetch( array( 'select' => 'starter_id, forum_id', 'from' => 'topics', 'where' => 'tid=' . $this->request['t'] ) );
+			}
+			
+			if ( isset( $this->caches['topicmod']['moderate_own']['member'][ $topicData['starter_id'] ] ) AND count( $this->caches['topicmod']['moderate_own']['member'][ $topicData['starter_id'] ] ) )
+			{
+				foreach ( $this->caches['topicmod']['moderate_own']['member'][ $topicData['starter_id'] ] as $mod )
+				{
+					if ( $topicData['starter_id'] == $mod['member_id'] AND ! isset( $modsID[ $mod['member_id'] ] ) )
+					{
+						$mod['members_display_name'] = IPSMember::makeNameFormatted( $mod['members_display_name'], $mod['member_gr1oup_id'] );
+						
+						$mods[] = array( $this->registry->getClass( 'output' )->buildSEOUrl( "showuser={$mod['member_id']}", "public", $mod['seoname'], 'showuser' ), $mod['members_display_name'], $mod['member_id'] );
+					}
+				}
+			}
+		}
+			
+		if ( count( $mods ) )
+		{	
+			return $this->registry->getClass( 'output' )->getTemplate( 'topic' )->topicLedByWithActiveUsers( $mods );
+		}
+	}
+}]]></hooks_source>
+    </file>
+    <file>
+      <hook_file_real>topicMod_withActiveUsers_template.php</hook_file_real>
+      <hook_type>templateHooks</hook_type>
+      <hook_classname>topicMod_withActiveUsers_template</hook_classname>
+      <hook_data><![CDATA[a:8:{s:12:"dataLocation";s:0:"";s:14:"libApplication";s:0:"";s:15:"classToOverload";s:0:"";s:9:"skinGroup";s:10:"skin_topic";s:12:"skinFunction";s:17:"topicViewTemplate";s:4:"type";s:2:"if";s:2:"id";s:7:"auNames";s:8:"position";s:10:"post.endif";}]]></hook_data>
+      <hooks_source><![CDATA[<?php
+
+/**
+ *	Topic Moderators
+ *
+ * @author 		Martin Aronsen
+ * @copyright	2008 - 2012 Invision Modding
+ * @web: 		http://invisionmodding.com
+ * @IPB ver.:	IP.Board 3.3
+ * @version:	2.1.1  (21001)
+ *
+ */
+
+
+class topicMod_withActiveUsers_template
+{
+	public function __construct()
+	{
+		$this->registry 	=  ipsRegistry::instance();
+		$this->DB       	=  $this->registry->DB();
+		$this->settings 	=& $this->registry->fetchSettings();
+		$this->request  	=& $this->registry->fetchRequest();
+		$this->cache    	=  $this->registry->cache();
+		$this->caches   	=& $this->registry->cache()->fetchCaches();
+		
+	}
+	
+	public function getOutput()
+	{
+		if ( $this->settings['im_topicMod-showTopicLedBy'] == 0 )
+		{
+			return;
+		}
+		
+		if ( $this->settings['no_au_topic'] == 1 )
+		{
+			return;
+		}
+		
+		$mods = $modsGID = $modsID = array();
+				
+		if ( isset( $this->caches['topicmod']['group'][ $this->request['t'] ] ) )
+		{
+			foreach( $this->caches['topicmod']['group'][ $this->request['t'] ] as $mod )
+			{
+				$mod['g_title'] = IPSMember::makeNameFormatted( $mod['g_title'], $mod['g_id'] );
+				
+				$mods[] = array( $this->registry->getClass( 'output' )->buildUrl( "app=members&section=view&module=list&filter={$mod['g_id']}", "public" ), $mod['g_title'] );
+				$modsGID[ $mod['group_id'] ] = $mod['group_id'];
+			}
+		}
+		
+		if ( isset( $this->caches['topicmod']['moderate_own']['group'] ) AND count( $this->caches['topicmod']['moderate_own']['group'] ) )
+		{
+			$topicData = $this->DB->buildAndFetch( 
+				array( 
+					'select' 	=> 't.starter_id, t.forum_id', 
+					'from' 		=> array( 'topics' => 't' ), 
+					'where' 	=> 't.tid=' . $this->request['t'],
+					'add_join'	=> array(
+										array(
+											'select' => 'm.member_group_id',
+											'from'		=> array( 'members' => 'm' ),
+											'where'		=> 't.starter_id=m.member_id'
+										)
+					)
+			) );
+			if ( isset( $this->caches['topicmod']['moderate_own']['group'][ $topicData['member_group_id'] ] ) AND count( $this->caches['topicmod']['moderate_own']['group'][ $topicData['member_group_id'] ] ) )
+			{
+				foreach ( $this->caches['topicmod']['moderate_own']['group'][ $topicData['member_group_id'] ] as $mod )
+				{
+					if ( $topicData['member_group_id'] == $mod['group_id'] AND ! isset( $modsGID[ $mod['group_id'] ] ) )
+					{
+						if ( $mod['forums'] == '*' OR strstr( ',' . $mod['forums'] . ',', ',' . $topicData['forum_id'] . ',' ) )
+						{
+							$mod['g_title'] = IPSMember::makeNameFormatted( $mod['g_title'], $mod['g_id'] );
+							
+							$mods[] = array( $this->registry->getClass( 'output' )->buildUrl( "app=members&section=view&module=list&filter={$mod['g_id']}", "public" ), $mod['g_title'] );
+						}
+					}
+				}
+			}
+		}
+		
+		if ( isset( $this->caches['topicmod']['member'][ $this->request['t'] ] ) )
+		{
+			foreach( $this->caches['topicmod']['member'][ $this->request['t'] ] as $mod )
+			{
+				$mod['members_display_name'] = IPSMember::makeNameFormatted( $mod['members_display_name'], $mod['member_group_id'] );
+				
+				$mods[] = array( $this->registry->getClass( 'output' )->buildSEOUrl( "showuser={$mod['member_id']}", "public", $mod['seoname'], 'showuser' ), $mod['members_display_name'], $mod['member_id'] );
+				
+				/* Used to prevent duplicate entries and complex foreaches() */
+				$modsID[ $mod['member_id'] ] = $mod['member_id'];
+			}
+		}
+		
+		if ( isset( $this->caches['topicmod']['moderate_own']['member'] ) AND count( $this->caches['topicmod']['moderate_own']['member'] ) )
+		{
+			if ( ! count( $topicData ) )
+			{
+				$topicData = $this->DB->buildAndFetch( array( 'select' => 'starter_id, forum_id', 'from' => 'topics', 'where' => 'tid=' . $this->request['t'] ) );
+			}
+			
+			if ( isset( $this->caches['topicmod']['moderate_own']['member'][ $topicData['starter_id'] ] ) AND count( $this->caches['topicmod']['moderate_own']['member'][ $topicData['starter_id'] ] ) )
+			{
+				foreach ( $this->caches['topicmod']['moderate_own']['member'][ $topicData['starter_id'] ] as $mod )
+				{
+					if ( $topicData['starter_id'] == $mod['member_id'] AND ! isset( $modsID[ $mod['member_id'] ] ) )
+					{
+						$mod['members_display_name'] = IPSMember::makeNameFormatted( $mod['members_display_name'], $mod['member_gr1oup_id'] );
+						
+						$mods[] = array( $this->registry->getClass( 'output' )->buildSEOUrl( "showuser={$mod['member_id']}", "public", $mod['seoname'], 'showuser' ), $mod['members_display_name'], $mod['member_id'] );
+					}
+				}
+			}
+		}
+			
+		if ( count( $mods ) )
+		{	
+			return $this->registry->getClass( 'output' )->getTemplate( 'topic' )->topicLedByWithActiveUsers( $mods );
+		}
+	}
+}]]></hooks_source>
+    </file>
+    <file>
+      <hook_file_real>topicMod_topics.php</hook_file_real>
+      <hook_type>commandHooks</hook_type>
+      <hook_classname>topicMod_topics</hook_classname>
+      <hook_data><![CDATA[a:8:{s:12:"dataLocation";s:0:"";s:14:"libApplication";s:0:"";s:15:"classToOverload";s:27:"public_forums_forums_topics";s:9:"skinGroup";N;s:12:"skinFunction";N;s:4:"type";N;s:2:"id";N;s:8:"position";N;}]]></hook_data>
+      <hooks_source><![CDATA[<?php
+
+/**
+ *	Topic Moderators
+ *
+ * @author 		Martin Aronsen
+ * @copyright	2008 - 2012 Invision Modding
+ * @web: 		http://invisionmodding.com
+ * @IPB ver.:	IP.Board 3.3
+ * @version:	2.1.1  (21001)
+ *
+ */
+
+class topicMod_topics extends (~extends~)
+{
+	public function _generateModerationPanel()
+	{
+		if ( ! $this->memberData['member_id'] )
+		{
+			return;
+		}
+		
+		$moderator = $this->registry->getClass( 'topics' )->getModeratorData();
+		
+		if ( !empty( $moderator['mid'] ) )
+		{
+			$this->memberData['is_mod'] = 1;
+		}
+		
+		return parent::_generateModerationPanel();
+	}
+}]]></hooks_source>
+    </file>
+    <file>
+      <hook_file_real>topicMod_moderate.php</hook_file_real>
+      <hook_type>commandHooks</hook_type>
+      <hook_classname>topicMod_moderate</hook_classname>
+      <hook_data><![CDATA[a:8:{s:12:"dataLocation";s:0:"";s:14:"libApplication";s:0:"";s:15:"classToOverload";s:31:"public_forums_moderate_moderate";s:9:"skinGroup";N;s:12:"skinFunction";N;s:4:"type";N;s:2:"id";N;s:8:"position";N;}]]></hook_data>
+      <hooks_source><![CDATA[<?php
+
+/**
+ *	Topic Moderators
+ *
+ * @author 		Martin Aronsen
+ * @copyright	2008 - 2012 Invision Modding
+ * @web: 		http://invisionmodding.com
+ * @IPB ver.:	IP.Board 3.3
+ * @version:	2.1.1  (21001)
+ *
+ */
+
+
+class topicMod_moderate extends (~extends~)
+{
+	protected function _resetModerator( $forumId )
+	{
+		parent::_resetModerator( $forumId );
+		
+	 	if ( $this->request['t'] )
+	 	{	
+		 	/* OK, this member can moderate own topics */
+			if ( isset( $this->caches['topicmod']['moderate_own']['member'][ $this->memberData['member_id'] ] ) )
+			{
+				/* But is this my topic? */
+				foreach( $this->caches['topicmod']['moderate_own']['member'][ $this->memberData['member_id'] ] as $mod )
+				{
+					if ( $mod['forums'] == '*' OR strstr( ',' . $mod['forums'] . ',', ',' . $this->request['f'] . ',' ) )
+					{
+						if ( $this->topic['starter_id'] == $this->memberData['member_id'] )
+						{
+							$this->moderator = $mod;
+							$this->memberData['is_mod'] = 1;
+						}
+					}
+				}
+			}
+			else if ( isset( $this->caches['topicmod']['moderate_own']['group'][ $this->memberData['member_group_id'] ] ) )
+			{
+				/* But is this my topic? */
+				foreach( $this->caches['topicmod']['moderate_own']['group'][ $this->memberData['member_group_id'] ] as $mod )
+				{
+					if ( $mod['forums'] == '*' OR strstr( ',' . $mod['forums'] . ',', ',' . $this->request['f'] . ',' ) )
+					{
+						if ( $this->topic['starter_id'] == $this->memberData['member_id'] )
+						{
+							$this->moderator = $mod;
+							$this->memberData['is_mod'] = 1;
+						}
+					}
+				}
+			}
+			
+			
+			if( isset( $this->caches['topicmod']['member'][ $this->request['t'] ][ $this->memberData['member_id'] ] ) )
+			{
+				$this->moderator = $this->caches['topicmod']['member'][ $this->request['t'] ][ $this->memberData['member_id'] ];
+				$this->memberData['is_mod'] = 1;
+			}
+			else if( isset( $this->caches['topicmod']['group'][ $this->request['t'] ][ $this->memberData['member_group_id'] ] ) )
+			{
+				$this->moderator = $this->caches['topicmod']['group'][ $this->request['t'] ][ $this->memberData['member_group_id'] ];
+				$this->memberData['is_mod'] = 1;
+			}
+			
+			
+			$this->memberData['gbw_soft_delete'] 			= $this->moderator['gbw_soft_delete'];
+			$this->memberData['gbw_un_soft_delete'] 		= $this->moderator['gbw_un_soft_delete'];
+			$this->memberData['gbw_soft_delete_see'] 		= $this->moderator['gbw_soft_delete_see'];
+			$this->memberData['gbw_soft_delete_reason'] 	= $this->moderator['gbw_soft_delete_reason'];
+			$this->memberData['gbw_soft_delete_see_post'] 	= $this->moderator['gbw_soft_delete_see_post'];
+			
+			$this->registry->getClass( 'class_forums' )->setMemberData( $this->memberData );
+		}
+	}
+	
+	protected function _setupAndCheckInput()
+	{
+		parent::_setupAndCheckInput();
+		
+	 	if ( $this->request['t'] )
+	 	{	
+		 	/* OK, this member can moderate own topics */
+			if ( isset( $this->caches['topicmod']['moderate_own'][ $this->memberData['member_id'] ] ) )
+			{
+				/* But is this my topic? */
+				if ( $this->topic['starter_id'] == $this->memberData['member_id'] )
+				{
+					$this->moderator = $this->caches['topicmod']['moderate_own'][ $this->memberData['member_id'] ];
+					$this->memberData['is_mod'] = 1;
+				}
+			}
+			
+			
+			if( isset( $this->caches['topicmod']['member'][ $this->request['t'] ][ $this->memberData['member_id'] ] ) )
+			{
+				$this->moderator = $this->caches['topicmod']['member'][ $this->request['t'] ][ $this->memberData['member_id'] ];
+				$this->memberData['is_mod'] = 1;
+			}
+			else if( isset( $this->caches['topicmod']['group'][ $this->request['t'] ][ $this->memberData['member_group_id'] ] ) )
+			{
+				$this->moderator = $this->caches['topicmod']['group'][ $this->request['t'] ][ $this->memberData['member_group_id'] ];
+				$this->memberData['is_mod'] = 1;
+			}
+			
+			$this->memberData['gbw_soft_delete'] 			= $this->moderator['gbw_soft_delete'];
+			$this->memberData['gbw_un_soft_delete'] 		= $this->moderator['gbw_un_soft_delete'];
+			$this->memberData['gbw_soft_delete_see'] 		= $this->moderator['gbw_soft_delete_see'];
+			$this->memberData['gbw_soft_delete_reason'] 	= $this->moderator['gbw_soft_delete_reason'];
+			$this->memberData['gbw_soft_delete_see_post'] 	= $this->moderator['gbw_soft_delete_see_post'];
+		}
+	}
+}]]></hooks_source>
+    </file>
+    <file>
+      <hook_file_real>topicMod_ajaxTopics.php</hook_file_real>
+      <hook_type>commandHooks</hook_type>
+      <hook_classname>topicMod_ajaxTopics</hook_classname>
+      <hook_data><![CDATA[a:8:{s:12:"dataLocation";s:0:"";s:14:"libApplication";s:0:"";s:15:"classToOverload";s:25:"public_forums_ajax_topics";s:9:"skinGroup";N;s:12:"skinFunction";N;s:4:"type";N;s:2:"id";N;s:8:"position";N;}]]></hook_data>
+      <hooks_source><![CDATA[<?php
+
+/**
+ *	Topic Moderators
+ *
+ * @author 		Martin Aronsen
+ * @copyright	2008 - 2012 Invision Modding
+ * @web: 		http://invisionmodding.com
+ * @IPB ver.:	IP.Board 3.3
+ * @version:	2.1.1  (21001)
+ *
+ */
+
+class topicMod_ajaxTopics extends (~extends~)
+{
+	protected function _postApproveToggle()
+	{
+		$this->topicMod_setModerator();
+		
+		return parent::_postApproveToggle();
+	}
+	
+	public function saveTopicTitle()
+	{
+		$this->topicMod_setModerator();
+		
+		return parent::saveTopicTitle();
+	}
+	
+	private function topicMod_setModerator()
+	{
+		if ( ! $this->memberData['member_id'] )
+		{
+			return;
+		}
+		
+		if ( $topicID = intval( $this->request['t'] ) )
+	 	{	
+		 	/* OK, this member can moderate own topics */			
+	 		if ( isset( $this->caches['topicmod']['moderate_own']['member'][ $this->memberData['member_id'] ] ) )
+			{
+				$topic = $this->DB->buildAndFetch( array( 'select' => 'starter_id, forum_id',
+														  'from'   => 'topics',
+														  'where'  => 'tid=' . $topicID ) );
+				/* But is this my topic? */
+				foreach( $this->caches['topicmod']['moderate_own']['member'][ $this->memberData['member_id'] ] as $mod )
+				{
+					if ( $mod['forums'] == '*' OR strstr( ',' . $mod['forums'] . ',', ',' . $topic['forum_id'] . ',' ) )
+					{
+						if ( $topic['starter_id'] == $this->memberData['member_id'] )
+						{
+							$moderator = $mod;
+							$this->memberData['is_mod'] = 1;
+							
+							break;
+						}
+					}
+				}
+			}
+			else if ( isset( $this->caches['topicmod']['moderate_own']['group'][ $this->memberData['member_group_id'] ] ) )
+			{
+				$topic = $this->DB->buildAndFetch( array( 'select' => 'starter_id, forum_id',
+														  'from'   => 'topics',
+														  'where'  => 'tid=' . $topicID ) );
+				/* But is this my topic? */
+				foreach( $this->caches['topicmod']['moderate_own']['group'][ $this->memberData['member_group_id'] ] as $mod )
+				{
+					if ( $mod['forums'] == '*' OR strstr( ',' . $mod['forums'] . ',', ',' . $topic['forum_id'] . ',' ) )
+					{
+						if ( $topic['starter_id'] == $this->memberData['member_id'] )
+						{
+							$moderator = $mod;
+							$this->memberData['is_mod'] = 1;
+							
+							break;
+						}
+					}
+				}
+			}
+			
+			
+			if( isset( $this->caches['topicmod']['member'][ $topicID ][ $this->memberData['member_id'] ] ) )
+			{
+				$moderator = $this->caches['topicmod']['member'][ $topicID ][ $this->memberData['member_id'] ];
+				$this->memberData['is_mod'] = 1;
+			}
+			else if( isset( $this->caches['topicmod']['group'][ $topicID ][ $this->memberData['member_group_id'] ] ) )
+			{
+				$moderator = $this->caches['topicmod']['group'][ $topicID ][ $this->memberData['member_group_id'] ];
+				$this->memberData['is_mod'] = 1;
+			}
+
+			if ( !empty( $moderator['mid'] ) )
+			{
+				$this->memberData['is_mod'] = 1;
+				$this->memberData['forumsModeratorData'][ $this->request['f'] ] = $moderator;
+			}
+	 	}
+	}
+}]]></hooks_source>
+    </file>
+    <file>
+      <hook_file_real>topicMod_classPostForms.php</hook_file_real>
+      <hook_type>libraryHooks</hook_type>
+      <hook_classname>topicMod_classPostForms</hook_classname>
+      <hook_data><![CDATA[a:8:{s:12:"dataLocation";s:0:"";s:14:"libApplication";s:6:"forums";s:15:"classToOverload";s:14:"classPostForms";s:9:"skinGroup";N;s:12:"skinFunction";N;s:4:"type";N;s:2:"id";N;s:8:"position";N;}]]></hook_data>
+      <hooks_source><![CDATA[<?php
+
+/**
+ *	Topic Moderators
+ *
+ * @author 		Martin Aronsen
+ * @copyright	2008 - 2012 Invision Modding
+ * @web: 		http://invisionmodding.com
+ * @IPB ver.:	IP.Board 3.3
+ * @version:	2.1.1  (21001)
+ *
+ */
+
+class topicMod_classPostForms extends (~extends~)
+{
+	public function globalSetUp()
+	{	
+	 	if ( $this->request['t'] )
+	 	{
+		 	$topicMod = $this->caches['topicmod'];
+		 	
+		 	/* OK, this member can moderate own topics */			
+	 		if ( isset( $topicMod['moderate_own']['member'][ $this->getAuthor('member_id') ] ) )
+			{
+				/* But is this my topic? */
+				foreach( $topicMod['moderate_own']['member'][ $this->getAuthor('member_id') ] as $mod )
+				{
+					if ( $mod['forums'] == '*' OR strstr( ',' . $mod['forums'] . ',', ',' . $this->getTopicData( 'forum_id' ) . ',' ) )
+					{
+						if ( $this->getTopicData( 'starter_id' ) == $this->getAuthor('member_id') )
+						{
+							$this->moderator = $mod;
+							$setAuthor = array( 'is_mod' => 1 );
+				
+							if ( $this->moderator['close_topic'] AND $this->moderator['open_topic'] )
+							{
+								$setAuthor['g_post_closed'] = 1;
+							}
+							
+							$this->setAuthor( array_merge( $this->getAuthor(), $setAuthor ) );
+							
+							break;
+						}
+					}
+				}
+			}
+			else if ( isset( $topicMod['moderate_own']['group'][ $this->getAuthor('member_group_id') ] ) )
+			{
+				/* But is this my topic? */
+				foreach( $topicMod['moderate_own']['group'][ $this->getAuthor('member_group_id') ] as $mod )
+				{
+					if ( $mod['forums'] == '*' OR strstr( ',' . $mod['forums'] . ',', ',' . $this->getTopicData( 'forum_id' ) . ',' ) )
+					{
+						if ( $this->getTopicData( 'starter_id' ) == $this->getAuthor('member_id') )
+						{
+							$this->moderator = $mod;
+							$setAuthor = array( 'is_mod' => 1 );
+				
+							if ( $this->moderator['close_topic'] AND $this->moderator['open_topic'] )
+							{
+								$setAuthor['g_post_closed'] = 1;
+							}
+							
+							$this->setAuthor( array_merge( $this->getAuthor(), $setAuthor ) );
+							
+							break;
+						}
+					}
+				}
+			}
+
+			if(  isset( $topicMod['member'][ $this->request['t'] ][ $this->getAuthor('member_id') ] ) )
+			{
+				$this->moderator = $topicMod['member'][ $this->request['t'] ][ $this->getAuthor('member_id') ];
+				$setAuthor = array( 'is_mod' => 1 );
+				
+				if ( $this->moderator['close_topic'] AND $this->moderator['open_topic'] )
+				{
+					$setAuthor['g_post_closed'] = 1;
+				}
+				
+				$this->setAuthor( array_merge( $this->getAuthor(), $setAuthor ) );
+			}
+			else if( isset( $topicMod['group'][ $this->request['t'] ][ $this->getAuthor('member_group_id') ] ) ) 
+			{ 
+				$this->moderator = $topicMod['group'][ $this->request['t'] ][ $this->getAuthor('member_group_id') ];
+				$setAuthor = array( 'is_mod' => 1 );
+				
+				if ( $this->moderator['close_topic'] AND $this->moderator['open_topic'] )
+				{
+					$setAuthor['g_post_closed'] = 1;
+				}
+				
+				$this->setAuthor( array_merge( $this->getAuthor(), $setAuthor ) );
+			}
+			
+	 		if ( !empty( $this->moderator['mid'] ) )
+			{
+				$setAuthor['forumsModeratorData'][ $this->request['f'] ] = $this->moderator;
+				$this->setAuthor( array_merge( $this->getAuthor(), $setAuthor ) );
+			}
+		}
+		
+		return parent::globalSetUp(); 
+	}
+}]]></hooks_source>
+    </file>
+  </hookfiles>
+  <hookextras_settings/>
+  <hookextras_language>
+    <language>
+      <word_app>forums</word_app>
+      <word_pack>public_topic</word_pack>
+      <word_key>topic_led_by</word_key>
+      <word_default>Topic Led By</word_default>
+      <word_custom/>
+      <word_js>0</word_js>
+    </language>
+  </hookextras_language>
+  <hookextras_modules/>
+  <hookextras_help/>
+  <hookextras_templates>
+    <templates>
+      <template_group>skin_topic</template_group>
+      <template_content><![CDATA[</ul>
+</div>
+<div id='topic_led_by' class='active_users' style="margin-top: 50px;">
+	<h4 class='statistics_head'>{$this->lang->words['topic_led_by']}</h4>
+	<ul class='ipsList_inline'>
+		<foreach loop="$mods as $p => $r">
+			<li><a href='{$r[0]}' title='{$this->lang->words['view_profile']}'>{$r[1]}</a><if test="$r[2]">{parse template="user_popup" group="global" params="$r[2], IPSText::makeSeoTitle( $r[1] )"}</if><if test="$p + 1 != count( $mods )">,</if></li>
+		</foreach>]]></template_content>
+      <template_name>topicLedByWithActiveUsers</template_name>
+      <template_data>$mods=array()</template_data>
+      <template_updated>1339023653</template_updated>
+      <template_removable>0</template_removable>
+      <template_added_to>0</template_added_to>
+      <template_user_added>0</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>root</template_master_key>
+    </templates>
+    <templates>
+      <template_group>skin_topic</template_group>
+      <template_content><![CDATA[<div id='topic_stats' class='statistics clear clearfix'>
+	<div id='topic_active_users' class='active_users'>
+		<h4 class='statistics_head'>{$this->lang->words['topic_led_by']}</h4>
+		<ul class='ipsList_inline'>
+			<foreach loop="$mods as $p => $r">
+				<li><a href='{$r[0]}' title='{$this->lang->words['view_profile']}'>{$r[1]}</a><if test="$r[2]">{parse template="user_popup" group="global" params="$r[2], IPSText::makeSeoTitle( $r[1] )"}</if><if test="$p + 1 != count( $mods )">,</if></li>
+			</foreach>
+		</ul>
+	</div>
+</div>]]></template_content>
+      <template_name>topicLedByWithoutActiveUsers</template_name>
+      <template_data>$mods=array()</template_data>
+      <template_updated>1339023653</template_updated>
+      <template_removable>0</template_removable>
+      <template_added_to>0</template_added_to>
+      <template_user_added>0</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>root</template_master_key>
+    </templates>
+  </hookextras_templates>
+  <hookextras_css/>
+  <hookextras_replacements/>
+  <hookextras_tasks/>
+  <hookextras_database_create/>
+  <hookextras_database_alter/>
+  <hookextras_database_update/>
+  <hookextras_database_insert/>
+</hookexport>

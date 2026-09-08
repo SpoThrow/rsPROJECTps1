@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<permissions>
+	<group>
+		<grouptitle>Manage Moderators</grouptitle>
+		<items>
+			<item>
+				<key>shoutbox_view_moderators</key>
+				<string>Can view moderators?</string>
+			</item>
+			<item>
+				<key>shoutbox_add_moderator</key>
+				<string>Can add/edit moderators?</string>
+			</item>
+			<item>
+				<key>shoutbox_delete_moderator</key>
+				<string>Can delete moderators?</string>
+			</item>
+		</items>
+	</group>
+	<group>
+		<grouptitle>Manage Banned Members</grouptitle>
+		<items>
+			<item>
+				<key>shoutbox_view_banned</key>
+				<string>Can view banned members?</string>
+			</item>
+			<item>
+				<key>shoutbox_add_ban</key>
+				<string>Can ban members?</string>
+			</item>
+			<item>
+				<key>shoutbox_remove_ban</key>
+				<string>Can unban members?</string>
+			</item>
+		</items>
+	</group>
+</permissions>

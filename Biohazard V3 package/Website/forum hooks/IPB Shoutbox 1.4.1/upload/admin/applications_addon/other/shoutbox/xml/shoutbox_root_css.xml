@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<css>
+  <cssfile>
+    <css_set_id>0</css_set_id>
+    <css_updated>1352131745</css_updated>
+    <css_group>ipshoutbox</css_group>
+    <css_content>table.shoutbox_table tr td {
+	padding: 4px;
+}
+
+.shoutbox_disabled
+{
+	font-style: italic;
+	color: red;
+}
+
+.shoutbox_text
+{
+	word-wrap: break-word;
+}
+
+
+#shoutbox-smilies-button_menucontent table
+{
+	border: 1px solid #d5dde5;
+	border-collapse: separate;
+}
+
+#shoutbox-smilies-button_menucontent td
+{
+	width: 20%;
+}
+
+#shoutbox-smilies-button_menucontent span.pager
+{
+	width: 20px;
+	display: inline-block;
+}
+
+/* Sidebar hook */
+#shoutbox_sidebar table.ipb_table.shoutbox_table
+{
+	border-bottom: 0;
+	margin: -5px 0;
+}
+
+#shoutbox_sidebar table.ipb_table.shoutbox_table tr td
+{
+	padding: 4px;
+}
+
+.sidebar_shout
+{
+	padding: 0;
+	border-bottom: 1px solid #d5dde5;
+}
+
+.sidebar_shout_div
+{
+	padding: 5px;
+	border-bottom: 1px dashed #d5dde5;
+}
+
+#shoutbox-shouts-table
+{
+	border: 1px solid #d5dde5;
+}
+
+#shoutbox-shouts-table .row2 td
+{
+	border-bottom: 1px solid #d5dde5;
+	vertical-align: middle;
+}
+
+#shouts-global-resizer,
+#shouts-resizer
+{
+	background-color: #DBE2EC;
+	cursor:n-resize;
+	height:6px;
+}
+
+/* Tab count */
+#shoutbox-tab-count.ipsHasNotifications
+{
+	left: auto;
+	top: 0px;
+	right: -1px;
+	text-shadow: none !important;
+}</css_content>
+    <css_position>5</css_position>
+    <css_app>shoutbox</css_app>
+    <css_app_hide>0</css_app_hide>
+    <css_attributes><![CDATA[title="Main" media="screen"]]></css_attributes>
+    <css_modules/>
+    <css_removed>0</css_removed>
+    <css_master_key>root</css_master_key>
+  </cssfile>
+</css>

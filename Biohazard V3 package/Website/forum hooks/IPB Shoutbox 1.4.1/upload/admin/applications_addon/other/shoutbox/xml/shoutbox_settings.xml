@@ -1,0 +1,954 @@
+<?xml version="1.0" encoding="utf-8"?>
+<settingexport>
+  <settinggroup>
+    <setting>
+      <conf_is_title>1</conf_is_title>
+      <conf_title_keyword>shoutbox_refresh</conf_title_keyword>
+      <conf_title_title>Ajax Refresh</conf_title_title>
+      <conf_title_desc>Refresh time for shouts, members and other related settings</conf_title_desc>
+      <conf_title_tab>Shoutbox</conf_title_tab>
+      <conf_title_app>shoutbox</conf_title_app>
+      <conf_title_noshow>1</conf_title_noshow>
+    </setting>
+    <setting>
+      <conf_title>Shout refresh rate</conf_title>
+      <conf_description><![CDATA[The amount of time to refresh the shoutbox shouts (in seconds).<br />
+<strong style='color: red;'>NOTE: Due to resource issues, you cannot set this any lower than 30 seconds.</strong>]]></conf_description>
+      <conf_type>input</conf_type>
+      <conf_key>shoutbox_shouts_refresh</conf_key>
+      <conf_default>60</conf_default>
+      <conf_extra/>
+      <conf_evalphp><![CDATA[if( intval( $value ) < 30 )
+{
+	$value = 30;
+}
+]]></conf_evalphp>
+      <conf_protected>1</conf_protected>
+      <conf_position>1</conf_position>
+      <conf_start_group>Ajax Refresh Settings</conf_start_group>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_refresh</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Members viewing refresh rate</conf_title>
+      <conf_description><![CDATA[The amount of time to refresh the members viewing shoutbox (in seconds).<br />
+<strong style='color: red;'>NOTE: Due to resource issues, you cannot set this any lower than 30 seconds.</strong>]]></conf_description>
+      <conf_type>input</conf_type>
+      <conf_key>shoutbox_members_viewing_refresh</conf_key>
+      <conf_default>60</conf_default>
+      <conf_extra/>
+      <conf_evalphp><![CDATA[if( intval( $value ) < 30 )
+{
+	$value = 30;
+}
+]]></conf_evalphp>
+      <conf_protected>1</conf_protected>
+      <conf_position>2</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_refresh</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Inactivity cutoff</conf_title>
+      <conf_description><![CDATA[The number of minutes to use to check for inactivity timeout.<br /><i>Ex: 5 minutes - After 5 minutes, if no user activity, Shoutbox will halt operations.</i><br />
+<strong style='color: red;'>NOTE: Due to resource issues, you cannot set this any greater than 30 minutes.</strong>]]></conf_description>
+      <conf_type>input</conf_type>
+      <conf_key>shoutbox_inactivity_cutoff</conf_key>
+      <conf_default>10</conf_default>
+      <conf_extra/>
+      <conf_evalphp><![CDATA[if( intval( $value ) > 30 )
+{
+	$value = 30;
+}
+]]></conf_evalphp>
+      <conf_protected>1</conf_protected>
+      <conf_position>3</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_refresh</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Auto-hide refresh button?</conf_title>
+      <conf_description><![CDATA[When this setting is set to yes the refresh button will disappear while the shoutbox is checking for new shouts.<br />This is useful when you don't want your members to flood the ajax check]]></conf_description>
+      <conf_type>yes_no</conf_type>
+      <conf_key>shoutbox_autohide_refresh</conf_key>
+      <conf_default>1</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>4</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_refresh</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Disable the refresh image?</conf_title>
+      <conf_description>Stops the image from showing at the top of the page each time an ajax refresh action occurs (refreshing the shouts list or active users list).</conf_description>
+      <conf_type>yes_no</conf_type>
+      <conf_key>shoutbox_disable_refresh_image</conf_key>
+      <conf_default>0</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>5</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_refresh</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_is_title>1</conf_is_title>
+      <conf_title_keyword>shoutbox_global</conf_title_keyword>
+      <conf_title_title>Global Configuration</conf_title_title>
+      <conf_title_desc>Global settings such as title, announcement, time format, number of shouts and more</conf_title_desc>
+      <conf_title_tab>Shoutbox</conf_title_tab>
+      <conf_title_app>shoutbox</conf_title_app>
+      <conf_title_noshow>1</conf_title_noshow>
+    </setting>
+    <setting>
+      <conf_title>Shoutbox title</conf_title>
+      <conf_description><![CDATA[The title of your shoutbox.<br /><i>Ex:  My Shoutbox</i>]]></conf_description>
+      <conf_type>input</conf_type>
+      <conf_key>shoutbox_title</conf_key>
+      <conf_default>Shoutbox</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>1</conf_position>
+      <conf_start_group>Global Settings</conf_start_group>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_global</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Announcement</conf_title>
+      <conf_description>Display an announcement above the shouts for the Shoutbox.</conf_description>
+      <conf_type>editor</conf_type>
+      <conf_key>shoutbox_announcement</conf_key>
+      <conf_default/>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>2</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_global</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Format shouter names?</conf_title>
+      <conf_description><![CDATA[Format a shouters name to their groups prefix & suffix formatting?]]></conf_description>
+      <conf_type>yes_no</conf_type>
+      <conf_key>shoutbox_format_names</conf_key>
+      <conf_default>1</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>3</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_global</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>@User name formatting</conf_title>
+      <conf_description><![CDATA[Add html styles to the @user display.<br />
+Use full html, put the @{name} into the string where the name is to appear, don't forget the '@'<br />
+<strong style='color: red;'>NOTE: Malformed html tags will destroy your page layouts</strong> ]]></conf_description>
+      <conf_type>input</conf_type>
+      <conf_key>shoutbox_format_about</conf_key>
+      <conf_default>@{name}</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>4</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_global</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>User name formatting</conf_title>
+      <conf_description><![CDATA[Add html styles to the standard user display.<br />
+Use full html, put the {name} into the string where the name is to appear<br />
+<strong style='color: red;'>NOTE: Malformed html tags will destroy your page layouts</strong> ]]></conf_description>
+      <conf_type>input</conf_type>
+      <conf_key>shoutbox_format_extra</conf_key>
+      <conf_default>{name}</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>4</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_global</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Show colon separator</conf_title>
+      <conf_description><![CDATA[Show/hide the ':' separator between the user name the shout text]]></conf_description>
+      <conf_type>yes_no</conf_type>
+      <conf_key>shoutbox_format_colon</conf_key>
+      <conf_default>1</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>5</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_global</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Add fading affect</conf_title>
+      <conf_description>Add a fading affect when submitting a new shout?</conf_description>
+      <conf_type>yes_no</conf_type>
+      <conf_key>shoutbox_shout_fade</conf_key>
+      <conf_default>1</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>6</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_global</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Long time format</conf_title>
+      <conf_description><![CDATA[The format here is the same as <a href='http://php.net/strftime'>PHP's strftime</a>]]></conf_description>
+      <conf_type>input</conf_type>
+      <conf_key>shoutbox_time_long</conf_key>
+      <conf_default>%d %B %Y - %I:%M %p</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>7</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_global</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Today time format</conf_title>
+      <conf_description><![CDATA[This time format is used for the shouts made "Today".<br />The format here is the same as <a href='http://php.net/strftime'>PHP's strftime</a>]]></conf_description>
+      <conf_type>input</conf_type>
+      <conf_key>shoutbox_time_today</conf_key>
+      <conf_default>%I:%M %p</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>8</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_global</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Allow Shoutbox Popup?</conf_title>
+      <conf_description>Show a button that will let users open the Shoutbox in a popup window?</conf_description>
+      <conf_type>yes_no</conf_type>
+      <conf_key>shoutbox_popup</conf_key>
+      <conf_default>1</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>9</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_global</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Default height</conf_title>
+      <conf_description>Set the default height new users will have for the shout area of the main Shoutbox application.</conf_description>
+      <conf_type>input</conf_type>
+      <conf_key>shoutbox_default_height</conf_key>
+      <conf_default>275</conf_default>
+      <conf_extra/>
+      <conf_evalphp><![CDATA[if( intval( $value ) < 100 )
+{
+	$value = 100;
+}
+]]></conf_evalphp>
+      <conf_protected>1</conf_protected>
+      <conf_position>10</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_global</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Enable Content Spy?</conf_title>
+      <conf_description>If content spy is enabled whether shout actions will be tracked</conf_description>
+      <conf_type>yes_no</conf_type>
+      <conf_key>shoutbox_spy</conf_key>
+      <conf_default>1</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>11</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_global</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Shouts displayed per page</conf_title>
+      <conf_description><![CDATA[The number of shouts to be displayed per page.<br /><i>Enter 0 to display all one 1 page.</i>]]></conf_description>
+      <conf_type>input</conf_type>
+      <conf_key>shoutbox_archive_perpage</conf_key>
+      <conf_default>20</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>12</conf_position>
+      <conf_start_group>Archive Settings</conf_start_group>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_global</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Archive clock format</conf_title>
+      <conf_description>Select the type of clock you want to use for selecting a date/time range in the archive</conf_description>
+      <conf_type>dropdown</conf_type>
+      <conf_key>shoutbox_archive_clock</conf_key>
+      <conf_default>ampm</conf_default>
+      <conf_extra>ampm=12 hour (am/pm)&#13;
+24hr=24 hour</conf_extra>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>13</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_global</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Prune Old Shouts?</conf_title>
+      <conf_description><![CDATA[Specify here if you want to remove daily shouts older than X days.<br /><b>Enter 0 to disable the task.</b><br />
+<b>Enter -1 to prune all shouts when the task runs</b>]]></conf_description>
+      <conf_type>input</conf_type>
+      <conf_key>shoutbox_autoprune</conf_key>
+      <conf_default>0</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>14</conf_position>
+      <conf_start_group>Task Settings</conf_start_group>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_global</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Allow use of the /me tag?</conf_title>
+      <conf_description>Allow users to type /me in posts, to be replaced with their user name?</conf_description>
+      <conf_type>yes_no</conf_type>
+      <conf_key>shoutbox_me_tag</conf_key>
+      <conf_default>1</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>15</conf_position>
+      <conf_start_group>Feature Settings</conf_start_group>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_global</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Allow the @ link?</conf_title>
+      <conf_description>Shows an @ symbol beside each user name in the Shoutbox, which adds that user name into the shout posting area when clicked
+</conf_description>
+      <conf_type>yes_no</conf_type>
+      <conf_key>shoutbox_at_tag</conf_key>
+      <conf_default>1</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>16</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_global</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Enable sound notification</conf_title>
+      <conf_description>Add sound effect when a new shout is received
+</conf_description>
+      <conf_type>yes_no</conf_type>
+      <conf_key>shoutbox_enable_sound</conf_key>
+      <conf_default>1</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>999</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_global</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_is_title>1</conf_is_title>
+      <conf_title_keyword>shoutbox_hook_global</conf_title_keyword>
+      <conf_title_title>Hook: Global Shoutbox</conf_title_title>
+      <conf_title_desc/>
+      <conf_title_tab>Shoutbox</conf_title_tab>
+      <conf_title_app>shoutbox</conf_title_app>
+      <conf_title_noshow>1</conf_title_noshow>
+    </setting>
+    <setting>
+      <conf_title>Global Shoutbox Look</conf_title>
+      <conf_description><![CDATA[Select which global Shoutbox look to display.<br />Theme 1 - Input & buttons over to right of the shouts.<br />Theme 2 - Input is a single line and buttons are below the shouts.<br /><strong style="color:blue">NOTE: This setting won't have any effect if you are using the sidebar hook</strong>]]></conf_description>
+      <conf_type>dropdown</conf_type>
+      <conf_key>shoutbox_global_theme</conf_key>
+      <conf_default>1</conf_default>
+      <conf_extra>1=Theme 1&#13;
+2=Theme 2</conf_extra>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>1</conf_position>
+      <conf_start_group>Display Settings</conf_start_group>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_hook_global</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Shouts display ordering</conf_title>
+      <conf_description>Select which order to display the shouts.</conf_description>
+      <conf_type>dropdown</conf_type>
+      <conf_key>shoutbox_global_shout_ordering</conf_key>
+      <conf_default>desc</conf_default>
+      <conf_extra><![CDATA[asc=Older -> Newer
+desc=Newer -> Older]]></conf_extra>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>2</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_hook_global</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Default height</conf_title>
+      <conf_description>Set the default height new users will have for the shout area.</conf_description>
+      <conf_type>input</conf_type>
+      <conf_key>shoutbox_default_gheight</conf_key>
+      <conf_default>132</conf_default>
+      <conf_extra/>
+      <conf_evalphp><![CDATA[if ( $save == 1 )
+{
+	if ( intval( $_POST['shoutbox_default_gheight'] ) < 100 )
+	{
+		$value = 100;
+	}
+}]]></conf_evalphp>
+      <conf_protected>1</conf_protected>
+      <conf_position>3</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_hook_global</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Hook to enable?</conf_title>
+      <conf_description>Select which one of the hooks you want to enable</conf_description>
+      <conf_type>dropdown</conf_type>
+      <conf_key>shoutbox_global_hook</conf_key>
+      <conf_default>t</conf_default>
+      <conf_extra>t=Top of Each Page&#13;
+b=Bottom of Each Page&#13;
+s=Sidebar (Board Index Only)&#13;
+ct=Above Forum Categories (Board Index Only)&#13;
+cb=Below Forum Categories (Board Index Only)</conf_extra>
+      <conf_evalphp><![CDATA[if ( $save == 1 || ( $this->request['do'] == 'setting_revert' && $this->request['id'] == $r['conf_id'] ) )
+{
+	$_POST['shoutbox_global_hook'] = $_POST['shoutbox_global_hook'] ? $_POST['shoutbox_global_hook'] : $r['conf_default'];
+
+	switch( $_POST['shoutbox_global_hook'] )
+	{
+		case 's': $newHookData = 'a:6:{s:15:"classToOverload";s:0:"";s:9:"skinGroup";s:11:"skin_boards";s:12:"skinFunction";s:18:"boardIndexTemplate";s:4:"type";s:7:"foreach";s:2:"id";s:11:"side_blocks";s:8:"position";s:9:"outer.pre";}'; break;
+		case 'b': $newHookData = 'a:6:{s:15:"classToOverload";s:0:"";s:9:"skinGroup";s:11:"skin_global";s:12:"skinFunction";s:14:"globalTemplate";s:4:"type";s:2:"if";s:2:"id";s:15:"mainpageContent";s:8:"position";s:10:"post.endif";}'; break;
+		case 't': $newHookData = 'a:6:{s:15:"classToOverload";s:0:"";s:9:"skinGroup";s:11:"skin_global";s:12:"skinFunction";s:14:"globalTemplate";s:4:"type";s:2:"if";s:2:"id";s:15:"mainpageContent";s:8:"position";s:11:"pre.startif";}'; break;
+		case 'ct': $newHookData = 'a:6:{s:15:"classToOverload";s:0:"";s:9:"skinGroup";s:11:"skin_boards";s:12:"skinFunction";s:18:"boardIndexTemplate";s:4:"type";s:2:"if";s:2:"id";s:11:"cats_forums";s:8:"position";s:11:"pre.startif";}'; break;
+		case 'cb': $newHookData = 'a:6:{s:15:"classToOverload";s:0:"";s:9:"skinGroup";s:11:"skin_boards";s:12:"skinFunction";s:18:"boardIndexTemplate";s:4:"type";s:2:"if";s:2:"id";s:11:"cats_forums";s:8:"position";s:10:"post.endif";}'; break;
+	}
+
+	$this->DB->update( 'core_hooks_files', array( 'hook_data' => $newHookData ), "hook_classname='shoutboxGlobalShoutbox'" );
+	$this->cache->rebuildCache( 'hooks', 'global' );
+
+	require_once( IPS_ROOT_PATH . 'sources/classes/skins/skinFunctions.php' );
+	require_once( IPS_ROOT_PATH . 'sources/classes/skins/skinCaching.php' );
+	$skinCaching = new skinCaching( $this->registry );
+	$skinCaching->flagSetForRecache();
+}]]></conf_evalphp>
+      <conf_protected>1</conf_protected>
+      <conf_position>4</conf_position>
+      <conf_start_group>Location Settings</conf_start_group>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_hook_global</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Display on?</conf_title>
+      <conf_description><![CDATA[Select where to display the global shoutbox.<br /><strong style="color:blue">NOTE: This setting won't have any effect if you are using the sidebar hook</strong>]]></conf_description>
+      <conf_type>dropdown</conf_type>
+      <conf_key>shoutbox_global_display_loc</conf_key>
+      <conf_default>all</conf_default>
+      <conf_extra>all=Every Page&#13;
+idx=Board Index Page</conf_extra>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>5</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_hook_global</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Type of Page Check</conf_title>
+      <conf_description><![CDATA[Page Check checks the address of the loaded page to see if you want to exclude or include the shoutbox there.<br /><strong style="color:blue">NOTE: This setting won't have any effect if you are using the sidebar hook</strong>]]></conf_description>
+      <conf_type>dropdown</conf_type>
+      <conf_key>shoutbox_global_pages_type</conf_key>
+      <conf_default>d</conf_default>
+      <conf_extra>d=DISABLE Page Check&#13;
+e=EXCLUDE from specified pages&#13;
+i=INCLUDE only in specified pages</conf_extra>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>6</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_hook_global</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Pages list</conf_title>
+      <conf_description><![CDATA[Enter one command per line, separated with a comma.<br />
+Commands should consist of application, module, and/or section values for that page, or anything that is part of the $_POST data for that particular page's URL.<br /><br />
+For example, to include or exclude this from showing on the profile page for Member #1, use:<br />
+app=members,module=profile,id=1]]></conf_description>
+      <conf_type>textarea</conf_type>
+      <conf_key>shoutbox_global_pages_list</conf_key>
+      <conf_default/>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>7</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_hook_global</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Number of emoticons to display per page</conf_title>
+      <conf_description>In the emoticons popup, how many total emoticons do you want to display per page?</conf_description>
+      <conf_type>input</conf_type>
+      <conf_key>shoutbox_emos_perpage</conf_key>
+      <conf_default>20</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>8</conf_position>
+      <conf_start_group>Emoticon Settings</conf_start_group>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_hook_global</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Number of emoticons to display per row</conf_title>
+      <conf_description>How many emoticons do you want to display on each row of the emoticons popup?</conf_description>
+      <conf_type>input</conf_type>
+      <conf_key>shoutbox_emos_perrow</conf_key>
+      <conf_default>5</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>9</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_hook_global</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_is_title>1</conf_is_title>
+      <conf_title_keyword>shoutbox_online</conf_title_keyword>
+      <conf_title_title>Online/Offline</conf_title_title>
+      <conf_title_desc>Enable/disable the shoutbox and setup the offline message</conf_title_desc>
+      <conf_title_tab>Shoutbox</conf_title_tab>
+      <conf_title_app>shoutbox</conf_title_app>
+      <conf_title_noshow>1</conf_title_noshow>
+    </setting>
+    <setting>
+      <conf_title>Shoutbox online</conf_title>
+      <conf_description>Is the shoutbox online?</conf_description>
+      <conf_type>yes_no</conf_type>
+      <conf_key>shoutbox_online</conf_key>
+      <conf_default>1</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>1</conf_position>
+      <conf_start_group>Online/Offline Settings</conf_start_group>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_online</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Offline message</conf_title>
+      <conf_description>The message to display when the Shoutbox is offline.</conf_description>
+      <conf_type>editor</conf_type>
+      <conf_key>shoutbox_offline_message</conf_key>
+      <conf_default>The Shoutbox is currently offline.</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>2</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_online</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_is_title>1</conf_is_title>
+      <conf_title_keyword>shoutbox_shouts</conf_title_keyword>
+      <conf_title_title>Shouts</conf_title_title>
+      <conf_title_desc>All settings related to shouts are here</conf_title_desc>
+      <conf_title_tab>Shoutbox</conf_title_tab>
+      <conf_title_app>shoutbox</conf_title_app>
+      <conf_title_noshow>1</conf_title_noshow>
+    </setting>
+    <setting>
+      <conf_title>Truncate shouter names</conf_title>
+      <conf_description>After how many characters do you want to truncate shouter names? This is useful if your members have a long name that breaks the layout of the shoutbox.</conf_description>
+      <conf_type>input</conf_type>
+      <conf_key>shoutbox_truncate_names</conf_key>
+      <conf_default>15</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>1</conf_position>
+      <conf_start_group>Display Settings</conf_start_group>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_shouts</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Shouts to display</conf_title>
+      <conf_description>Select the number of shouts to display.</conf_description>
+      <conf_type>input</conf_type>
+      <conf_key>shoutbox_shouts_limit</conf_key>
+      <conf_default>20</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>2</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_shouts</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Shouts display ordering</conf_title>
+      <conf_description>Select which order to display the shouts in.</conf_description>
+      <conf_type>dropdown</conf_type>
+      <conf_key>shoutbox_shout_ordering</conf_key>
+      <conf_default>desc</conf_default>
+      <conf_extra><![CDATA[asc=Older -> Newer
+desc=Newer -> Older]]></conf_extra>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>3</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_shouts</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Show user photo?</conf_title>
+      <conf_description>Show a photo icon of the shouter beside their name?</conf_description>
+      <conf_type>yes_no</conf_type>
+      <conf_key>shoutbox_show_photos</conf_key>
+      <conf_default>0</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>4</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_shouts</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Flood limit</conf_title>
+      <conf_description><![CDATA[The # of seconds to wait in between each shout.<br /><i>Enter 0 for no flood limit.</i>]]></conf_description>
+      <conf_type>input</conf_type>
+      <conf_key>shoutbox_flood_limit</conf_key>
+      <conf_default>10</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>5</conf_position>
+      <conf_start_group>Shouting Settings</conf_start_group>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_shouts</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Max shout length</conf_title>
+      <conf_description><![CDATA[The maximum length a shout message can be.<br /><i>Size is in Kilobytes (kB)<br />0 = No max length</i>]]></conf_description>
+      <conf_type>input</conf_type>
+      <conf_key>shoutbox_max_shout_length</conf_key>
+      <conf_default>0</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>6</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_shouts</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Allow Smilies</conf_title>
+      <conf_description>Allow smilie in shouts?</conf_description>
+      <conf_type>yes_no</conf_type>
+      <conf_key>shoutbox_allow_smilies</conf_key>
+      <conf_default>1</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>7</conf_position>
+      <conf_start_group>Shout Parsing</conf_start_group>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_shouts</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Allow BBCode</conf_title>
+      <conf_description>Allow BBCode to be used in shouts?</conf_description>
+      <conf_type>yes_no</conf_type>
+      <conf_key>shoutbox_allow_bbcode</conf_key>
+      <conf_default>1</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>8</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_shouts</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Stop shouting in shouts?</conf_title>
+      <conf_description><![CDATA[Will turn: <strong>CLICK HERE</strong> into <strong>Click Here</strong>.]]></conf_description>
+      <conf_type>yes_no</conf_type>
+      <conf_key>shoutbox_stop_shouting</conf_key>
+      <conf_default>0</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>10</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_shouts</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Loads shouts from DB</conf_title>
+      <conf_description><![CDATA[Enabling this settings shouts are loaded from DB instead of using the cache. This is useful if you are using an external caching method like <strong>xcache</strong>.]]></conf_description>
+      <conf_type>yes_no</conf_type>
+      <conf_key>shoutbox_skip_cache</conf_key>
+      <conf_default>0</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>11</conf_position>
+      <conf_start_group>Optimization</conf_start_group>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_shouts</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_is_title>1</conf_is_title>
+      <conf_title_keyword>shoutbox_twitter</conf_title_keyword>
+      <conf_title_title>Twitter Task</conf_title_title>
+      <conf_title_desc>Settings for the twitter pull system</conf_title_desc>
+      <conf_title_tab>Shoutbox</conf_title_tab>
+      <conf_title_app>shoutbox</conf_title_app>
+      <conf_title_noshow>1</conf_title_noshow>
+    </setting>
+    <setting>
+      <conf_title>Enable</conf_title>
+      <conf_description>Enable the task to pull from Twitter</conf_description>
+      <conf_type>yes_no</conf_type>
+      <conf_key>shoutbox_twitter_enabled</conf_key>
+      <conf_default>0</conf_default>
+      <conf_extra/>
+      <conf_evalphp><![CDATA[if( $save == 1 )
+{
+   if( $value )
+   {
+	$this->DB->update( 'task_manager', array( 'task_locked' => '0',  'task_enabled' => '1'), "task_key='shoutbox_tweet'" );
+   }
+   else
+   {
+	$this->DB->update( 'task_manager', array( 'task_locked' => '0',  'task_enabled' => '0'), "task_key='shoutbox_tweet'" );
+   }
+}
+
+]]></conf_evalphp>
+      <conf_protected>1</conf_protected>
+      <conf_position>1</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords>shoutbox, twitter</conf_keywords>
+      <conf_title_keyword>shoutbox_twitter</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Consumer key</conf_title>
+      <conf_description>Twitter API Consumer Key</conf_description>
+      <conf_type>input</conf_type>
+      <conf_key>shoutbox_twitter_ckey</conf_key>
+      <conf_default/>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>2</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_twitter</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Consumer secret</conf_title>
+      <conf_description>Twitter API Consumer Secret key</conf_description>
+      <conf_type>input</conf_type>
+      <conf_key>shoutbox_twitter_csecret</conf_key>
+      <conf_default/>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>3</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_twitter</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Access token</conf_title>
+      <conf_description>Twitter API Access token</conf_description>
+      <conf_type>input</conf_type>
+      <conf_key>shoutbox_twitter_atoken</conf_key>
+      <conf_default/>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>4</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_twitter</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Access token secret</conf_title>
+      <conf_description>Twitter API Access token secret</conf_description>
+      <conf_type>input</conf_type>
+      <conf_key>shoutbox_twitter_asecret</conf_key>
+      <conf_default/>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>5</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_twitter</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Twitter display names</conf_title>
+      <conf_description>Comma separated list of Twitter display names to pull&#13;
+</conf_description>
+      <conf_type>input</conf_type>
+      <conf_key>shoutbox_twitter_names</conf_key>
+      <conf_default/>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>6</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_twitter</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_title>Shout from user</conf_title>
+      <conf_description>The user that you want this shout to be from</conf_description>
+      <conf_type>name_autocomplete</conf_type>
+      <conf_key>shoutbox_twitter_user</conf_key>
+      <conf_default/>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>7</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>shoutbox_twitter</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+  </settinggroup>
+</settingexport>

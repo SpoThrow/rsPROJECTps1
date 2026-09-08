@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="Proxy Client/src"/>
+	<classpathentry kind="src" path="Proxy Server/Data"/>
+	<classpathentry excluding="server/game/players/packets/|server/world/" kind="src" path="Proxy Server/src"/>
+	<classpathentry kind="src" path="Proxy Server/src/server/game/players/packets"/>
+	<classpathentry kind="src" path="Proxy Server/src/server/world"/>
+	<classpathentry kind="lib" path="Proxy Server/deps/GTLVote.jar"/>
+	<classpathentry kind="lib" path="Proxy Server/deps/jython.jar"/>
+	<classpathentry kind="lib" path="Proxy Server/deps/log4j-1.2.15.jar"/>
+	<classpathentry kind="lib" path="Proxy Server/deps/mina.jar"/>
+	<classpathentry kind="lib" path="Proxy Server/deps/mysql.jar"/>
+	<classpathentry kind="lib" path="Proxy Server/deps/poi.jar"/>
+	<classpathentry kind="lib" path="Proxy Server/deps/RuneTopListV2.jar"/>
+	<classpathentry kind="lib" path="Proxy Server/deps/slf4j-nop.jar"/>
+	<classpathentry kind="lib" path="Proxy Server/deps/slf4j.jar"/>
+	<classpathentry kind="lib" path="Proxy Server/deps/xstream.jar"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="output" path="Proxy Server/bin"/>
+</classpath>

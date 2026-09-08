@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="utf-8"?>
+<hookexport>
+  <hookdata>
+    <config>
+      <hook_name><![CDATA[[HQ] Badges]]></hook_name>
+      <hook_desc>App for groups badges management</hook_desc>
+      <hook_author>Gabriele Venturini</hook_author>
+      <hook_email>reficul@lamoneta.it</hook_email>
+      <hook_website>http://www.lamoneta.it</hook_website>
+      <hook_update_check/>
+      <hook_requirements><![CDATA[a:3:{s:21:"required_applications";a:1:{s:6:"forums";a:3:{s:8:"app_name";s:6:"Forums";s:11:"min_version";i:0;s:11:"max_version";i:0;}}s:20:"hook_php_version_min";s:0:"";s:20:"hook_php_version_max";s:0:"";}]]></hook_requirements>
+      <hook_version_human>1.3.1</hook_version_human>
+      <hook_version_long>13100</hook_version_long>
+      <hook_extra_data><![CDATA[a:4:{s:7:"display";a:3:{s:8:"settings";s:22:"Setting groups: Badges";s:9:"templates";s:27:"From skin_topic: hookBadges";s:3:"css";s:18:"CSS Files:  Badges";}s:9:"templates";a:1:{s:10:"skin_topic";a:1:{i:0;s:10:"hookBadges";}}s:3:"css";a:1:{s:0:"";s:6:"Badges";}s:13:"settingGroups";a:1:{s:0:"";s:6:"badges";}}]]></hook_extra_data>
+      <hook_key>Badges</hook_key>
+      <hook_global_caches/>
+    </config>
+  </hookdata>
+  <hookfiles>
+    <file>
+      <hook_file_real>badges.php</hook_file_real>
+      <hook_type>templateHooks</hook_type>
+      <hook_classname>Badges</hook_classname>
+      <hook_data><![CDATA[a:8:{s:12:"dataLocation";s:0:"";s:14:"libApplication";s:0:"";s:15:"classToOverload";s:0:"";s:9:"skinGroup";s:10:"skin_topic";s:12:"skinFunction";s:4:"post";s:4:"type";s:2:"if";s:2:"id";s:12:"repHighlight";s:8:"position";s:11:"pre.startif";}]]></hook_data>
+      <hooks_source><![CDATA[<?php
+
+class Badges
+{
+	public $registry;
+	
+	public function __construct()
+	{
+		$this->registry   = ipsRegistry::instance();
+		$this->DB	    = $this->registry->DB();
+		$this->settings =& $this->registry->fetchSettings();
+		$this->request  =& $this->registry->fetchRequest();
+		$this->member   = $this->registry->member();
+		$this->memberData =& $this->registry->member()->fetchMemberData();
+		$this->lang		=  $this->registry->getClass('class_localization');
+		$this->cache	= $this->registry->cache();
+		$this->caches   =& $this->registry->cache()->fetchCaches();					       		
+	}
+	
+	public function getOutput()
+	{
+
+	}	
+	
+public function replaceOutput( $output, $key )
+	{	
+        if ( is_array( $this->registry->output->getTemplate('topic')->functionData['post'] ) && count( $this->registry->output->getTemplate('topic')->functionData['post'] ) && $this->settings['ba_active'])
+		{
+			/* Internal init */
+			
+			$tag	= '<!--hook.' . $key . '-->';
+			$last	= 0;
+			$i 		= 0;
+			$b		= 0;
+			
+			/* Query for the badges */
+			$this->DB->build( array( 'select' => '*', 'from' => 'HQ_badges', 'where' => 'ba_enabled = 1' ) );
+			$this->DB->execute();
+			while( $query = $this->DB->fetch() )
+					{
+						$i++;
+						$badges[$i] = $query; 
+					}
+				/* Foreach content */
+				foreach( $this->registry->output->getTemplate('topic')->functionData['post'] as $k => $v )
+				{
+						if ($v['post']['post']['queued'] == '0') {
+							$pos	= strpos( $output, $tag, $last );	
+							if( $pos )
+							{	
+								for ($b = 1; $b <= $i; ++$b)
+								{
+								    if( in_array( $this->request['f'], explode(',', $badges[$b]['ba_forums'] ) ) )
+										{
+											$gruppi = explode(',',$badges[$b]['ba_gid']);
+											if ($badges[$b]['ba_t']) 
+											{
+												if ( IPSMember::isInGroup( $v['post']['author'], $gruppi ) )
+													{
+														$string	= $this->registry->output->getTemplate('topic')->hookBadges( $badges[$b] );
+														$b = $i;
+													} else {
+										    			$string = '';
+													}			
+											} else {
+												if (in_array($v['post']['author']['member_group_id'], $gruppi))
+													{
+														$string	= $this->registry->output->getTemplate('topic')->hookBadges( $badges[$b] );
+														$b = $i;
+													} else {
+												    	$string = '';
+													}			
+											}
+										}
+								$output	= substr_replace( $output, $string . $tag, $pos, strlen( $tag ) ); 
+								$last	= $pos + strlen( $tag . $string );
+								}
+							
+						}
+					}
+				}
+		}
+		return $output;
+	}		
+}]]></hooks_source>
+    </file>
+  </hookfiles>
+  <hookextras_settings>
+    <setting>
+      <conf_is_title>1</conf_is_title>
+      <conf_title_title>Badges</conf_title_title>
+      <conf_title_desc>Settings for the Badges application</conf_title_desc>
+      <conf_title_noshow>1</conf_title_noshow>
+      <conf_title_keyword>badges</conf_title_keyword>
+      <conf_title_app>badges</conf_title_app>
+      <conf_title_tab>Apps</conf_title_tab>
+    </setting>
+    <setting>
+      <conf_id>345</conf_id>
+      <conf_title>Active</conf_title>
+      <conf_description/>
+      <conf_group>44</conf_group>
+      <conf_type>yes_no</conf_type>
+      <conf_key>ba_active</conf_key>
+      <conf_value/>
+      <conf_default>0</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>1</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>badges</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+  </hookextras_settings>
+  <hookextras_language/>
+  <hookextras_modules/>
+  <hookextras_help/>
+  <hookextras_templates>
+    <templates>
+      <template_group>skin_topic</template_group>
+      <template_content><![CDATA[<if test="$query['ba_links'] != ''"><a href="{$query['ba_links']}"></if><img src="{$this->settings['board_url']}/uploads/badges/{$query[ba_type]}.png" class="HQbadges"><if test="$query['ba_links'] != ''"></a></if>]]></template_content>
+      <template_name>hookBadges</template_name>
+      <template_data>$query</template_data>
+      <template_updated>1331979458</template_updated>
+      <template_removable>0</template_removable>
+      <template_added_to>0</template_added_to>
+      <template_user_added>1</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>root</template_master_key>
+    </templates>
+  </hookextras_templates>
+  <hookextras_css>
+    <css>
+      <css_updated>0</css_updated>
+      <css_group>Badges</css_group>
+      <css_content>.HQbadges {
+top: -43px;
+right: -14px;
+z-index: 1000;
+float: right;
+position: relative;
+}
+.post_body .post {
+min-height: 100px !important;
+}
+.HQbadges:hover
+{
+opacity:0.6;
+filter:alpha(opacity=60); /* For IE8 and earlier */
+}</css_content>
+      <css_position>0</css_position>
+      <css_added_to>1</css_added_to>
+      <css_app/>
+      <css_app_hide>0</css_app_hide>
+      <css_attributes/>
+      <css_modules/>
+      <css_removed>0</css_removed>
+      <css_master_key>root</css_master_key>
+    </css>
+  </hookextras_css>
+  <hookextras_replacements/>
+  <hookextras_tasks/>
+  <hookextras_database_create/>
+  <hookextras_database_alter/>
+  <hookextras_database_update/>
+  <hookextras_database_insert/>
+</hookexport>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<information>
+	<data>
+		<name>Reputation Points</name>
+		<public_name>Reputation</public_name>
+		<author>SOS Invision</author>
+		<description>Will show reputation points</description>
+		<templategroups>
+			<template match="exact">skin_reputationpoints</template>
+		</templategroups>
+	</data>
+</information>

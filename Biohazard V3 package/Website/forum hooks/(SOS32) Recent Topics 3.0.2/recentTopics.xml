@@ -1,0 +1,1038 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hookexport>
+  <hookdata>
+    <config>
+      <hook_name>(SOS32) Recent Topics</hook_name>
+      <hook_desc>Will show a box with the last topics/posts on board index</hook_desc>
+      <hook_author>Adriano Faria</hook_author>
+      <hook_email>administracao@sosinvision.com.br</hook_email>
+      <hook_website>http://forum.sosinvision.com.br/</hook_website>
+      <hook_update_check>http://forum.sosinvision.com.br/resource_updates.php?resource=topicosrecentes</hook_update_check>
+      <hook_requirements><![CDATA[a:3:{s:21:"required_applications";a:2:{s:4:"core";a:3:{s:8:"app_name";s:6:"System";s:11:"min_version";i:32000;s:11:"max_version";i:0;}s:6:"forums";a:3:{s:8:"app_name";s:6:"Forums";s:11:"min_version";i:32000;s:11:"max_version";i:0;}}s:20:"hook_php_version_min";s:0:"";s:20:"hook_php_version_max";s:0:"";}]]></hook_requirements>
+      <hook_version_human>3.0.2</hook_version_human>
+      <hook_version_long>30002</hook_version_long>
+      <hook_extra_data><![CDATA[a:5:{s:7:"display";a:4:{s:8:"settings";s:40:"Setting groups: (SOS32) Topicos Recentes";s:8:"language";s:390:"From forums_public_boards: forum, topicos_recentes, topico_lido<br />From core_public_usercp: recenttopics_saved, savetrecents, topicosrecentes_on, topicosrecentes_ondesc, topicosrecentes_qtd, topicosrecentes_qtdstd, topicosrecentes_qtdstd_desc, topicosrecentes_showdqtd, topicosrecentes_showdqtddesc, topicosrecentes_title, topicosrecentes_usercpexcludeforums, topicosrecentes_usercpforums";s:9:"templates";s:116:"From skin_boards: hooksos_topicosrecentesAjax_tema1, hooksos_topicosrecentes_tema1<br />From skin_ucp: recent_topics";s:8:"database";s:259:"ALTER TABLE members ADD recenttopics_onoff tinyint(1) DEFAULT 1<br />ALTER TABLE members ADD topicosrecentes_showdqtd tinyint(1) DEFAULT 1<br />ALTER TABLE members ADD recenttopics_qtd tinyint(1) DEFAULT 5<br />ALTER TABLE members ADD recenttopics_forums text";}s:13:"settingGroups";a:1:{i:0;s:15:"topicosrecentes";}s:8:"settings";a:8:{i:0;s:24:"topicosrecentes_fechados";i:1;s:22:"topicosrecentes_forums";i:2;s:22:"topicosrecentes_grupos";i:3;s:23:"topicosrecentes_movidos";i:4;s:18:"topicosrecentes_nr";i:5;s:21:"topicosrecentes_posts";i:6;s:21:"topicosrecentes_title";i:7;s:30:"topicosrecentes_updateInterval";}s:9:"templates";a:2:{s:11:"skin_boards";a:3:{s:33:"hooksos_topicosrecentesAjax_tema1";s:33:"hooksos_topicosrecentesAjax_tema1";s:29:"hooksos_topicosrecentes_tema1";s:29:"hooksos_topicosrecentes_tema1";s:34:"hooksos_topicosrecentes_parseTopic";s:34:"hooksos_topicosrecentes_parseTopic";}s:8:"skin_ucp";a:1:{s:13:"recent_topics";s:13:"recent_topics";}}s:8:"database";a:1:{s:5:"alter";a:4:{i:0;a:6:{s:9:"altertype";s:3:"add";s:5:"table";s:7:"members";s:5:"field";s:18:"recenttopics_onoff";s:8:"newfield";s:0:"";s:9:"fieldtype";s:10:"tinyint(1)";s:7:"default";s:1:"1";}i:1;a:6:{s:9:"altertype";s:3:"add";s:5:"table";s:7:"members";s:5:"field";s:24:"topicosrecentes_showdqtd";s:8:"newfield";s:0:"";s:9:"fieldtype";s:10:"tinyint(1)";s:7:"default";s:1:"1";}i:2;a:6:{s:9:"altertype";s:3:"add";s:5:"table";s:7:"members";s:5:"field";s:16:"recenttopics_qtd";s:8:"newfield";s:0:"";s:9:"fieldtype";s:10:"tinyint(1)";s:7:"default";s:1:"5";}i:3;a:6:{s:9:"altertype";s:3:"add";s:5:"table";s:7:"members";s:5:"field";s:19:"recenttopics_forums";s:8:"newfield";s:0:"";s:9:"fieldtype";s:4:"text";s:7:"default";s:0:"";}}}}]]></hook_extra_data>
+      <hook_key>topicosrecentes</hook_key>
+      <hook_global_caches/>
+    </config>
+  </hookdata>
+  <hookfiles>
+    <file>
+      <hook_file_real>topicosrecentes_ucp.php</hook_file_real>
+      <hook_type>libraryHooks</hook_type>
+      <hook_classname>topicosrecentes_ucp</hook_classname>
+      <hook_data><![CDATA[a:8:{s:12:"dataLocation";s:0:"";s:14:"libApplication";s:4:"core";s:15:"classToOverload";s:16:"usercpForms_core";s:9:"skinGroup";N;s:12:"skinFunction";N;s:4:"type";N;s:2:"id";N;s:8:"position";N;}]]></hook_data>
+      <hooks_source><![CDATA[<?php
+
+class topicosrecentes_ucp extends (~extends~)
+{
+	public function _customEvent_dorecenttopics()
+	{
+		/*if ( $this->request['authKey'] != $this->member->form_hash )
+ 		{
+ 			$this->registry->output->showError( 'warn_bad_key' );
+ 		}*/
+
+		if( !in_array( $this->memberData['member_group_id'] , explode(',', $this->settings['topicosrecentes_grupos'] ) ) )
+		{
+			$this->registry->output->showError( 'no_permission' );
+		}
+
+		if ( $this->settings['topicosrecentes_posts'] AND $this->memberData['posts'] < $this->settings['topicosrecentes_posts'] )
+		{
+			$this->registry->output->showError( 'no_permission' );
+		}
+
+		$show 	= $this->request['showtr'] 	  ? 1 : 0;
+		$def	= $this->request['showdqtd']  ? 1 : 0;
+		$qtd  	= intval( $this->request['qtd_topicos'] );
+		$forums = "";
+		
+		if ( is_array( $_POST['exclude_forum'] ) and count( $_POST['exclude_forum'] ) )
+		{
+			$_POST['exclude_forum'] = IPSLib::cleanIntArray( $_POST['exclude_forum'] );
+			$forums = implode( ",", $_POST['exclude_forum'] );
+			$forums = IPSText::cleanPermString( $forums );
+		}
+
+		$this->DB->update( 'members', array( 'recenttopics_onoff' => $show, 'topicosrecentes_showdqtd' => $def, 'recenttopics_qtd' => $qtd, 'recenttopics_forums' => $forums ), 'member_id='.$this->memberData['member_id'] );
+		
+		return TRUE;
+	}
+
+	public function _customEvent_recenttopics()
+	{
+		if( in_array( $this->memberData['member_group_id'] , explode(',', $this->settings['topicosrecentes_grupos'] ) ) )
+		{
+			$lista		= "";
+			$blocked	= array();
+			$forum_html = $this->registry->getClass('class_forums')->buildForumJump(0,1,1);
+			$numbers	= explode( ",", $this->memberData['recenttopics_forums'] );
+			
+			if ( is_array( $numbers ) and count( $numbers ) )
+			{
+				foreach( $numbers as $f )
+				{
+					$forum_html = preg_replace( "#option\s+value=[\"'](".preg_quote($f,'#').")[\"']#i", "option value='\\1' selected=\"selected\"", $forum_html );
+				}
+			}
+					
+			$lista .= '<select  class="input_select" multiple="multiple" size="10" id="exclude_forum" name="exclude_forum[]">';
+			$lista .= $forum_html;
+			$lista .= '</select>';
+		
+			if ( $this->memberData['recenttopics_forums'] )
+			{
+				$forums = explode( ",", $this->memberData['recenttopics_forums'] );
+			}
+			
+			if ( is_array( $forums ) and count( $forums ) )
+			{
+				foreach( $forums as $fid )
+				{
+					$blocked[] = $this->registry->getClass( 'class_forums' )->forumsBreadcrumbNav( $fid );
+				}
+			}
+									
+			return $this->registry->output->getTemplate('ucp')->recent_topics( $lista, $blocked );
+		}
+		else
+		{
+			$this->registry->output->showError( 'no_permission' );
+		}
+	}
+
+	/**
+	 * Return links for this tab
+	 * You may return an empty array or FALSE to not have
+	 * any links show in the tab.
+	 *
+	 * The links must have 'area=xxxxx'. The rest of the URL
+	 * is added automatically.
+	 * 'area' can only be a-z A-Z 0-9 - _
+	 *
+	 * @author	Matt Mecham
+	 * @return   array 		array of links
+	 */
+	public function getLinks()
+	{
+		$updatedLinks = parent::getLinks();
+		
+		if ( $this->settings['topicosrecentes_posts'] AND $this->memberData['posts'] < $this->settings['topicosrecentes_posts'] )
+		{
+			return $updatedLinks;
+		}
+
+		ipsRegistry::instance()->getClass('class_localization')->loadLanguageFile( array( 'public_usercp' ), 'core' );
+		ipsRegistry::instance()->getClass('class_localization')->loadLanguageFile( array( 'public_boards' ), 'forums' );
+
+		if( in_array( $this->memberData['member_group_id'] , explode(',', $this->settings['topicosrecentes_grupos'] ) ) )
+		{
+			$updatedLinks[] = array( 'url'    => 'area=recenttopics',
+									 'title'  => $this->settings['topicosrecentes_title'], //ipsRegistry::instance()->getClass('class_localization')->words['topicos_recentes'],
+									 'active' => $this->request['tab'] == 'core' && $this->request['area'] == 'recenttopics' ? 1 : 0,
+									 'area'   => 'recenttopics'
+			);
+		}
+
+		return $updatedLinks;
+	}
+
+	/**
+	 * Run custom event
+	 *
+	 * If you pass a 'do' in the URL / post form that is not either:
+	 * save / save_form or show / show_form then this function is loaded
+	 * instead. You can return a HTML chunk to be used in the UserCP (the
+	 * tabs and footer are auto loaded) or redirect to a link.
+	 *
+	 * If you are returning HTML, you can use $this->hide_form_and_save_button = 1;
+	 * to remove the form and save button that is automatically placed there.
+	 *
+	 * @author	Matt Mecham
+	 * @param	string				Current 'area' variable (area=xxxx from the URL)
+	 * @return   mixed 				html or void
+	 */
+	public function saveForm( $currentArea )
+	{
+		switch( $currentArea )
+		{
+			case 'recenttopics':
+					return $this->_customEvent_dorecenttopics();
+			break;
+		}
+		
+		return parent::saveForm( $currentArea );
+	}
+
+	/**
+	 * UserCP Form Show
+	 *
+	 * @author	Matt Mecham
+	 * @param	string	Current area as defined by 'get_links'
+	 * @param	array   Array of member / core_sys_login information (if we're editing)
+	 * @return   string  Processed HTML
+	 */
+	public function showForm( $current_area, $errors=array() )
+	{
+		//-----------------------------------------
+		// Where to go, what to see?
+		//-----------------------------------------
+	
+		switch( $current_area )
+		{
+			case 'recenttopics':
+				return $this->_customEvent_recenttopics();
+			break;
+		}
+		
+		return parent::showForm( $current_area, $errors );
+	}
+}]]></hooks_source>
+    </file>
+    <file>
+      <hook_file_real>topicosrecentes.php</hook_file_real>
+      <hook_type>templateHooks</hook_type>
+      <hook_classname>topicosrecentes</hook_classname>
+      <hook_data><![CDATA[a:8:{s:12:"dataLocation";s:0:"";s:14:"libApplication";s:0:"";s:15:"classToOverload";s:0:"";s:9:"skinGroup";s:11:"skin_boards";s:12:"skinFunction";s:18:"boardIndexTemplate";s:4:"type";s:7:"foreach";s:2:"id";s:10:"categories";s:8:"position";s:9:"outer.pre";}]]></hook_data>
+      <hooks_source><![CDATA[<?php
+
+class topicosrecentes
+{
+	public $registry;
+	
+	public function __construct()
+	{
+		$this->registry   =  ipsRegistry::instance();
+		$this->memberData =& $this->registry->member()->fetchMemberData();
+		$this->settings   =& $this->registry->fetchSettings();
+		$this->lang	  =  $this->registry->getClass('class_localization');
+		$this->DB         =  $this->registry->DB();
+		$this->request    =& $this->registry->fetchRequest();
+	}
+	
+	public function getOutput()
+	{
+		if ( in_array( $this->memberData['member_group_id'], explode( ',', $this->settings['topicosrecentes_grupos'] ) ) )
+		{
+			switch( $this->request['do'] )
+			{	
+				default:
+					return $this->recentTopics();
+				break;
+			}
+		}
+	}
+	
+	public function recentTopics()
+	{
+		if ( $this->memberData['member_id'] AND !$this->memberData['recenttopics_onoff'] )
+		{
+			return false;
+		}
+		
+		if ( $this->settings['topicosrecentes_posts'] AND $this->memberData['posts'] < $this->settings['topicosrecentes_posts'] )
+		{
+			return false;
+		}
+
+		$this->registry->class_localization->loadLanguageFile( array( 'public_forums', 'forums' ) );
+		$this->registry->class_localization->loadLanguageFile( array( 'public_boards', 'forums' ) );
+
+		$topicos = array();
+
+		$forumIDs = $this->registry->class_forums->forum_by_id;
+
+		foreach( $forumIDs as $id => $data )
+		{
+			if ( $this->registry->permissions->check( 'read', $data ) === TRUE )
+			{
+				$forums[] = $data['id'];
+			}
+		}
+
+		if ( is_array( $forums ) AND count( $forums ) )
+		{
+			$ids = implode( ',', $forums );
+		}
+		
+		if ( !$ids )
+		{
+			return false;
+		}
+
+		/* Exclude forums (by Admin) */
+		$exclude = $this->settings['topicosrecentes_forums'];
+		$excludeforums       = "";
+
+		if ( $exclude )
+		{
+			$excludeforums = " and t.forum_id NOT in({$exclude})";
+		}
+
+		/* Exclude forums (by user) */
+		$excludeforumsuser	 = "";
+		
+		if ( $this->memberData['member_id'] AND $this->memberData['recenttopics_forums'] )
+		{
+			$excludeforumsuser = " and t.forum_id NOT in({$this->memberData['recenttopics_forums']})";
+		}
+
+		/* Exclude CLOSED topics */
+		if ( $this->settings['topicosrecentes_fechados'] )
+		{
+			$closed = 'and t.state != "closed"';
+		}
+
+		if ( $this->memberData['member_id'] )
+		{
+			$qtd = $this->memberData['topicosrecentes_showdqtd'] ? $this->settings['topicosrecentes_nr'] : $this->memberData['recenttopics_qtd'];
+		}
+		else
+		{
+			$qtd = $this->settings['topicosrecentes_nr'];
+		}
+		
+		/* Load tagging stuff */
+		if ( ! $this->registry->isClassLoaded('tags') )
+		{
+			require_once( IPS_ROOT_PATH . 'sources/classes/tags/bootstrap.php' );/*noLibHook*/
+			$this->registry->setClass( 'tags', classes_tags_bootstrap::run( 'forums', 'topics' )  );
+		}
+		
+		$this->DB->build( array( 
+							'select'   => 't.*',
+							'from'     => array( 'topics' => 't' ),
+							'add_join' => array(
+												array(
+														'select' => 'm1.members_display_name as nome1, m1.members_seo_name, m1.member_group_id as grupo1',
+														'from' 	 => array( 'members' => 'm1' ),
+														'where'  => 'm1.member_id=t.starter_id',
+														'type'   => 'left',
+												),
+												$this->registry->tags->getCacheJoin( array( 'meta_id_field' => 't.tid' ) ),
+										),
+							'where'	   => "t.approved = 1 AND t.state != 'link' AND t.forum_id in({$ids})" . $excludeforums . $excludeforumsuser . $closed,
+							'order'    => 't.last_post desc',
+							'limit'	   => array( 0, $qtd ),
+		) );
+	
+		$this->DB->execute();
+			
+		while( $r = $this->DB->fetch() )
+		{
+			$topic_array[ $r['tid'] ] = $r;
+			$topic_ids[ $r['tid'] ]   = $r['tid'];
+
+			if( $r['last_poster_id'] )
+			{
+				$member_ids[ $r['last_poster_id'] ]	= $r['last_poster_id'];
+			}
+		}
+		
+		$_members	= IPSMember::load( $member_ids );
+					
+		$topic_array = $this->checkUserPosted( $topic_ids, 1, $topic_array );
+
+		if ( !is_array( $topic_array ) AND !count( $topic_array ) )
+		{
+			return false;
+		}
+		
+		$classToLoad = IPSLib::loadActionOverloader( IPSLib::getAppDir( 'forums', 'forums' ) . '/forums.php' , 'public_forums_forums_forums' );
+		$forumsClass = new $classToLoad;
+		$forumsClass->makeRegistryShortcuts( $this->registry );
+		
+		foreach ( $topic_array as $r )
+		{
+			/* Topic title colored? */
+			$r['style'] = "";
+			
+			if( isset( $r['ttc_fontcolor'] ) OR isset( $r['ttc_backgroundcolor'] ) OR isset( $r['ttc_bold'] ) OR isset( $r['ttc_italic'] ) )
+			{
+				$r['style'] .= " style='";
+				$r['style'] .= "-moz-border-radius:3px;-webkit-border-radius:3px;border-radius:3px;padding-left:5px;padding-right:5px;padding-top:2px;padding-bottom:2px;";
+				$r['style'] .= ( $r['ttc_fontcolor'] ) ? "color: {$r['ttc_fontcolor']}; " : '';
+				$r['style'] .= ( $r['ttc_backgroundcolor'] ) ? "background-color: {$r['ttc_backgroundcolor']}; " : '';
+				$r['style'] .= ( $r['ttc_italic'] ) ? "font-style: italic; " : '';
+				$r['style'] .= ( $r['ttc_bold'] ) ? "font-weight: bold; " : '';
+				$r['style'] .= "'";
+			}
+
+			/* Add member */
+			if( $r['last_poster_id'] )
+			{
+				$r	= array_merge( IPSMember::buildDisplayData( $_members[ $r['last_poster_id'] ] ), $r );
+			}
+			else
+			{
+				$r	= array_merge( IPSMember::buildProfilePhoto( array() ), $r );
+			}
+			
+			$r = $forumsClass->renderEntry( $r );
+			
+			
+			$r['forumBreadcrumb'] = $this->registry->getClass('class_forums')->forumsBreadcrumbNav( $r['forum_id'] );
+		
+			$topicos[ $r['tid'] ] = array( 	'topic_data' 	=> $r, 
+											'forum_data' 	=> $this->registry->class_forums->forum_by_id[ $r['forum_id'] ]
+										);
+		}
+
+		return $this->registry->getClass('output')->getTemplate( 'boards' )->hooksos_topicosrecentes_tema1( $topicos );
+	}
+
+    function checkUserPosted( $topic_ids=array(), $parse_dots=1, $topic_array=array() )
+    {
+       	if ( ( $this->memberData['member_id'] ) and ( count( $topic_ids ) ) and ( $parse_dots ) )
+       	{
+           		$this->DB->build(
+               		array(
+	               	    'select' => 'author_id, pid, topic_id',
+	       	            'from'   => 'posts',
+       	        	    'where'  => "author_id=".$this->memberData['member_id']." AND topic_id IN(".implode( ",", $topic_ids ).")",
+               		)
+           		);
+            
+			$this->DB->execute();
+
+	        while ( $p = $this->DB->fetch() )
+			{
+        		if ( is_array( $topic_array[ $p['topic_id'] ] ) )
+                {
+	            	$topic_array[ $p['topic_id'] ]['author_id'] = $p['author_id'];
+        	    }
+            }
+        }
+
+        return $topic_array;
+    }
+}]]></hooks_source>
+    </file>
+  </hookfiles>
+  <hookextras_settings>
+    <setting>
+      <conf_is_title>1</conf_is_title>
+      <conf_title_title>(SOS32) Recent Topics</conf_title_title>
+      <conf_title_desc>Settings for this hook</conf_title_desc>
+      <conf_title_noshow>0</conf_title_noshow>
+      <conf_title_keyword>topicosrecentes</conf_title_keyword>
+      <conf_title_app>forums</conf_title_app>
+      <conf_title_tab>Hooks</conf_title_tab>
+    </setting>
+    <setting>
+      <conf_id>544</conf_id>
+      <conf_title>Hide closed topics?</conf_title>
+      <conf_description>If enabled, closed topics will not appear in topics list</conf_description>
+      <conf_group>74</conf_group>
+      <conf_type>yes_no</conf_type>
+      <conf_key>topicosrecentes_fechados</conf_key>
+      <conf_value/>
+      <conf_default>0</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>5</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>topicosrecentes</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_id>545</conf_id>
+      <conf_title>EXCLUDE Forums</conf_title>
+      <conf_description>Although this hook uses the permissions for groups/forums, you can exclude forums (topics) that you don't want to see on the list, such as RSS forums, Off-Topic forums, etc.</conf_description>
+      <conf_group>74</conf_group>
+      <conf_type>multi</conf_type>
+      <conf_key>topicosrecentes_forums</conf_key>
+      <conf_value/>
+      <conf_default/>
+      <conf_extra>#show_forums#</conf_extra>
+      <conf_evalphp><![CDATA[
+if ( $save == 1)
+{
+	if ( is_array($_POST['topicosrecentes_forums']) )
+	{
+		$_POST['topicosrecentes_forums'] = implode(",",$_POST['topicosrecentes_forums']);
+	}
+	else
+	{
+		$_POST['topicosrecentes_forums'] = "";
+	}
+	
+	$key = 'topicosrecentes_forums';
+}
+if ( $show == 1 )
+{
+	$key = 'topicosrecentes_forums[]';
+} ]]></conf_evalphp>
+      <conf_protected>1</conf_protected>
+      <conf_position>6</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>topicosrecentes</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_id>546</conf_id>
+      <conf_title>Groups</conf_title>
+      <conf_description>Select here the user groups that will can see the list</conf_description>
+      <conf_group>74</conf_group>
+      <conf_type>multi</conf_type>
+      <conf_key>topicosrecentes_grupos</conf_key>
+      <conf_value/>
+      <conf_default/>
+      <conf_extra>#show_groups#</conf_extra>
+      <conf_evalphp><![CDATA[
+if ( $save == 1)
+{
+	if ( is_array($_POST['topicosrecentes_grupos']) )
+	{
+		$_POST['topicosrecentes_grupos'] = implode(",",$_POST['topicosrecentes_grupos']);
+	}
+	else
+	{
+		$_POST['topicosrecentes_grupos'] = "";
+	}
+	
+	$key = 'topicosrecentes_grupos';
+}
+if ( $show == 1 )
+{
+	$key = 'topicosrecentes_grupos[]';
+} ]]></conf_evalphp>
+      <conf_protected>1</conf_protected>
+      <conf_position>7</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>topicosrecentes</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_id>548</conf_id>
+      <conf_title>Number of topics</conf_title>
+      <conf_description>Specify how many topics do you want to show on board index</conf_description>
+      <conf_group>74</conf_group>
+      <conf_type>input</conf_type>
+      <conf_key>topicosrecentes_nr</conf_key>
+      <conf_value/>
+      <conf_default>5</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>2</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>topicosrecentes</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_id>549</conf_id>
+      <conf_title>Minimum posts</conf_title>
+      <conf_description><![CDATA[Specify how many posts user must have before he can view the Recent Topics in board index<br />Leave blank or fill with 0 (zero) if you don't want to use post restriction]]></conf_description>
+      <conf_group>74</conf_group>
+      <conf_type>input</conf_type>
+      <conf_key>topicosrecentes_posts</conf_key>
+      <conf_value/>
+      <conf_default>0</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>3</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>topicosrecentes</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_id>550</conf_id>
+      <conf_title>Title for the box</conf_title>
+      <conf_description>This is the name that will appear on board index and on User Control Panel</conf_description>
+      <conf_group>74</conf_group>
+      <conf_type>input</conf_type>
+      <conf_key>topicosrecentes_title</conf_key>
+      <conf_value/>
+      <conf_default>Recent Topics</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>1</conf_position>
+      <conf_start_group>General Settings</conf_start_group>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>topicosrecentes</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_id>551</conf_id>
+      <conf_title>Interval for the auto update of the list (in seconds)</conf_title>
+      <conf_description>Do not use a very low number to not compromise the performance of your board</conf_description>
+      <conf_group>74</conf_group>
+      <conf_type>input</conf_type>
+      <conf_key>topicosrecentes_updateInterval</conf_key>
+      <conf_value/>
+      <conf_default>30</conf_default>
+      <conf_extra/>
+      <conf_evalphp><![CDATA[if ( $save )
+{
+	$_POST['topicosrecentes_updateInterval'] = intval( $_POST['topicosrecentes_updateInterval'] );
+}]]></conf_evalphp>
+      <conf_protected>1</conf_protected>
+      <conf_position>4</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>topicosrecentes</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_id>552</conf_id>
+      <conf_title>Disable the refresh image?</conf_title>
+      <conf_description>Stops the image from showing at the top of the page each time the hook updates the topics list</conf_description>
+      <conf_group>74</conf_group>
+      <conf_type>yes_no</conf_type>
+      <conf_key>topicosrecentes_img_disable</conf_key>
+      <conf_value/>
+      <conf_default>0</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>5</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>topicosrecentes</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+  </hookextras_settings>
+  <hookextras_language>
+    <language>
+      <word_id>9000</word_id>
+      <lang_id>1</lang_id>
+      <word_app>forums</word_app>
+      <word_pack>public_boards</word_pack>
+      <word_key>topicos_recentes</word_key>
+      <word_default><![CDATA[Recent Topics ]]></word_default>
+      <word_custom/>
+      <word_default_version>1</word_default_version>
+      <word_custom_version/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_id>9000</word_id>
+      <lang_id>1</lang_id>
+      <word_app>forums</word_app>
+      <word_pack>public_boards</word_pack>
+      <word_key>forum</word_key>
+      <word_default><![CDATA[Forum]]></word_default>
+      <word_custom/>
+      <word_default_version>1</word_default_version>
+      <word_custom_version/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_id>9000</word_id>
+      <lang_id>1</lang_id>
+      <word_app>core</word_app>
+      <word_pack>public_usercp</word_pack>
+      <word_key>topicosrecentes_title</word_key>
+      <word_default><![CDATA[User settings for the Recent Topics]]></word_default>
+      <word_custom/>
+      <word_default_version>1</word_default_version>
+      <word_custom_version/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_id>9000</word_id>
+      <lang_id>1</lang_id>
+      <word_app>core</word_app>
+      <word_pack>public_usercp</word_pack>
+      <word_key>topicosrecentes_on</word_key>
+      <word_default>Do you want to see the Recent Topics in board index?</word_default>
+      <word_custom/>
+      <word_default_version>1</word_default_version>
+      <word_custom_version/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_id>9000</word_id>
+      <lang_id>1</lang_id>
+      <word_app>core</word_app>
+      <word_pack>public_usercp</word_pack>
+      <word_key>topicosrecentes_ondesc</word_key>
+      <word_default>If enabled, will show a list of recent topics/posts in board index</word_default>
+      <word_custom/>
+      <word_default_version>1</word_default_version>
+      <word_custom_version/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_id>9000</word_id>
+      <lang_id>1</lang_id>
+      <word_app>core</word_app>
+      <word_pack>public_usercp</word_pack>
+      <word_key>topicosrecentes_qtd</word_key>
+      <word_default>Number of topics to show</word_default>
+      <word_custom/>
+      <word_default_version>1</word_default_version>
+      <word_custom_version/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_id>9000</word_id>
+      <lang_id>1</lang_id>
+      <word_app>core</word_app>
+      <word_pack>public_usercp</word_pack>
+      <word_key>topicosrecentes_usercpforums</word_key>
+      <word_default>The forums you choose here <strong>WILL NOT SHOW</strong> in recent topics.<br />You can select more than one.</word_default>
+      <word_custom/>
+      <word_default_version>1</word_default_version>
+      <word_custom_version/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_id>9000</word_id>
+      <lang_id>1</lang_id>
+      <word_app>core</word_app>
+      <word_pack>public_usercp</word_pack>
+      <word_key>savetrecents</word_key>
+      <word_default>Save</word_default>
+      <word_custom/>
+      <word_default_version>1</word_default_version>
+      <word_custom_version/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_id>9000</word_id>
+      <lang_id>1</lang_id>
+      <word_app>core</word_app>
+      <word_pack>public_usercp</word_pack>
+      <word_key>topicosrecentes_usercpexcludeforums</word_key>
+      <word_default>Block Forums</word_default>
+      <word_custom/>
+      <word_default_version>1</word_default_version>
+      <word_custom_version/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_id>9000</word_id>
+      <lang_id>1</lang_id>
+      <word_app>core</word_app>
+      <word_pack>public_usercp</word_pack>
+      <word_key>topicosrecentes_qtdstd_desc</word_key>
+      <word_default>If you want to specify a number of topics to show, <strong>uncheck the previous setting and specify a number here</strong></word_default>
+      <word_custom/>
+      <word_default_version>1</word_default_version>
+      <word_custom_version/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_id>9000</word_id>
+      <lang_id>1</lang_id>
+      <word_app>core</word_app>
+      <word_pack>public_usercp</word_pack>
+      <word_key>recenttopics_saved</word_key>
+      <word_default>The user settings for Recent Topics is saved!</word_default>
+      <word_custom/>
+      <word_default_version>1</word_default_version>
+      <word_custom_version/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_id>9000</word_id>
+      <lang_id>1</lang_id>
+      <word_app>core</word_app>
+      <word_pack>public_usercp</word_pack>
+      <word_key>topicosrecentes_showdqtd</word_key>
+      <word_default>Show default number of topics chosen by Admin</word_default>
+      <word_custom/>
+      <word_default_version>1</word_default_version>
+      <word_custom_version/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_id>9000</word_id>
+      <lang_id>1</lang_id>
+      <word_app>core</word_app>
+      <word_pack>public_usercp</word_pack>
+      <word_key>topicosrecentes_showdqtddesc</word_key>
+      <word_default>If you check this option, <strong>next setting won't have any effect</strong></word_default>
+      <word_custom/>
+      <word_default_version>1</word_default_version>
+      <word_custom_version/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_id>9000</word_id>
+      <lang_id>1</lang_id>
+      <word_app>forums</word_app>
+      <word_pack>public_boards</word_pack>
+      <word_key>recenttopics_settings</word_key>
+      <word_default>Settings</word_default>
+      <word_custom/>
+      <word_default_version>1</word_default_version>
+      <word_custom_version/>
+      <word_js>0</word_js>
+    </language>
+  </hookextras_language>
+  <hookextras_modules/>
+  <hookextras_help/>
+  <hookextras_templates>
+    <templates>
+      <template_group>skin_boards</template_group>
+      <template_content><![CDATA[<li>
+	<table class="ipb_table topic_list hover_rows">
+		<tr class='__topic <if test="!$r['topic_data']['folder_img']['is_read']">unread</if> expandable' id='trow_{$r['topic_data']['tid']}' data-tid="{$r['topic_data']['tid']}" data-timestamp="{$r['topic_data']['last_post']}">
+			<td class='col_f_icon altrow short'>
+				{parse template="generateTopicIcon" group="global_other" params="$r['topic_data']['folder_img'], isset($r['topic_data']['_unreadUrl']) ? $r['topic_data']['_unreadUrl'] : ''"}
+			</td>
+			
+			<td class='col_f_content <if test="hasmodlinks:|:$this->memberData['is_mod'] == 1 || $r['forum_data']['permissions']['TopicSoftDelete']"> with_mod_links</if>'>
+				<if test="hasPrefix:|:!empty($r['topic_data']['tags']['formatted']['prefix'])">
+					{$r['topic_data']['tags']['formatted']['prefix']}
+				</if>
+				<h4>{$r['topic_data']['prefix']} <if test="$r['topic_data']['topic_hasattach']"><a href="{parse url="app=forums&amp;module=forums&amp;section=attach&amp;tid={$r['topic_data']['tid']}" base="public"}" title="{parse expression="intval($r['topic_data']['topic_hasattach'])"} {$this->lang->words['topic_attach']}" onclick="return ipb.forums.retrieveAttachments( {$r['topic_data']['tid']} );">{parse replacement="post_attach_link"}</a> </if><a{$r['topic_data']['style']} id="tid-link-{$r['topic_data']['tid']}" href="{$r['topic_data']['_url']}" title='{$this->lang->words['topic_started_on']} {parse date="$r['topic_data']['start_date']" format="LONG"}' class='topic_title'>{$r['topic_data']['title']}</a></h4>
+				<br />
+				<span class='desc lighter blend_links'>
+					<php>$author = IPSMember::makeProfileLink(IPSMember::makeNameFormatted( $r['topic_data']['nome1'], $r['topic_data']['grupo1']), $r['topic_data']['starter_id']);</php>
+					{parse expression="sprintf( $this->lang->words['topic_started_by'], $author )"} {parse date="$r['topic_data']['start_date']" format="DATE"}
+					{$this->lang->words['in_last_topic']}
+					<foreach loop="topicsForumTrail:$r['topic_data']['forumBreadcrumb'] as $i => $f">
+						<a href='{parse url="{$f[1]}" template="showforum" seotitle="{$f[2]}" base="public"}'>{$f[0]}</a>&nbsp;<if test="notLastFt:|:$i+1 != count( $r['topic_data']['forumBreadcrumb'] )">{parse replacement="f_nav_sep"}</if>
+					</foreach>
+					<if test="hasTags:|:isset($r['topic_data']['tags']) AND $r['topic_data']['tags']">
+						&nbsp; <img src='{$this->settings['img_url']}/icon_tag.png' /> {$r['topic_data']['tags']['formatted']['truncatedWithLinks']}
+					</if>
+				</span>
+				<if test="multipages:|:isset( $r['topic_data']['pages'] ) AND is_array( $r['topic_data']['pages'] ) AND count( $r['topic_data']['pages'] )">
+					<ul class='mini_pagination'>
+					<foreach loop="pages:$r['topic_data']['pages'] as $page">
+							<if test="haslastpage:|:$page['last']">
+								<li><a href="{parse url="showtopic={$r['topic_data']['tid']}&amp;st={$page['st']}" seotitle="{$r['topic_data']['title_seo']}" template="showtopic" base="public"}" title='{$this->lang->words['topic_goto_page']} {$page['page']}'>{$page['page']} {$this->lang->words['_rarr']}</a></li>
+							<else />
+								<li><a href="{parse url="showtopic={$r['topic_data']['tid']}&amp;st={$page['st']}" seotitle="{$r['topic_data']['title_seo']}" template="showtopic" base="public"}" title='{$this->lang->words['topic_goto_page']} {$page['page']}'>{$page['page']}</a></li>
+							</if>
+					</foreach>
+					</ul>
+				</if>
+			</td>
+			<td class='col_f_preview __topic_preview'>
+				<if test="$this->registry->permissions->check( 'read', $r['forum_data'] )">
+					<a href='{$r['topic_data']['_url']}' class='expander closed' title='{$this->lang->words['view_topic_preview']}'>&nbsp;</a>
+				</if>
+			</td>
+			<td class='col_f_views desc blend_links'>
+				<ul>
+					<li>
+						<if test="queuedpostsImg:|:($this->memberData['is_mod'] AND $r['topic_data']['_hasqueued'])">
+							<a href='{parse url="showtopic={$r['topic_data']['tid']}&amp;modfilter=invisible_posts" seotitle="{$r['topic_data']['title_seo']}" template="showtopic" base="public"}' title='{$this->lang->words['view_uapproved_posts']}' data-tooltip="{parse expression="sprintf( $this->lang->words['topic_queued_count'], $r['topic_data']['topic_queuedposts'] )"}"><img src='{$this->settings['img_url']}/bullet_error.png' alt='' /></a>
+						</if>
+						<if test="deletedPostsImg:|:($r['forum_data']['permissions']['PostSoftDeleteSee'] AND $r['topic_data']['topic_deleted_posts'])">
+							<a href='{parse url="showtopic={$r['topic_data']['tid']}&amp;modfilter=deleted_posts" seotitle="{$r['topic_data']['title_seo']}" template="showtopic" base="public"}' title='{$this->lang->words['view_deleted_posts']}'><img src='{$this->settings['img_url']}/bullet_delete.png' alt='' /></a>
+						</if>
+						<if test="isLink:|:$r['topic_data']['state'] != 'link'">
+							<if test="isHot:|:$r['topic_data']['folder_img']['is_hot']">
+								<span class='ipsBadge ipsBadge_orange'>{$this->lang->words['topic_is_hot']}</span>&nbsp;
+							</if>
+							<a href="{parse url="app=forums&amp;module=extras&amp;section=stats&amp;do=who&amp;t={$r['topic_data']['tid']}" base="public"}" onclick="return ipb.forums.retrieveWhoPosted( {$r['topic_data']['tid']} );">{parse format_number="$r['topic_data']['posts']"} <if test="replylang:|:intval($r['topic_data']['posts']) == 1">{$this->lang->words['reply']}<else />{$this->lang->words['replies']}</if></a>
+						</if>
+					</li>
+					<li class='views desc'>{parse format_number="$r['topic_data']['views']"} {$this->lang->words['views']}</li>
+				</ul>
+			</td>
+			<td class='col_f_post'>
+				<a href='{parse url="showuser={$r['topic_data']['last_poster_id']}" seotitle="{$r['topic_data']['seo_last_name']}" template="showuser" base="public"}' class='ipsUserPhotoLink left'>
+					<img src='{$r['topic_data']['pp_small_photo']}' class='ipsUserPhoto ipsUserPhoto_mini' />
+				</a>
+				<ul class='last_post ipsType_small'>
+				<php>$lastposter = IPSMember::makeProfileLink(IPSMember::makeNameFormatted( $r['topic_data']['members_display_name'], $r['topic_data']['member_group_id']), $r['topic_data']['last_poster_id']);</php>
+					<li>{$lastposter}</li>
+					<li>
+						<a href='{parse url="showtopic={$r['topic_data']['tid']}&amp;view=getlastpost" seotitle="{$r['topic_data']['title_seo']}" template="showtopic" base="public"}' title='{$this->lang->words['goto_last_post']}'>{parse date="$r['topic_data']['last_post']" format="DATE"}</a>
+					</li>								
+				</ul>
+			</td>
+		</tr>
+	</table>
+</li>]]></template_content>
+      <template_name>hooksos_topicosrecentes_parseTopic</template_name>
+      <template_data>$r=array()</template_data>
+      <template_updated>1234793679</template_updated>
+      <template_removable>0</template_removable>
+      <template_added_to>1</template_added_to>
+      <template_user_added>1</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>root</template_master_key>
+    </templates>
+    <templates>
+      <template_group>skin_boards</template_group>
+      <template_content><![CDATA[<script src="{$this->settings['public_dir']}js/ips.recentTopicsHook.js" type="text/javascript"></script>
+<script src="{$this->settings['public_dir']}js/ips.forums.js" type="text/javascript"></script>
+	  <script type="text/javascript">
+	ipb.recentTopics.updateInterval = parseInt( {$this->settings['topicosrecentes_updateInterval']} );
+	<php>
+		if ( $this->memberData['member_id'] AND $this->memberData['topicosrecentes_showdqtd'] )
+		{
+			$nr = $this->memberData['recenttopics_qtd'];
+		}
+		else
+		{
+			$nr = $this->settings['topicosrecentes_nr'];
+		}
+	</php>
+	ipb.recentTopics.maxElements	= parseInt( {$nr} );
+	ipb.recentTopics.img_disable    = parseInt({$this->settings['topicosrecentes_img_disable']});
+</script>
+
+<div id='recentTopicsWrapper' class='category_block block_wrap'>
+	<h3 class='maintitle'>
+	<span class="right"><ul class="ipsFilterbar ipsList_inline ipsType_small">
+	<if test="$this->memberData['member_id']"><li><a href="{parse url="app=core&amp;module=usercp&amp;tab=core&amp;area=recenttopics" base="public"}" rel="nofollow"><img src='{style_image_url}/cog.png' title='{$this->lang->words['recenttopics_settings']}' alt='+' /></a></li></if>
+	                <a class='toggle right' href='#' title="{$this->lang->words['toggle_cat']}">
+	        {$this->lang->words['toggle_cat']}</a></ul>
+	                        </span>
+	{$this->settings['topicosrecentes_title']}</h3>
+	<div class='ipsBox table_wrap'>
+		<div class='ipsBox_container'>
+			<table class='ipb_table topic_list hover_rows'>
+				<tr class='header hide'>
+					<th scope='col' class='col_f_icon'>&nbsp;</th>
+					<th scope='col' class='col_f_topic'>{$this->lang->words['forum_topic']}</th>
+					<th scope='col' class='col_f_starter short'>{$this->lang->words['forum_started_by']}</th>
+					<th scope='col' class='col_f_views stats'>{$this->lang->words['forum_stats']}</th>
+					<th scope='col' class='col_f_post'>{$this->lang->words['forum_last_post_info']}</th>
+				</tr>
+			</table>
+			<!-- BEGIN TOPICS -->
+			<ul id='recentTopics_table'>
+				<foreach loop="topicosrecentes_hook:$topics as $r">
+					{parse template="hooksos_topicosrecentes_parseTopic" group="boards" params="$r"}
+				</foreach>
+			</ul>
+		</div>
+	</div>
+</div>
+<br />]]></template_content>
+      <template_name>hooksos_topicosrecentes_tema1</template_name>
+      <template_data>$topics=array()</template_data>
+      <template_updated>1234793679</template_updated>
+      <template_removable>0</template_removable>
+      <template_added_to>1</template_added_to>
+      <template_user_added>1</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>root</template_master_key>
+    </templates>
+    <templates>
+      <template_group>skin_boards</template_group>
+      <template_content><![CDATA[<foreach loop="topicosrecentes_hook:$topics as $r">
+	{parse template="hooksos_topicosrecentes_parseTopic" group="boards" params="$r"}
+</foreach>]]></template_content>
+      <template_name>hooksos_topicosrecentesAjax_tema1</template_name>
+      <template_data>$topics=array()</template_data>
+      <template_updated>1246486446</template_updated>
+      <template_removable>0</template_removable>
+      <template_added_to>1</template_added_to>
+      <template_user_added>1</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>root</template_master_key>
+    </templates>
+    <templates>
+      <template_group>skin_ucp</template_group>
+      <template_content><![CDATA[<h2 class='ipsType_subtitle ipsSettings_pagetitle'>{$this->settings['topicosrecentes_title']}</h2>
+<div class='ipsSettings'>
+	<fieldset class='ipsSettings_section'>
+		<h3 class='ipsSettings_sectiontitle'></h3>
+		<div>
+			<ul>
+				<li>
+					<input type='checkbox' class='input_check' id='showtr' name="showtr" value="1"<if test="$this->memberData['recenttopics_onoff']"> checked="checked"</if>/> 
+					<label for='showtr'>{$this->lang->words['topicosrecentes_on']}</label><br />
+					<span class='desc lighter'>{$this->lang->words['topicosrecentes_ondesc']}</span>
+				</li>
+				<li>
+					<input type='checkbox' class='input_check' id='showdqtd' name="showdqtd" value="1"<if test="$this->memberData['topicosrecentes_showdqtd']"> checked="checked"</if>/> 
+					<label for='showdqtd'>{$this->lang->words['topicosrecentes_showdqtd']}</label><br />
+						<span class='desc lighter'>{$this->lang->words['topicosrecentes_showdqtddesc']}</span>
+				</li>
+			</ul>
+			<ul class='ipsForm ipsForm_horizontal'>
+				<li class='ipsField'>
+					<label class='ipsSettings_fieldtitle' for='qtd_topicos' />{$this->lang->words['topicosrecentes_qtd']}:</label>
+					<select name="qtd_topicos" class='input_select' id='qtd_topicos'>
+						<option value='1'  <if test="$this->memberData['recenttopics_qtd'] == 1"> selected="selected"</if>>1</option>
+						<option value='2'  <if test="$this->memberData['recenttopics_qtd'] == 2"> selected="selected"</if>>2</option>
+						<option value='3'  <if test="$this->memberData['recenttopics_qtd'] == 3"> selected="selected"</if>>3</option>
+						<option value='4'  <if test="$this->memberData['recenttopics_qtd'] == 4"> selected="selected"</if>>4</option>
+						<option value='5'  <if test="$this->memberData['recenttopics_qtd'] == 5"> selected="selected"</if>>5</option>
+						<option value='6'  <if test="$this->memberData['recenttopics_qtd'] == 6"> selected="selected"</if>>6</option>
+						<option value='7'  <if test="$this->memberData['recenttopics_qtd'] == 7"> selected="selected"</if>>7</option>
+						<option value='8'  <if test="$this->memberData['recenttopics_qtd'] == 8"> selected="selected"</if>>8</option>
+						<option value='9'  <if test="$this->memberData['recenttopics_qtd'] == 9"> selected="selected"</if>>9</option>
+						<option value='10' <if test="$this->memberData['recenttopics_qtd'] == 10"> selected="selected"</if>>10</option>
+					</select><br />
+					<span class="desc lighter">{$this->lang->words['topicosrecentes_qtdstd_desc']}</span>
+				</li>
+				<li class='ipsField'>
+					<label class='ipsSettings_fieldtitle' for='exclude_forum'>{$this->lang->words['topicosrecentes_usercpexcludeforums']}:</label>
+					{$lista}<br />
+					<span class="desc lighter">{$this->lang->words['topicosrecentes_usercpforums']}</span>
+				</li>
+			</ul>
+		</div>
+	</fieldset>
+</div>]]></template_content>
+      <template_name>recent_topics</template_name>
+      <template_data>$lista,$blocked</template_data>
+      <template_updated>1248229309</template_updated>
+      <template_removable>0</template_removable>
+      <template_added_to>1</template_added_to>
+      <template_user_added>1</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>root</template_master_key>
+    </templates>
+  </hookextras_templates>
+  <hookextras_css/>
+  <hookextras_tasks/>
+  <hookextras_database_create/>
+  <hookextras_database_alter>
+    <alter>
+      <altertype>add</altertype>
+      <table>members</table>
+      <field>recenttopics_onoff</field>
+      <newfield/>
+      <fieldtype>tinyint(1)</fieldtype>
+      <default>1</default>
+    </alter>
+    <alter>
+      <altertype>add</altertype>
+      <table>members</table>
+      <field>topicosrecentes_showdqtd</field>
+      <newfield/>
+      <fieldtype>tinyint(1)</fieldtype>
+      <default>1</default>
+    </alter>
+    <alter>
+      <altertype>add</altertype>
+      <table>members</table>
+      <field>recenttopics_qtd</field>
+      <newfield/>
+      <fieldtype>tinyint(1)</fieldtype>
+      <default>5</default>
+    </alter>
+    <alter>
+      <altertype>add</altertype>
+      <table>members</table>
+      <field>recenttopics_forums</field>
+      <newfield/>
+      <fieldtype>text</fieldtype>
+      <default/>
+    </alter>
+  </hookextras_database_alter>
+  <hookextras_database_update/>
+  <hookextras_database_insert/>
+</hookexport>
