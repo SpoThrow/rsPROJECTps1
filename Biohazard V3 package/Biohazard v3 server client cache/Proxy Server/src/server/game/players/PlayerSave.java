@@ -295,6 +295,18 @@ public class PlayerSave {
 						p.killCount = Integer.parseInt(token2);
 					} else if (token.equals("fightMode")) {
 						p.fightMode = Integer.parseInt(token2);
+					} else if (token.equals("musicVolume")) {
+						p.musicVolume = Integer.parseInt(token2);
+					} else if (token.equals("soundEffectVolume")) {
+						p.soundEffectVolume = Integer.parseInt(token2);
+					} else if (token.equals("musicEnabled")) {
+						p.musicEnabled = Boolean.parseBoolean(token2);
+					} else if (token.equals("mouseButton")) {
+						p.mouseButton = Boolean.parseBoolean(token2);
+					} else if (token.equals("splitChat")) {
+						p.splitChat = Boolean.parseBoolean(token2);
+					} else if (token.equals("chatEffects")) {
+						p.chatEffects = Boolean.parseBoolean(token2);
 					}
 					break;
 				case 3:
@@ -599,6 +611,24 @@ public class PlayerSave {
 			characterfile.newLine();
 			characterfile.write("fightMode = ", 0, 12);
 			characterfile.write(Integer.toString(p.fightMode), 0, Integer.toString(p.fightMode).length());
+			characterfile.newLine();
+			characterfile.write("musicVolume = ", 0, 14);
+			characterfile.write(Integer.toString(p.musicVolume), 0, Integer.toString(p.musicVolume).length());
+			characterfile.newLine();
+			characterfile.write("soundEffectVolume = ", 0, 20);
+			characterfile.write(Integer.toString(p.soundEffectVolume), 0, Integer.toString(p.soundEffectVolume).length());
+			characterfile.newLine();
+			characterfile.write("musicEnabled = ", 0, 15);
+			characterfile.write(Boolean.toString(p.musicEnabled), 0, Boolean.toString(p.musicEnabled).length());
+			characterfile.newLine();
+			characterfile.write("mouseButton = ", 0, 14);
+			characterfile.write(Boolean.toString(p.mouseButton), 0, Boolean.toString(p.mouseButton).length());
+			characterfile.newLine();
+			characterfile.write("splitChat = ", 0, 12);
+			characterfile.write(Boolean.toString(p.splitChat), 0, Boolean.toString(p.splitChat).length());
+			characterfile.newLine();
+			characterfile.write("chatEffects = ", 0, 15);
+			characterfile.write(Boolean.toString(p.chatEffects), 0, Boolean.toString(p.chatEffects).length());
 			characterfile.newLine();
 			characterfile.write("void = ", 0, 7);
 			String toWrite = p.voidStatus[0] + "\t" + p.voidStatus[1] + "\t" + p.voidStatus[2] + "\t" + p.voidStatus[3] + "\t" + p.voidStatus[4];

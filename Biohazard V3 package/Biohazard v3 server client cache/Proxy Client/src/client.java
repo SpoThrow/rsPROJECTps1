@@ -72,6 +72,44 @@ public class client extends RSApplet {
 		}
 	}
 	
+	/**
+	 * Save client settings to a global settings file
+	 */
+	public void saveClientSettings() {
+		try {
+			String settingsFile = signlink.findcachedir() + "client_settings.dat";
+			DataOutputStream dos = new DataOutputStream(new FileOutputStream(settingsFile));
+			dos.writeInt(midiVolume);
+			dos.writeBoolean(musicEnabled);
+			dos.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	
+	/**
+	 * Load client settings from a global settings file
+	 */
+	public void loadClientSettings() {
+		try {
+			String settingsFile = signlink.findcachedir() + "client_settings.dat";
+			File file = new File(settingsFile);
+			if (file.exists()) {
+				DataInputStream dis = new DataInputStream(new FileInputStream(settingsFile));
+				midiVolume = dis.readInt();
+				musicEnabled = dis.readBoolean();
+				dis.close();
+				
+				// Apply loaded settings
+				if(midiPlayer.playing()){
+					midiPlayer.setVolume(0, midiVolume);
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	
 	public void playSong(int id) {
 		if (id != currentSong && musicEnabled && !lowMem && prevSong == 0) {
 			nextSong = id;
@@ -3804,11 +3842,13 @@ public class client extends RSApplet {
 				yCameraCurve = 383;
 			super.saveClickX = super.mouseX;
 			super.saveClickY = super.mouseY;
-		}
-		if (!processMenuClick()) {
-			processMainScreenClick();
-			processTabClick();
-			processChatModeClick();
+		} else {
+			// Only process clicks if not using middle mouse for camera rotation
+			if (!processMenuClick()) {
+				processMainScreenClick();
+				processTabClick();
+				processChatModeClick();
+			}
 		}
 		if (super.clickMode2 == 1 || super.clickMode3 == 1)
 			anInt1213++;

@@ -25,6 +25,9 @@ public abstract class Player {
 	 */
 	public boolean isLoopingMusic = true;
 	public int auto = 1;
+	public int musicVolume = 4; // 0-4, default 4 (max)
+	public int soundEffectVolume = 4; // 0-4, default 4 (max)
+	public boolean musicEnabled = true;
 	
 	/**
 	 * coop
