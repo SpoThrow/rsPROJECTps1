@@ -10,6 +10,7 @@ import java.awt.Graphics;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -1914,6 +1915,7 @@ public class client extends RSApplet {
 				}
 				prevSong = 0;
 			}
+			saveClientSettings();
 		}
 		if (j == 4) {
 			if (k == 0) {
@@ -2626,6 +2628,7 @@ public class client extends RSApplet {
 	}
 
 	public void resetLogout() {
+		saveClientSettings();
 		try {
 			if (socketStream != null)
 				socketStream.close();
@@ -5514,6 +5517,7 @@ public class client extends RSApplet {
 	}
 
 	public void cleanUpForQuit() {
+		saveClientSettings();
 		signlink.reporterror = false;
 		try {
 			if (socketStream != null)
@@ -7964,6 +7968,7 @@ public class client extends RSApplet {
 
 	void startUp() {
 		drawLoadingText(20, "Starting up");
+		loadClientSettings();
 		new CacheDownloader(this).downloadCache();
 		if (signlink.sunjava)
 			super.minDelay = 5;
