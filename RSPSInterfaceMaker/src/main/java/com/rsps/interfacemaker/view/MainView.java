@@ -20,11 +20,13 @@ import javafx.stage.FileChooser;
 import javafx.stage.DirectoryChooser;
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
 
 public class MainView extends BorderPane {
     private InterfaceProject project;
     private InterfaceCanvas canvas;
     private ComponentListView componentListView;
+    private SpriteLibraryPanel spriteLibraryPanel;
     private PropertyPanel propertyPanel;
     private CodePreviewPanel codePreviewPanel;
     private Stage primaryStage;
@@ -41,23 +43,53 @@ public class MainView extends BorderPane {
         ToolBar toolBar = createToolBar();
         setTop(toolBar);
 
-        // Center split pane
-        SplitPane splitPane = new SplitPane();
-        splitPane.setDividerPositions(0.2, 0.55, 0.8);
+        // Main horizontal split: Left panel vs Right area
+        SplitPane mainSplitPane = new SplitPane();
+        mainSplitPane.setDividerPositions(0.15); // Left panel 15%, Right area 85%
 
-        // Left: Component list
+        // Left: Component list + Sprite Library (tabbed)
+        TabPane leftTabPane = new TabPane();
+        
+        // Components tab
         componentListView = new ComponentListView(project);
         componentListView.setOnComponentSelectedWithComponent(this::onComponentSelectedFromList);
         ScrollPane leftScroll = new ScrollPane(componentListView);
         leftScroll.setFitToWidth(true);
         leftScroll.setFitToHeight(true);
+        Tab componentsTab = new Tab("Components", leftScroll);
+        componentsTab.setClosable(false);
+        
+        // Sprite Library tab
+        spriteLibraryPanel = new SpriteLibraryPanel();
+        spriteLibraryPanel.setOnSpriteAssigned(this::onSpriteAssigned);
+        spriteLibraryPanel.setSelectedComponent(null);
+        ScrollPane spriteScroll = new ScrollPane(spriteLibraryPanel);
+        spriteScroll.setFitToWidth(true);
+        spriteScroll.setFitToHeight(true);
+        Tab spriteLibraryTab = new Tab("Sprite Library", spriteScroll);
+        spriteLibraryTab.setClosable(false);
+        
+        leftTabPane.getTabs().addAll(componentsTab, spriteLibraryTab);
+        leftTabPane.setMinWidth(150);
+        leftTabPane.setMaxWidth(250);
 
-        // Center: Canvas
+        // Right area: Canvas vs Right sidebar
+        SplitPane rightSplitPane = new SplitPane();
+        rightSplitPane.setDividerPositions(0.75); // Canvas 75%, Right sidebar 25%
+
+        // Center: Canvas (main focus)
         canvas = new InterfaceCanvas(project);
         canvas.setOnComponentSelected(this::onComponentSelected);
+        canvas.setOnComponentsDuplicated(this::onComponentsDuplicated);
         ScrollPane centerScroll = new ScrollPane(canvas);
         centerScroll.setFitToWidth(true);
         centerScroll.setFitToHeight(true);
+        centerScroll.setStyle("-fx-background: #1a1a1a;");
+
+        // Right sidebar: Properties vs Code Preview
+        SplitPane sidebarSplitPane = new SplitPane();
+        sidebarSplitPane.setOrientation(javafx.geometry.Orientation.VERTICAL);
+        sidebarSplitPane.setDividerPositions(0.6); // Properties 60%, Code Preview 40%
 
         // Right: Property panel
         propertyPanel = new PropertyPanel(project);
@@ -66,15 +98,21 @@ public class MainView extends BorderPane {
         ScrollPane rightScroll = new ScrollPane(propertyPanel);
         rightScroll.setFitToWidth(true);
         rightScroll.setFitToHeight(true);
+        rightScroll.setMinWidth(200);
+        rightScroll.setMaxWidth(300);
 
         // Far right: Code preview
         codePreviewPanel = new CodePreviewPanel(project);
         ScrollPane codeScroll = new ScrollPane(codePreviewPanel);
         codeScroll.setFitToWidth(true);
         codeScroll.setFitToHeight(true);
+        codeScroll.setMinWidth(200);
+        codeScroll.setMaxWidth(300);
 
-        splitPane.getItems().addAll(leftScroll, centerScroll, rightScroll, codeScroll);
-        setCenter(splitPane);
+        sidebarSplitPane.getItems().addAll(rightScroll, codeScroll);
+        rightSplitPane.getItems().addAll(centerScroll, sidebarSplitPane);
+        mainSplitPane.getItems().addAll(leftTabPane, rightSplitPane);
+        setCenter(mainSplitPane);
 
         // Bottom status bar
         Label statusLabel = new Label("Ready");
@@ -222,6 +260,7 @@ public class MainView extends BorderPane {
 
     private void onComponentSelected(InterfaceComponent component) {
         propertyPanel.setComponent(component);
+        spriteLibraryPanel.setSelectedComponent(component);
         // Sync selection with component list
         if (component != null) {
             componentListView.selectComponent(component);
@@ -230,6 +269,7 @@ public class MainView extends BorderPane {
 
     private void onComponentSelectedFromList(InterfaceComponent component) {
         propertyPanel.setComponent(component);
+        spriteLibraryPanel.setSelectedComponent(component);
         // Sync selection with canvas
         if (component != null) {
             canvas.selectComponent(component);
@@ -238,6 +278,18 @@ public class MainView extends BorderPane {
 
     private void onComponentModified(InterfaceComponent component) {
         canvas.render();
+        componentListView.refresh();
+        codePreviewPanel.updatePreview();
+    }
+
+    private void onSpriteAssigned(InterfaceComponent component) {
+        propertyPanel.setComponent(component);
+        canvas.render();
+        componentListView.refresh();
+        codePreviewPanel.updatePreview();
+    }
+
+    private void onComponentsDuplicated(List<InterfaceComponent> components) {
         componentListView.refresh();
         codePreviewPanel.updatePreview();
     }
@@ -578,10 +630,16 @@ public class MainView extends BorderPane {
                 "This will be used for:\n" +
                 "- Converting file paths to relative paths\n" +
                 "- Loading sprites in the canvas\n" +
-                "- Sprite thumbnails in Properties panel");
+                "- Sprite thumbnails in Properties panel\n" +
+                "- Sprite Library panel thumbnails");
             alert.showAndWait();
             
             // Refresh canvas to reload sprites with new root directory
+            canvas.render();
+            // Refresh sprite library to scan new directory
+            spriteLibraryPanel.refresh();
+        }
+    }
             canvas.render();
         }
     }

@@ -5,6 +5,7 @@ import com.rsps.interfacemaker.model.InterfaceProject;
 import com.rsps.interfacemaker.model.ComponentType;
 import com.rsps.interfacemaker.model.SpriteComponent;
 import com.rsps.interfacemaker.model.ButtonComponent;
+import com.rsps.interfacemaker.model.TextComponent;
 import com.rsps.interfacemaker.util.SpriteLoader;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
@@ -12,16 +13,32 @@ import javafx.scene.image.Image;
 import javafx.scene.paint.Color;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.input.KeyEvent;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyCodeCombination;
+import javafx.scene.input.KeyCombination;
+import javafx.scene.control.ContextMenu;
+import javafx.scene.control.MenuItem;
+import javafx.scene.control.Alert;
 import java.util.function.Consumer;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Iterator;
 
 public class InterfaceCanvas extends Canvas {
     private InterfaceProject project;
     private InterfaceComponent selectedComponent;
-    private java.util.List<InterfaceComponent> selectedComponents = new java.util.ArrayList<>();
+    private List<InterfaceComponent> selectedComponents = new ArrayList<>();
     private InterfaceComponent draggingComponent;
     private double dragOffsetX;
     private double dragOffsetY;
     private Consumer<InterfaceComponent> onComponentSelected;
+    private Consumer<List<InterfaceComponent>> onComponentsDuplicated;
+    
+    private List<InterfaceComponent> clipboard = new ArrayList<>();
+    private ContextMenu contextMenu;
+    private Map<InterfaceComponent, double[]> dragOffsets = new HashMap<>();
 
     private static final int CANVAS_WIDTH = 512;
     private static final int CANVAS_HEIGHT = 334;
@@ -39,6 +56,20 @@ public class InterfaceCanvas extends Canvas {
         setOnMouseReleased(this::onMouseReleased);
         setOnKeyPressed(this::onKeyPressed);
         setFocusTraversable(true);
+        
+        // Create context menu
+        contextMenu = new ContextMenu();
+        MenuItem duplicateItem = new MenuItem("Duplicate");
+        duplicateItem.setOnAction(e -> duplicateSelectedComponents());
+        contextMenu.getItems().add(duplicateItem);
+        
+        // Show context menu on right-click
+        setOnContextMenuRequested(e -> {
+            if (!selectedComponents.isEmpty()) {
+                contextMenu.show(this, e.getScreenX(), e.getScreenY());
+            }
+            e.consume();
+        });
     }
 
     private void onMousePressed(MouseEvent e) {
@@ -68,6 +99,15 @@ public class InterfaceCanvas extends Canvas {
                     draggingComponent = comp;
                     dragOffsetX = x - comp.getX();
                     dragOffsetY = y - comp.getY();
+                    
+                    // Calculate drag offsets for all selected components
+                    dragOffsets.clear();
+                    for (InterfaceComponent selectedComp : selectedComponents) {
+                        dragOffsets.put(selectedComp, new double[]{
+                            x - selectedComp.getX(),
+                            y - selectedComp.getY()
+                        });
+                    }
                 }
                 
                 if (onComponentSelected != null) {
@@ -92,15 +132,13 @@ public class InterfaceCanvas extends Canvas {
 
     private void onMouseDragged(MouseEvent e) {
         if (draggingComponent != null) {
-            int newX = (int)(e.getX() - dragOffsetX);
-            int newY = (int)(e.getY() - dragOffsetY);
-            int deltaX = newX - draggingComponent.getX();
-            int deltaY = newY - draggingComponent.getY();
-            
-            // Move all selected components
+            // Move all selected components maintaining their relative positions
             for (InterfaceComponent comp : selectedComponents) {
-                comp.setX(comp.getX() + deltaX);
-                comp.setY(comp.getY() + deltaY);
+                double[] offsets = dragOffsets.get(comp);
+                if (offsets != null) {
+                    comp.setX((int)(e.getX() - offsets[0]));
+                    comp.setY((int)(e.getY() - offsets[1]));
+                }
             }
             
             render();
@@ -113,6 +151,23 @@ public class InterfaceCanvas extends Canvas {
 
     private void onKeyPressed(KeyEvent e) {
         if (!selectedComponents.isEmpty()) {
+            // Check for copy/paste/duplicate shortcuts
+            if (e.isControlDown()) {
+                if (e.getCode() == KeyCode.C) {
+                    copySelectedComponents();
+                    e.consume();
+                    return;
+                } else if (e.getCode() == KeyCode.V) {
+                    pasteComponents();
+                    e.consume();
+                    return;
+                } else if (e.getCode() == KeyCode.D) {
+                    duplicateSelectedComponents();
+                    e.consume();
+                    return;
+                }
+            }
+            
             int delta = e.isShiftDown() ? 10 : 1;
             switch (e.getCode()) {
                 case UP:
@@ -178,7 +233,18 @@ public class InterfaceCanvas extends Canvas {
 
         // Draw selection outlines
         for (InterfaceComponent comp : selectedComponents) {
-            gc.setStroke(Color.YELLOW);
+            // Draw outer glow effect
+            gc.setStroke(Color.rgb(255, 255, 0, 0.3));
+            gc.setLineWidth(4);
+            gc.strokeRect(
+                comp.getX() - 2,
+                comp.getY() - 2,
+                comp.getWidth() + 4,
+                comp.getHeight() + 4
+            );
+            
+            // Draw main selection outline
+            gc.setStroke(Color.rgb(255, 255, 0));
             gc.setLineWidth(2);
             gc.strokeRect(
                 comp.getX() - 1,
@@ -186,6 +252,14 @@ public class InterfaceCanvas extends Canvas {
                 comp.getWidth() + 2,
                 comp.getHeight() + 2
             );
+            
+            // Draw corner handles for visual clarity
+            gc.setFill(Color.rgb(255, 255, 0));
+            int handleSize = 4;
+            gc.fillRect(comp.getX() - handleSize, comp.getY() - handleSize, handleSize, handleSize);
+            gc.fillRect(comp.getX() + comp.getWidth() - handleSize, comp.getY() - handleSize, handleSize, handleSize);
+            gc.fillRect(comp.getX() - handleSize, comp.getY() + comp.getHeight() - handleSize, handleSize, handleSize);
+            gc.fillRect(comp.getX() + comp.getWidth() - handleSize, comp.getY() + comp.getHeight() - handleSize, handleSize, handleSize);
         }
     }
 
@@ -334,5 +408,146 @@ public class InterfaceCanvas extends Canvas {
             }
             render();
         }
+    }
+    
+    private void copySelectedComponents() {
+        clipboard.clear();
+        for (InterfaceComponent comp : selectedComponents) {
+            clipboard.add(deepCopyComponent(comp));
+        }
+    }
+    
+    private void pasteComponents() {
+        if (clipboard.isEmpty()) {
+            return;
+        }
+        
+        selectedComponents.clear();
+        int nextId = findNextAvailableId();
+        
+        for (InterfaceComponent comp : clipboard) {
+            InterfaceComponent newComp = deepCopyComponent(comp);
+            newComp.setId(nextId++);
+            newComp.setX(newComp.getX() + 20); // Offset by 20 pixels
+            newComp.setY(newComp.getY() + 20);
+            newComp.setName(newComp.getName() + " (Copy)");
+            project.addComponent(newComp);
+            selectedComponents.add(newComp);
+        }
+        
+        if (!selectedComponents.isEmpty()) {
+            selectedComponent = selectedComponents.get(0);
+            if (onComponentSelected != null) {
+                onComponentSelected.accept(selectedComponent);
+            }
+        }
+        
+        if (onComponentsDuplicated != null) {
+            onComponentsDuplicated.accept(selectedComponents);
+        }
+        
+        render();
+    }
+    
+    private void duplicateSelectedComponents() {
+        if (selectedComponents.isEmpty()) {
+            return;
+        }
+        
+        List<InterfaceComponent> newComponents = new ArrayList<>();
+        int nextId = findNextAvailableId();
+        
+        for (InterfaceComponent comp : selectedComponents) {
+            InterfaceComponent newComp = deepCopyComponent(comp);
+            newComp.setId(nextId++);
+            newComp.setX(newComp.getX() + 20); // Offset by 20 pixels
+            newComp.setY(newComp.getY() + 20);
+            newComp.setName(newComp.getName() + " (Copy)");
+            project.addComponent(newComp);
+            newComponents.add(newComp);
+        }
+        
+        // Select the newly duplicated components
+        selectedComponents.clear();
+        selectedComponents.addAll(newComponents);
+        if (!newComponents.isEmpty()) {
+            selectedComponent = newComponents.get(0);
+            if (onComponentSelected != null) {
+                onComponentSelected.accept(selectedComponent);
+            }
+        }
+        
+        if (onComponentsDuplicated != null) {
+            onComponentsDuplicated.accept(newComponents);
+        }
+        
+        render();
+    }
+    
+    private InterfaceComponent deepCopyComponent(InterfaceComponent original) {
+        InterfaceComponent copy;
+        
+        switch (original.getType()) {
+            case SPRITE:
+                SpriteComponent spriteCopy = new SpriteComponent();
+                SpriteComponent originalSprite = (SpriteComponent) original;
+                spriteCopy.setSpritePath(originalSprite.getSpritePath());
+                copy = spriteCopy;
+                break;
+            case HOVER_BUTTON:
+            case HOVERED_BUTTON:
+            case CLOSE_BUTTON:
+                ButtonComponent buttonCopy = new ButtonComponent();
+                ButtonComponent originalButton = (ButtonComponent) original;
+                buttonCopy.setNormalSpritePath(originalButton.getNormalSpritePath());
+                buttonCopy.setHoveredSpritePath(originalButton.getHoveredSpritePath());
+                buttonCopy.setTooltip(originalButton.getTooltip());
+                buttonCopy.setActionName(originalButton.getActionName());
+                buttonCopy.setActionId(originalButton.getActionId());
+                buttonCopy.setContentType(originalButton.getContentType());
+                buttonCopy.setHoverId(originalButton.getHoverId());
+                copy = buttonCopy;
+                break;
+            case TEXT:
+                TextComponent textCopy = new TextComponent();
+                TextComponent originalText = (TextComponent) original;
+                textCopy.setText(originalText.getText());
+                textCopy.setFontIndex(originalText.getFontIndex());
+                textCopy.setTextColor(originalText.getTextColor());
+                textCopy.setShadow(originalText.isShadow());
+                textCopy.setCentered(originalText.isCentered());
+                copy = textCopy;
+                break;
+            case TOOLTIP:
+                copy = new InterfaceComponent(ComponentType.TOOLTIP);
+                break;
+            default:
+                copy = new InterfaceComponent(original.getType());
+                break;
+        }
+        
+        // Copy common properties
+        copy.setName(original.getName());
+        copy.setId(original.getId());
+        copy.setX(original.getX());
+        copy.setY(original.getY());
+        copy.setWidth(original.getWidth());
+        copy.setHeight(original.getHeight());
+        
+        return copy;
+    }
+    
+    private int findNextAvailableId() {
+        int maxId = 0;
+        for (InterfaceComponent comp : project.getComponents()) {
+            if (comp.getId() > maxId) {
+                maxId = comp.getId();
+            }
+        }
+        return maxId + 1;
+    }
+    
+    public void setOnComponentsDuplicated(Consumer<List<InterfaceComponent>> onComponentsDuplicated) {
+        this.onComponentsDuplicated = onComponentsDuplicated;
     }
 }
