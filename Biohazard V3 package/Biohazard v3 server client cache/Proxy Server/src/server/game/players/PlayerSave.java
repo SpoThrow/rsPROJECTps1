@@ -618,7 +618,7 @@ public class PlayerSave {
 			characterfile.write("soundEffectVolume = ", 0, 20);
 			characterfile.write(Integer.toString(p.soundEffectVolume), 0, Integer.toString(p.soundEffectVolume).length());
 			characterfile.newLine();
-			characterfile.write("musicEnabled = ", 0, 15);
+			characterfile.write("musicEnabled = ", 0, 14);
 			characterfile.write(Boolean.toString(p.musicEnabled), 0, Boolean.toString(p.musicEnabled).length());
 			characterfile.newLine();
 			characterfile.write("mouseButton = ", 0, 14);
@@ -627,7 +627,7 @@ public class PlayerSave {
 			characterfile.write("splitChat = ", 0, 12);
 			characterfile.write(Boolean.toString(p.splitChat), 0, Boolean.toString(p.splitChat).length());
 			characterfile.newLine();
-			characterfile.write("chatEffects = ", 0, 15);
+			characterfile.write("chatEffects = ", 0, 14);
 			characterfile.write(Boolean.toString(p.chatEffects), 0, Boolean.toString(p.chatEffects).length());
 			characterfile.newLine();
 			characterfile.write("void = ", 0, 7);
