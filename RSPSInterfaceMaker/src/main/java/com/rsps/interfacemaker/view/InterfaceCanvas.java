@@ -39,6 +39,7 @@ public class InterfaceCanvas extends Canvas {
     private List<InterfaceComponent> clipboard = new ArrayList<>();
     private ContextMenu contextMenu;
     private Map<InterfaceComponent, double[]> dragOffsets = new HashMap<>();
+    private boolean showGrid = true;
 
     private static final int CANVAS_WIDTH = 512;
     private static final int CANVAS_HEIGHT = 334;
@@ -216,14 +217,16 @@ public class InterfaceCanvas extends Canvas {
         gc.setFill(Color.rgb(30, 30, 30));
         gc.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-        // Draw grid
-        gc.setStroke(Color.rgb(50, 50, 50));
-        gc.setLineWidth(0.5);
-        for (int x = 0; x <= CANVAS_WIDTH; x += 32) {
-            gc.strokeLine(x, 0, x, CANVAS_HEIGHT);
-        }
-        for (int y = 0; y <= CANVAS_HEIGHT; y += 32) {
-            gc.strokeLine(0, y, CANVAS_WIDTH, y);
+        // Draw grid (if enabled)
+        if (showGrid) {
+            gc.setStroke(Color.rgb(50, 50, 50));
+            gc.setLineWidth(0.5);
+            for (int x = 0; x <= CANVAS_WIDTH; x += 32) {
+                gc.strokeLine(x, 0, x, CANVAS_HEIGHT);
+            }
+            for (int y = 0; y <= CANVAS_HEIGHT; y += 32) {
+                gc.strokeLine(0, y, CANVAS_WIDTH, y);
+            }
         }
 
         // Draw components
@@ -288,17 +291,22 @@ public class InterfaceCanvas extends Canvas {
         // Try to load and render the actual sprite
         if (comp instanceof SpriteComponent) {
             SpriteComponent sprite = (SpriteComponent) comp;
-            Image image = SpriteLoader.loadSprite(sprite.getSpritePath());
+            String spritePath = sprite.getSpritePath();
             
-            if (image != null) {
-                gc.drawImage(image, comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
-            } else {
-                // Fallback to colored rectangle if sprite not found
-                gc.setFill(Color.rgb(100, 100, 150));
-                gc.fillRect(comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
-                gc.setStroke(Color.rgb(150, 150, 200));
-                gc.strokeRect(comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
+            if (spritePath != null && !spritePath.isEmpty()) {
+                Image image = SpriteLoader.loadSprite(spritePath);
+                
+                if (image != null) {
+                    gc.drawImage(image, comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
+                    return;
+                }
             }
+            
+            // Fallback to colored rectangle if sprite not found
+            gc.setFill(Color.rgb(100, 100, 150));
+            gc.fillRect(comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
+            gc.setStroke(Color.rgb(150, 150, 200));
+            gc.strokeRect(comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
         } else {
             // Fallback for non-SpriteComponent
             gc.setFill(Color.rgb(100, 100, 150));
@@ -312,17 +320,22 @@ public class InterfaceCanvas extends Canvas {
         // Try to load and render the actual button sprite
         if (comp instanceof ButtonComponent) {
             ButtonComponent button = (ButtonComponent) comp;
-            Image image = SpriteLoader.loadSprite(button.getNormalSpritePath());
+            String spritePath = button.getNormalSpritePath();
             
-            if (image != null) {
-                gc.drawImage(image, comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
-            } else {
-                // Fallback to colored rectangle if sprite not found
-                gc.setFill(Color.rgb(100, 150, 100));
-                gc.fillRect(comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
-                gc.setStroke(Color.rgb(150, 200, 150));
-                gc.strokeRect(comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
+            if (spritePath != null && !spritePath.isEmpty()) {
+                Image image = SpriteLoader.loadSprite(spritePath);
+                
+                if (image != null) {
+                    gc.drawImage(image, comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
+                    return;
+                }
             }
+            
+            // Fallback to colored rectangle if sprite not found
+            gc.setFill(Color.rgb(100, 150, 100));
+            gc.fillRect(comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
+            gc.setStroke(Color.rgb(150, 200, 150));
+            gc.strokeRect(comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
         } else {
             // Fallback for non-ButtonComponent
             gc.setFill(Color.rgb(100, 150, 100));
@@ -343,22 +356,27 @@ public class InterfaceCanvas extends Canvas {
         // Try to load and render the actual close button sprite
         if (comp instanceof ButtonComponent) {
             ButtonComponent button = (ButtonComponent) comp;
-            Image image = SpriteLoader.loadSprite(button.getNormalSpritePath());
+            String spritePath = button.getNormalSpritePath();
             
-            if (image != null) {
-                gc.drawImage(image, comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
-            } else {
-                // Fallback to colored rectangle with X if sprite not found
-                gc.setFill(Color.rgb(150, 50, 50));
-                gc.fillRect(comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
-                gc.setStroke(Color.rgb(200, 100, 100));
-                gc.strokeRect(comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
-                // Draw X
-                gc.setStroke(Color.WHITE);
-                gc.setLineWidth(2);
-                gc.strokeLine(comp.getX() + 5, comp.getY() + 5, comp.getX() + comp.getWidth() - 5, comp.getY() + comp.getHeight() - 5);
-                gc.strokeLine(comp.getX() + comp.getWidth() - 5, comp.getY() + 5, comp.getX() + 5, comp.getY() + comp.getHeight() - 5);
+            if (spritePath != null && !spritePath.isEmpty()) {
+                Image image = SpriteLoader.loadSprite(spritePath);
+                
+                if (image != null) {
+                    gc.drawImage(image, comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
+                    return;
+                }
             }
+            
+            // Fallback to colored rectangle with X if sprite not found
+            gc.setFill(Color.rgb(150, 50, 50));
+            gc.fillRect(comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
+            gc.setStroke(Color.rgb(200, 100, 100));
+            gc.strokeRect(comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
+            // Draw X
+            gc.setStroke(Color.WHITE);
+            gc.setLineWidth(2);
+            gc.strokeLine(comp.getX() + 5, comp.getY() + 5, comp.getX() + comp.getWidth() - 5, comp.getY() + comp.getHeight() - 5);
+            gc.strokeLine(comp.getX() + comp.getWidth() - 5, comp.getY() + 5, comp.getX() + 5, comp.getY() + comp.getHeight() - 5);
         } else {
             // Fallback for non-ButtonComponent
             gc.setFill(Color.rgb(150, 50, 50));
@@ -504,8 +522,6 @@ public class InterfaceCanvas extends Canvas {
                 buttonCopy.setTooltip(originalButton.getTooltip());
                 buttonCopy.setActionName(originalButton.getActionName());
                 buttonCopy.setActionId(originalButton.getActionId());
-                buttonCopy.setContentType(originalButton.getContentType());
-                buttonCopy.setHoverId(originalButton.getHoverId());
                 copy = buttonCopy;
                 break;
             case TEXT:
@@ -514,7 +530,7 @@ public class InterfaceCanvas extends Canvas {
                 textCopy.setText(originalText.getText());
                 textCopy.setFontIndex(originalText.getFontIndex());
                 textCopy.setTextColor(originalText.getTextColor());
-                textCopy.setShadow(originalText.isShadow());
+                textCopy.setHasShadow(originalText.isHasShadow());
                 textCopy.setCentered(originalText.isCentered());
                 copy = textCopy;
                 break;
@@ -549,5 +565,14 @@ public class InterfaceCanvas extends Canvas {
     
     public void setOnComponentsDuplicated(Consumer<List<InterfaceComponent>> onComponentsDuplicated) {
         this.onComponentsDuplicated = onComponentsDuplicated;
+    }
+    
+    public void toggleGrid() {
+        showGrid = !showGrid;
+        render();
+    }
+    
+    public boolean isGridVisible() {
+        return showGrid;
     }
 }

@@ -47,11 +47,16 @@ public class SpriteLoader {
                 
                 if (spriteFile.exists()) {
                     image = new Image(spriteFile.toURI().toString());
+                    System.out.println("Loaded sprite: " + spriteFile.getAbsolutePath());
                     break;
                 }
             } catch (Exception e) {
-                // Try next extension
+                System.out.println("Failed to load sprite: " + spritePath + ext + " - " + e.getMessage());
             }
+        }
+        
+        if (image == null) {
+            System.out.println("Sprite not found: " + spritePath + " (Root: " + spriteRootDirectory + ")");
         }
         
         // Cache the result (even if null to avoid repeated failed loads)

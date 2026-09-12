@@ -186,8 +186,18 @@ public class MainView extends BorderPane {
         setSpriteRoot.setOnAction(e -> setSpriteRootDirectory());
         advancedMenu.getItems().addAll(loadFromCache, suggestIds, setCachePath, new SeparatorMenuItem(), setSpriteRoot);
 
+        // View menu
+        Menu viewMenu = new Menu("View");
+        CheckMenuItem toggleGrid = new CheckMenuItem("Show Grid");
+        toggleGrid.setSelected(true);
+        toggleGrid.setOnAction(e -> {
+            canvas.toggleGrid();
+            toggleGrid.setSelected(canvas.isGridVisible());
+        });
+        viewMenu.getItems().add(toggleGrid);
+
         MenuBar menuBar = new MenuBar();
-        menuBar.getMenus().addAll(fileMenu, templatesMenu, alignMenu, distributeMenu, advancedMenu);
+        menuBar.getMenus().addAll(fileMenu, templatesMenu, alignMenu, distributeMenu, advancedMenu, viewMenu);
 
         // Add component buttons
         Button addSpriteBtn = new Button("Add Sprite");
@@ -638,9 +648,6 @@ public class MainView extends BorderPane {
             canvas.render();
             // Refresh sprite library to scan new directory
             spriteLibraryPanel.refresh();
-        }
-    }
-            canvas.render();
         }
     }
 }

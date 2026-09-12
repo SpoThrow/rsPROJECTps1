@@ -12,6 +12,7 @@ import javafx.scene.input.MouseEvent;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 
 public class SpriteLibraryPanel extends VBox {
     private InterfaceComponent selectedComponent;
@@ -50,6 +51,12 @@ public class SpriteLibraryPanel extends VBox {
         // Scan automatically if sprite root is set
         if (!SpriteLoader.getSpriteRootDirectory().isEmpty()) {
             scanSpriteDirectory();
+        } else {
+            // Show message if no root directory set
+            Label noRootLabel = new Label("Set Sprite Root Directory via:\nAdvanced > Set Sprite Root Directory");
+            noRootLabel.setStyle("-fx-text-fill: #888888; -fx-font-size: 11px;");
+            noRootLabel.setWrapText(true);
+            spriteGrid.add(noRootLabel, 0, 0);
         }
     }
     
@@ -78,9 +85,12 @@ public class SpriteLibraryPanel extends VBox {
         // Display thumbnails
         displayThumbnails();
         
-        Alert alert = new Alert(Alert.AlertType.INFORMATION, 
-            "Found " + sprites.size() + " sprite files");
-        alert.showAndWait();
+        if (sprites.isEmpty()) {
+            Label noSpritesLabel = new Label("No sprite files found in:\n" + rootDir);
+            noSpritesLabel.setStyle("-fx-text-fill: #888888; -fx-font-size: 11px;");
+            noSpritesLabel.setWrapText(true);
+            spriteGrid.add(noSpritesLabel, 0, 0);
+        }
     }
     
     private void scanDirectoryRecursive(File directory, String rootDir) {

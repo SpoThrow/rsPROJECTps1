@@ -20,44 +20,44 @@ public class Templates {
         project.setInterfaceId(45000);
         project.setSpriteFolder("Interfaces/Dialog");
         
-        // Background sprite
+        // Background sprite - centered dialog box
         SpriteComponent background = new SpriteComponent();
         background.setName("Background");
         background.setId(project.getNextComponentId());
-        background.setX(0);
-        background.setY(0);
-        background.setWidth(512);
-        background.setHeight(334);
+        background.setX(56);  // Centered horizontally (512 - 400) / 2
+        background.setY(17);  // Centered vertically (334 - 300) / 2
+        background.setWidth(400);
+        background.setHeight(300);
         background.setSpritePath("Interfaces/Dialog/BACKGROUND");
         project.addComponent(background);
         
-        // Close button
+        // Close button - top right of dialog
         ButtonComponent closeBtn = new ButtonComponent();
         closeBtn.setName("Close Button");
         closeBtn.setId(project.getNextComponentId());
-        closeBtn.setX(475);
-        closeBtn.setY(10);
-        closeBtn.setWidth(20);
-        closeBtn.setHeight(20);
+        closeBtn.setX(435);  // Right edge of dialog
+        closeBtn.setY(22);   // Top edge of dialog
+        closeBtn.setWidth(16);
+        closeBtn.setHeight(16);
         closeBtn.setNormalSpritePath("Interfaces/Common/CLOSE");
         closeBtn.setHoveredSpritePath("Interfaces/Common/CLOSE_HOVER");
         closeBtn.setTooltip("Close");
         closeBtn.setActionName("Close");
         project.addComponent(closeBtn);
         
-        // Title
+        // Title - centered at top of dialog
         TextComponent title = new TextComponent();
         title.setName("Title");
         title.setId(project.getNextComponentId());
-        title.setX(20);
-        title.setY(20);
-        title.setWidth(200);
+        title.setX(256);  // Center of canvas
+        title.setY(45);   // Near top of dialog
+        title.setWidth(400);
         title.setHeight(20);
         title.setText("Dialog Title");
         title.setFontIndex(0);
         title.setTextColor(0xFFFFFF);
         title.setHasShadow(true);
-        title.setCentered(false);
+        title.setCentered(true);
         project.addComponent(title);
         
         return project;
@@ -69,7 +69,7 @@ public class Templates {
         project.setInterfaceId(45000);
         project.setSpriteFolder("Interfaces/Shop");
         
-        // Background
+        // Background - full screen shop interface
         SpriteComponent background = new SpriteComponent();
         background.setName("Background");
         background.setId(project.getNextComponentId());
@@ -80,7 +80,7 @@ public class Templates {
         background.setSpritePath("Interfaces/Shop/BACKGROUND");
         project.addComponent(background);
         
-        // Close button
+        // Close button - top right
         ButtonComponent closeBtn = new ButtonComponent();
         closeBtn.setName("Close Button");
         closeBtn.setId(project.getNextComponentId());
@@ -94,34 +94,48 @@ public class Templates {
         closeBtn.setActionName("Close");
         project.addComponent(closeBtn);
         
-        // Title
+        // Title - centered at top
         TextComponent title = new TextComponent();
         title.setName("Title");
         title.setId(project.getNextComponentId());
-        title.setX(20);
-        title.setY(20);
+        title.setX(256);  // Center
+        title.setY(25);
         title.setWidth(200);
         title.setHeight(20);
         title.setText("Shop Name");
         title.setFontIndex(0);
         title.setTextColor(0xFFFFFF);
         title.setHasShadow(true);
-        title.setCentered(false);
+        title.setCentered(true);
         project.addComponent(title);
         
-        // Buy button
+        // Buy button - positioned in item interaction area
         ButtonComponent buyBtn = new ButtonComponent();
         buyBtn.setName("Buy Button");
         buyBtn.setId(project.getNextComponentId());
-        buyBtn.setX(50);
-        buyBtn.setY(100);
-        buyBtn.setWidth(100);
+        buyBtn.setX(420);  // Right side
+        buyBtn.setY(160);  // Middle of shop
+        buyBtn.setWidth(80);
         buyBtn.setHeight(25);
         buyBtn.setNormalSpritePath("Interfaces/Shop/BUTTON");
         buyBtn.setHoveredSpritePath("Interfaces/Shop/BUTTON_HOVER");
         buyBtn.setTooltip("Buy Item");
         buyBtn.setActionName("BuyItem");
         project.addComponent(buyBtn);
+        
+        // Sell button - below buy button
+        ButtonComponent sellBtn = new ButtonComponent();
+        sellBtn.setName("Sell Button");
+        sellBtn.setId(project.getNextComponentId());
+        sellBtn.setX(420);
+        sellBtn.setY(190);
+        sellBtn.setWidth(80);
+        sellBtn.setHeight(25);
+        sellBtn.setNormalSpritePath("Interfaces/Shop/BUTTON");
+        sellBtn.setHoveredSpritePath("Interfaces/Shop/BUTTON_HOVER");
+        sellBtn.setTooltip("Sell Item");
+        sellBtn.setActionName("SellItem");
+        project.addComponent(sellBtn);
         
         return project;
     }
