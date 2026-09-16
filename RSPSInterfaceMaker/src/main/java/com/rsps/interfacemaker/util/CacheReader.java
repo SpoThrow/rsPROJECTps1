@@ -1,5 +1,6 @@
 package com.rsps.interfacemaker.util;
 
+import com.rsps.interfacemaker.model.*;
 import java.io.*;
 import java.util.*;
 
@@ -16,6 +17,15 @@ public class CacheReader {
         public int height;
         public int x;
         public int y;
+        public String spritePath;
+        public String normalSpritePath;
+        public String hoveredSpritePath;
+        public String text;
+        public int textColor;
+        public int fontIndex;
+        public boolean hasShadow;
+        public boolean centered;
+        public String tooltip;
         public List<ChildData> children = new ArrayList<>();
         
         @Override
@@ -37,6 +47,147 @@ public class CacheReader {
     }
     
     /**
+     * Load interface from cache and convert to InterfaceProject
+     * @param cachePath Path to the cache directory
+     * @param interfaceId Interface ID to load
+     * @return InterfaceProject or null if not found
+     */
+    public static InterfaceProject loadInterfaceProjectFromCache(String cachePath, int interfaceId) {
+        try {
+            InterfaceData data = loadInterfaceFromCache(cachePath, interfaceId);
+            if (data == null) {
+                return null;
+            }
+            
+            // Create project from cache data
+            InterfaceProject project = new InterfaceProject();
+            project.setInterfaceId(interfaceId);
+            project.setName("Interface_" + interfaceId);
+            
+            // Convert interface data to components
+            convertInterfaceDataToProject(data, project);
+            
+            return project;
+            
+        } catch (Exception e) {
+            System.err.println("Error loading interface project from cache: " + e.getMessage());
+            e.printStackTrace();
+            return null;
+        }
+    }
+    
+    /**
+     * Convert cache interface data to InterfaceProject components
+     */
+    private static void convertInterfaceDataToProject(InterfaceData data, InterfaceProject project) {
+        // Add main interface as a container (if it has children)
+        if (data.type == 0 && !data.children.isEmpty()) {
+            // This is a container interface, add children as components
+            for (ChildData child : data.children) {
+                createComponentFromChildData(child, project);
+            }
+        } else {
+            // This is a leaf interface, add it as a component
+            createComponentFromInterfaceData(data, project);
+        }
+    }
+    
+    /**
+     * Create InterfaceComponent from interface data
+     */
+    private static void createComponentFromInterfaceData(InterfaceData data, InterfaceProject project) {
+        InterfaceComponent component = determineComponentType(data);
+        
+        component.setId(data.id);
+        component.setParentInterfaceId(data.parentId);
+        component.setX(data.x);
+        component.setY(data.y);
+        component.setWidth(data.width);
+        component.setHeight(data.height);
+        component.setName("Component_" + data.id);
+        component.setTooltip(data.tooltip != null ? data.tooltip : "");
+        
+        // Set type-specific properties
+        if (component instanceof SpriteComponent) {
+            SpriteComponent sprite = (SpriteComponent) component;
+            sprite.setSpritePath(data.spritePath != null ? data.spritePath : "");
+        } else if (component instanceof ButtonComponent) {
+            ButtonComponent button = (ButtonComponent) component;
+            button.setNormalSpritePath(data.normalSpritePath != null ? data.normalSpritePath : "");
+            button.setHoveredSpritePath(data.hoveredSpritePath != null ? data.hoveredSpritePath : "");
+            button.setTooltip(data.tooltip != null ? data.tooltip : "");
+        } else if (component instanceof TextComponent) {
+            TextComponent text = (TextComponent) component;
+            text.setText(data.text != null ? data.text : "");
+            text.setTextColor(data.textColor);
+            text.setFontIndex(data.fontIndex);
+            text.setHasShadow(data.hasShadow);
+            text.setCentered(data.centered);
+        }
+        
+        project.addComponent(component);
+    }
+    
+    /**
+     * Create InterfaceComponent from child data
+     */
+    private static void createComponentFromChildData(ChildData child, InterfaceProject project) {
+        // For child components, we need to load their individual interface data
+        // For now, create a basic component placeholder
+        InterfaceComponent component = new InterfaceComponent(ComponentType.SPRITE);
+        component.setId(child.childId);
+        component.setX(child.x);
+        component.setY(child.y);
+        component.setName("Child_" + child.childId);
+        component.setWidth(100);
+        component.setHeight(20);
+        
+        project.addComponent(component);
+    }
+    
+    /**
+     * Determine component type based on interface data
+     */
+    private static InterfaceComponent determineComponentType(InterfaceData data) {
+        // Type mapping based on RSInterface types
+        switch (data.type) {
+            case 0: // Container
+                return new InterfaceComponent(ComponentType.SPRITE); // Default to sprite for containers
+            case 1: // Model
+                return new InterfaceComponent(ComponentType.SPRITE);
+            case 2: // Inventory
+                return new InterfaceComponent(ComponentType.SPRITE);
+            case 3: // Text
+                TextComponent text = new TextComponent();
+                text.setText(data.text != null ? data.text : "");
+                text.setTextColor(data.textColor);
+                text.setFontIndex(data.fontIndex);
+                text.setHasShadow(data.hasShadow);
+                text.setCentered(data.centered);
+                return text;
+            case 4: // Sprite
+                if (data.normalSpritePath != null && data.hoveredSpritePath != null) {
+                    ButtonComponent button = new ButtonComponent();
+                    button.setNormalSpritePath(data.normalSpritePath);
+                    button.setHoveredSpritePath(data.hoveredSpritePath);
+                    return button;
+                } else {
+                    SpriteComponent sprite = new SpriteComponent();
+                    sprite.setSpritePath(data.spritePath != null ? data.spritePath : "");
+                    return sprite;
+                }
+            case 5: // Sprite (with transparency)
+                SpriteComponent sprite = new SpriteComponent();
+                sprite.setSpritePath(data.spritePath != null ? data.spritePath : "");
+                return sprite;
+            case 6: // Model
+                return new InterfaceComponent(ComponentType.SPRITE);
+            default:
+                return new InterfaceComponent(ComponentType.SPRITE);
+        }
+    }
+    
+    /**
      * Attempt to read interface data from a 317 cache directory
      * @param cachePath Path to the cache directory
      * @param interfaceId Interface ID to load
@@ -50,7 +201,7 @@ public class CacheReader {
                 return null;
             }
             
-            // For now, return a simulated interface data structure
+            // For now, return a more realistic simulated interface data structure
             // In a full implementation, this would parse the actual cache files
             InterfaceData data = new InterfaceData();
             data.id = interfaceId;
@@ -61,20 +212,39 @@ public class CacheReader {
             data.x = 0;
             data.y = 0;
             
-            // Add some sample children for demonstration
-            if (interfaceId > 0) {
-                data.children.add(new ChildData());
-                data.children.get(0).childId = interfaceId + 1;
-                data.children.get(0).x = 0;
-                data.children.get(0).y = 0;
+            // Try to find and parse interface config files
+            File mainFileCache = new File(cacheDir, "main_file_cache.dat");
+            if (mainFileCache.exists()) {
+                // Attempt to parse cache file (simplified for now)
+                // This would need proper cache parsing implementation
+                data.children = parseCacheChildren(mainFileCache, interfaceId);
             }
             
             return data;
             
         } catch (Exception e) {
             System.err.println("Error loading interface from cache: " + e.getMessage());
+            e.printStackTrace();
             return null;
         }
+    }
+    
+    /**
+     * Parse children from cache file (simplified implementation)
+     */
+    private static List<ChildData> parseCacheChildren(File cacheFile, int interfaceId) {
+        List<ChildData> children = new ArrayList<>();
+        
+        try {
+            // This is a placeholder for actual cache parsing
+            // Real implementation would read the binary cache format
+            // For now, return empty list
+            
+        } catch (Exception e) {
+            System.err.println("Error parsing cache children: " + e.getMessage());
+        }
+        
+        return children;
     }
     
     /**

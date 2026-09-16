@@ -31,6 +31,7 @@ public class Interfaces extends RSInterface {
 		constructLunar();
 		playerOwnedShopMain(textDrawingAreas);
 		playerOwnedShopBuy(textDrawingAreas);
+		ShopInterface(textDrawingAreas);
 	}
 	
 	public static void Construction(TextDrawingArea[] TDA) {
@@ -2263,5 +2264,18 @@ public static int boxIds[] = { 4041, 4077, 4113, 4047, 4083, 4119, 4053, 4089, 4
 		setBounds(44006, 78, 36, 8, rsi);
 		setBounds(44007, 118, 36, 9, rsi);
 		setBounds(44500, 24, 52, 10, rsi);
+	}
+
+	public static void ShopInterface(TextDrawingArea[] tda) {
+		RSInterface inter = addInterface(50000);
+		setChildren(3, inter);
+
+		addSprite(50005, 0, "Interfaces/POS/MAIN");
+		addHoverButton(50006, "Interfaces/POS/BUY", 8, 16, 16, "Close", 0, 50007, 1);
+		addHoveredButton(50007, "Interfaces/POS/BUY", 9, 16, 16, 50008);
+
+		inter.child(0, 50005, 12, 14);
+		inter.child(1, 50006, 475, 20);
+		inter.child(2, 50007, 475, 20);
 	}
 }

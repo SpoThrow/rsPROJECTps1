@@ -9,6 +9,11 @@ public class InterfaceProject {
     private List<InterfaceComponent> components;
     private String spriteFolder;
     private int nextComponentId;
+    private String spriteRootDirectory;
+    private String cachePath;
+    private String interfacesFilePath;
+    private int offsetX = 12;  // Default X offset for game display
+    private int offsetY = 14;  // Default Y offset for game display
 
     public InterfaceProject() {
         this.name = "NewInterface";
@@ -16,6 +21,8 @@ public class InterfaceProject {
         this.components = new ArrayList<>();
         this.spriteFolder = "Interfaces/" + name + "/";
         this.nextComponentId = interfaceId + 1;
+        this.spriteRootDirectory = "";
+        this.cachePath = "";
     }
 
     public String getName() {
@@ -69,5 +76,45 @@ public class InterfaceProject {
 
     public void setNextComponentId(int nextComponentId) {
         this.nextComponentId = nextComponentId;
+    }
+
+    public String getSpriteRootDirectory() {
+        return spriteRootDirectory;
+    }
+
+    public void setSpriteRootDirectory(String spriteRootDirectory) {
+        this.spriteRootDirectory = spriteRootDirectory;
+    }
+
+    public String getCachePath() {
+        return cachePath;
+    }
+
+    public void setCachePath(String cachePath) {
+        this.cachePath = cachePath;
+    }
+
+    public int getOffsetX() {
+        return offsetX;
+    }
+
+    public void setOffsetX(int offsetX) {
+        this.offsetX = offsetX;
+    }
+
+    public int getOffsetY() {
+        return offsetY;
+    }
+
+    public void setOffsetY(int offsetY) {
+        this.offsetY = offsetY;
+    }
+
+    public String getInterfacesFilePath() {
+        return interfacesFilePath;
+    }
+
+    public void setInterfacesFilePath(String interfacesFilePath) {
+        this.interfacesFilePath = interfacesFilePath;
     }
 }

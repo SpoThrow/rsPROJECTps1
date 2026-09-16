@@ -37,13 +37,15 @@ public class CodeGenerator {
         
         // Generate child positioning calls
         int childIndex = 0;
+        int offsetX = project.getOffsetX();
+        int offsetY = project.getOffsetY();
         for (InterfaceComponent comp : project.getComponents()) {
             sb.append(generateChildPositioning(comp, childIndex));
             childIndex++;
             if (comp.getType() == ComponentType.HOVER_BUTTON || comp.getType() == ComponentType.CLOSE_BUTTON) {
-                // Add child positioning for hovered button
+                // Add child positioning for hovered button with same offsets
                 sb.append("    inter.child(").append(childIndex).append(", ").append(comp.getId() + 1)
-                  .append(", ").append(comp.getX()).append(", ").append(comp.getY()).append(");\n");
+                  .append(", ").append(comp.getX() + offsetX).append(", ").append(comp.getY() + offsetY).append(");\n");
                 childIndex++;
             }
         }
@@ -75,8 +77,14 @@ public class CodeGenerator {
         // Pattern: addSprite(id, spriteId, "Interfaces/Folder/NAME")
         // Use a simple sprite ID calculation (could be made more sophisticated)
         int spriteId = 0; // Simplified - in real implementation this would come from cache
+        // Remove sprite ID from path if it contains a number suffix (e.g., "MAIN 0" -> "MAIN")
+        String spritePath = comp.getSpritePath();
+        int lastSpaceIndex = spritePath.lastIndexOf(' ');
+        if (lastSpaceIndex > 0 && Character.isDigit(spritePath.charAt(lastSpaceIndex + 1))) {
+            spritePath = spritePath.substring(0, lastSpaceIndex);
+        }
         sb.append("    addSprite(").append(comp.getId()).append(", ").append(spriteId)
-          .append(", \"").append(comp.getSpritePath()).append("\");\n");
+          .append(", \"").append(spritePath).append("\");\n");
         return sb.toString();
     }
 
@@ -88,13 +96,28 @@ public class CodeGenerator {
         int hoverId = comp.getId() + 1;
         int actionType = 1; // Default action type for buttons
         
-        sb.append("    addHoverButton(").append(comp.getId()).append(", \"").append(comp.getNormalSpritePath())
+        // Remove sprite ID from path if it contains a number suffix
+        String normalPath = comp.getNormalSpritePath();
+        int lastSpaceIndex = normalPath.lastIndexOf(' ');
+        if (lastSpaceIndex > 0 && Character.isDigit(normalPath.charAt(lastSpaceIndex + 1))) {
+            normalPath = normalPath.substring(0, lastSpaceIndex);
+        }
+        
+        sb.append("    addHoverButton(").append(comp.getId()).append(", \"").append(normalPath)
           .append("\", ").append(spriteId).append(", ").append(comp.getWidth()).append(", ").append(comp.getHeight())
           .append(", \"").append(comp.getTooltip()).append("\", 0, ").append(hoverId).append(", ").append(actionType).append(");\n");
         
         // Pattern: addHoveredButton(hoverId, "path", spriteId, width, height, dummyId)
         int dummyId = comp.getId() + 2;
-        sb.append("    addHoveredButton(").append(hoverId).append(", \"").append(comp.getHoveredSpritePath())
+        
+        // Remove sprite ID from path if it contains a number suffix
+        String hoveredPath = comp.getHoveredSpritePath();
+        lastSpaceIndex = hoveredPath.lastIndexOf(' ');
+        if (lastSpaceIndex > 0 && Character.isDigit(hoveredPath.charAt(lastSpaceIndex + 1))) {
+            hoveredPath = hoveredPath.substring(0, lastSpaceIndex);
+        }
+        
+        sb.append("    addHoveredButton(").append(hoverId).append(", \"").append(hoveredPath)
           .append("\", ").append(spriteId).append(", ").append(comp.getWidth()).append(", ").append(comp.getHeight())
           .append(", ").append(dummyId).append(");\n");
         
@@ -120,8 +143,11 @@ public class CodeGenerator {
     private String generateChildPositioning(InterfaceComponent comp, int index) {
         StringBuilder sb = new StringBuilder();
         // Pattern: inter.child(index, childId, x, y)
+        // Apply game display offsets to match WYSIWYG positioning
+        int offsetX = project.getOffsetX();
+        int offsetY = project.getOffsetY();
         sb.append("    inter.child(").append(index).append(", ").append(comp.getId())
-          .append(", ").append(comp.getX()).append(", ").append(comp.getY()).append(");\n");
+          .append(", ").append(comp.getX() + offsetX).append(", ").append(comp.getY() + offsetY).append(");\n");
         
         return sb.toString();
     }
@@ -221,6 +247,8 @@ public class CodeGenerator {
         sb.append("- Dummy IDs for hovered buttons are `componentId + 2`\n");
         sb.append("- Ensure sprite paths match your client cache structure exactly\n");
         sb.append("- Test the interface after implementation to verify positioning\n");
+        sb.append("- Display offsets (X: ").append(project.getOffsetX()).append(", Y: ").append(project.getOffsetY()).append(") are applied to match game coordinates\n");
+        sb.append("- Adjust offsets via Advanced > Set Display Offsets if positioning doesn't match game display\n");
         
         return sb.toString();
     }

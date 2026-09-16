@@ -81,8 +81,14 @@ public class PropertyPanel extends VBox {
         // Name
         grid.add(new Label("Name:"), 0, 0);
         TextField nameField = new TextField(component.getName());
-        nameField.textProperty().addListener((obs, old, newVal) -> {
-            component.setName(newVal);
+        nameField.focusedProperty().addListener((obs, oldValue, newVal) -> {
+            if (!newVal) { // When focus is lost
+                component.setName(nameField.getText());
+                notifyModified();
+            }
+        });
+        nameField.setOnAction(e -> {
+            component.setName(nameField.getText());
             notifyModified();
         });
         grid.add(nameField, 1, 0);
@@ -96,52 +102,90 @@ public class PropertyPanel extends VBox {
         // X
         grid.add(new Label("X:"), 0, 2);
         TextField xField = new TextField(String.valueOf(component.getX()));
-        xField.textProperty().addListener((obs, old, newVal) -> {
+        xField.focusedProperty().addListener((obs, oldValue, newVal) -> {
+            if (!newVal) { // When focus is lost
+                try {
+                    component.setX(Integer.parseInt(xField.getText()));
+                    notifyModified();
+                } catch (NumberFormatException ex) {}
+            }
+        });
+        xField.setOnAction(e -> {
             try {
-                component.setX(Integer.parseInt(newVal));
+                component.setX(Integer.parseInt(xField.getText()));
                 notifyModified();
-            } catch (NumberFormatException e) {}
+            } catch (NumberFormatException ex) {}
         });
         grid.add(xField, 1, 2);
 
         // Y
         grid.add(new Label("Y:"), 0, 3);
         TextField yField = new TextField(String.valueOf(component.getY()));
-        yField.textProperty().addListener((obs, old, newVal) -> {
+        yField.focusedProperty().addListener((obs, oldValue, newVal) -> {
+            if (!newVal) { // When focus is lost
+                try {
+                    component.setY(Integer.parseInt(yField.getText()));
+                    notifyModified();
+                } catch (NumberFormatException ex) {}
+            }
+        });
+        yField.setOnAction(e -> {
             try {
-                component.setY(Integer.parseInt(newVal));
+                component.setY(Integer.parseInt(yField.getText()));
                 notifyModified();
-            } catch (NumberFormatException e) {}
+            } catch (NumberFormatException ex) {}
         });
         grid.add(yField, 1, 3);
 
         // Width
         grid.add(new Label("Width:"), 0, 4);
         TextField widthField = new TextField(String.valueOf(component.getWidth()));
-        widthField.textProperty().addListener((obs, old, newVal) -> {
+        widthField.focusedProperty().addListener((obs, oldValue, newVal) -> {
+            if (!newVal) { // When focus is lost
+                try {
+                    component.setWidth(Integer.parseInt(widthField.getText()));
+                    notifyModified();
+                } catch (NumberFormatException ex) {}
+            }
+        });
+        widthField.setOnAction(e -> {
             try {
-                component.setWidth(Integer.parseInt(newVal));
+                component.setWidth(Integer.parseInt(widthField.getText()));
                 notifyModified();
-            } catch (NumberFormatException e) {}
+            } catch (NumberFormatException ex) {}
         });
         grid.add(widthField, 1, 4);
 
         // Height
         grid.add(new Label("Height:"), 0, 5);
         TextField heightField = new TextField(String.valueOf(component.getHeight()));
-        heightField.textProperty().addListener((obs, old, newVal) -> {
+        heightField.focusedProperty().addListener((obs, oldValue, newVal) -> {
+            if (!newVal) { // When focus is lost
+                try {
+                    component.setHeight(Integer.parseInt(heightField.getText()));
+                    notifyModified();
+                } catch (NumberFormatException ex) {}
+            }
+        });
+        heightField.setOnAction(e -> {
             try {
-                component.setHeight(Integer.parseInt(newVal));
+                component.setHeight(Integer.parseInt(heightField.getText()));
                 notifyModified();
-            } catch (NumberFormatException e) {}
+            } catch (NumberFormatException ex) {}
         });
         grid.add(heightField, 1, 5);
 
         // Tooltip
         grid.add(new Label("Tooltip:"), 0, 6);
         TextField tooltipField = new TextField(component.getTooltip());
-        tooltipField.textProperty().addListener((obs, old, newVal) -> {
-            component.setTooltip(newVal);
+        tooltipField.focusedProperty().addListener((obs, oldValue, newVal) -> {
+            if (!newVal) { // When focus is lost
+                component.setTooltip(tooltipField.getText());
+                notifyModified();
+            }
+        });
+        tooltipField.setOnAction(e -> {
+            component.setTooltip(tooltipField.getText());
             notifyModified();
         });
         grid.add(tooltipField, 1, 6);
@@ -160,8 +204,14 @@ public class PropertyPanel extends VBox {
         grid.add(new Label("Sprite Path:"), 0, 0);
         HBox spritePathBox = new HBox(5);
         TextField spritePathField = new TextField(sprite.getSpritePath());
-        spritePathField.textProperty().addListener((obs, old, newVal) -> {
-            sprite.setSpritePath(newVal);
+        spritePathField.focusedProperty().addListener((obs, oldValue, newVal) -> {
+            if (!newVal) { // When focus is lost
+                sprite.setSpritePath(spritePathField.getText());
+                notifyModified();
+            }
+        });
+        spritePathField.setOnAction(evt -> {
+            sprite.setSpritePath(spritePathField.getText());
             notifyModified();
         });
         
@@ -187,7 +237,7 @@ public class PropertyPanel extends VBox {
         grid.add(new Label("Has Disabled:"), 0, 2);
         CheckBox hasDisabledCheck = new CheckBox();
         hasDisabledCheck.setSelected(sprite.isHasDisabledSprite());
-        hasDisabledCheck.selectedProperty().addListener((obs, old, newVal) -> {
+        hasDisabledCheck.selectedProperty().addListener((obs, oldValue, newVal) -> {
             sprite.setHasDisabledSprite(newVal);
             notifyModified();
         });
@@ -195,8 +245,14 @@ public class PropertyPanel extends VBox {
 
         grid.add(new Label("Disabled Path:"), 0, 3);
         TextField disabledPathField = new TextField(sprite.getDisabledSpritePath());
-        disabledPathField.textProperty().addListener((obs, old, newVal) -> {
-            sprite.setDisabledSpritePath(newVal);
+        disabledPathField.focusedProperty().addListener((obs, oldValue, newVal) -> {
+            if (!newVal) { // When focus is lost
+                sprite.setDisabledSpritePath(disabledPathField.getText());
+                notifyModified();
+            }
+        });
+        disabledPathField.setOnAction(evt -> {
+            sprite.setDisabledSpritePath(disabledPathField.getText());
             notifyModified();
         });
         grid.add(disabledPathField, 1, 3);
@@ -217,8 +273,14 @@ public class PropertyPanel extends VBox {
         grid.add(new Label("Normal Sprite:"), 0, 0);
         HBox normalBox = new HBox(5);
         TextField normalField = new TextField(button.getNormalSpritePath());
-        normalField.textProperty().addListener((obs, old, newVal) -> {
-            button.setNormalSpritePath(newVal);
+        normalField.focusedProperty().addListener((obs, oldValue, newVal) -> {
+            if (!newVal) { // When focus is lost
+                button.setNormalSpritePath(normalField.getText());
+                notifyModified();
+            }
+        });
+        normalField.setOnAction(evt -> {
+            button.setNormalSpritePath(normalField.getText());
             notifyModified();
         });
         
@@ -231,8 +293,14 @@ public class PropertyPanel extends VBox {
         grid.add(new Label("Hovered Sprite:"), 0, 1);
         HBox hoveredBox = new HBox(5);
         TextField hoveredField = new TextField(button.getHoveredSpritePath());
-        hoveredField.textProperty().addListener((obs, old, newVal) -> {
-            button.setHoveredSpritePath(newVal);
+        hoveredField.focusedProperty().addListener((obs, oldValue, newVal) -> {
+            if (!newVal) { // When focus is lost
+                button.setHoveredSpritePath(hoveredField.getText());
+                notifyModified();
+            }
+        });
+        hoveredField.setOnAction(evt -> {
+            button.setHoveredSpritePath(hoveredField.getText());
             notifyModified();
         });
         
@@ -257,19 +325,33 @@ public class PropertyPanel extends VBox {
 
         grid.add(new Label("Action Name:"), 0, 3);
         TextField actionField = new TextField(button.getActionName());
-        actionField.textProperty().addListener((obs, old, newVal) -> {
-            button.setActionName(newVal);
+        actionField.focusedProperty().addListener((obs, oldValue, newVal) -> {
+            if (!newVal) { // When focus is lost
+                button.setActionName(actionField.getText());
+                notifyModified();
+            }
+        });
+        actionField.setOnAction(evt -> {
+            button.setActionName(actionField.getText());
             notifyModified();
         });
         grid.add(actionField, 1, 3);
 
         grid.add(new Label("Action ID:"), 0, 4);
         TextField actionIdField = new TextField(String.valueOf(button.getActionId()));
-        actionIdField.textProperty().addListener((obs, old, newVal) -> {
+        actionIdField.focusedProperty().addListener((obs, oldValue, newVal) -> {
+            if (!newVal) { // When focus is lost
+                try {
+                    button.setActionId(Integer.parseInt(actionIdField.getText()));
+                    notifyModified();
+                } catch (NumberFormatException ex) {}
+            }
+        });
+        actionIdField.setOnAction(evt -> {
             try {
-                button.setActionId(Integer.parseInt(newVal));
+                button.setActionId(Integer.parseInt(actionIdField.getText()));
                 notifyModified();
-            } catch (NumberFormatException e) {}
+            } catch (NumberFormatException ex) {}
         });
         grid.add(actionIdField, 1, 4);
 
@@ -288,19 +370,33 @@ public class PropertyPanel extends VBox {
 
         grid.add(new Label("Text:"), 0, 0);
         TextField textField = new TextField(text.getText());
-        textField.textProperty().addListener((obs, old, newVal) -> {
-            text.setText(newVal);
+        textField.focusedProperty().addListener((obs, oldValue, newVal) -> {
+            if (!newVal) { // When focus is lost
+                text.setText(textField.getText());
+                notifyModified();
+            }
+        });
+        textField.setOnAction(evt -> {
+            text.setText(textField.getText());
             notifyModified();
         });
         grid.add(textField, 1, 0);
 
         grid.add(new Label("Font Index:"), 0, 1);
         TextField fontField = new TextField(String.valueOf(text.getFontIndex()));
-        fontField.textProperty().addListener((obs, old, newVal) -> {
+        fontField.focusedProperty().addListener((obs, oldValue, newVal) -> {
+            if (!newVal) { // When focus is lost
+                try {
+                    text.setFontIndex(Integer.parseInt(fontField.getText()));
+                    notifyModified();
+                } catch (NumberFormatException ex) {}
+            }
+        });
+        fontField.setOnAction(evt -> {
             try {
-                text.setFontIndex(Integer.parseInt(newVal));
+                text.setFontIndex(Integer.parseInt(fontField.getText()));
                 notifyModified();
-            } catch (NumberFormatException e) {}
+            } catch (NumberFormatException ex) {}
         });
         grid.add(fontField, 1, 1);
 
@@ -310,7 +406,7 @@ public class PropertyPanel extends VBox {
             (text.getTextColor() >> 8) & 0xFF,
             text.getTextColor() & 0xFF
         ));
-        colorPicker.setOnAction(e -> {
+        colorPicker.setOnAction(evt -> {
             Color color = colorPicker.getValue();
             int rgb = ((int)(color.getRed() * 255) << 16) |
                       ((int)(color.getGreen() * 255) << 8) |
@@ -323,7 +419,7 @@ public class PropertyPanel extends VBox {
         grid.add(new Label("Has Shadow:"), 0, 3);
         CheckBox shadowCheck = new CheckBox();
         shadowCheck.setSelected(text.isHasShadow());
-        shadowCheck.selectedProperty().addListener((obs, old, newVal) -> {
+        shadowCheck.selectedProperty().addListener((obs, oldValue, newVal) -> {
             text.setHasShadow(newVal);
             notifyModified();
         });
@@ -332,7 +428,7 @@ public class PropertyPanel extends VBox {
         grid.add(new Label("Centered:"), 0, 4);
         CheckBox centeredCheck = new CheckBox();
         centeredCheck.setSelected(text.isCentered());
-        centeredCheck.selectedProperty().addListener((obs, old, newVal) -> {
+        centeredCheck.selectedProperty().addListener((obs, oldValue, newVal) -> {
             text.setCentered(newVal);
             notifyModified();
         });

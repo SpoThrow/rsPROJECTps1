@@ -4,7 +4,7 @@ character-password = 9cdfb439c7876e703e307864c9167a15
 [CHARACTER]
 character-height = 0
 character-posx = 3087
-character-posy = 3493
+character-posy = 3490
 character-rights = 3
 donator = 1
 respected = 0
@@ -45,7 +45,7 @@ brother-info = 2	0
 brother-info = 3	0
 brother-info = 4	0
 brother-info = 5	0
-special-amount = 60.0
+special-amount = 100.0
 selected-coffin = 0
 barrows-killcount = 0
 teleblock-length = 0

@@ -11,16 +11,19 @@ import com.rsps.interfacemaker.util.ProjectSerializer;
 import com.rsps.interfacemaker.util.Templates;
 import com.rsps.interfacemaker.util.Validator;
 import com.rsps.interfacemaker.util.CacheReader;
+import com.rsps.interfacemaker.util.JavaInterfaceParser;
 import com.rsps.interfacemaker.util.ZipExporter;
 import com.rsps.interfacemaker.util.SpriteLoader;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.stage.Stage;
 import javafx.stage.FileChooser;
+import java.time.format.DateTimeFormatter;
 import javafx.stage.DirectoryChooser;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import javafx.geometry.Orientation;
 
 public class MainView extends BorderPane {
     private InterfaceProject project;
@@ -29,8 +32,10 @@ public class MainView extends BorderPane {
     private SpriteLibraryPanel spriteLibraryPanel;
     private PropertyPanel propertyPanel;
     private CodePreviewPanel codePreviewPanel;
+    private TextArea debugConsole;
     private Stage primaryStage;
     private String cachePath = "";
+    private String interfacesFilePath = "";
 
     public MainView(Stage primaryStage) {
         this.primaryStage = primaryStage;
@@ -43,6 +48,11 @@ public class MainView extends BorderPane {
         ToolBar toolBar = createToolBar();
         setTop(toolBar);
 
+        // Main vertical split: Top (main content) vs Bottom (debug console)
+        SplitPane mainVerticalSplit = new SplitPane();
+        mainVerticalSplit.setOrientation(Orientation.VERTICAL);
+        mainVerticalSplit.setDividerPositions(0.85); // Main content 85%, Debug console 15%
+
         // Main horizontal split: Left panel vs Right area
         SplitPane mainSplitPane = new SplitPane();
         mainSplitPane.setDividerPositions(0.15); // Left panel 15%, Right area 85%
@@ -53,6 +63,7 @@ public class MainView extends BorderPane {
         // Components tab
         componentListView = new ComponentListView(project);
         componentListView.setOnComponentSelectedWithComponent(this::onComponentSelectedFromList);
+        componentListView.setOnComponentsChanged(this::onComponentsChanged);
         ScrollPane leftScroll = new ScrollPane(componentListView);
         leftScroll.setFitToWidth(true);
         leftScroll.setFitToHeight(true);
@@ -81,15 +92,16 @@ public class MainView extends BorderPane {
         canvas = new InterfaceCanvas(project);
         canvas.setOnComponentSelected(this::onComponentSelected);
         canvas.setOnComponentsDuplicated(this::onComponentsDuplicated);
+        canvas.setOnComponentsChanged(this::onComponentsChanged);
         ScrollPane centerScroll = new ScrollPane(canvas);
         centerScroll.setFitToWidth(true);
         centerScroll.setFitToHeight(true);
         centerScroll.setStyle("-fx-background: #1a1a1a;");
-
+        
         // Right sidebar: Properties vs Code Preview
         SplitPane sidebarSplitPane = new SplitPane();
-        sidebarSplitPane.setOrientation(javafx.geometry.Orientation.VERTICAL);
-        sidebarSplitPane.setDividerPositions(0.6); // Properties 60%, Code Preview 40%
+        sidebarSplitPane.setOrientation(Orientation.VERTICAL);
+        sidebarSplitPane.setDividerPositions(0.4); // Properties 40%, Code Preview 60%
 
         // Right: Property panel
         propertyPanel = new PropertyPanel(project);
@@ -99,24 +111,31 @@ public class MainView extends BorderPane {
         rightScroll.setFitToWidth(true);
         rightScroll.setFitToHeight(true);
         rightScroll.setMinWidth(200);
-        rightScroll.setMaxWidth(300);
+        rightScroll.setMaxWidth(350);
 
         // Far right: Code preview
         codePreviewPanel = new CodePreviewPanel(project);
-        ScrollPane codeScroll = new ScrollPane(codePreviewPanel);
-        codeScroll.setFitToWidth(true);
-        codeScroll.setFitToHeight(true);
-        codeScroll.setMinWidth(200);
-        codeScroll.setMaxWidth(300);
+        codePreviewPanel.setMinWidth(250);
+        codePreviewPanel.setMaxWidth(450);
 
-        sidebarSplitPane.getItems().addAll(rightScroll, codeScroll);
+        sidebarSplitPane.getItems().addAll(rightScroll, codePreviewPanel);
         rightSplitPane.getItems().addAll(centerScroll, sidebarSplitPane);
         mainSplitPane.getItems().addAll(leftTabPane, rightSplitPane);
-        setCenter(mainSplitPane);
-
-        // Bottom status bar
-        Label statusLabel = new Label("Ready");
-        setBottom(statusLabel);
+        
+        // Debug console at bottom
+        debugConsole = new TextArea();
+        debugConsole.setStyle("-fx-background-color: #0a0a0a; -fx-text-fill: #00ff00; -fx-font-family: monospace; -fx-font-size: 11px;");
+        debugConsole.setEditable(false);
+        debugConsole.setWrapText(true);
+        debugConsole.setPromptText("Debug Console:");
+        debugConsole.setMinHeight(80);
+        debugConsole.setMaxHeight(200);
+        
+        mainVerticalSplit.getItems().addAll(mainSplitPane, debugConsole);
+        setCenter(mainVerticalSplit);
+        
+        // Log startup message
+        logDebug("RSPS Interface Maker started");
     }
 
     private ToolBar createToolBar() {
@@ -130,13 +149,15 @@ public class MainView extends BorderPane {
         openProject.setOnAction(e -> openProject());
         MenuItem saveProject = new MenuItem("Save Project");
         saveProject.setOnAction(e -> saveProject());
+        MenuItem renameProject = new MenuItem("Rename Interface");
+        renameProject.setOnAction(e -> renameInterface());
         MenuItem validateProject = new MenuItem("Validate Project");
         validateProject.setOnAction(e -> validateProject());
         MenuItem exportCode = new MenuItem("Export Code");
         exportCode.setOnAction(e -> exportCode());
         MenuItem exportZip = new MenuItem("Export as ZIP Package");
         exportZip.setOnAction(e -> exportZipPackage());
-        fileMenu.getItems().addAll(newProject, openProject, saveProject, new SeparatorMenuItem(), validateProject, exportCode, exportZip);
+        fileMenu.getItems().addAll(newProject, openProject, saveProject, renameProject, new SeparatorMenuItem(), validateProject, exportCode, exportZip);
 
         // Templates menu
         Menu templatesMenu = new Menu("Quick Templates");
@@ -176,15 +197,19 @@ public class MainView extends BorderPane {
 
         // Advanced menu
         Menu advancedMenu = new Menu("Advanced");
-        MenuItem loadFromCache = new MenuItem("Load Interface from Cache");
-        loadFromCache.setOnAction(e -> loadInterfaceFromCache());
+        MenuItem loadFromCache = new MenuItem("Load Interface from Java Source");
+        loadFromCache.setOnAction(e -> loadInterfaceFromJavaSource());
         MenuItem suggestIds = new MenuItem("Suggest Free ID Range");
         suggestIds.setOnAction(e -> suggestFreeIdRange());
         MenuItem setCachePath = new MenuItem("Set Cache Path");
         setCachePath.setOnAction(e -> setCachePath());
+        MenuItem setInterfacesPath = new MenuItem("Set Interfaces.java Path");
+        setInterfacesPath.setOnAction(e -> setInterfacesPath());
         MenuItem setSpriteRoot = new MenuItem("Set Sprite Root Directory");
         setSpriteRoot.setOnAction(e -> setSpriteRootDirectory());
-        advancedMenu.getItems().addAll(loadFromCache, suggestIds, setCachePath, new SeparatorMenuItem(), setSpriteRoot);
+        MenuItem setDisplayOffsets = new MenuItem("Set Display Offsets");
+        setDisplayOffsets.setOnAction(e -> setDisplayOffsets());
+        advancedMenu.getItems().addAll(loadFromCache, suggestIds, setCachePath, setInterfacesPath, new SeparatorMenuItem(), setSpriteRoot, setDisplayOffsets);
 
         // View menu
         Menu viewMenu = new Menu("View");
@@ -226,280 +251,480 @@ public class MainView extends BorderPane {
     }
 
     private void addSprite() {
-        SpriteComponent sprite = new SpriteComponent();
-        sprite.setName("Sprite " + (project.getComponents().size() + 1));
-        project.addComponent(sprite);
-        componentListView.refresh();
-        canvas.render();
-        codePreviewPanel.updatePreview();
+        try {
+            logDebug("ACTION: Adding new sprite component");
+            SpriteComponent sprite = new SpriteComponent();
+            sprite.setName("Sprite " + (project.getComponents().size() + 1));
+            project.addComponent(sprite);
+            componentListView.refresh();
+            canvas.render();
+            codePreviewPanel.updatePreview();
+            logDebug("SUCCESS: Sprite component added, ID: " + sprite.getId());
+        } catch (Exception e) {
+            logDebug("ERROR: Failed to add sprite component - " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     private void addButton() {
-        ButtonComponent button = new ButtonComponent();
-        button.setName("Button " + (project.getComponents().size() + 1));
-        project.addComponent(button);
-        componentListView.refresh();
-        canvas.render();
-        codePreviewPanel.updatePreview();
+        try {
+            logDebug("ACTION: Adding new button component");
+            ButtonComponent button = new ButtonComponent();
+            button.setName("Button " + (project.getComponents().size() + 1));
+            project.addComponent(button);
+            componentListView.refresh();
+            canvas.render();
+            codePreviewPanel.updatePreview();
+            logDebug("SUCCESS: Button component added, ID: " + button.getId());
+        } catch (Exception e) {
+            logDebug("ERROR: Failed to add button component - " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     private void addText() {
-        TextComponent text = new TextComponent();
-        text.setName("Text " + (project.getComponents().size() + 1));
-        project.addComponent(text);
-        componentListView.refresh();
-        canvas.render();
-        codePreviewPanel.updatePreview();
+        try {
+            logDebug("ACTION: Adding new text component");
+            TextComponent text = new TextComponent();
+            text.setName("Text " + (project.getComponents().size() + 1));
+            project.addComponent(text);
+            componentListView.refresh();
+            canvas.render();
+            codePreviewPanel.updatePreview();
+            logDebug("SUCCESS: Text component added, ID: " + text.getId());
+        } catch (Exception e) {
+            logDebug("ERROR: Failed to add text component - " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     private void addCloseButton() {
-        ButtonComponent closeBtn = new ButtonComponent();
-        closeBtn.setName("Close Button");
-        closeBtn.setX(475);
-        closeBtn.setY(10);
-        closeBtn.setWidth(20);
-        closeBtn.setHeight(20);
-        closeBtn.setNormalSpritePath("Interfaces/Common/CLOSE");
-        closeBtn.setHoveredSpritePath("Interfaces/Common/CLOSE_HOVER");
-        closeBtn.setActionName("Close");
-        project.addComponent(closeBtn);
-        componentListView.refresh();
-        canvas.render();
-        codePreviewPanel.updatePreview();
+        try {
+            logDebug("ACTION: Adding close button component");
+            ButtonComponent closeBtn = new ButtonComponent();
+            closeBtn.setName("Close Button");
+            closeBtn.setX(475);
+            closeBtn.setY(10);
+            closeBtn.setWidth(20);
+            closeBtn.setHeight(20);
+            closeBtn.setNormalSpritePath("Interfaces/Common/CLOSE");
+            closeBtn.setHoveredSpritePath("Interfaces/Common/CLOSE_HOVER");
+            closeBtn.setActionName("Close");
+            project.addComponent(closeBtn);
+            componentListView.refresh();
+            canvas.render();
+            codePreviewPanel.updatePreview();
+            logDebug("SUCCESS: Close button component added, ID: " + closeBtn.getId());
+        } catch (Exception e) {
+            logDebug("ERROR: Failed to add close button component - " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     private void onComponentSelected(InterfaceComponent component) {
-        propertyPanel.setComponent(component);
-        spriteLibraryPanel.setSelectedComponent(component);
-        // Sync selection with component list
-        if (component != null) {
-            componentListView.selectComponent(component);
+        try {
+            logDebug("ACTION: Component selected on canvas: " + (component != null ? component.getName() : "null"));
+            propertyPanel.setComponent(component);
+            spriteLibraryPanel.setSelectedComponent(component);
+            // Sync selection with component list
+            if (component != null) {
+                componentListView.selectComponent(component);
+            }
+        } catch (Exception e) {
+            logDebug("ERROR: Failed to select component - " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
     private void onComponentSelectedFromList(InterfaceComponent component) {
-        propertyPanel.setComponent(component);
-        spriteLibraryPanel.setSelectedComponent(component);
-        // Sync selection with canvas
-        if (component != null) {
-            canvas.selectComponent(component);
+        try {
+            logDebug("ACTION: Component selected from list: " + (component != null ? component.getName() : "null"));
+            propertyPanel.setComponent(component);
+            spriteLibraryPanel.setSelectedComponent(component);
+            // Sync selection with canvas
+            if (component != null) {
+                canvas.selectComponent(component);
+            }
+        } catch (Exception e) {
+            logDebug("ERROR: Failed to select component from list - " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
     private void onComponentModified(InterfaceComponent component) {
-        canvas.render();
-        componentListView.refresh();
-        codePreviewPanel.updatePreview();
+        try {
+            logDebug("ACTION: Component modified: " + (component != null ? component.getName() : "null"));
+            canvas.render();
+            componentListView.refresh();
+            codePreviewPanel.updatePreview();
+        } catch (Exception e) {
+            logDebug("ERROR: Failed to handle component modification - " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    private void onComponentsChanged() {
+        try {
+            logDebug("ACTION: Components changed, updating code preview");
+            codePreviewPanel.updatePreview();
+        } catch (Exception e) {
+            logDebug("ERROR: Failed to handle components changed - " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     private void onSpriteAssigned(InterfaceComponent component) {
-        propertyPanel.setComponent(component);
-        canvas.render();
-        componentListView.refresh();
-        codePreviewPanel.updatePreview();
+        try {
+            logDebug("ACTION: Sprite assigned to component: " + (component != null ? component.getName() : "null"));
+            propertyPanel.setComponent(component);
+            canvas.render();
+            componentListView.refresh();
+            codePreviewPanel.updatePreview();
+        } catch (Exception e) {
+            logDebug("ERROR: Failed to handle sprite assignment - " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     private void onComponentsDuplicated(List<InterfaceComponent> components) {
-        componentListView.refresh();
-        codePreviewPanel.updatePreview();
+        try {
+            logDebug("ACTION: Components duplicated, count: " + components.size());
+            componentListView.refresh();
+            codePreviewPanel.updatePreview();
+        } catch (Exception e) {
+            logDebug("ERROR: Failed to handle component duplication - " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     private void newProject() {
-        project = new InterfaceProject();
-        componentListView.setProject(project);
-        canvas.setProject(project);
-        propertyPanel.setProject(project);
-        codePreviewPanel.setProject(project);
-        canvas.render();
-    }
-
-    private void loadTemplate(InterfaceProject template) {
-        project = template;
-        componentListView.setProject(project);
-        canvas.setProject(project);
-        propertyPanel.setProject(project);
-        codePreviewPanel.setProject(project);
-        canvas.render();
-    }
-
-    private void openProject() {
-        FileChooser fileChooser = new FileChooser();
-        fileChooser.setTitle("Open Project");
-        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("JSON Files", "*.json"));
-        File file = fileChooser.showOpenDialog(primaryStage);
-        if (file != null) {
-            try {
-                project = ProjectSerializer.loadProject(file);
+        try {
+            logDebug("ACTION: Creating new project");
+            TextInputDialog dialog = new TextInputDialog("NewInterface");
+            dialog.setTitle("New Interface");
+            dialog.setHeaderText("Enter a name for your new interface:");
+            dialog.setContentText("Interface Name:");
+            
+            dialog.showAndWait().ifPresent(name -> {
+                logDebug("New project name: " + name);
+                project = new InterfaceProject();
+                project.setName(name);
                 componentListView.setProject(project);
                 canvas.setProject(project);
                 propertyPanel.setProject(project);
                 codePreviewPanel.setProject(project);
                 canvas.render();
-            } catch (IOException e) {
-                Alert alert = new Alert(Alert.AlertType.ERROR, "Failed to load project: " + e.getMessage());
-                alert.showAndWait();
+                logDebug("SUCCESS: New project created");
+            });
+        } catch (Exception e) {
+            logDebug("ERROR: Failed to create new project - " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    private void loadTemplate(InterfaceProject template) {
+        try {
+            logDebug("ACTION: Loading template: " + template.getName());
+            TextInputDialog dialog = new TextInputDialog(template.getName());
+            dialog.setTitle("Load Template");
+            dialog.setHeaderText("Enter a name for this interface:");
+            dialog.setContentText("Interface Name:");
+            
+            dialog.showAndWait().ifPresent(name -> {
+                logDebug("Template loaded with name: " + name);
+                project = template;
+                project.setName(name);
+                componentListView.setProject(project);
+                canvas.setProject(project);
+                propertyPanel.setProject(project);
+                codePreviewPanel.setProject(project);
+                canvas.render();
+                logDebug("SUCCESS: Template loaded");
+            });
+        } catch (Exception e) {
+            logDebug("ERROR: Failed to load template - " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    private void renameInterface() {
+        try {
+            logDebug("ACTION: Renaming interface");
+            TextInputDialog dialog = new TextInputDialog(project.getName());
+            dialog.setTitle("Rename Interface");
+            dialog.setHeaderText("Enter a new name for this interface:");
+            dialog.setContentText("Interface Name:");
+            
+            dialog.showAndWait().ifPresent(name -> {
+                logDebug("Renaming from '" + project.getName() + "' to '" + name + "'");
+                project.setName(name);
+                codePreviewPanel.updatePreview();
+                logDebug("SUCCESS: Interface renamed");
+            });
+        } catch (Exception e) {
+            logDebug("ERROR: Failed to rename interface - " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    private void openProject() {
+        try {
+            logDebug("ACTION: Opening project");
+            FileChooser fileChooser = new FileChooser();
+            fileChooser.setTitle("Open Project");
+            fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("JSON Files", "*.json"));
+            File file = fileChooser.showOpenDialog(primaryStage);
+            if (file != null) {
+                logDebug("Opening file: " + file.getAbsolutePath());
+                project = ProjectSerializer.loadProject(file);
+                logDebug("Project loaded: " + project.getName() + ", components: " + project.getComponents().size());
+                
+                // Restore sprite root directory if saved
+                if (project.getSpriteRootDirectory() != null && !project.getSpriteRootDirectory().isEmpty()) {
+                    logDebug("Restoring sprite root: " + project.getSpriteRootDirectory());
+                    SpriteLoader.setSpriteRootDirectory(project.getSpriteRootDirectory());
+                    spriteLibraryPanel.refresh();
+                }
+                
+                // Restore cache path if saved
+                if (project.getCachePath() != null && !project.getCachePath().isEmpty()) {
+                    logDebug("Restoring cache path: " + project.getCachePath());
+                    cachePath = project.getCachePath();
+                }
+                
+                // Restore interfaces file path if saved
+                if (project.getInterfacesFilePath() != null && !project.getInterfacesFilePath().isEmpty()) {
+                    logDebug("Restoring interfaces file path: " + project.getInterfacesFilePath());
+                    interfacesFilePath = project.getInterfacesFilePath();
+                }
+                
+                componentListView.setProject(project);
+                canvas.setProject(project);
+                propertyPanel.setProject(project);
+                codePreviewPanel.setProject(project);
+                canvas.render();
+                logDebug("SUCCESS: Project opened successfully");
             }
+        } catch (IOException e) {
+            logDebug("ERROR: Failed to open project - " + e.getMessage());
+            Alert alert = new Alert(Alert.AlertType.ERROR, "Failed to load project: " + e.getMessage());
+            alert.showAndWait();
+        } catch (Exception e) {
+            logDebug("ERROR: Unexpected error opening project - " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
     private void saveProject() {
-        FileChooser fileChooser = new FileChooser();
-        fileChooser.setTitle("Save Project");
-        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("JSON Files", "*.json"));
-        File file = fileChooser.showSaveDialog(primaryStage);
-        if (file != null) {
-            try {
+        try {
+            logDebug("ACTION: Saving project");
+            FileChooser fileChooser = new FileChooser();
+            fileChooser.setTitle("Save Project");
+            fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("JSON Files", "*.json"));
+            File file = fileChooser.showSaveDialog(primaryStage);
+            if (file != null) {
+                logDebug("Saving to file: " + file.getAbsolutePath());
+                // Save current sprite root directory and cache path to project
+                project.setSpriteRootDirectory(SpriteLoader.getSpriteRootDirectory());
+                project.setCachePath(cachePath);
+                project.setInterfacesFilePath(interfacesFilePath);
+                
                 ProjectSerializer.saveProject(project, file);
+                logDebug("SUCCESS: Project saved successfully");
                 Alert alert = new Alert(Alert.AlertType.INFORMATION, "Project saved successfully!");
                 alert.showAndWait();
-            } catch (IOException e) {
-                Alert alert = new Alert(Alert.AlertType.ERROR, "Failed to save project: " + e.getMessage());
-                alert.showAndWait();
             }
+        } catch (IOException e) {
+            logDebug("ERROR: Failed to save project - " + e.getMessage());
+            Alert alert = new Alert(Alert.AlertType.ERROR, "Failed to save project: " + e.getMessage());
+            alert.showAndWait();
+        } catch (Exception e) {
+            logDebug("ERROR: Unexpected error saving project - " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
     private void exportCode() {
-        CodeGenerator generator = new CodeGenerator(project);
-        String export = generator.generateExport();
-        
-        TextArea textArea = new TextArea(export);
-        textArea.setEditable(false);
-        textArea.setStyle("-fx-font-family: monospace; -fx-font-size: 12;");
-        
-        ScrollPane scrollPane = new ScrollPane(textArea);
-        scrollPane.setFitToWidth(true);
-        scrollPane.setFitToHeight(true);
-        scrollPane.setPrefSize(800, 600);
-        
-        Stage exportStage = new Stage();
-        exportStage.setTitle("Export - " + project.getName());
-        exportStage.setScene(new javafx.scene.Scene(scrollPane));
-        exportStage.show();
+        try {
+            logDebug("ACTION: Exporting code");
+            CodeGenerator generator = new CodeGenerator(project);
+            String export = generator.generateExport();
+            logDebug("Code generated, length: " + export.length() + " characters");
+            
+            TextArea textArea = new TextArea(export);
+            textArea.setEditable(false);
+            textArea.setStyle("-fx-font-family: monospace; -fx-font-size: 12;");
+            
+            ScrollPane scrollPane = new ScrollPane(textArea);
+            scrollPane.setFitToWidth(true);
+            scrollPane.setFitToHeight(true);
+            scrollPane.setPrefSize(800, 600);
+            
+            Stage exportStage = new Stage();
+            exportStage.setTitle("Export - " + project.getName());
+            exportStage.setScene(new javafx.scene.Scene(scrollPane));
+            exportStage.show();
+            logDebug("SUCCESS: Export window opened");
+        } catch (Exception e) {
+            logDebug("ERROR: Failed to export code - " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     private void validateProject() {
-        Validator.ValidationResult result = Validator.validateProject(project);
-        
-        StringBuilder message = new StringBuilder();
-        
-        if (!result.errors.isEmpty()) {
-            message.append("ERRORS:\n");
-            for (String error : result.errors) {
-                message.append("  - ").append(error).append("\n");
+        try {
+            logDebug("ACTION: Validating project");
+            Validator.ValidationResult result = Validator.validateProject(project);
+            logDebug("Validation complete - errors: " + result.errors.size() + ", warnings: " + result.warnings.size());
+            
+            StringBuilder message = new StringBuilder();
+            
+            if (!result.errors.isEmpty()) {
+                message.append("ERRORS:\n");
+                for (String error : result.errors) {
+                    message.append("  - ").append(error).append("\n");
+                    logDebug("  ERROR: " + error);
+                }
+                message.append("\n");
             }
-            message.append("\n");
-        }
-        
-        if (!result.warnings.isEmpty()) {
-            message.append("WARNINGS:\n");
-            for (String warning : result.warnings) {
-                message.append("  - ").append(warning).append("\n");
+            
+            if (!result.warnings.isEmpty()) {
+                message.append("WARNINGS:\n");
+                for (String warning : result.warnings) {
+                    message.append("  - ").append(warning).append("\n");
+                    logDebug("  WARNING: " + warning);
+                }
             }
+            
+            if (!result.hasIssues()) {
+                message.append("No issues found. Project is valid!");
+                logDebug("  SUCCESS: No issues found");
+            }
+            
+            Alert.AlertType alertType = result.isValid ? Alert.AlertType.INFORMATION : Alert.AlertType.WARNING;
+            Alert alert = new Alert(alertType, message.toString());
+            alert.setTitle("Validation Results");
+            alert.setHeaderText(result.isValid ? "Validation Passed" : "Validation Issues Found");
+            alert.showAndWait();
+        } catch (Exception e) {
+            logDebug("ERROR: Failed to validate project - " + e.getMessage());
+            e.printStackTrace();
         }
-        
-        if (!result.hasIssues()) {
-            message.append("No issues found. Project is valid!");
-        }
-        
-        Alert.AlertType alertType = result.isValid ? Alert.AlertType.INFORMATION : Alert.AlertType.WARNING;
-        Alert alert = new Alert(alertType, message.toString());
-        alert.setTitle("Validation Results");
-        alert.setHeaderText(result.isValid ? "Validation Passed" : "Validation Issues Found");
-        alert.showAndWait();
     }
 
     private void alignComponents(String alignment) {
-        java.util.List<InterfaceComponent> selected = canvas.getSelectedComponents();
-        if (selected.size() < 2) {
-            Alert alert = new Alert(Alert.AlertType.INFORMATION, "Select at least 2 components to align (Ctrl+click)");
-            alert.showAndWait();
-            return;
-        }
+        try {
+            logDebug("ACTION: Aligning components - " + alignment);
+            java.util.List<InterfaceComponent> selected = canvas.getSelectedComponents();
+            if (selected.size() < 2) {
+                logDebug("  WARNING: Less than 2 components selected");
+                Alert alert = new Alert(Alert.AlertType.INFORMATION, "Select at least 2 components to align (Ctrl+click)");
+                alert.showAndWait();
+                return;
+            }
+            logDebug("  Aligning " + selected.size() + " components");
 
-        switch (alignment) {
-            case "left":
-                int leftX = selected.stream().mapToInt(InterfaceComponent::getX).min().getAsInt();
-                selected.forEach(c -> c.setX(leftX));
-                break;
-            case "center":
-                int centerX = selected.stream().mapToInt(c -> c.getX() + c.getWidth() / 2).min().getAsInt();
-                selected.forEach(c -> c.setX(centerX - c.getWidth() / 2));
-                break;
-            case "right":
-                int rightX = selected.stream().mapToInt(c -> c.getX() + c.getWidth()).max().getAsInt();
-                selected.forEach(c -> c.setX(rightX - c.getWidth()));
-                break;
-            case "top":
-                int topY = selected.stream().mapToInt(InterfaceComponent::getY).min().getAsInt();
-                selected.forEach(c -> c.setY(topY));
-                break;
-            case "middle":
-                int middleY = selected.stream().mapToInt(c -> c.getY() + c.getHeight() / 2).min().getAsInt();
-                selected.forEach(c -> c.setY(middleY - c.getHeight() / 2));
-                break;
-            case "bottom":
-                int bottomY = selected.stream().mapToInt(c -> c.getY() + c.getHeight()).max().getAsInt();
-                selected.forEach(c -> c.setY(bottomY - c.getHeight()));
-                break;
-        }
+            switch (alignment) {
+                case "left":
+                    int leftX = selected.stream().mapToInt(InterfaceComponent::getX).min().getAsInt();
+                    selected.forEach(c -> c.setX(leftX));
+                    break;
+                case "center":
+                    int centerX = selected.stream().mapToInt(c -> c.getX() + c.getWidth() / 2).min().getAsInt();
+                    selected.forEach(c -> c.setX(centerX - c.getWidth() / 2));
+                    break;
+                case "right":
+                    int rightX = selected.stream().mapToInt(c -> c.getX() + c.getWidth()).max().getAsInt();
+                    selected.forEach(c -> c.setX(rightX - c.getWidth()));
+                    break;
+                case "top":
+                    int topY = selected.stream().mapToInt(InterfaceComponent::getY).min().getAsInt();
+                    selected.forEach(c -> c.setY(topY));
+                    break;
+                case "middle":
+                    int middleY = selected.stream().mapToInt(c -> c.getY() + c.getHeight() / 2).min().getAsInt();
+                    selected.forEach(c -> c.setY(middleY - c.getHeight() / 2));
+                    break;
+                case "bottom":
+                    int bottomY = selected.stream().mapToInt(c -> c.getY() + c.getHeight()).max().getAsInt();
+                    selected.forEach(c -> c.setY(bottomY - c.getHeight()));
+                    break;
+            }
 
-        canvas.render();
-        propertyPanel.refresh();
-        codePreviewPanel.updatePreview();
+            canvas.render();
+            propertyPanel.refresh();
+            codePreviewPanel.updatePreview();
+            logDebug("SUCCESS: Components aligned");
+        } catch (Exception e) {
+            logDebug("ERROR: Failed to align components - " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     private void distributeComponents(String direction) {
-        java.util.List<InterfaceComponent> selected = canvas.getSelectedComponents();
-        if (selected.size() < 3) {
-            Alert alert = new Alert(Alert.AlertType.INFORMATION, "Select at least 3 components to distribute (Ctrl+click)");
-            alert.showAndWait();
-            return;
-        }
-
-        // Sort by position
-        if (direction.equals("horizontal")) {
-            selected.sort((a, b) -> Integer.compare(a.getX(), b.getX()));
-            int firstX = selected.get(0).getX();
-            int lastX = selected.get(selected.size() - 1).getX();
-            int totalWidth = lastX - firstX;
-            int step = totalWidth / (selected.size() - 1);
-            for (int i = 1; i < selected.size() - 1; i++) {
-                selected.get(i).setX(firstX + (step * i));
+        try {
+            logDebug("ACTION: Distributing components - " + direction);
+            java.util.List<InterfaceComponent> selected = canvas.getSelectedComponents();
+            if (selected.size() < 3) {
+                logDebug("  WARNING: Less than 3 components selected");
+                Alert alert = new Alert(Alert.AlertType.INFORMATION, "Select at least 3 components to distribute (Ctrl+click)");
+                alert.showAndWait();
+                return;
             }
-        } else {
-            selected.sort((a, b) -> Integer.compare(a.getY(), b.getY()));
-            int firstY = selected.get(0).getY();
-            int lastY = selected.get(selected.size() - 1).getY();
-            int totalHeight = lastY - firstY;
-            int step = totalHeight / (selected.size() - 1);
-            for (int i = 1; i < selected.size() - 1; i++) {
-                selected.get(i).setY(firstY + (step * i));
-            }
-        }
+            logDebug("  Distributing " + selected.size() + " components");
 
-        canvas.render();
-        propertyPanel.refresh();
-        codePreviewPanel.updatePreview();
+            // Sort by position
+            if (direction.equals("horizontal")) {
+                selected.sort((a, b) -> Integer.compare(a.getX(), b.getX()));
+                int firstX = selected.get(0).getX();
+                int lastX = selected.get(selected.size() - 1).getX();
+                int totalWidth = lastX - firstX;
+                int step = totalWidth / (selected.size() - 1);
+                for (int i = 1; i < selected.size() - 1; i++) {
+                    selected.get(i).setX(firstX + (step * i));
+                }
+            } else {
+                selected.sort((a, b) -> Integer.compare(a.getY(), b.getY()));
+                int firstY = selected.get(0).getY();
+                int lastY = selected.get(selected.size() - 1).getY();
+                int totalHeight = lastY - firstY;
+                int step = totalHeight / (selected.size() - 1);
+                for (int i = 1; i < selected.size() - 1; i++) {
+                    selected.get(i).setY(firstY + (step * i));
+                }
+            }
+
+            canvas.render();
+            propertyPanel.refresh();
+            codePreviewPanel.updatePreview();
+            logDebug("SUCCESS: Components distributed");
+        } catch (Exception e) {
+            logDebug("ERROR: Failed to distribute components - " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     private void exportZipPackage() {
-        // Ask for sprite source directory
-        DirectoryChooser spriteDirChooser = new DirectoryChooser();
-        spriteDirChooser.setTitle("Select Sprite Source Directory");
-        File spriteDir = spriteDirChooser.showDialog(primaryStage);
-        
-        // Ask for output location
-        FileChooser fileChooser = new FileChooser();
-        fileChooser.setTitle("Export ZIP Package");
-        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("ZIP Files", "*.zip"));
-        fileChooser.setInitialFileName(project.getName() + "_package.zip");
-        File outputFile = fileChooser.showSaveDialog(primaryStage);
-        
-        if (outputFile != null) {
-            try {
+        try {
+            logDebug("ACTION: Exporting ZIP package");
+            // Ask for sprite source directory
+            DirectoryChooser spriteDirChooser = new DirectoryChooser();
+            spriteDirChooser.setTitle("Select Sprite Source Directory");
+            File spriteDir = spriteDirChooser.showDialog(primaryStage);
+            
+            // Ask for output location
+            FileChooser fileChooser = new FileChooser();
+            fileChooser.setTitle("Export ZIP Package");
+            fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("ZIP Files", "*.zip"));
+            fileChooser.setInitialFileName(project.getName() + "_package.zip");
+            File outputFile = fileChooser.showSaveDialog(primaryStage);
+            
+            if (outputFile != null) {
+                logDebug("Exporting to: " + outputFile.getAbsolutePath());
                 String spriteSourcePath = (spriteDir != null) ? spriteDir.getAbsolutePath() : "";
+                logDebug("Sprite source: " + (spriteSourcePath.isEmpty() ? "none" : spriteSourcePath));
                 ZipExporter.exportToZip(project, spriteSourcePath, outputFile.getAbsolutePath());
+                logDebug("SUCCESS: ZIP package exported");
                 
                 Alert alert = new Alert(Alert.AlertType.INFORMATION, 
                     "ZIP package exported successfully!\n\n" +
@@ -509,145 +734,281 @@ public class MainView extends BorderPane {
                     "- sprites/ (Sprite files if source directory provided)\n" +
                     "- EXPORT_SUMMARY.txt (Project information)");
                 alert.showAndWait();
-            } catch (IOException e) {
-                Alert alert = new Alert(Alert.AlertType.ERROR, "Failed to export ZIP: " + e.getMessage());
-                alert.showAndWait();
             }
+        } catch (IOException e) {
+            logDebug("ERROR: Failed to export ZIP - " + e.getMessage());
+            Alert alert = new Alert(Alert.AlertType.ERROR, "Failed to export ZIP: " + e.getMessage());
+            alert.showAndWait();
+        } catch (Exception e) {
+            logDebug("ERROR: Unexpected error exporting ZIP - " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
-    private void loadInterfaceFromCache() {
-        if (cachePath.isEmpty()) {
-            Alert alert = new Alert(Alert.AlertType.INFORMATION, 
-                "Please set the cache path first using Advanced > Set Cache Path");
-            alert.showAndWait();
-            return;
-        }
+    private void loadInterfaceFromJavaSource() {
+        try {
+            logDebug("ACTION: Loading interface from Java source");
+            if (interfacesFilePath.isEmpty()) {
+                logDebug("  WARNING: Interfaces file path not set");
+                Alert alert = new Alert(Alert.AlertType.INFORMATION, 
+                    "Please set the Interfaces.java path first using Advanced > Set Interfaces.java Path");
+                alert.showAndWait();
+                return;
+            }
 
-        TextInputDialog dialog = new TextInputDialog("40000");
-        dialog.setTitle("Load Interface from Cache");
-        dialog.setHeaderText("Enter Interface ID to load");
-        dialog.setContentText("Interface ID:");
+            // Get available methods
+            logDebug("Reading available methods from: " + interfacesFilePath);
+            List<String> availableMethods = JavaInterfaceParser.getAvailableMethods(interfacesFilePath);
+            logDebug("Found " + availableMethods.size() + " available methods");
+            
+            if (availableMethods.isEmpty()) {
+                logDebug("  WARNING: No interface methods found");
+                Alert alert = new Alert(Alert.AlertType.WARNING, 
+                    "No interface methods found in Interfaces.java\n" +
+                    "Make sure the file path is correct and the file contains interface definitions.");
+                alert.showAndWait();
+                return;
+            }
 
-        dialog.showAndWait().ifPresent(idStr -> {
-            try {
-                int interfaceId = Integer.parseInt(idStr);
-                CacheReader.InterfaceData data = CacheReader.loadInterfaceFromCache(cachePath, interfaceId);
+            // Create choice dialog with available methods
+            ChoiceDialog<String> dialog = new ChoiceDialog<>(availableMethods.get(0), availableMethods);
+            dialog.setTitle("Load Interface from Java Source");
+            dialog.setHeaderText("Select an interface method to load:");
+            dialog.setContentText("Available interfaces:");
+
+            dialog.showAndWait().ifPresent(methodName -> {
+                logDebug("Loading interface method: " + methodName);
+                logDebug("Interfaces file path: " + interfacesFilePath);
                 
-                if (data != null) {
-                    // Show interface data in a dialog
-                    StringBuilder info = new StringBuilder();
-                    info.append("Interface Data:\n");
-                    info.append("ID: ").append(data.id).append("\n");
-                    info.append("Parent ID: ").append(data.parentId).append("\n");
-                    info.append("Type: ").append(data.type).append("\n");
-                    info.append("Size: ").append(data.width).append("x").append(data.height).append("\n");
-                    info.append("Position: (").append(data.x).append(", ").append(data.y).append(")\n");
-                    info.append("Children: ").append(data.children.size()).append("\n\n");
+                InterfaceProject loadedProject = JavaInterfaceParser.parseInterfaceMethod(interfacesFilePath, methodName);
+                
+                if (loadedProject != null) {
+                    logDebug("Interface parsed successfully. ID: " + loadedProject.getInterfaceId());
+                    logDebug("Components parsed: " + loadedProject.getComponents().size());
                     
-                    for (CacheReader.ChildData child : data.children) {
-                        info.append(child.toString()).append("\n");
-                    }
+                    // Apply the loaded project
+                    project = loadedProject;
+                    componentListView.setProject(project);
+                    canvas.setProject(project);
+                    propertyPanel.setProject(project);
+                    codePreviewPanel.setProject(project);
+                    canvas.render();
                     
-                    Alert alert = new Alert(Alert.AlertType.INFORMATION, info.toString());
-                    alert.setTitle("Interface " + interfaceId);
-                    alert.setHeaderText("Interface loaded successfully (read-only reference)");
+                    logDebug("Interface loaded into editor");
+                    
+                    Alert alert = new Alert(Alert.AlertType.INFORMATION, 
+                        "Interface " + methodName + " loaded successfully!\n" +
+                        "Interface ID: " + project.getInterfaceId() + "\n" +
+                        "Components loaded: " + project.getComponents().size() + "\n\n" +
+                        "You can now modify this interface in the editor.");
                     alert.showAndWait();
                 } else {
+                    logDebug("ERROR: Failed to parse interface method: " + methodName);
                     Alert alert = new Alert(Alert.AlertType.WARNING, 
-                        "Interface " + interfaceId + " not found in cache");
+                        "Failed to parse interface method: " + methodName);
                     alert.showAndWait();
                 }
-            } catch (NumberFormatException e) {
-                Alert alert = new Alert(Alert.AlertType.ERROR, "Invalid interface ID");
+            });
+        } catch (Exception e) {
+            logDebug("ERROR: Failed to load interface from Java source - " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    private void setInterfacesPath() {
+        try {
+            logDebug("ACTION: Setting Interfaces.java path");
+            FileChooser fileChooser = new FileChooser();
+            fileChooser.setTitle("Select Interfaces.java File");
+            fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Java Files", "*.java"));
+            File file = fileChooser.showOpenDialog(primaryStage);
+            
+            if (file != null) {
+                interfacesFilePath = file.getAbsolutePath();
+                logDebug("Interfaces.java path set to: " + interfacesFilePath);
+                Alert alert = new Alert(Alert.AlertType.INFORMATION, 
+                    "Interfaces.java path set to:\n" + interfacesFilePath + "\n\n" +
+                    "You can now load existing interfaces from this file.");
                 alert.showAndWait();
             }
-        });
+        } catch (Exception e) {
+            logDebug("ERROR: Failed to set Interfaces.java path - " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     private void suggestFreeIdRange() {
-        if (cachePath.isEmpty()) {
-            Alert alert = new Alert(Alert.AlertType.INFORMATION, 
-                "Please set the cache path first using Advanced > Set Cache Path");
-            alert.showAndWait();
-            return;
-        }
+        try {
+            logDebug("ACTION: Suggesting free ID range");
+            if (cachePath.isEmpty()) {
+                logDebug("  WARNING: Cache path not set");
+                Alert alert = new Alert(Alert.AlertType.INFORMATION, 
+                    "Please set the cache path first using Advanced > Set Cache Path");
+                alert.showAndWait();
+                return;
+            }
 
-        // Calculate required range size
-        int requiredSize = project.getComponents().size() + 2; // +2 for interface ID and buffer
-        
-        int suggestedId = CacheReader.suggestFreeIdRange(cachePath, requiredSize);
-        
-        if (suggestedId > 0) {
-            Alert alert = new Alert(Alert.AlertType.INFORMATION, 
-                "Suggested free ID range: " + suggestedId + " - " + (suggestedId + requiredSize - 1) + "\n\n" +
-                "Required range size: " + requiredSize + " IDs\n" +
-                "Suggested starting ID: " + suggestedId + "\n\n" +
-                "Would you like to apply this ID range?");
+            // Calculate required range size
+            int requiredSize = project.getComponents().size() + 2; // +2 for interface ID and buffer
+            logDebug("Required range size: " + requiredSize + " IDs");
             
-            ButtonType applyButton = new ButtonType("Apply", ButtonBar.ButtonData.OK_DONE);
-            ButtonType cancelButton = new ButtonType("Cancel", ButtonBar.ButtonData.CANCEL_CLOSE);
-            alert.getButtonTypes().setAll(applyButton, cancelButton);
+            int suggestedId = CacheReader.suggestFreeIdRange(cachePath, requiredSize);
+            logDebug("Suggested starting ID: " + suggestedId);
             
-            alert.showAndWait().ifPresent(buttonType -> {
-                if (buttonType == applyButton) {
-                    project.setInterfaceId(suggestedId);
-                    // Reassign component IDs
-                    int currentId = suggestedId + 1;
-                    for (InterfaceComponent comp : project.getComponents()) {
-                        comp.setId(currentId++);
+            if (suggestedId > 0) {
+                Alert alert = new Alert(Alert.AlertType.INFORMATION, 
+                    "Suggested free ID range: " + suggestedId + " - " + (suggestedId + requiredSize - 1) + "\n\n" +
+                    "Required range size: " + requiredSize + " IDs\n" +
+                    "Suggested starting ID: " + suggestedId + "\n\n" +
+                    "Would you like to apply this ID range?");
+                
+                ButtonType applyButton = new ButtonType("Apply", ButtonBar.ButtonData.OK_DONE);
+                ButtonType cancelButton = new ButtonType("Cancel", ButtonBar.ButtonData.CANCEL_CLOSE);
+                alert.getButtonTypes().setAll(applyButton, cancelButton);
+                
+                alert.showAndWait().ifPresent(buttonType -> {
+                    if (buttonType == applyButton) {
+                        logDebug("Applying ID range starting at: " + suggestedId);
+                        project.setInterfaceId(suggestedId);
+                        // Reassign component IDs
+                        int currentId = suggestedId + 1;
+                        for (InterfaceComponent comp : project.getComponents()) {
+                            comp.setId(currentId++);
+                        }
+                        
+                        canvas.render();
+                        propertyPanel.refresh();
+                        codePreviewPanel.updatePreview();
+                        logDebug("SUCCESS: ID range applied");
+                        
+                        Alert successAlert = new Alert(Alert.AlertType.INFORMATION, 
+                            "ID range applied successfully!");
+                        successAlert.showAndWait();
                     }
-                    
-                    canvas.render();
-                    propertyPanel.refresh();
-                    codePreviewPanel.updatePreview();
-                    
-                    Alert successAlert = new Alert(Alert.AlertType.INFORMATION, 
-                        "ID range applied successfully!");
-                    successAlert.showAndWait();
-                }
-            });
-        } else {
-            Alert alert = new Alert(Alert.AlertType.WARNING, 
-                "Could not find a free ID range in the cache.\n" +
-                "Please try a higher starting ID or check the cache path.");
-            alert.showAndWait();
+                });
+            } else {
+                logDebug("  WARNING: Could not find free ID range");
+                Alert alert = new Alert(Alert.AlertType.WARNING, 
+                    "Could not find a free ID range in the cache.\n" +
+                    "Please try a higher starting ID or check the cache path.");
+                alert.showAndWait();
+            }
+        } catch (Exception e) {
+            logDebug("ERROR: Failed to suggest free ID range - " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
     private void setCachePath() {
-        DirectoryChooser dirChooser = new DirectoryChooser();
-        dirChooser.setTitle("Select Cache Directory");
-        File cacheDir = dirChooser.showDialog(primaryStage);
-        
-        if (cacheDir != null) {
-            cachePath = cacheDir.getAbsolutePath();
-            Alert alert = new Alert(Alert.AlertType.INFORMATION, 
-                "Cache path set to:\n" + cachePath);
-            alert.showAndWait();
+        try {
+            logDebug("ACTION: Setting cache path");
+            DirectoryChooser dirChooser = new DirectoryChooser();
+            dirChooser.setTitle("Select Cache Directory");
+            File cacheDir = dirChooser.showDialog(primaryStage);
+            
+            if (cacheDir != null) {
+                cachePath = cacheDir.getAbsolutePath();
+                logDebug("Cache path set to: " + cachePath);
+                Alert alert = new Alert(Alert.AlertType.INFORMATION, 
+                    "Cache path set to:\n" + cachePath);
+                alert.showAndWait();
+            }
+        } catch (Exception e) {
+            logDebug("ERROR: Failed to set cache path - " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
     private void setSpriteRootDirectory() {
-        DirectoryChooser dirChooser = new DirectoryChooser();
-        dirChooser.setTitle("Select Sprite Root Directory");
-        File spriteDir = dirChooser.showDialog(primaryStage);
-        
-        if (spriteDir != null) {
-            SpriteLoader.setSpriteRootDirectory(spriteDir.getAbsolutePath());
-            Alert alert = new Alert(Alert.AlertType.INFORMATION, 
-                "Sprite root directory set to:\n" + spriteDir.getAbsolutePath() + "\n\n" +
-                "This will be used for:\n" +
-                "- Converting file paths to relative paths\n" +
-                "- Loading sprites in the canvas\n" +
-                "- Sprite thumbnails in Properties panel\n" +
-                "- Sprite Library panel thumbnails");
-            alert.showAndWait();
+        try {
+            logDebug("ACTION: Setting sprite root directory");
+            DirectoryChooser dirChooser = new DirectoryChooser();
+            dirChooser.setTitle("Select Sprite Root Directory");
+            File spriteDir = dirChooser.showDialog(primaryStage);
             
-            // Refresh canvas to reload sprites with new root directory
-            canvas.render();
-            // Refresh sprite library to scan new directory
-            spriteLibraryPanel.refresh();
+            if (spriteDir != null) {
+                String spritePath = spriteDir.getAbsolutePath();
+                logDebug("Sprite root directory set to: " + spritePath);
+                SpriteLoader.setSpriteRootDirectory(spritePath);
+                Alert alert = new Alert(Alert.AlertType.INFORMATION, 
+                    "Sprite root directory set to:\n" + spritePath + "\n\n" +
+                    "This will be used for:\n" +
+                    "- Converting file paths to relative paths\n" +
+                    "- Loading sprites in the canvas\n" +
+                    "- Sprite thumbnails in Properties panel\n" +
+                    "- Sprite Library panel thumbnails");
+                alert.showAndWait();
+                
+                // Refresh canvas to reload sprites with new root directory
+                canvas.render();
+                // Refresh sprite library to scan new directory
+                spriteLibraryPanel.refresh();
+                logDebug("SUCCESS: Sprite root directory set and libraries refreshed");
+            }
+        } catch (Exception e) {
+            logDebug("ERROR: Failed to set sprite root directory - " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    private void setDisplayOffsets() {
+        try {
+            logDebug("ACTION: Setting display offsets");
+            logDebug("Current offsets - X: " + project.getOffsetX() + ", Y: " + project.getOffsetY());
+            TextInputDialog xDialog = new TextInputDialog(String.valueOf(project.getOffsetX()));
+            xDialog.setTitle("Set Display Offsets");
+            xDialog.setHeaderText("Set X and Y offsets for game display");
+            xDialog.setContentText("X Offset (default: 12):");
+            
+            xDialog.showAndWait().ifPresent(xOffsetStr -> {
+                try {
+                    int xOffset = Integer.parseInt(xOffsetStr);
+                    logDebug("X offset set to: " + xOffset);
+                    
+                    TextInputDialog yDialog = new TextInputDialog(String.valueOf(project.getOffsetY()));
+                    yDialog.setTitle("Set Display Offsets");
+                    yDialog.setHeaderText("Set Y offset for game display");
+                    yDialog.setContentText("Y Offset (default: 14):");
+                    
+                    yDialog.showAndWait().ifPresent(yOffsetStr -> {
+                        try {
+                            int yOffset = Integer.parseInt(yOffsetStr);
+                            logDebug("Y offset set to: " + yOffset);
+                            project.setOffsetX(xOffset);
+                            project.setOffsetY(yOffset);
+                            logDebug("SUCCESS: Display offsets updated - X: " + xOffset + ", Y: " + yOffset);
+                            
+                            Alert alert = new Alert(Alert.AlertType.INFORMATION, 
+                                "Display offsets set to:\n" +
+                                "X: " + xOffset + "\n" +
+                                "Y: " + yOffset + "\n\n" +
+                                "These offsets will be applied to all child positioning\n" +
+                                "in the generated code to match game display coordinates.");
+                            alert.showAndWait();
+                            
+                            codePreviewPanel.updatePreview();
+                        } catch (NumberFormatException e) {
+                            logDebug("ERROR: Invalid Y offset value");
+                            Alert errorAlert = new Alert(Alert.AlertType.ERROR, "Invalid Y offset value");
+                            errorAlert.showAndWait();
+                        }
+                    });
+                } catch (NumberFormatException e) {
+                    logDebug("ERROR: Invalid X offset value");
+                    Alert errorAlert = new Alert(Alert.AlertType.ERROR, "Invalid X offset value");
+                    errorAlert.showAndWait();
+                }
+            });
+        } catch (Exception e) {
+            logDebug("ERROR: Failed to set display offsets - " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    private void logDebug(String message) {
+        if (debugConsole != null) {
+            String timestamp = java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss").format(java.time.LocalDateTime.now());
+            debugConsole.appendText("[" + timestamp + "] " + message + "\n");
         }
     }
 }

@@ -19,30 +19,44 @@ public class SpriteLoader {
     }
     
     public static Image loadSprite(String spritePath) {
+        return loadSprite(spritePath, 0); // Default sprite ID
+    }
+    
+    public static Image loadSprite(String spritePath, int spriteId) {
         if (spritePath == null || spritePath.isEmpty()) {
             return null;
         }
         
+        // Create cache key with sprite ID
+        String cacheKey = spritePath + "_" + spriteId;
+        
         // Check cache first
-        if (spriteCache.containsKey(spritePath)) {
-            return spriteCache.get(spritePath);
+        if (spriteCache.containsKey(cacheKey)) {
+            return spriteCache.get(cacheKey);
         }
         
         // Try to load the sprite
         Image image = null;
         
-        // Try with different file extensions
-        String[] extensions = {".png", ".PNG", ".gif", ".GIF", ".jpg", ".JPG"};
+        // RSPS naming convention: path + space + spriteId + .png (e.g., "MAIN 0.png")
+        // Also try standard naming: path + .png (e.g., "MAIN.png")
+        String[] variations = {
+            spritePath + " " + spriteId + ".png",        // RSPS format: "MAIN 0.png"
+            spritePath + " " + spriteId + ".PNG",        // RSPS format uppercase
+            spritePath + spriteId + ".png",              // No space: "MAIN0.png"
+            spritePath + ".png",                         // Standard: "MAIN.png"
+            spritePath + ".PNG"                          // Standard uppercase
+        };
         
-        for (String ext : extensions) {
+        for (String variation : variations) {
             try {
-                String fullPath = spritePath.replace("/", File.separator);
+                String fullPath = variation.replace("/", File.separator);
                 File spriteFile;
                 
                 if (!spriteRootDirectory.isEmpty()) {
-                    spriteFile = new File(spriteRootDirectory, fullPath + ext);
+                    spriteFile = new File(spriteRootDirectory, fullPath);
                 } else {
-                    spriteFile = new File(fullPath + ext);
+                    spriteFile = new File(fullPath);
                 }
                 
                 if (spriteFile.exists()) {
@@ -51,16 +65,16 @@ public class SpriteLoader {
                     break;
                 }
             } catch (Exception e) {
-                System.out.println("Failed to load sprite: " + spritePath + ext + " - " + e.getMessage());
+                System.out.println("Failed to load sprite: " + variation + " - " + e.getMessage());
             }
         }
         
         if (image == null) {
-            System.out.println("Sprite not found: " + spritePath + " (Root: " + spriteRootDirectory + ")");
+            System.out.println("Sprite not found: " + spritePath + " (spriteId: " + spriteId + ", Root: " + spriteRootDirectory + ")");
         }
         
         // Cache the result (even if null to avoid repeated failed loads)
-        spriteCache.put(spritePath, image);
+        spriteCache.put(cacheKey, image);
         
         return image;
     }

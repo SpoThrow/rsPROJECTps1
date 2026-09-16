@@ -2,7 +2,10 @@ com\rsps\interfacemaker\util\CacheReader$InterfaceData.class
 com\rsps\interfacemaker\util\CacheReader$ChildData.class
 com\rsps\interfacemaker\util\SpriteLoader.class
 com\rsps\interfacemaker\view\SpriteLibraryPanel$SpriteInfo.class
+com\rsps\interfacemaker\util\JavaInterfaceParser.class
 com\rsps\interfacemaker\view\MainView.class
+com\rsps\interfacemaker\util\ComponentTypeAdapter.class
+com\rsps\interfacemaker\util\ProjectSerializer$1.class
 com\rsps\interfacemaker\model\InterfaceComponent.class
 com\rsps\interfacemaker\view\SpriteLibraryPanel.class
 com\rsps\interfacemaker\view\InterfaceCanvas$1.class

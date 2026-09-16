@@ -5,6 +5,7 @@ import org.Vote.MainLoader;
 import server.Config;
 import server.Connection;
 import server.Server;
+import server.game.content.PlayerOwnedShop;
 import server.game.players.Client;
 import server.game.players.PacketType;
 import server.game.players.PlayerHandler;
@@ -15,6 +16,15 @@ import core.util.rspswebstore;
 
 public class Commands implements PacketType {
 	public boolean resetAnim = false;
+
+	// Helper method to reset POS sell state
+	private void resetSellState(Client c) {
+		c.posSelling = false;
+		c.posSellStep = 0;
+		c.posSellItemId = 0;
+		c.posSellAmount = 0;
+		c.posSellPrice = 0;
+	}
 
 	@Override
 	public void processPacket(Client c, int packetType, int packetSize) {
@@ -61,6 +71,15 @@ public class Commands implements PacketType {
 			if (playerCommand.equalsIgnoreCase("players")) {
 				c.sendMessage("Current amount of players online: @red@"
 						+ PlayerHandler.getPlayerCount() + "@bla@!");
+			}
+			if (playerCommand.equalsIgnoreCase("cancel")) {
+				if (c.posSearchingItem || c.posSearchingPlayer) {
+					c.posSearchingItem = false;
+					c.posSearchingPlayer = false;
+					c.sendMessage("Search cancelled.");
+				} else {
+					c.sendMessage("No search in progress to cancel.");
+				}
 			}
 			if (playerCommand.startsWith("help")) {
 				c.sendMessage("You have submitted your help ticket, please wait for a staff member to reply.");
@@ -149,6 +168,11 @@ public class Commands implements PacketType {
 				c.getPA().openPlayerOwnedShop();
 			}
 			
+			if (playerCommand.startsWith("shop")) {
+				c.getPA().showInterface(50000);
+				c.sendMessage("Opening custom Shop Interface (ID: 50000)");
+			}
+			
 			if (playerCommand.startsWith("sellitem")) {
 				try {
 					String[] args = playerCommand.split(" ");
@@ -178,14 +202,37 @@ public class Commands implements PacketType {
 				try {
 					String name = playerCommand.substring(9).trim();
 					if (name.length() > 0) {
-						c.getPA().openPOSSearchInterface();
-						c.sendMessage("Searching for player: " + name);
-						// TODO: Implement actual player search in interface
-					} else {
-						c.sendMessage("Usage: ::possearch playerName");
+						c.getPA().searchPOSByPlayer(name);
 					}
 				} catch (Exception e) {
 					c.sendMessage("Usage: ::possearch playerName");
+				}
+			}
+			
+			if (playerCommand.equalsIgnoreCase("spawnfakeshops")) {
+				PlayerOwnedShop.generateFakeListings();
+				c.sendMessage("Generated 500 fake shop listings for testing.");
+			}
+			
+			if (playerCommand.startsWith("searchitem")) {
+				try {
+					int itemId = Integer.parseInt(playerCommand.substring(10).trim());
+					c.getPA().searchPOSByItem(itemId);
+				} catch (Exception e) {
+					c.sendMessage("Usage: ::searchitem [itemId]");
+				}
+			}
+			
+			if (playerCommand.startsWith("searchplayer")) {
+				try {
+					String playerName = playerCommand.substring(12).trim();
+					if (playerName.length() > 0) {
+						c.getPA().searchPOSByPlayer(playerName);
+					} else {
+						c.sendMessage("Usage: ::searchplayer [playerName]");
+					}
+				} catch (Exception e) {
+					c.sendMessage("Usage: ::searchplayer [playerName]");
 				}
 			}
 			
@@ -199,9 +246,11 @@ public class Commands implements PacketType {
 							c.sendMessage("Enter the price per item (type ::price [number])");
 						} else {
 							c.sendMessage("Invalid amount. Please enter a positive number.");
+							resetSellState(c);
 						}
 					} catch (Exception e) {
 						c.sendMessage("Invalid amount. Usage: ::amount [number]");
+						resetSellState(c);
 					}
 				} else {
 					c.sendMessage("You are not in sell mode. Click a Sell button first.");
@@ -214,34 +263,50 @@ public class Commands implements PacketType {
 						int price = Integer.parseInt(playerCommand.substring(6).trim());
 						if (price >= 0) {
 							c.posSellPrice = price;
-							// Check if player has enough items
+							// Validate player still has the item before deleting
 							if (c.getItems().playerHasItem(c.posSellItemId, c.posSellAmount)) {
-								c.sendMessage("DEBUG: Deleting " + c.posSellAmount + "x item " + c.posSellItemId + " from inventory");
-								// Remove items from inventory
-								c.getItems().deleteItem(c.posSellItemId, c.getItems().getItemSlot(c.posSellItemId), c.posSellAmount);
-								c.sendMessage("DEBUG: Items deleted, adding listing");
+								// Record amount before deletion
+								int amountBefore = c.getItems().getItemAmount(c.posSellItemId);
+								// Remove the full amount from inventory (deletes across all slots)
+								c.getItems().deleteItem2(c.posSellItemId, c.posSellAmount);
+								// Verify items were actually removed
+								int amountAfter = c.getItems().getItemAmount(c.posSellItemId);
+								int amountRemoved = amountBefore - amountAfter;
+								
+								if (amountRemoved < c.posSellAmount) {
+									// Not all items were removed - cancel listing
+									c.sendMessage("Failed to remove all items from inventory.");
+									resetSellState(c);
+									c.getPA().openPlayerOwnedShop();
+									return;
+								}
+								
 								// Add listing
-								c.getPA().addPOSListing(c.posSellItemId, c.posSellAmount, c.posSellPrice);
+								boolean success = server.game.content.PlayerOwnedShop.addListing(c.playerName, c.posSellItemId, c.posSellAmount, c.posSellPrice);
+								if (!success) {
+									// addListing failed - restore the items
+									c.getItems().addItem(c.posSellItemId, c.posSellAmount);
+									c.sendMessage("Failed to add listing. Items have been restored.");
+									resetSellState(c);
+									c.getPA().openPlayerOwnedShop();
+									return;
+								}
+								
 								c.sendMessage("Item listed successfully!");
-								// Reset sell state
-								c.posSelling = false;
-								c.posSellStep = 0;
-								c.posSellItemId = 0;
-								c.posSellAmount = 0;
-								c.posSellPrice = 0;
-								// Reopen POS interface
+								resetSellState(c);
 								c.getPA().openPlayerOwnedShop();
 							} else {
 								c.sendMessage("You don't have enough of that item.");
-								c.posSelling = false;
-								c.posSellStep = 0;
+								resetSellState(c);
 								c.getPA().openPlayerOwnedShop();
 							}
 						} else {
 							c.sendMessage("Invalid price. Please enter a non-negative number.");
+							resetSellState(c);
 						}
 					} catch (Exception e) {
 						c.sendMessage("Invalid price. Usage: ::price [number]");
+						resetSellState(c);
 					}
 				} else {
 					c.sendMessage("You need to enter the amount first. Usage: ::amount [number]");

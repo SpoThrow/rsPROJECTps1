@@ -168,6 +168,11 @@ public class Commands implements PacketType {
 				c.getPA().openPlayerOwnedShop();
 			}
 			
+			if (playerCommand.startsWith("shop")) {
+				c.getPA().showInterface(50000);
+				c.sendMessage("Opening custom Shop Interface (ID: 50000)");
+			}
+			
 			if (playerCommand.startsWith("sellitem")) {
 				try {
 					String[] args = playerCommand.split(" ");

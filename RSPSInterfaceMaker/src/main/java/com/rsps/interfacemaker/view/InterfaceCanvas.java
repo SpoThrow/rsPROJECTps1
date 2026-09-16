@@ -35,6 +35,7 @@ public class InterfaceCanvas extends Canvas {
     private double dragOffsetY;
     private Consumer<InterfaceComponent> onComponentSelected;
     private Consumer<List<InterfaceComponent>> onComponentsDuplicated;
+    private Runnable onComponentsChanged;
     
     private List<InterfaceComponent> clipboard = new ArrayList<>();
     private ContextMenu contextMenu;
@@ -143,6 +144,9 @@ public class InterfaceCanvas extends Canvas {
             }
             
             render();
+            if (onComponentsChanged != null) {
+                onComponentsChanged.run();
+            }
         }
     }
 
@@ -176,24 +180,36 @@ public class InterfaceCanvas extends Canvas {
                         comp.setY(comp.getY() - delta);
                     }
                     render();
+                    if (onComponentsChanged != null) {
+                        onComponentsChanged.run();
+                    }
                     break;
                 case DOWN:
                     for (InterfaceComponent comp : selectedComponents) {
                         comp.setY(comp.getY() + delta);
                     }
                     render();
+                    if (onComponentsChanged != null) {
+                        onComponentsChanged.run();
+                    }
                     break;
                 case LEFT:
                     for (InterfaceComponent comp : selectedComponents) {
                         comp.setX(comp.getX() - delta);
                     }
                     render();
+                    if (onComponentsChanged != null) {
+                        onComponentsChanged.run();
+                    }
                     break;
                 case RIGHT:
                     for (InterfaceComponent comp : selectedComponents) {
                         comp.setX(comp.getX() + delta);
                     }
                     render();
+                    if (onComponentsChanged != null) {
+                        onComponentsChanged.run();
+                    }
                     break;
                 case DELETE:
                     for (InterfaceComponent comp : selectedComponents) {
@@ -205,6 +221,9 @@ public class InterfaceCanvas extends Canvas {
                         onComponentSelected.accept(null);
                     }
                     render();
+                    if (onComponentsChanged != null) {
+                        onComponentsChanged.run();
+                    }
                     break;
             }
         }
@@ -292,9 +311,10 @@ public class InterfaceCanvas extends Canvas {
         if (comp instanceof SpriteComponent) {
             SpriteComponent sprite = (SpriteComponent) comp;
             String spritePath = sprite.getSpritePath();
+            int spriteId = sprite.getSpriteId();
             
             if (spritePath != null && !spritePath.isEmpty()) {
-                Image image = SpriteLoader.loadSprite(spritePath);
+                Image image = SpriteLoader.loadSprite(spritePath, spriteId);
                 
                 if (image != null) {
                     gc.drawImage(image, comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
@@ -323,7 +343,7 @@ public class InterfaceCanvas extends Canvas {
             String spritePath = button.getNormalSpritePath();
             
             if (spritePath != null && !spritePath.isEmpty()) {
-                Image image = SpriteLoader.loadSprite(spritePath);
+                Image image = SpriteLoader.loadSprite(spritePath, button.getNormalSpriteId());
                 
                 if (image != null) {
                     gc.drawImage(image, comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
@@ -565,6 +585,10 @@ public class InterfaceCanvas extends Canvas {
     
     public void setOnComponentsDuplicated(Consumer<List<InterfaceComponent>> onComponentsDuplicated) {
         this.onComponentsDuplicated = onComponentsDuplicated;
+    }
+    
+    public void setOnComponentsChanged(Runnable onComponentsChanged) {
+        this.onComponentsChanged = onComponentsChanged;
     }
     
     public void toggleGrid() {

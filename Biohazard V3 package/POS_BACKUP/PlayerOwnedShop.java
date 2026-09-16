@@ -127,6 +127,8 @@ public class PlayerOwnedShop {
         
         File configFile = new File(CONFIG_FILE);
         if (!configFile.exists()) {
+            // Generate fake listings for testing if no config exists
+            generateFakeListings();
             return;
         }
         
@@ -145,6 +147,35 @@ public class PlayerOwnedShop {
         } catch (IOException e) {
             e.printStackTrace();
         }
+        
+        // Sort listings by time (newest first)
+        allListings.sort((a, b) -> Long.compare(b.listedTime, a.listedTime));
+    }
+    
+    // Generate fake listings for testing
+    public static void generateFakeListings() {
+        String[] fakePlayers = {"Alice", "Bob", "Charlie", "Dave", "Eve", "Frank", "Grace", "Heidi", "Ivan", "Judy"};
+        int[] commonItems = {384, 386, 390, 391, 392, 397, 560, 561, 562, 563, 564, 565, 566, 567, 568, 569, 570, 571, 572, 573, 574, 575, 576, 577, 578, 579, 580, 581, 582, 583, 584, 585, 586, 587, 588, 589, 590, 591, 592, 593, 594, 595, 596, 597, 598, 599, 800, 801, 802, 803, 804, 805, 806, 807, 808, 809, 810, 811, 812, 813, 814, 815, 816, 817, 818, 819, 820, 821, 822, 823, 824, 825, 826, 827, 828, 829, 830, 831, 832, 833, 834, 835, 836, 837, 838, 839, 840, 841, 842, 843, 844, 845, 846, 847, 848, 849, 850, 851, 852, 853, 854, 855, 856, 857, 858, 859, 860, 861, 862, 863, 864, 865, 866, 867, 868, 869, 870, 871, 872, 873, 874, 875, 876, 877, 878, 879, 880, 881, 882, 883, 884, 885, 886, 887, 888, 889, 890, 891, 892, 893, 894, 895, 896, 897, 898, 899, 900, 901, 902, 903, 904, 905, 906, 907, 908, 909, 910, 911, 912, 913, 914, 915, 916, 917, 918, 919, 920, 921, 922, 923, 924, 925, 926, 927, 928, 929, 930, 931, 932, 933, 934, 935, 936, 937, 938, 939, 940, 941, 942, 943, 944, 945, 946, 947, 948, 949, 950, 951, 952, 953, 954, 955, 956, 957, 958, 959, 960, 961, 962, 963, 964, 965, 966, 967, 968, 969, 970, 971, 972, 973, 974, 975, 976, 977, 978, 979, 980, 981, 982, 983, 984, 985, 986, 987, 988, 989, 990, 991, 992, 993, 994, 995, 996, 997, 998, 999, 1000};
+        
+        Random random = new Random();
+        
+        for (int i = 0; i < 500; i++) {
+            String playerName = fakePlayers[random.nextInt(fakePlayers.length)];
+            int itemId = commonItems[random.nextInt(commonItems.length)];
+            int amount = random.nextInt(100) + 1;
+            int price = random.nextInt(10000) + 100;
+            
+            ShopListing listing = new ShopListing(playerName, itemId, amount, price);
+            allListings.add(listing);
+            
+            // Ensure player shop exists
+            if (!playerShops.containsKey(playerName.toLowerCase())) {
+                playerShops.put(playerName.toLowerCase(), new PlayerShop(playerName));
+            }
+            playerShops.get(playerName.toLowerCase()).addListing(listing);
+        }
+        
+        System.out.println("Generated 500 fake shop listings for testing.");
         
         // Sort listings by time (newest first)
         allListings.sort((a, b) -> Long.compare(b.listedTime, a.listedTime));
@@ -307,13 +338,17 @@ public class PlayerOwnedShop {
         if (shop == null || listingIndex < 0 || listingIndex >= shop.listings.size()) {
             return false;
         }
-        
+
         ShopListing listing = shop.listings.get(listingIndex);
-        
+
+        // Total gold the seller should receive
+        long totalCost = (long) listing.price * (long) listing.amount;
+
         shop.removeListing(listingIndex);
         allListings.remove(listing);
-        shop.pendingGold += listing.price;
-        
+        shop.pendingGold += totalCost;
+        shop.lastUpdated = System.currentTimeMillis();
+
         saveShops();
         return true;
     }

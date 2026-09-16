@@ -76,7 +76,13 @@ public class ClickingButtons implements PacketType {
 		if (c.getPA().handlePOSButton(actionButtonId)) {
 			return;
 		}
+		
 		switch (actionButtonId){
+		// Custom Shop Interface button
+		case 50006:
+			c.getPA().closeAllWindows();
+			break;
+			
 		case 14067:
 			if(!c.canWalk)
 				c.getDH().sendDialogues(518, 599);

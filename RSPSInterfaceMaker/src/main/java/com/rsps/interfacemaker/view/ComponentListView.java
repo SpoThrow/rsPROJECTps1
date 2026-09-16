@@ -11,6 +11,7 @@ public class ComponentListView extends VBox {
     private ListView<InterfaceComponent> componentList;
     private Runnable onComponentSelected;
     private Consumer<InterfaceComponent> onComponentSelectedWithComponent;
+    private Runnable onComponentsChanged;
 
     public ComponentListView(InterfaceProject project) {
         this.project = project;
@@ -61,6 +62,9 @@ public class ComponentListView extends VBox {
                 project.getComponents().add(index - 1, selected);
                 refresh();
                 componentList.getSelectionModel().select(index - 1);
+                if (onComponentsChanged != null) {
+                    onComponentsChanged.run();
+                }
             }
         }
     }
@@ -74,6 +78,9 @@ public class ComponentListView extends VBox {
                 project.getComponents().add(index + 1, selected);
                 refresh();
                 componentList.getSelectionModel().select(index + 1);
+                if (onComponentsChanged != null) {
+                    onComponentsChanged.run();
+                }
             }
         }
     }
@@ -83,6 +90,9 @@ public class ComponentListView extends VBox {
         if (selected != null) {
             project.removeComponent(selected);
             refresh();
+            if (onComponentsChanged != null) {
+                onComponentsChanged.run();
+            }
         }
     }
 
@@ -105,6 +115,10 @@ public class ComponentListView extends VBox {
 
     public void setOnComponentSelectedWithComponent(Consumer<InterfaceComponent> onComponentSelectedWithComponent) {
         this.onComponentSelectedWithComponent = onComponentSelectedWithComponent;
+    }
+
+    public void setOnComponentsChanged(Runnable onComponentsChanged) {
+        this.onComponentsChanged = onComponentsChanged;
     }
 
     public InterfaceComponent getSelectedComponent() {

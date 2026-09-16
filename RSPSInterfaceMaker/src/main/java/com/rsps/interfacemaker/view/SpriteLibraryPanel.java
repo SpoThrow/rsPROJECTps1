@@ -18,7 +18,7 @@ public class SpriteLibraryPanel extends VBox {
     private InterfaceComponent selectedComponent;
     private Consumer<InterfaceComponent> onSpriteAssigned;
     private ScrollPane scrollPane;
-    private GridPane spriteGrid;
+    private FlowPane spriteGrid;
     private List<SpriteInfo> sprites = new ArrayList<>();
     
     public SpriteLibraryPanel() {
@@ -36,7 +36,7 @@ public class SpriteLibraryPanel extends VBox {
         getChildren().add(scanButton);
         
         // Sprite grid
-        spriteGrid = new GridPane();
+        spriteGrid = new FlowPane();
         spriteGrid.setHgap(10);
         spriteGrid.setVgap(10);
         spriteGrid.setStyle("-fx-background-color: #1a1a1a;");
@@ -44,7 +44,12 @@ public class SpriteLibraryPanel extends VBox {
         scrollPane = new ScrollPane(spriteGrid);
         scrollPane.setFitToWidth(true);
         scrollPane.setFitToHeight(true);
+        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
         scrollPane.setStyle("-fx-background-color: #1a1a1a;");
+        
+        // Bind FlowPane wrap length to scrollpane width for responsive wrapping
+        spriteGrid.prefWrapLengthProperty().bind(scrollPane.widthProperty());
         
         getChildren().add(scrollPane);
         
@@ -56,7 +61,7 @@ public class SpriteLibraryPanel extends VBox {
             Label noRootLabel = new Label("Set Sprite Root Directory via:\nAdvanced > Set Sprite Root Directory");
             noRootLabel.setStyle("-fx-text-fill: #888888; -fx-font-size: 11px;");
             noRootLabel.setWrapText(true);
-            spriteGrid.add(noRootLabel, 0, 0);
+            spriteGrid.getChildren().add(noRootLabel);
         }
     }
     
@@ -89,7 +94,7 @@ public class SpriteLibraryPanel extends VBox {
             Label noSpritesLabel = new Label("No sprite files found in:\n" + rootDir);
             noSpritesLabel.setStyle("-fx-text-fill: #888888; -fx-font-size: 11px;");
             noSpritesLabel.setWrapText(true);
-            spriteGrid.add(noSpritesLabel, 0, 0);
+            spriteGrid.getChildren().add(noSpritesLabel);
         }
     }
     
@@ -125,19 +130,9 @@ public class SpriteLibraryPanel extends VBox {
     private void displayThumbnails() {
         spriteGrid.getChildren().clear();
         
-        int columns = 4;
-        int row = 0;
-        int col = 0;
-        
         for (SpriteInfo sprite : sprites) {
             VBox thumbnailBox = createThumbnail(sprite);
-            spriteGrid.add(thumbnailBox, col, row);
-            
-            col++;
-            if (col >= columns) {
-                col = 0;
-                row++;
-            }
+            spriteGrid.getChildren().add(thumbnailBox);
         }
     }
     

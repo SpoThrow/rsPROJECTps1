@@ -35,7 +35,8 @@ public class ClickItem implements PacketType {
 			if(c.getItems().playerHasItem(itemId, 1)) {
 				c.posSellItemId = itemId;
 				c.posSellStep = 2;
-				c.sendMessage("Enter the amount to sell (type ::amount [number])");
+				c.xInterfaceId = 43000; // Set interface ID for POS
+				c.getOutStream().createFrame(27); // Open Enter Amount dialog
 			} else {
 				c.sendMessage("You don't have that item.");
 				c.posSelling = false;

@@ -2,12 +2,14 @@ package com.rsps.interfacemaker.model;
 
 public class SpriteComponent extends InterfaceComponent {
     private String spritePath;
+    private int spriteId;
     private boolean hasDisabledSprite;
     private String disabledSpritePath;
 
     public SpriteComponent() {
         super(ComponentType.SPRITE);
         this.spritePath = "Interfaces/MyInterface/SPRITE";
+        this.spriteId = 0;
         this.hasDisabledSprite = false;
     }
 
@@ -17,6 +19,14 @@ public class SpriteComponent extends InterfaceComponent {
 
     public void setSpritePath(String spritePath) {
         this.spritePath = spritePath;
+    }
+    
+    public int getSpriteId() {
+        return spriteId;
+    }
+    
+    public void setSpriteId(int spriteId) {
+        this.spriteId = spriteId;
     }
 
     public boolean isHasDisabledSprite() {
