@@ -123,8 +123,8 @@ public final class Buffer extends Cacheable {
 		payload[currentPosition++] = 10;
 	}
 
-	public void writeBytes(byte data[], int offset, int length) {
-		for (int index = length; index < length + offset; index++)
+	public void writeBytes(byte data[], int length, int offset) {
+		for (int index = offset; index < offset + length; index++)
 			payload[currentPosition++] = data[index];
 	}
 

@@ -83,9 +83,9 @@ public final class ByteBuffer {
 
 		/*
 		 * We put the length of the {@code #encodedBuffer} to the buffer as a
-		 * standard byte. (Ignore the naming, that really writes a byte...)
+		 * word (2 bytes, big-endian) to match the old client's RSA format.
 		 */
-		putByte(encodedBuffer.length);
+		putShort(encodedBuffer.length);
 
 		/* Put the bytes of the {@code #encodedBuffer} into the buffer. */
 		putBytes(encodedBuffer, encodedBuffer.length, 0);

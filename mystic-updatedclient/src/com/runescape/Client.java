@@ -8800,12 +8800,34 @@ public class Client extends GameApplet {
 			socketStream = new BufferedConnection(this,
 					openSocket(Configuration.server_port + portOffset));
 
+			System.out.println("Client: Socket connected to " + Configuration.server_address + ":" + (Configuration.server_port + portOffset));
 
+			// Send handshake with protocol 14 and name hash (like old client)
+			long nameHash = (long) (name.toLowerCase().hashCode() >> 16 & 31L);
 			outgoing.putByte(14); //REQUEST
-			socketStream.queueBytes(1, outgoing.getBuffer());
+			outgoing.putByte((int) nameHash);
+			socketStream.queueBytes(2, outgoing.getBuffer());
 
+			System.out.println("Client: Sent initial handshake request, waiting for response...");
 
-			int response = socketStream.read();
+			// Read 8 bytes (like old client does after handshake)
+			for (int j = 0; j < 8; j++) {
+				socketStream.read();
+			}
+
+			int response;
+			try {
+				response = socketStream.read();
+				System.out.println("Client: Received initial response: " + response);
+				if (response == -1) {
+					System.out.println("Client: Connection closed by server");
+					return;
+				}
+			} catch (Exception e) {
+				System.out.println("Client: Exception while reading response: " + e.getMessage());
+				e.printStackTrace();
+				return;
+			}
 
 			int copy = response;
 
@@ -8813,9 +8835,11 @@ public class Client extends GameApplet {
 			IsaacCipher cipher = null;
 
 			if (response == 0) {
+				System.out.println("Client: Received server seed, proceeding with login");
 				socketStream.flushInputStream(incoming.payload, 8);
 				incoming.currentPosition = 0;
 				serverSeed = incoming.readLong(); // aka server session key
+				System.out.println("Client: Server seed: " + serverSeed);
 				int seed[] = new int[4];
 				seed[0] = (int) (Math.random() * 99999999D);
 				seed[1] = (int) (Math.random() * 99999999D);
@@ -8827,26 +8851,47 @@ public class Client extends GameApplet {
 				outgoing.putInt(seed[1]);
 				outgoing.putInt(seed[2]);
 				outgoing.putInt(seed[3]);
-				outgoing.putInt(4 >> 1);
+				outgoing.putInt(SignLink.uid);
+				String uuid = com.runescape.util.UUIDGenerator.generateUID();
+				outgoing.putString(uuid);
 				outgoing.putString(name);
 				outgoing.putString(password);
-				outgoing.encryptRSAContent();
+				System.out.println("Client: RSA block size before encryption: " + outgoing.getPosition());
+				if (Configuration.ENABLE_RSA) {
+					outgoing.encryptRSAContent();
+					System.out.println("Client: RSA block size after encryption: " + outgoing.getPosition());
+				} else {
+					// For RSA disabled, just write the length as a word but don't encrypt
+					int rsaLength = outgoing.getPosition();
+					byte[] tempBuffer = new byte[rsaLength];
+					System.arraycopy(outgoing.getBuffer(), 0, tempBuffer, 0, rsaLength);
+					outgoing.resetPosition();
+					outgoing.putShort(rsaLength);
+					outgoing.putBytes(tempBuffer, rsaLength, 0);
+					System.out.println("Client: RSA disabled, wrote length: " + rsaLength);
+				}
 
 				login.currentPosition = 0;
 				login.writeByte(reconnecting ? 18 : 16);
-				login.writeByte(outgoing.getPosition() + 1 + 1 + 2); // size of the
-				// login block
+				login.writeByte(outgoing.getPosition() + 36 + 1 + 2 + 2); // size of the
+				// login block (36 bytes for 9 CRC ints, 2 bytes for RSA length)
 				login.writeByte(255);
 				login.writeShort(Configuration.CLIENT_VERSION); //Client version
 				login.writeByte(lowMemory ? 1 : 0); // low mem or not
-				login.writeBytes(outgoing.getBuffer(), outgoing.getPosition(), 0);              
+				for (int i = 0; i < 9; i++)
+					login.writeInt(com.runescape.io.jaggrab.JagGrab.CRCs[i]);
+				login.writeBytes(outgoing.getBuffer(), outgoing.getPosition(), 0);
+				System.out.println("Client: Sending login packet, total size: " + login.currentPosition);              
+              
 				cipher = new IsaacCipher(seed);
 				for (int index = 0; index < 4; index++)
 					seed[index] += 50;
 
 				encryption = new IsaacCipher(seed);
 				socketStream.queueBytes(login.currentPosition, login.payload);
+				System.out.println("Client: Login packet sent, waiting for response");
 				response = socketStream.read();
+				System.out.println("Client: Received login response: " + response);
 			}
 
 			outgoing = ByteBuffer.create(5000, true, cipher);
@@ -13279,7 +13324,7 @@ public class Client extends GameApplet {
 			boldText.method382(0xffffff, 55, worldText, 78, true);
 			smallText.method382(0xffffff, 55, "Click to switch", 92, true);
 			Configuration.server_address = "localhost";
-			Configuration.server_port = 43595;
+			Configuration.server_port = 43594;
 		}
 
 		if (loginScreenState == 4) { 

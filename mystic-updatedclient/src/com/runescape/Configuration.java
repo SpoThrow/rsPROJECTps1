@@ -39,7 +39,7 @@ public final class Configuration {
 	/**
 	 * Toggles a security feature called RSA to prevent packet sniffers
 	 */
-	public static final boolean ENABLE_RSA = true;
+	public static final boolean ENABLE_RSA = false;
 
 	/**
 	 * A string which indicates the Client's name.

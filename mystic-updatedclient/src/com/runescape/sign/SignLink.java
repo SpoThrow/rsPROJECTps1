@@ -30,6 +30,7 @@ public final class SignLink implements Runnable {
 
 	public static final int clientversion = 1;
 	public static int storeid = 32;
+	public static int uid = 2;
 	public static RandomAccessFile cache_dat = null;
 	public static final RandomAccessFile[] indices = new RandomAccessFile[5];
 	public static boolean sunjava;
