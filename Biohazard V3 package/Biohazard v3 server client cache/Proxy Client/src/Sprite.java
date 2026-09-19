@@ -497,6 +497,72 @@ public final class Sprite extends DrawingArea {
 		}
 	}
 
+	public void drawScaled(int x, int y, int destW, int destH) {
+		if (myPixels == null || destW <= 0 || destH <= 0 || myWidth <= 0 || myHeight <= 0) {
+			return;
+		}
+		x += anInt1442;
+		y += anInt1443;
+		for (int dy = 0; dy < destH; dy++) {
+			int py = y + dy;
+			if (py < DrawingArea.topY || py >= DrawingArea.bottomY) {
+				continue;
+			}
+			int srcY = dy * myHeight / destH;
+			int srcRow = srcY * myWidth;
+			int dstRow = py * DrawingArea.width;
+			for (int dx = 0; dx < destW; dx++) {
+				int px = x + dx;
+				if (px < DrawingArea.topX || px >= DrawingArea.bottomX) {
+					continue;
+				}
+				int srcX = dx * myWidth / destW;
+				int color = myPixels[srcRow + srcX];
+				if (color != 0 && (color & 0xffffff) != 0xff00ff) {
+					DrawingArea.pixels[dstRow + px] = color;
+				}
+			}
+		}
+	}
+
+	public void drawRotatedScaled(int destX, int destY, int destW, int destH, int rotation) {
+		if (myPixels == null || destW <= 0 || destH <= 0 || myWidth <= 0 || myHeight <= 0) {
+			return;
+		}
+		destX += anInt1442;
+		destY += anInt1443;
+		int sin = (int) (Math.sin((double) rotation / 326.11000000000001D) * 65536D);
+		int cos = (int) (Math.cos((double) rotation / 326.11000000000001D) * 65536D);
+		int srcCx = myWidth << 15;
+		int srcCy = myHeight << 15;
+		int stepX = (myWidth << 16) / destW;
+		int stepY = (myHeight << 16) / destH;
+		for (int dy = 0; dy < destH; dy++) {
+			int py = destY + dy;
+			if (py < DrawingArea.topY || py >= DrawingArea.bottomY) {
+				continue;
+			}
+			int dstRow = py * DrawingArea.width;
+			int relY = dy * stepY - (destH * stepY / 2);
+			for (int dx = 0; dx < destW; dx++) {
+				int px = destX + dx;
+				if (px < DrawingArea.topX || px >= DrawingArea.bottomX) {
+					continue;
+				}
+				int relX = dx * stepX - (destW * stepX / 2);
+				int srcX = (srcCx + (relX >> 16) * cos + (relY >> 16) * sin) >> 16;
+				int srcY = (srcCy + (relY >> 16) * cos - (relX >> 16) * sin) >> 16;
+				if (srcX < 0 || srcY < 0 || srcX >= myWidth || srcY >= myHeight) {
+					continue;
+				}
+				int color = myPixels[srcY * myWidth + srcX];
+				if (color != 0 && (color & 0xffffff) != 0xff00ff) {
+					DrawingArea.pixels[dstRow + px] = color;
+				}
+			}
+		}
+	}
+
 	public void drawSprite(int i, int k)
 	{
 		i += anInt1442;

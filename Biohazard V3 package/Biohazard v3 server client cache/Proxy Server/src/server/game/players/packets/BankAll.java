@@ -38,7 +38,7 @@ public class BankAll implements PacketType {
 				break;
 			
 			case 5382:
-			c.getItems().fromBank(c.bankItems[removeSlot] , removeSlot, c.bankItemsN[removeSlot]);
+			c.getItems().fromBank(removeId, removeSlot, Integer.MAX_VALUE);
 			break;	
 			
 			case 3322:

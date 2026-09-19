@@ -98,10 +98,6 @@ public class ComponentListView extends VBox {
 
     public void refresh() {
         componentList.setItems(javafx.collections.FXCollections.observableArrayList(project.getComponents()));
-        // Re-index components
-        for (int i = 0; i < project.getComponents().size(); i++) {
-            project.getComponents().get(i).setChildIndex(i);
-        }
     }
 
     public void setProject(InterfaceProject project) {
@@ -152,6 +148,8 @@ public class ComponentListView extends VBox {
                 case TEXT: return "📝";
                 case TOOLTIP: return "💬";
                 case CLOSE_BUTTON: return "❌";
+                case CONTAINER: return "▭";
+                case ITEM_SLOT: return "▣";
                 default: return "❓";
             }
         }

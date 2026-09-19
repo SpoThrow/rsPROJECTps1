@@ -13,6 +13,7 @@ public class Command implements OutgoingPacket {
 	@Override
 	public void buildPacket(ByteBuffer buf) {
 		buf.putOpcode(103);
+		buf.putByte(cmd.length() + 1);
 		buf.putString(cmd);
 	}
 

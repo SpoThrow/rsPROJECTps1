@@ -6,6 +6,7 @@ import server.Config;
 import server.Connection;
 import server.Server;
 import server.game.content.PlayerOwnedShop;
+import server.game.items.ItemAssistant;
 import server.game.players.Client;
 import server.game.players.PacketType;
 import server.game.players.PlayerHandler;
@@ -16,15 +17,6 @@ import core.util.rspswebstore;
 
 public class Commands implements PacketType {
 	public boolean resetAnim = false;
-
-	// Helper method to reset POS sell state
-	private void resetSellState(Client c) {
-		c.posSelling = false;
-		c.posSellStep = 0;
-		c.posSellItemId = 0;
-		c.posSellAmount = 0;
-		c.posSellPrice = 0;
-	}
 
 	@Override
 	public void processPacket(Client c, int packetType, int packetSize) {
@@ -46,6 +38,10 @@ public class Commands implements PacketType {
 					c.getPA().requestUpdates();
 				}
 			}*/
+			if (playerCommand.startsWith("bsearch") && c.isBanking) {
+				String term = playerCommand.length() > 8 ? playerCommand.substring(8).trim() : "";
+				c.getBank().applySearch(term);
+			}
 			if (playerCommand.equalsIgnoreCase("banki")) {
 				if(c.isBanking) {
 					for(int i = 0; i < c.playerItems.length; i++){
@@ -156,46 +152,18 @@ public class Commands implements PacketType {
 			if (playerCommand.startsWith("commands")) {
 				c.sendMessage("::train ::players ::help ::reward/::check/::voted ::forums ::vote ::donate");
 				c.sendMessage("::changepass *pass here* ::yell ::banki ::banke ::donated/::claimweb");
-				c.sendMessage("--- Player Owned Shop Commands ---");
-				c.sendMessage("::pos - Opens your Player Owned Shop interface");
-				c.sendMessage("::sellitem itemId amount price - List an item for sale (e.g., ::sellitem 995 1000 500)");
-				c.sendMessage("::removelisting index - Remove listing at index (e.g., ::removelisting 0)");
-				c.sendMessage("::buyitem sellerName index - Buy item from player (e.g., ::buyitem PlayerName 0)");
-				c.sendMessage("::possearch playerName - Search for a player's shop");
+				c.sendMessage("--- Player Owned Shop ---");
+				c.sendMessage("::pos - Opens your player owned shop");
+				c.sendMessage("::possearch playerName - Search a player's shop");
 			}
 			
-			if (playerCommand.startsWith("pos")) {
+			if (playerCommand.equalsIgnoreCase("pos")) {
 				c.getPA().openPlayerOwnedShop();
 			}
 			
 			if (playerCommand.startsWith("shop")) {
 				c.getPA().showInterface(50000);
 				c.sendMessage("Opening custom Shop Interface (ID: 50000)");
-			}
-			
-			if (playerCommand.startsWith("sellitem")) {
-				try {
-					String[] args = playerCommand.split(" ");
-					if (args.length >= 4) {
-						int itemId = Integer.parseInt(args[1]);
-						int amount = Integer.parseInt(args[2]);
-						int price = Integer.parseInt(args[3]);
-						c.getPA().addPOSListing(itemId, amount, price);
-					} else {
-						c.sendMessage("Usage: ::sellitem itemId amount price");
-					}
-				} catch (Exception e) {
-					c.sendMessage("Invalid format. Usage: ::sellitem itemId amount price");
-				}
-			}
-			
-			if (playerCommand.startsWith("removelisting")) {
-				try {
-					int index = Integer.parseInt(playerCommand.substring(13));
-					c.getPA().removePOSListing(index);
-				} catch (Exception e) {
-					c.sendMessage("Usage: ::removelisting index");
-				}
 			}
 			
 			if (playerCommand.startsWith("possearch")) {
@@ -209,9 +177,9 @@ public class Commands implements PacketType {
 				}
 			}
 			
-			if (playerCommand.equalsIgnoreCase("spawnfakeshops")) {
+			if (playerCommand.equalsIgnoreCase("spawnfakeshops") && c.playerRights >= 2) {
 				PlayerOwnedShop.generateFakeListings();
-				c.sendMessage("Generated 500 fake shop listings for testing.");
+				c.sendMessage("Generated test shop listings.");
 			}
 			
 			if (playerCommand.startsWith("searchitem")) {
@@ -233,98 +201,6 @@ public class Commands implements PacketType {
 					}
 				} catch (Exception e) {
 					c.sendMessage("Usage: ::searchplayer [playerName]");
-				}
-			}
-			
-			if (playerCommand.startsWith("amount")) {
-				if (c.posSelling && c.posSellStep == 2) {
-					try {
-						int amount = Integer.parseInt(playerCommand.substring(7).trim());
-						if (amount > 0) {
-							c.posSellAmount = amount;
-							c.posSellStep = 3;
-							c.sendMessage("Enter the price per item (type ::price [number])");
-						} else {
-							c.sendMessage("Invalid amount. Please enter a positive number.");
-							resetSellState(c);
-						}
-					} catch (Exception e) {
-						c.sendMessage("Invalid amount. Usage: ::amount [number]");
-						resetSellState(c);
-					}
-				} else {
-					c.sendMessage("You are not in sell mode. Click a Sell button first.");
-				}
-			}
-			
-			if (playerCommand.startsWith("price")) {
-				if (c.posSelling && c.posSellStep == 3) {
-					try {
-						int price = Integer.parseInt(playerCommand.substring(6).trim());
-						if (price >= 0) {
-							c.posSellPrice = price;
-							// Validate player still has the item before deleting
-							if (c.getItems().playerHasItem(c.posSellItemId, c.posSellAmount)) {
-								// Record amount before deletion
-								int amountBefore = c.getItems().getItemAmount(c.posSellItemId);
-								// Remove the full amount from inventory (deletes across all slots)
-								c.getItems().deleteItem2(c.posSellItemId, c.posSellAmount);
-								// Verify items were actually removed
-								int amountAfter = c.getItems().getItemAmount(c.posSellItemId);
-								int amountRemoved = amountBefore - amountAfter;
-								
-								if (amountRemoved < c.posSellAmount) {
-									// Not all items were removed - cancel listing
-									c.sendMessage("Failed to remove all items from inventory.");
-									resetSellState(c);
-									c.getPA().openPlayerOwnedShop();
-									return;
-								}
-								
-								// Add listing
-								boolean success = server.game.content.PlayerOwnedShop.addListing(c.playerName, c.posSellItemId, c.posSellAmount, c.posSellPrice);
-								if (!success) {
-									// addListing failed - restore the items
-									c.getItems().addItem(c.posSellItemId, c.posSellAmount);
-									c.sendMessage("Failed to add listing. Items have been restored.");
-									resetSellState(c);
-									c.getPA().openPlayerOwnedShop();
-									return;
-								}
-								
-								c.sendMessage("Item listed successfully!");
-								resetSellState(c);
-								c.getPA().openPlayerOwnedShop();
-							} else {
-								c.sendMessage("You don't have enough of that item.");
-								resetSellState(c);
-								c.getPA().openPlayerOwnedShop();
-							}
-						} else {
-							c.sendMessage("Invalid price. Please enter a non-negative number.");
-							resetSellState(c);
-						}
-					} catch (Exception e) {
-						c.sendMessage("Invalid price. Usage: ::price [number]");
-						resetSellState(c);
-					}
-				} else {
-					c.sendMessage("You need to enter the amount first. Usage: ::amount [number]");
-				}
-			}
-			
-			if (playerCommand.startsWith("buyitem")) {
-				try {
-					String[] args = playerCommand.split(" ");
-					if (args.length >= 3) {
-						String sellerName = args[1];
-						int listingIndex = Integer.parseInt(args[2]);
-						c.getPA().buyFromPOS(sellerName, listingIndex);
-					} else {
-						c.sendMessage("Usage: ::buyitem sellerName listingIndex");
-					}
-				} catch (Exception e) {
-					c.sendMessage("Invalid format. Usage: ::buyitem sellerName listingIndex");
 				}
 			}
 			

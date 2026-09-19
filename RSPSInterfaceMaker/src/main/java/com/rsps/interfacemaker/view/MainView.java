@@ -12,9 +12,15 @@ import com.rsps.interfacemaker.util.Templates;
 import com.rsps.interfacemaker.util.Validator;
 import com.rsps.interfacemaker.util.CacheReader;
 import com.rsps.interfacemaker.util.JavaInterfaceParser;
+import com.rsps.interfacemaker.util.JavaInterfaceWriter;
+import com.rsps.interfacemaker.util.ClientWorkspace;
 import com.rsps.interfacemaker.util.ZipExporter;
 import com.rsps.interfacemaker.util.SpriteLoader;
 import javafx.scene.control.*;
+import javafx.scene.image.Image;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyCodeCombination;
+import javafx.scene.input.KeyCombination;
 import javafx.scene.layout.*;
 import javafx.stage.Stage;
 import javafx.stage.FileChooser;
@@ -136,6 +142,7 @@ public class MainView extends BorderPane {
         
         // Log startup message
         logDebug("RSPS Interface Maker started");
+        detectClientWorkspace();
     }
 
     private ToolBar createToolBar() {
@@ -143,6 +150,11 @@ public class MainView extends BorderPane {
 
         // File menu
         Menu fileMenu = new Menu("File");
+        MenuItem loadFromClient = new MenuItem("Load from Client...");
+        loadFromClient.setOnAction(e -> loadInterfaceFromJavaSource());
+        MenuItem saveClientItem = new MenuItem("Save to Client");
+        saveClientItem.setAccelerator(new KeyCodeCombination(KeyCode.S, KeyCombination.CONTROL_DOWN));
+        saveClientItem.setOnAction(e -> saveToClient());
         MenuItem newProject = new MenuItem("New Project");
         newProject.setOnAction(e -> newProject());
         MenuItem openProject = new MenuItem("Open Project");
@@ -157,7 +169,9 @@ public class MainView extends BorderPane {
         exportCode.setOnAction(e -> exportCode());
         MenuItem exportZip = new MenuItem("Export as ZIP Package");
         exportZip.setOnAction(e -> exportZipPackage());
-        fileMenu.getItems().addAll(newProject, openProject, saveProject, renameProject, new SeparatorMenuItem(), validateProject, exportCode, exportZip);
+        fileMenu.getItems().addAll(loadFromClient, saveClientItem, new SeparatorMenuItem(),
+            newProject, openProject, saveProject, renameProject, new SeparatorMenuItem(),
+            validateProject, exportCode, exportZip);
 
         // Templates menu
         Menu templatesMenu = new Menu("Quick Templates");
@@ -245,7 +259,12 @@ public class MainView extends BorderPane {
         Button alignRightBtn = new Button("→ Right");
         alignRightBtn.setOnAction(e -> alignComponents("right"));
 
-        toolBar.getItems().addAll(menuBar, new Separator(), addSpriteBtn, addButtonBtn, addTextBtn, addCloseBtn, new Separator(), alignLeftBtn, alignCenterBtn, alignRightBtn);
+        Button saveClientBtn = new Button("Save to Client");
+        saveClientBtn.setOnAction(e -> saveToClient());
+
+        toolBar.getItems().addAll(menuBar, new Separator(), saveClientBtn, new Separator(),
+            addSpriteBtn, addButtonBtn, addTextBtn, addCloseBtn, new Separator(),
+            alignLeftBtn, alignCenterBtn, alignRightBtn);
 
         return toolBar;
     }
@@ -749,62 +768,50 @@ public class MainView extends BorderPane {
         try {
             logDebug("ACTION: Loading interface from Java source");
             if (interfacesFilePath.isEmpty()) {
-                logDebug("  WARNING: Interfaces file path not set");
-                Alert alert = new Alert(Alert.AlertType.INFORMATION, 
-                    "Please set the Interfaces.java path first using Advanced > Set Interfaces.java Path");
+                detectClientWorkspace();
+            }
+            if (interfacesFilePath.isEmpty()) {
+                setInterfacesPath();
+            }
+            if (interfacesFilePath.isEmpty()) {
+                Alert alert = new Alert(Alert.AlertType.INFORMATION,
+                    "Select Interfaces.java first (File > Load from Client or Advanced > Set Interfaces.java Path).");
                 alert.showAndWait();
                 return;
             }
 
-            // Get available methods
             logDebug("Reading available methods from: " + interfacesFilePath);
             List<String> availableMethods = JavaInterfaceParser.getAvailableMethods(interfacesFilePath);
             logDebug("Found " + availableMethods.size() + " available methods");
-            
+
             if (availableMethods.isEmpty()) {
                 logDebug("  WARNING: No interface methods found");
-                Alert alert = new Alert(Alert.AlertType.WARNING, 
-                    "No interface methods found in Interfaces.java\n" +
-                    "Make sure the file path is correct and the file contains interface definitions.");
+                Alert alert = new Alert(Alert.AlertType.WARNING,
+                    "No interface methods found in Interfaces.java");
                 alert.showAndWait();
                 return;
             }
 
-            // Create choice dialog with available methods
-            ChoiceDialog<String> dialog = new ChoiceDialog<>(availableMethods.get(0), availableMethods);
-            dialog.setTitle("Load Interface from Java Source");
-            dialog.setHeaderText("Select an interface method to load:");
-            dialog.setContentText("Available interfaces:");
+            String initial = availableMethods.contains("bank") ? "bank" : availableMethods.get(0);
+            ChoiceDialog<String> dialog = new ChoiceDialog<>(initial, availableMethods);
+            dialog.setTitle("Load from Client");
+            dialog.setHeaderText("Drag children, then File > Save to Client.\nOnly setBounds X/Y are written back.");
+            dialog.setContentText("Interface method:");
 
             dialog.showAndWait().ifPresent(methodName -> {
                 logDebug("Loading interface method: " + methodName);
-                logDebug("Interfaces file path: " + interfacesFilePath);
-                
                 InterfaceProject loadedProject = JavaInterfaceParser.parseInterfaceMethod(interfacesFilePath, methodName);
-                
                 if (loadedProject != null) {
-                    logDebug("Interface parsed successfully. ID: " + loadedProject.getInterfaceId());
-                    logDebug("Components parsed: " + loadedProject.getComponents().size());
-                    
-                    // Apply the loaded project
-                    project = loadedProject;
-                    componentListView.setProject(project);
-                    canvas.setProject(project);
-                    propertyPanel.setProject(project);
-                    codePreviewPanel.setProject(project);
-                    canvas.render();
-                    
-                    logDebug("Interface loaded into editor");
-                    
-                    Alert alert = new Alert(Alert.AlertType.INFORMATION, 
-                        "Interface " + methodName + " loaded successfully!\n" +
-                        "Interface ID: " + project.getInterfaceId() + "\n" +
-                        "Components loaded: " + project.getComponents().size() + "\n\n" +
-                        "You can now modify this interface in the editor.");
+                    applyLoadedProject(loadedProject);
+                    logDebug("Interface loaded: " + methodName + " id=" + project.getInterfaceId()
+                        + " children=" + project.getComponents().size());
+                    Alert alert = new Alert(Alert.AlertType.INFORMATION,
+                        methodName + "() loaded (" + project.getComponents().size() + " children).\n\n"
+                            + "Drag or arrow-nudge widgets, then Save to Client (Ctrl+S).");
                     alert.showAndWait();
                 } else {
                     logDebug("ERROR: Failed to parse interface method: " + methodName);
-                    Alert alert = new Alert(Alert.AlertType.WARNING, 
+                    Alert alert = new Alert(Alert.AlertType.WARNING,
                         "Failed to parse interface method: " + methodName);
                     alert.showAndWait();
                 }
@@ -812,6 +819,96 @@ public class MainView extends BorderPane {
         } catch (Exception e) {
             logDebug("ERROR: Failed to load interface from Java source - " + e.getMessage());
             e.printStackTrace();
+        }
+    }
+
+    private void saveToClient() {
+        try {
+            if (!project.isClientLinked() || project.getInterfacesFilePath() == null
+                || project.getInterfacesFilePath().isEmpty()) {
+                Alert alert = new Alert(Alert.AlertType.INFORMATION,
+                    "Load an interface from the client first (File > Load from Client).");
+                alert.showAndWait();
+                return;
+            }
+            JavaInterfaceWriter.saveToClient(project);
+            for (InterfaceComponent component : project.getComponents()) {
+                component.setOriginalX(component.getX());
+                component.setOriginalY(component.getY());
+            }
+            codePreviewPanel.updatePreview();
+            logDebug("Saved setBounds to " + project.getInterfacesFilePath());
+            Alert alert = new Alert(Alert.AlertType.INFORMATION,
+                "Wrote positions into " + project.getSourceMethodName() + "() in Interfaces.java.\n"
+                    + "Recompile the client to see them in-game.");
+            alert.showAndWait();
+        } catch (Exception e) {
+            logDebug("ERROR: Save to Client failed - " + e.getMessage());
+            e.printStackTrace();
+            Alert alert = new Alert(Alert.AlertType.ERROR, "Save to Client failed:\n" + e.getMessage());
+            alert.showAndWait();
+        }
+    }
+
+    private void detectClientWorkspace() {
+        ClientWorkspace workspace = ClientWorkspace.detect();
+        if (workspace.getInterfacesJava() != null) {
+            interfacesFilePath = workspace.getInterfacesJava().getAbsolutePath();
+            logDebug("Client Interfaces.java: " + interfacesFilePath);
+        } else {
+            logDebug("Interfaces.java not auto-detected");
+        }
+        for (File root : workspace.getSpriteRoots()) {
+            SpriteLoader.addSearchRoot(root);
+            logDebug("Sprite root: " + root.getAbsolutePath());
+            if (SpriteLoader.getSpriteRootDirectory().isEmpty()) {
+                SpriteLoader.setSpriteRootDirectory(root.getAbsolutePath());
+            }
+        }
+        if (!interfacesFilePath.isEmpty()) {
+            InterfaceProject loaded = JavaInterfaceParser.parseInterfaceMethod(interfacesFilePath, "bank");
+            if (loaded != null) {
+                applyLoadedProject(loaded);
+                logDebug("Auto-loaded bank() with " + loaded.getComponents().size() + " children");
+            } else {
+                logDebug("Could not parse bank()");
+            }
+        }
+    }
+
+    private void applyLoadedProject(InterfaceProject loaded) {
+        loaded.setInterfacesFilePath(interfacesFilePath);
+        loaded.setClientLinked(true);
+        applySpriteSizes(loaded);
+        project = loaded;
+        componentListView.setProject(project);
+        canvas.setProject(project);
+        propertyPanel.setProject(project);
+        codePreviewPanel.setProject(project);
+        canvas.render();
+        if (primaryStage != null) {
+            primaryStage.setTitle("RSPS Interface Maker — " + project.getName());
+        }
+    }
+
+    private void applySpriteSizes(InterfaceProject loaded) {
+        for (InterfaceComponent component : loaded.getComponents()) {
+            if (!(component instanceof SpriteComponent)) {
+                continue;
+            }
+            SpriteComponent sprite = (SpriteComponent) component;
+            if (sprite.getSpritePath() == null || sprite.getSpritePath().isEmpty()) {
+                continue;
+            }
+            Image image = SpriteLoader.loadSprite(sprite.getSpritePath(), sprite.getSpriteId());
+            if (image != null && !image.isError()) {
+                int width = (int) Math.round(image.getWidth());
+                int height = (int) Math.round(image.getHeight());
+                if (width > 0 && height > 0) {
+                    component.setWidth(width);
+                    component.setHeight(height);
+                }
+            }
         }
     }
 

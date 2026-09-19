@@ -6,5 +6,7 @@ public enum ComponentType {
     HOVERED_BUTTON,
     TEXT,
     TOOLTIP,
-    CLOSE_BUTTON
+    CLOSE_BUTTON,
+    CONTAINER,
+    ITEM_SLOT
 }

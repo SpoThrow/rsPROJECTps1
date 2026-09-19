@@ -9,7 +9,7 @@ echo.
 
 echo [1/4] Compiling Server...
 cd "Proxy Server"
-call Compile.bat
+call Compile.bat nopause
 if errorlevel 1 (
     echo.
     echo Server compile failed. Aborting.
@@ -22,7 +22,7 @@ echo.
 
 echo [2/4] Compiling Client...
 cd "Proxy Client"
-call Compile.bat
+call Compile.bat nopause
 if errorlevel 1 (
     echo.
     echo Client compile failed. Aborting.
@@ -54,3 +54,4 @@ echo.
 echo Server and client are running in separate windows.
 echo Close this window to keep them running.
 pause
+exit /b 0

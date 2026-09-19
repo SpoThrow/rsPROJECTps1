@@ -64,6 +64,14 @@ public class CodePreviewPanel extends VBox {
     }
 
     public void updatePreview() {
+        if (project != null && project.isClientLinked()) {
+            codeArea.setText(com.rsps.interfacemaker.util.JavaInterfaceWriter.preview(project));
+            guideArea.setText("This interface is linked to Interfaces.java.\n\n"
+                + "File > Save to Client (Ctrl+S) writes only setBounds X/Y.\n"
+                + "Tab for-loops are expanded into individual setBounds if you move a loop child.\n"
+                + "It does not regenerate the method or change server files.");
+            return;
+        }
         CodeGenerator generator = new CodeGenerator(project);
         codeArea.setText(generator.generateInterfaceMethod());
         guideArea.setText(generator.generateImplementationGuide());

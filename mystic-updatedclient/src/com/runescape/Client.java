@@ -3908,6 +3908,9 @@ public class Client extends GameApplet {
 			return;
 		tick++;
 		if (!loggedIn) {
+			if (Configuration.AUTO_LOGIN && tick == 80) {
+				login(Configuration.AUTO_LOGIN_USER, Configuration.AUTO_LOGIN_PASS, false);
+			}
 			processLoginScreenInput();
 		} else {
 			mainGameProcessor();
@@ -8856,32 +8859,31 @@ public class Client extends GameApplet {
 				outgoing.putString(uuid);
 				outgoing.putString(name);
 				outgoing.putString(password);
-				System.out.println("Client: RSA block size before encryption: " + outgoing.getPosition());
-				if (Configuration.ENABLE_RSA) {
-					outgoing.encryptRSAContent();
-					System.out.println("Client: RSA block size after encryption: " + outgoing.getPosition());
-				} else {
-					// For RSA disabled, just write the length as a word but don't encrypt
-					int rsaLength = outgoing.getPosition();
-					byte[] tempBuffer = new byte[rsaLength];
-					System.arraycopy(outgoing.getBuffer(), 0, tempBuffer, 0, rsaLength);
-					outgoing.resetPosition();
-					outgoing.putShort(rsaLength);
-					outgoing.putBytes(tempBuffer, rsaLength, 0);
-					System.out.println("Client: RSA disabled, wrote length: " + rsaLength);
-				}
+				int rsaPlainSize = outgoing.getPosition();
+				System.out.println("Client: RSA block size before encryption: " + rsaPlainSize);
+				outgoing.encryptRSAContent();
+				int rsaBlockSize = outgoing.getPosition();
+				int rsaLengthByte = outgoing.getBuffer()[0] & 0xff;
+				System.out.println("Client: RSA block size after encryption=" + rsaBlockSize
+						+ " firstByte(length)=" + rsaLengthByte
+						+ " secondByte=" + (outgoing.getBuffer()[1] & 0xff));
 
 				login.currentPosition = 0;
 				login.writeByte(reconnecting ? 18 : 16);
-				login.writeByte(outgoing.getPosition() + 36 + 1 + 2 + 2); // size of the
-				// login block (36 bytes for 9 CRC ints, 2 bytes for RSA length)
+				// Payload size after this length byte: magic(1) + version(2) + lowMem(1) + 9 CRC ints(36) + RSA block.
+				// Matches the original client: stream.currentOffset + 36 + 1 + 1 + 2
+				int loginPayloadSize = rsaBlockSize + 36 + 1 + 1 + 2;
+				login.writeByte(loginPayloadSize);
 				login.writeByte(255);
 				login.writeShort(Configuration.CLIENT_VERSION); //Client version
 				login.writeByte(lowMemory ? 1 : 0); // low mem or not
 				for (int i = 0; i < 9; i++)
 					login.writeInt(com.runescape.io.jaggrab.JagGrab.CRCs[i]);
-				login.writeBytes(outgoing.getBuffer(), outgoing.getPosition(), 0);
-				System.out.println("Client: Sending login packet, total size: " + login.currentPosition);              
+				login.writeBytes(outgoing.getBuffer(), rsaBlockSize, 0);
+				int actualPayload = login.currentPosition - 2;
+				System.out.println("Client: Sending login packet, advertised payload=" + loginPayloadSize
+						+ ", actual payload=" + actualPayload
+						+ ", bytes on wire=" + login.currentPosition);              
               
 				cipher = new IsaacCipher(seed);
 				for (int index = 0; index < 4; index++)
@@ -8894,7 +8896,7 @@ public class Client extends GameApplet {
 				System.out.println("Client: Received login response: " + response);
 			}
 
-			outgoing = ByteBuffer.create(5000, true, cipher);
+			outgoing = ByteBuffer.create(5000, false, cipher);
 
 			if (response == 1) {
 				try {
@@ -8906,7 +8908,7 @@ public class Client extends GameApplet {
 			}
 			if (response == 2) {
 				myPrivilege = socketStream.read();
-				//flagged = socketStream.read() == 1;
+				flagged = socketStream.read() == 1;
 				spawnType = SpawnTabType.INVENTORY;
 				searchSyntax = "";
 				fetchSearchResults = true;
@@ -8917,7 +8919,7 @@ public class Client extends GameApplet {
 				super.awtFocus = true;
 				aBoolean954 = true;
 				loggedIn = true;
-				outgoing = ByteBuffer.create(5000, true, cipher);
+				outgoing = ByteBuffer.create(5000, false, cipher);
 				incoming.currentPosition = 0;
 				opcode = -1;
 				lastOpcode = -1;
@@ -9360,7 +9362,6 @@ public class Client extends GameApplet {
 							buf.putByte(k5 + k5 + 3);
 						}
 
-						buf.resetPosition();
 						buf.writeSignedBigEndian(k6 + regionBaseX);
 						destinationX = bigX[0];
 						destY = bigY[0];
@@ -14391,31 +14392,52 @@ public class Client extends GameApplet {
 		try {
 
 			int available = socketStream.available();
-			if (available < 2) {
+			if (available == 0) {
 				return false;
 			}
 
-			//First we read opcode...
 			if(opcode == -1) {
-
 				socketStream.flushInputStream(incoming.payload, 1);
-
 				opcode = incoming.payload[0] & 0xff;
-
 				if (encryption != null) {
 					opcode = opcode - encryption.getNextKey() & 0xff;
 				}
-
-				//Now attempt to read packet size..
-				socketStream.flushInputStream(incoming.payload, 2);
-				packetSize = ((incoming.payload[0] & 0xff) << 8)
-						+ (incoming.payload[1] & 0xff);
-
+				if (opcode < 0 || opcode >= PacketConstants.INCOMING_PACKET_SIZES.length) {
+					System.out.println("Client: invalid incoming opcode " + opcode);
+					opcode = -1;
+					return false;
+				}
+				packetSize = PacketConstants.INCOMING_PACKET_SIZES[opcode];
+				available--;
 			}
 
-			if(!(opcode >= 0 && opcode < 256)) {
-				opcode = -1;
+			if (packetSize == -1) {
+				if (available > 0) {
+					socketStream.flushInputStream(incoming.payload, 1);
+					packetSize = incoming.payload[0] & 0xff;
+					available--;
+				} else {
+					return false;
+				}
+			}
+
+			if (packetSize == -2) {
+				if (available > 1) {
+					socketStream.flushInputStream(incoming.payload, 2);
+					incoming.currentPosition = 0;
+					packetSize = incoming.readUShort();
+					available -= 2;
+				} else {
+					return false;
+				}
+			}
+
+			if (available < packetSize) {
 				return false;
+			}
+
+			if (Configuration.network_debug) {
+				System.out.println("Client: incoming opcode=" + opcode + " size=" + packetSize);
 			}
 
 			incoming.currentPosition = 0;
@@ -15857,7 +15879,10 @@ public class Client extends GameApplet {
 
 			SignLink.reporterror("T1 - " + opcode + "," + packetSize + " - "
 					+ secondLastOpcode + "," + thirdLastOpcode);
-			resetLogout();
+			System.out.println("Client: unhandled incoming packet opcode=" + opcode
+					+ " size=" + packetSize);
+			opcode = -1;
+			return true;
 		} catch (IOException _ex) {
 			dropClient();
 			_ex.printStackTrace();

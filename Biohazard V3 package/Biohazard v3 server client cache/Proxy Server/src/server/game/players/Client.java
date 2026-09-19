@@ -23,6 +23,7 @@ import server.event.CycleEvent;
 import server.event.CycleEventContainer;
 import server.event.CycleEventHandler;
 import server.event.RestoreSpecialAttack;
+import server.game.items.BankTabs;
 import server.game.items.GameItem;
 import server.game.items.ItemAssistant;
 import server.game.minigames.barrows.Barrows;
@@ -46,6 +47,7 @@ public class Client extends Player {
 	public Stream inStream = null, outStream = null;
 	private IoSession session;
 	private ItemAssistant itemAssistant = new ItemAssistant(this);
+	private BankTabs bankTabs = new BankTabs(this);
 	private ShopAssistant shopAssistant = new ShopAssistant(this);
 	private TradeAndDuel tradeAndDuel = new TradeAndDuel(this);
 	private PlayerAssistant playerAssistant = new PlayerAssistant(this);
@@ -325,12 +327,20 @@ public class Client extends Player {
 		getPA().setSidebarInterfaces(this, true);
 		correctCoordinates();
 		getPA().sendFrame36(173,1);
+		getPA().sendFrame36(166, brightness);
+		getPA().sendFrame36(168, musicVolume);
+		getPA().sendFrame36(169, soundEffectVolume);
+		getPA().sendFrame36(170, mouseButton ? 1 : 0);
+		getPA().sendFrame36(171, chatEffects ? 0 : 1);
+		getPA().sendFrame36(287, splitChat ? 1 : 0);
+		getPA().sendFrame36(427, acceptAid ? 1 : 0);
 		/**
 		 * The server double exp events - return the boolean
 		 * condition as true for the weekend from 01200 to 0100
 		 */
 		sendMessage("Welcome to @blu@"+Config.SERVER_NAME+".");
 		sendMessage("Type @red@::commands@bla@ for all the available commands.");
+		server.game.content.PlayerOwnedShop.notifyOnLogin(this);
 		//sendMessage("Join 'help' clan chat for public clan chat.");
 		if(playerRights == 4 || playerRights == 6 || playerRights == 5) {
 			sendMessage("Thank you for contributing to us and enjoy your day playing @blu@Biohazard!");
@@ -1246,6 +1256,10 @@ public class Client extends Player {
 
 	public ItemAssistant getItems() {
 		return itemAssistant;
+	}
+
+	public BankTabs getBank() {
+		return bankTabs;
 	}
 
 	public PlayerAssistant getPA() {

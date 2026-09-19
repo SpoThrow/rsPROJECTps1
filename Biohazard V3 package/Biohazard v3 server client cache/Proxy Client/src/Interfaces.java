@@ -16,6 +16,8 @@ public class Interfaces extends RSInterface {
 		magicTab(textDrawingAreas);
 		ancientMagicTab(textDrawingAreas);
 		optionTab(textDrawingAreas);
+		clientSettings(textDrawingAreas);
+		keyRemappingPanel(textDrawingAreas);
 		emoteTab();
 		godWars(textDrawingAreas);
 		Logout(textDrawingAreas);
@@ -32,6 +34,7 @@ public class Interfaces extends RSInterface {
 		playerOwnedShopMain(textDrawingAreas);
 		playerOwnedShopBuy(textDrawingAreas);
 		ShopInterface(textDrawingAreas);
+		bank(textDrawingAreas);
 	}
 	
 	public static void Construction(TextDrawingArea[] TDA) {
@@ -488,6 +491,22 @@ public class Interfaces extends RSInterface {
 		SK.child(60, 2832, 20, 150);
 		SK.child(61, 13928, 130, 190);
 		SK.child(62, 13917, 20, 150);
+		int[] hideHovers = { 4040, 4076, 4112, 4046, 4082, 4118, 4052, 4088, 4124, 4058, 4094, 4130, 4064, 4100, 4136, 4070, 4106, 4142, 4160, 2832, 13917 };
+		for (int h = 0; h < hideHovers.length; h++) {
+			RSInterface hover = interfaceCache[hideHovers[h]];
+			if (hover != null) {
+				hover.type = 0;
+				hover.width = 0;
+				hover.height = 0;
+				hover.atActionType = 0;
+				hover.isMouseoverTriggered = true;
+				hover.children = new int[0];
+				hover.childX = new int[0];
+				hover.childY = new int[0];
+				hover.sprite1 = null;
+				hover.sprite2 = null;
+			}
+		}
 	}
 public static void skillInterface(int i, int j) {
 		RSInterface Tab = interfaceCache[i] = new RSInterface();
@@ -1030,7 +1049,9 @@ public static int boxIds[] = { 4041, 4077, 4113, 4047, 4083, 4119, 4053, 4089, 4
 				"Toggle-Split Private Chat", 1, 5, 287);
 		addConfigButton(12464, 904, 30, 31, "Options/SPRITE", 40, 40,
 				"Toggle-Accept Aid", 0, 5, 427);
-		tab.totalChildren(28);
+		addButton(24150, 30, "Options/SPRITE", "Client Settings", -1, 1, 40, 40);
+		addSprite(24151, 40, "Options/SPRITE");
+		tab.totalChildren(30);
 		int x = 0;
 		int y = 2;
 		tab.child(0, 905, 13 + x, 10 + y);
@@ -1061,6 +1082,105 @@ public static int boxIds[] = { 4041, 4077, 4113, 4047, 4083, 4119, 4053, 4089, 4
 		tab.child(25, 152, 75, 208);
 		tab.child(26, 947, 87, 212);
 		tab.child(27, 149, 80, 231);
+		tab.child(28, 24150, 135, 208);
+		tab.child(29, 24151, 141, 213);
+	}
+
+	public static void clientSettings(TextDrawingArea[] tda) {
+		RSInterface tab = addInterface(24200);
+		addRectangle(24201, 360, 268, 0x2B2319, 0, true);
+		addRectangle(24202, 360, 268, 0x5A4933, 0, false);
+		addText(24203, "Client Settings", tda, 2, 0xff981f, true, true);
+		addHoverText(24204, "Close", "Close", tda, 1, 0xff981f, true, true, 40);
+		addText(24205, "Click a setting to change it. Saved on this computer.", tda, 0, 0xc6b895, true, true);
+		addHoverText(24210, "Resizable client: On", "Toggle resizable", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24211, "Distance fog: High", "Change fog strength", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24212, "Anti-aliasing: Low", "Change anti-aliasing strength", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24213, "Animation smoothing: On", "Toggle animation smoothing", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24215, "Draw distance: 75 tiles", "Change draw distance", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24216, "Ground blending: On", "Toggle ground tile blending", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24217, "Hide roofs: Off", "Toggle roofs", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24218, "Tile markers: Off", "Toggle tile hover highlight", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24219, "Ground item names: Off", "Toggle ground item names", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24220, "NPC health overlay: Off", "Toggle NPC health overlay", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24221, "Boosted stat overlay: Off", "Toggle boosted stat overlay", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24222, "XP drops: Off", "Toggle XP drops", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24235, "XP drop speed: Slow", "Very slow, slow, normal, fast, very fast", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24223, "Boosted stats as +N: Off", "Toggle +15 instead of 114/99", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24224, "Attack style box: Off", "Toggle attack style next to chat", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24225, "NPC attack: Left click", "Left click, right click, or hide Attack on NPCs", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24226, "Player attack: Left click", "Left click, right click, or hide Attack on players", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24227, "Menu entry swapper: Off", "Swap left-click NPC/item actions like RuneLite", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24228, "Key remapping: Off", "Open key bind setup", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24229, "Ground markers: Off", "Shift-right-click tiles to mark them", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24231, "Performance stats: Off", "Toggle FPS, memory, and frame timing", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24232, "Show ping: Off", "Toggle connection latency to the server", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24233, "OpenGL acceleration: Off", "Java2D OpenGL pipeline (restart to fully apply)", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24234, "FPS cap: 50", "Unlock the 50 FPS draw cap", tda, 1, 0xff981f, false, true, 300);
+		addText(24214, "Shift-right-click to swap menu entries and mark tiles. OpenGL needs a restart.", tda, 0, 0x8f7d5f, false, true);
+		RSInterface list = addInterface(24230);
+		list.width = 340;
+		list.height = 198;
+		list.scrollMax = 560;
+		setChildren(25, list);
+		int[] ids = { 24210, 24211, 24212, 24213, 24215, 24216, 24217, 24218, 24219, 24220, 24221, 24222, 24235, 24223, 24224, 24225, 24226, 24227, 24228, 24229, 24231, 24232, 24233, 24234, 24214 };
+		for (int i = 0; i < ids.length; i++) {
+			setBounds(ids[i], 4, i * 20, i, list);
+			RSInterface.interfaceCache[ids[i]].height = 16;
+		}
+		tab.totalChildren(6);
+		tab.child(0, 24201, 76, 28);
+		tab.child(1, 24202, 76, 28);
+		tab.child(2, 24203, 256, 38);
+		tab.child(3, 24204, 400, 38);
+		tab.child(4, 24205, 256, 60);
+		tab.child(5, 24230, 96, 78);
+		RSInterface.interfaceCache[24204].height = 16;
+	}
+
+	public static void keyRemappingPanel(TextDrawingArea[] tda) {
+		RSInterface tab = addInterface(24300);
+		addRectangle(24301, 360, 268, 0x2B2319, 0, true);
+		addRectangle(24302, 360, 268, 0x5A4933, 0, false);
+		addText(24303, "Key Remapping", tda, 2, 0xff981f, true, true);
+		addHoverText(24304, "Close", "Back to settings", tda, 1, 0xff981f, true, true, 40);
+		addText(24305, "Turn remapping on, then click a sidebar and press a key.", tda, 0, 0xc6b895, true, true);
+		addHoverText(24310, "Key remapping: Off", "Enable or disable remapping", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24311, "Enter to chat: On", "Require Enter before typing in chat", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24312, "Space to continue: On", "Space clicks continue in dialogues", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24313, "WASD camera: Off", "Use WASD to turn the camera", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24314, "Reset sidebar keys to defaults", "Restore F-keys and Esc", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24315, "Preset: number keys 1-0", "Bind 1-0, -, =, \\ to sidebars (60% keyboards)", tda, 1, 0xff981f, false, true, 300);
+		for (int i = 0; i < KeyRemapper.NAMES.length; i++) {
+			addHoverText(24320 + i, KeyRemapper.NAMES[i] + ": F" + (i + 1), "Click, then press a key. Backspace unbinds.", tda, 1, 0xff981f, false, true, 300);
+		}
+		RSInterface list = addInterface(24340);
+		list.width = 340;
+		list.height = 198;
+		list.scrollMax = 420;
+		int[] ids = new int[6 + KeyRemapper.NAMES.length];
+		ids[0] = 24310;
+		ids[1] = 24311;
+		ids[2] = 24312;
+		ids[3] = 24313;
+		ids[4] = 24314;
+		ids[5] = 24315;
+		for (int i = 0; i < KeyRemapper.NAMES.length; i++) {
+			ids[6 + i] = 24320 + i;
+		}
+		setChildren(ids.length, list);
+		for (int i = 0; i < ids.length; i++) {
+			setBounds(ids[i], 4, i * 20, i, list);
+			RSInterface.interfaceCache[ids[i]].height = 16;
+		}
+		tab.totalChildren(6);
+		tab.child(0, 24301, 76, 28);
+		tab.child(1, 24302, 76, 28);
+		tab.child(2, 24303, 256, 38);
+		tab.child(3, 24304, 400, 38);
+		tab.child(4, 24305, 256, 60);
+		tab.child(5, 24340, 96, 78);
+		RSInterface.interfaceCache[24304].height = 16;
 	}
 
 	public static void equipmentTab(TextDrawingArea[] wid) {
@@ -1115,13 +1235,18 @@ public static int boxIds[] = { 4041, 4077, 4113, 4047, 4083, 4119, 4053, 4089, 4
 		addText(15112, "Attack bonus", wid, 2, 0xe4a146, false, true);
 		addText(15113, "Defence bonus", wid, 2, 0xe4a146, false, true);
 		addText(15114, "Other bonuses", wid, 2, 0xe4a146, false, true);
+		addText(15115, "Combat", wid, 2, 0xe4a146, false, true);
+		addText(15116, "Max hit: -", wid, 1, 0xe4a146, false, true);
+		addText(15117, "DPS: -", wid, 1, 0xe4a146, false, true);
+		addText(15118, "Accuracy: -", wid, 1, 0xe4a146, false, true);
+		addText(15119, "Style: -", wid, 1, 0xe4a146, false, true);
 		for (int i = 1675; i <= 1684; i++) {
 			textSize(i, wid, 1);
 		}
 		textSize(1686, wid, 1);
 		textSize(1687, wid, 1);
 		addChar(15125);
-		tab.totalChildren(44);
+		tab.totalChildren(49);
 		tab.child(0, 15107, 4, 20);
 		tab.child(1, 15210, 476, 29);
 		tab.child(2, 15211, 476, 29);
@@ -1168,6 +1293,11 @@ public static int boxIds[] = { 4041, 4077, 4113, 4047, 4083, 4119, 4053, 4089, 4
 		tab.child(41, 1666, 321 + 22, 58 + 162);
 		tab.child(42, 1667, 321 + 134, 58 + 162);
 		tab.child(43, 1688, 50 + 297 - 2, 110 - 13 + 5);
+		tab.child(44, 15115, 338, 254);
+		tab.child(45, 15116, 338, 270);
+		tab.child(46, 15117, 338, 284);
+		tab.child(47, 15118, 338, 298);
+		tab.child(48, 15119, 338, 312);
 		for (int i = 1675; i <= 1684; i++) {
 			RSInterface rsi = interfaceCache[i];
 			rsi.textColor = 0xe4a146;
@@ -1766,7 +1896,7 @@ public static int boxIds[] = { 4041, 4077, 4113, 4047, 4083, 4119, 4053, 4089, 4
 			addPrayerHover(ID1[i], hoverIDs[i], i, hoverStrings[i]);
 		}
 
-		tab.totalChildren(106); // 54
+		tab.totalChildren(107);
 		tab.child(52, 5651, 70, 242);
 		for (int ii = 0; ii < 54; ii++) {
 			tab.child(ii, ID2[ii], X2[ii], Y2[ii]);
@@ -1786,6 +1916,8 @@ public static int boxIds[] = { 4041, 4077, 4113, 4047, 4083, 4119, 4053, 4089, 4
 			frame++;
 			frame3++;
 		}
+		addHoverText(18110, "", "Confirm quick prayers", tda, 1, 0x00FF00, true, true, 160);
+		tab.child(106, 18110, 25, 224);
 	}
 
 	public static void slayerRewardsBuy(TextDrawingArea[] tda) {
@@ -2137,145 +2269,288 @@ public static int boxIds[] = { 4041, 4077, 4113, 4047, 4083, 4119, 4053, 4089, 4
 
 	public static void playerOwnedShopMain(TextDrawingArea[] tda) {
 		RSInterface rsi = addInterface(43000);
-		addSprite(43050, 0, "Interfaces/POS/MAIN");
+		addSprite(43050, 20, "Interfaces/POS/MAIN");
 		addText(43001, "Player Owned Shop", tda, 2, 0xFF981F, true, true);
-		addText(43002, "0", tda, 0, 0x00FF00, true, true);
-		addText(43003, "Listings: 0", tda, 0, 0xFF981F, false, true);
-		addHoverButton(43004, "Interfaces/POS/MAIN", 1, 16, 16, "Close", 0, 43051, 1);
-		addHoveredButton(43051, "Interfaces/POS/MAIN", 2, 16, 16, 43052);
-		addHoverButton(43007, "Interfaces/POS/MAIN", 3, 120, 36, "Search Item", 0, 43053, 1);
-		addHoveredButton(43053, "Interfaces/POS/MAIN", 4, 120, 36, 43054);
-		addHoverButton(43008, "Interfaces/POS/MAIN", 3, 120, 36, "Search Player", 0, 43055, 1);
-		addHoveredButton(43055, "Interfaces/POS/MAIN", 4, 120, 36, 43056);
-		addHoverButton(43009, "Interfaces/POS/MAIN", 3, 120, 36, "Recent Listings", 0, 43057, 1);
-		addHoveredButton(43057, "Interfaces/POS/MAIN", 4, 120, 36, 43058);
-		addHoverButton(43120, "Interfaces/POS/MAIN", 16, 90, 25, "Claim", 0, 43121, 1);
-		addHoveredButton(43121, "Interfaces/POS/MAIN", 17, 90, 25, 43122);
-		addText(43071, "Search Item", tda, 0, 0xFF981F, true, true);
+		addText(43002, "0", tda, 0, 0x00FF00, false, true);
+		addText(43003, "", tda, 0, 0xFF981F, false, true);
+		addText(43077, "Claim", tda, 0, 0xFF981F, false, true);
+		addHoverButton(43004, "Interfaces/POS/MAIN", 21, 16, 16, "Close", 0, 43051, 1);
+		addHoveredButton(43051, "Interfaces/POS/MAIN", 22, 16, 16, 43052);
+		addHoverButton(43007, "Interfaces/POS/MAIN", 36, 90, 25, "Buy Item", 0, 43053, 1);
+		addHoveredButton(43053, "Interfaces/POS/MAIN", 37, 90, 25, 43054);
+		addHoverButton(43008, "Interfaces/POS/MAIN", 36, 90, 25, "Search Player", 0, 43055, 1);
+		addHoveredButton(43055, "Interfaces/POS/MAIN", 37, 90, 25, 43056);
+		addHoverButton(43009, "Interfaces/POS/MAIN", 36, 90, 25, "Recent Listings", 0, 43057, 1);
+		addHoveredButton(43057, "Interfaces/POS/MAIN", 37, 90, 25, 43058);
+		addHoverButton(43120, "Interfaces/POS/MAIN", 23, 120, 36, "Claim", 0, 43121, 1);
+		addHoveredButton(43121, "Interfaces/POS/MAIN", 24, 120, 36, 43122);
+		addHoverButton(43123, "Interfaces/POS/MAIN", 36, 90, 25, "Collect items", 0, 43124, 1);
+		addHoveredButton(43124, "Interfaces/POS/MAIN", 37, 90, 25, 43125);
+		addHoverButton(43140, "Interfaces/POS/MAIN", 36, 90, 25, "List item", 0, 43141, 1);
+		addHoveredButton(43141, "Interfaces/POS/MAIN", 37, 90, 25, 43142);
+		addText(43071, "Buy Item", tda, 0, 0xFF981F, true, true);
 		addText(43072, "Search Player", tda, 0, 0xFF981F, true, true);
 		addText(43073, "Recent Listings", tda, 0, 0xFF981F, true, true);
-		addText(43074, "Recent Transactions", tda, 1, 0xFF981F, false, true);
+		addText(43075, "List item", tda, 0, 0xFF981F, true, true);
+		addText(43076, "Collect", tda, 0, 0xFF981F, true, true);
+		addText(43074, "Recent Transactions", tda, 1, 0xFF981F, true, true);
 		for (int i = 0; i < 5; i++) {
-			addText(43030 + i, "", tda, 0, 0xFF981F, false, true);
+			addText(43030 + i, "", tda, 0, 0x00FF00, false, true);
 			addText(43035 + i, "", tda, 0, 0x00FF00, false, true);
 		}
 		RSInterface scroll = addInterface(43300);
 		scroll.width = 248;
-		scroll.height = 248;
+		scroll.height = 210;
 		scroll.scrollMax = 580;
-		setChildren(70, scroll);
+		setChildren(100, scroll);
 		int child = 0;
 		for (int i = 0; i < 10; i++) {
 			int col = i % 2;
 			int row = i / 2;
 			int x = col * 122;
 			int y = row * 114;
-			addSprite(43500 + i, 8, "Interfaces/POS/MAIN");
+			addSprite(43500 + i, 29, "Interfaces/POS/MAIN");
+			addSprite(43520 + i, 27, "Interfaces/POS/MAIN");
+			addSprite(43800 + i, 30, "Interfaces/POS/MAIN");
 			addPosItemSlot(43200 + i);
-			addText(43010 + i, "", tda, 0, 0xFF981F, false, true);
+			addText(43010 + i, "Empty", tda, 0, 0xFF981F, true, true);
+			addText(43040 + i, "", tda, 0, 0xFF981F, false, true);
 			addText(43020 + i, "", tda, 0, 0x00FF00, false, true);
-			addHoverButton(43100 + i, "Interfaces/POS/MAIN", 6, 26, 35, "Sell", 0, 43600 + i, 1);
-			addHoveredButton(43600 + i, "Interfaces/POS/MAIN", 7, 26, 35, 43620 + i);
-			addHoverText(43110 + i, "Remove", "Remove listing", tda, 0, 0xFF981F, false, true, 50);
+			addHoverButton(43100 + i, "Interfaces/POS/MAIN", 25, 26, 35, "List item", 0, 43600 + i, 1);
+			addHoveredButton(43600 + i, "Interfaces/POS/MAIN", 26, 26, 35, 43620 + i);
+			RSInterface sellWrap = addInterface(43900 + i);
+			sellWrap.width = 26;
+			sellWrap.height = 35;
+			setChildren(2, sellWrap);
+			setBounds(43100 + i, 0, 0, 0, sellWrap);
+			setBounds(43600 + i, 0, 0, 1, sellWrap);
+			addHoverText(43110 + i, "", "Remove listing", tda, 0, 0xFF981F, false, true, 50);
+			addHoverText(43130 + i, "", "Edit price", tda, 0, 0xFF981F, false, true, 40);
+			RSInterface.interfaceCache[43110 + i].height = 12;
+			RSInterface.interfaceCache[43130 + i].height = 12;
 			setBounds(43500 + i, x, y, child++, scroll);
-			setBounds(43200 + i, x + 8, y + 22, child++, scroll);
-			setBounds(43010 + i, x + 8, y + 6, child++, scroll);
-			setBounds(43020 + i, x + 8, y + 88, child++, scroll);
-			setBounds(43100 + i, x + 82, y + 36, child++, scroll);
-			setBounds(43600 + i, x + 82, y + 36, child++, scroll);
-			setBounds(43110 + i, x + 62, y + 6, child++, scroll);
+			setBounds(43520 + i, x + 8, y + 22, child++, scroll);
+			setBounds(43200 + i, x + 10, y + 24, child++, scroll);
+			setBounds(43010 + i, x + 58, y + 3, child++, scroll);
+			setBounds(43040 + i, x + 52, y + 26, child++, scroll);
+			setBounds(43020 + i, x + 52, y + 40, child++, scroll);
+			setBounds(43900 + i, x + 45, y + 38, child++, scroll);
+			setBounds(43110 + i, x + 8, y + 70, child++, scroll);
+			setBounds(43130 + i, x + 58, y + 70, child++, scroll);
+			setBounds(43800 + i, x + 5, y + 88, child++, scroll);
 		}
-		setChildren(29, rsi);
+		setChildren(28, rsi);
 		setBounds(43050, 12, 14, 0, rsi);
 		setBounds(43001, 256, 18, 1, rsi);
 		setBounds(43004, 475, 20, 2, rsi);
 		setBounds(43051, 475, 20, 3, rsi);
-		setBounds(43002, 400, 48, 4, rsi);
-		setBounds(43120, 355, 62, 5, rsi);
-		setBounds(43121, 355, 62, 6, rsi);
-		setBounds(43003, 348, 90, 7, rsi);
-		setBounds(43007, 352, 198, 8, rsi);
-		setBounds(43053, 352, 198, 9, rsi);
-		setBounds(43008, 352, 236, 10, rsi);
-		setBounds(43055, 352, 236, 11, rsi);
-		setBounds(43009, 352, 274, 12, rsi);
-		setBounds(43057, 352, 274, 13, rsi);
-		setBounds(43071, 424, 209, 14, rsi);
-		setBounds(43072, 424, 247, 15, rsi);
-		setBounds(43073, 424, 285, 16, rsi);
-		setBounds(43074, 348, 112, 17, rsi);
-		setBounds(43030, 348, 128, 18, rsi);
-		setBounds(43031, 348, 140, 19, rsi);
-		setBounds(43032, 348, 152, 20, rsi);
-		setBounds(43033, 348, 164, 21, rsi);
-		setBounds(43034, 348, 176, 22, rsi);
-		setBounds(43035, 430, 128, 23, rsi);
-		setBounds(43036, 430, 140, 24, rsi);
-		setBounds(43037, 430, 152, 25, rsi);
-		setBounds(43038, 430, 164, 26, rsi);
-		setBounds(43039, 430, 176, 27, rsi);
-		setBounds(43300, 18, 42, 28, rsi);
+		setBounds(43120, 348, 42, 4, rsi);
+		setBounds(43121, 348, 42, 5, rsi);
+		setBounds(43002, 390, 48, 6, rsi);
+		setBounds(43077, 390, 62, 7, rsi);
+		setBounds(43003, 348, 84, 8, rsi);
+		setBounds(43074, 418, 100, 9, rsi);
+		setBounds(43030, 348, 118, 10, rsi);
+		setBounds(43031, 348, 132, 11, rsi);
+		setBounds(43032, 348, 146, 12, rsi);
+		setBounds(43033, 348, 160, 13, rsi);
+		setBounds(43034, 348, 174, 14, rsi);
+		setBounds(43007, 332, 258, 15, rsi);
+		setBounds(43053, 332, 258, 16, rsi);
+		setBounds(43071, 377, 265, 17, rsi);
+		setBounds(43008, 422, 258, 18, rsi);
+		setBounds(43055, 422, 258, 19, rsi);
+		setBounds(43072, 467, 265, 20, rsi);
+		setBounds(43009, 332, 286, 21, rsi);
+		setBounds(43057, 332, 286, 22, rsi);
+		setBounds(43073, 377, 293, 23, rsi);
+		setBounds(43123, 422, 286, 24, rsi);
+		setBounds(43124, 422, 286, 25, rsi);
+		setBounds(43076, 467, 293, 26, rsi);
+		setBounds(43300, 20, 42, 27, rsi);
 	}
 
 	public static void playerOwnedShopBuy(TextDrawingArea[] tda) {
 		RSInterface rsi = addInterface(44000);
-		addSprite(44080, 0, "Interfaces/POS/BUY");
+		addSprite(44080, 10, "Interfaces/POS/BUY");
 		addText(44001, "Player Owned Shop", tda, 2, 0xFF981F, true, true);
 		addText(44002, "", tda, 0, 0xFF981F, false, true);
 		addHoverButton(44003, "Interfaces/POS/BUY", 8, 16, 16, "Close", 0, 44081, 1);
 		addHoveredButton(44081, "Interfaces/POS/BUY", 9, 16, 16, 44082);
-		addHoverButton(44004, "Interfaces/POS/BUY", 3, 16, 16, "Refresh", 0, 44083, 1);
-		addHoveredButton(44083, "Interfaces/POS/BUY", 4, 16, 16, 44084);
+		addHoverButton(44004, "Interfaces/POS/BUY", 13, 16, 16, "Refresh", 0, 44083, 1);
+		addHoveredButton(44083, "Interfaces/POS/BUY", 14, 16, 16, 44084);
 		addHoverText(44005, "Return", "Return", tda, 0, 0xFF981F, false, true, 40);
-		addHoverText(44006, "Item", "Browse items", tda, 0, 0xFF981F, false, true, 40);
-		addHoverText(44007, "Player", "Search player", tda, 0, 0xFF981F, false, true, 50);
+		addHoverText(44006, "Item", "Browse items", tda, 0, 0xFF981F, false, true, 32);
+		addHoverText(44007, "Player", "Search player", tda, 0, 0xFF981F, false, true, 42);
+		addHoverText(44901, "Name", "Sort newest", tda, 0, 0xFF981F, false, true, 40);
+		addHoverText(44900, "Price", "Sort cheapest", tda, 0, 0xFF981F, false, true, 40);
+		addHoverText(44902, "Seller", "Sort most stock", tda, 0, 0xFF981F, false, true, 44);
+		RSInterface.interfaceCache[44005].height = 16;
+		RSInterface.interfaceCache[44006].height = 16;
+		RSInterface.interfaceCache[44007].height = 16;
+		RSInterface.interfaceCache[44900].height = 16;
+		RSInterface.interfaceCache[44901].height = 16;
+		RSInterface.interfaceCache[44902].height = 16;
 		RSInterface scroll = addInterface(44500);
 		scroll.width = 450;
-		scroll.height = 248;
-		scroll.scrollMax = 800;
-		setChildren(140, scroll);
+		scroll.height = 232;
+		scroll.scrollMax = 780;
+		setChildren(220, scroll);
 		int child = 0;
 		for (int i = 0; i < 20; i++) {
-			int y = i * 40;
-			addSprite(44700 + i, 7, "Interfaces/POS/BUY");
+			int y = i * 39;
+			addSprite(44700 + i, 15, "Interfaces/POS/BUY");
 			addPosItemSlot(44200 + i);
 			addText(44010 + i, "", tda, 0, 0xFF981F, false, true);
 			addText(44030 + i, "", tda, 0, 0xC8C8C8, false, true);
 			addText(44050 + i, "", tda, 0, 0x00FF00, false, true);
-			addHoverButton(44100 + i, "Interfaces/POS/BUY", 1, 26, 32, "Buy", 0, 44800 + i, 1);
-			addHoveredButton(44800 + i, "Interfaces/POS/BUY", 2, 26, 32, 44820 + i);
-			setBounds(44700 + i, 0, y, child++, scroll);
-			setBounds(44200 + i, 8, y + 4, child++, scroll);
-			setBounds(44010 + i, 50, y + 12, child++, scroll);
-			setBounds(44050 + i, 200, y + 12, child++, scroll);
-			setBounds(44030 + i, 310, y + 12, child++, scroll);
-			setBounds(44100 + i, 410, y + 4, child++, scroll);
-			setBounds(44800 + i, 410, y + 4, child++, scroll);
+			addHoverButton(44100 + i, "Interfaces/POS/BUY", 11, 26, 32, "Buy X", 0, 44800 + i, 1);
+			addHoveredButton(44800 + i, "Interfaces/POS/BUY", 12, 26, 32, 44820 + i);
+			addHoverText(44120 + i, "", "Buy 1", tda, 0, 0xFF981F, true, true, 12);
+			addHoverText(44140 + i, "", "Buy 10", tda, 0, 0xFF981F, true, true, 16);
+			addHoverText(44160 + i, "", "Buy X", tda, 0, 0xFF981F, true, true, 12);
+			addHoverText(44180 + i, "", "Buy all", tda, 0, 0xFF981F, true, true, 22);
+			RSInterface.interfaceCache[44120 + i].height = 12;
+			RSInterface.interfaceCache[44140 + i].height = 12;
+			RSInterface.interfaceCache[44160 + i].height = 12;
+			RSInterface.interfaceCache[44180 + i].height = 12;
+			setBounds(44700 + i, 4, y, child++, scroll);
+			setBounds(44200 + i, 10, y + 4, child++, scroll);
+			setBounds(44010 + i, 52, y + 13, child++, scroll);
+			setBounds(44050 + i, 175, y + 13, child++, scroll);
+			setBounds(44030 + i, 278, y + 13, child++, scroll);
+			setBounds(44120 + i, 348, y + 13, child++, scroll);
+			setBounds(44140 + i, 362, y + 13, child++, scroll);
+			setBounds(44160 + i, 382, y + 13, child++, scroll);
+			setBounds(44180 + i, 396, y + 13, child++, scroll);
+			setBounds(44100 + i, 418, y + 4, child++, scroll);
+			setBounds(44800 + i, 418, y + 4, child++, scroll);
 		}
-		setChildren(11, rsi);
+		setChildren(14, rsi);
 		setBounds(44080, 12, 14, 0, rsi);
 		setBounds(44001, 256, 18, 1, rsi);
-		setBounds(44002, 80, 36, 2, rsi);
+		setBounds(44002, 360, 38, 2, rsi);
 		setBounds(44003, 475, 20, 3, rsi);
 		setBounds(44081, 475, 20, 4, rsi);
 		setBounds(44004, 454, 20, 5, rsi);
 		setBounds(44083, 454, 20, 6, rsi);
-		setBounds(44005, 28, 36, 7, rsi);
-		setBounds(44006, 78, 36, 8, rsi);
-		setBounds(44007, 118, 36, 9, rsi);
-		setBounds(44500, 24, 52, 10, rsi);
+		setBounds(44005, 24, 20, 7, rsi);
+		setBounds(44006, 70, 20, 8, rsi);
+		setBounds(44007, 104, 20, 9, rsi);
+		setBounds(44901, 80, 40, 10, rsi);
+		setBounds(44900, 175, 40, 11, rsi);
+		setBounds(44902, 278, 40, 12, rsi);
+		setBounds(44500, 24, 56, 13, rsi);
 	}
 
 	public static void ShopInterface(TextDrawingArea[] tda) {
 		RSInterface inter = addInterface(50000);
 		setChildren(3, inter);
 
-		addSprite(50005, 0, "Interfaces/POS/MAIN");
+		addSprite(50005, 20, "Interfaces/POS/MAIN");
 		addHoverButton(50006, "Interfaces/POS/BUY", 8, 16, 16, "Close", 0, 50007, 1);
 		addHoveredButton(50007, "Interfaces/POS/BUY", 9, 16, 16, 50008);
 
 		inter.child(0, 50005, 12, 14);
 		inter.child(1, 50006, 475, 20);
 		inter.child(2, 50007, 475, 20);
+	}
+
+	public static void bank(TextDrawingArea[] tda) {
+		RSInterface bank = addInterface(5292);
+		setChildren(38, bank);
+		addSprite(5293, 0, "BankTab/BANK");
+		addHover(5384, 3, 0, 5380, 1, "BankTab/BANK", 17, 17, "Close Window");
+		addHovered(5380, 2, "BankTab/BANK", 17, 17, 5379);
+		addHoverButton(5294, "BankTab/BANK", 3, 114, 25, "Set a Bank PIN", 0, 5295, 1);
+		addHoveredButton(5295, "BankTab/BANK", 4, 114, 25, 5296);
+		addConfigButton(26000, 5292, 5, 8, "BankTab/BANK", 35, 25, "Swap Withdraw Mode", 1, 1, 304);
+		addHoveredButton(26001, "BankTab/BANK", 8, 35, 25, 26002);
+		addConfigButton(26004, 5292, 13, 16, "BankTab/BANK", 35, 25, "Search", 1, 1, 116);
+		addHoveredButton(26005, "BankTab/BANK", 16, 35, 25, 26006);
+		addConfigButton(26008, 5292, 9, 12, "BankTab/BANK", 35, 25, "Withdraw as note", 1, 1, 115);
+		addHoveredButton(26009, "BankTab/BANK", 12, 35, 25, 26010);
+		addHoverButton(26012, "BankTab/BANK", 17, 35, 25, "Deposit carried items", 0, 26013, 1);
+		addHoveredButton(26013, "BankTab/BANK", 18, 35, 25, 26014);
+		addHoverButton(26016, "BankTab/BANK", 19, 35, 25, "Deposit worn items", 0, 26017, 1);
+		addHoveredButton(26017, "BankTab/BANK", 20, 35, 25, 26018);
+		addHoverButton(26020, "BankTab/BANK", 21, 35, 25, "Deposit beast of burden", 0, 26021, 1);
+		addHoveredButton(26021, "BankTab/BANK", 22, 35, 25, 26022);
+		addButton(10324, 0, "BankTab/TAB", "View all items");
+		addButton(10325, 4, "BankTab/TAB", "Drag an item here to create a new tab");
+		addButton(10326, 4, "BankTab/TAB", "Drag an item here to create a new tab");
+		addButton(10327, 4, "BankTab/TAB", "Drag an item here to create a new tab");
+		addButton(10328, 4, "BankTab/TAB", "Drag an item here to create a new tab");
+		addButton(10329, 4, "BankTab/TAB", "Drag an item here to create a new tab");
+		addButton(10330, 4, "BankTab/TAB", "Drag an item here to create a new tab");
+		addButton(10331, 4, "BankTab/TAB", "Drag an item here to create a new tab");
+		addButton(10332, 4, "BankTab/TAB", "Drag an item here to create a new tab");
+		addText(19995, "0", tda, 0, 0xb4b864, true, false);
+		addText(19996, "352", tda, 0, 0xb4b864, true, false);
+		for (int i = 0; i < 8; i++) {
+			addBankItem(10335 + i);
+		}
+		setBounds(5293, 13, 13, 0, bank);
+		setBounds(5383, 170, 15, 1, bank);
+		setBounds(5385, 12, 70, 2, bank);
+		setBounds(5384, 476, 16, 3, bank);
+		setBounds(5380, 476, 16, 4, bank);
+		setBounds(5294, 110, 285, 5, bank);
+		setBounds(5295, 110, 285, 6, bank);
+		setBounds(26000, 25, 285, 7, bank);
+		setBounds(26001, 25, 285, 8, bank);
+		setBounds(26004, 65, 285, 9, bank);
+		setBounds(26005, 65, 285, 10, bank);
+		setBounds(26008, 240, 285, 11, bank);
+		setBounds(26009, 240, 285, 12, bank);
+		setBounds(26012, 375, 285, 13, bank);
+		setBounds(26013, 375, 285, 14, bank);
+		setBounds(26016, 415, 285, 15, bank);
+		setBounds(26017, 415, 285, 16, bank);
+		setBounds(26020, 455, 285, 17, bank);
+		setBounds(26021, 455, 285, 18, bank);
+		setBounds(10324, 22, 36, 19, bank);
+		int tabX = 70;
+		for (int i = 0; i < 8; i++) {
+			setBounds(10325 + i, tabX, 36, 20 + i, bank);
+			tabX += 48;
+		}
+		setBounds(19995, 476, 287, 28, bank);
+		setBounds(19996, 476, 301, 29, bank);
+		tabX = 77;
+		for (int i = 0; i < 8; i++) {
+			setBounds(10335 + i, tabX, 39, 30 + i, bank);
+			tabX += 48;
+		}
+		RSInterface scroll = interfaceCache[5385];
+		scroll.height = 206;
+		scroll.width = 454;
+		scroll.scrollMax = 2000;
+		setChildren(1, scroll);
+		scroll.children[0] = 5382;
+		scroll.childX[0] = 4;
+		scroll.childY[0] = 2;
+		RSInterface container = interfaceCache[5382];
+		container.width = 10;
+		container.height = 50;
+		container.invSpritePadX = 12;
+		container.invSpritePadY = 8;
+		container.contentType = 206;
+		if (container.inv == null || container.inv.length < 500) {
+			int[] items = new int[500];
+			int[] amounts = new int[500];
+			if (container.inv != null) {
+				System.arraycopy(container.inv, 0, items, 0, container.inv.length);
+				System.arraycopy(container.invStackSizes, 0, amounts, 0, container.invStackSizes.length);
+			}
+			container.inv = items;
+			container.invStackSizes = amounts;
+		}
+		if (container.spritesX != null) {
+			for (int i = 0; i < container.spritesX.length; i++) {
+				container.spritesX[i] = 0;
+				container.spritesY[i] = 0;
+			}
+		}
 	}
 }

@@ -26,13 +26,55 @@ public class BankX2 implements PacketType {
 			Xamount = 1;
 		}
 		
+		if (c.posEditListingId > 0 && c.xInterfaceId == 43002) {
+			int price = Xamount;
+			long id = c.posEditListingId;
+			c.posEditListingId = 0;
+			server.game.content.PlayerOwnedShop.editListingPrice(c, id, price);
+			c.getPA().openPlayerOwnedShop();
+			return;
+		}
+
+		if (c.posBuying && c.xInterfaceId == 44000) {
+			c.posBuying = false;
+			int amount = Xamount;
+			if (amount < 1) {
+				amount = 1;
+			}
+			if (c.posBuyMax > 0 && amount > c.posBuyMax) {
+				amount = c.posBuyMax;
+			}
+			long listingId = c.posBuyListingId;
+			c.posBuyListingId = 0;
+			c.posBuyMax = 0;
+			if (server.game.content.PlayerOwnedShop.buyListing(c, listingId, amount)) {
+				c.getPA().refreshPOSBrowse();
+			} else {
+				c.getPA().refreshPOSBrowse();
+			}
+			return;
+		}
+
 		// Handle POS sell flow - amount input (step 2)
 		if (c.posSelling && c.posSellStep == 2 && c.xInterfaceId == 43000) {
 			if (Xamount > 0) {
+				int owned = server.game.content.PlayerOwnedShop.ownedCount(c, c.posSellItemId);
+				if (Xamount > owned) {
+					Xamount = owned;
+				}
+				if (Xamount <= 0) {
+					c.sendMessage("You don't have that item anymore.");
+					resetSellState(c);
+					c.getPA().openPlayerOwnedShop();
+					return;
+				}
 				c.posSellAmount = Xamount;
 				c.posSellStep = 3;
-				c.xInterfaceId = 43001; // Set interface ID for price
-				c.getOutStream().createFrame(27); // Open Enter Amount dialog for price
+				c.xInterfaceId = 43001;
+				c.sendMessage("Enter price EACH. " + Xamount + " x "
+						+ server.game.content.PlayerOwnedShop.getItemName(c.posSellItemId) + ".");
+				c.sendMessage(server.game.content.PlayerOwnedShop.priceHint(c.posSellItemId));
+				c.getOutStream().createFrame(27);
 			} else {
 				c.sendMessage("Invalid amount. Please enter a positive number.");
 				c.posSelling = false;
@@ -46,43 +88,15 @@ public class BankX2 implements PacketType {
 		if (c.posSelling && c.posSellStep == 3 && c.xInterfaceId == 43001) {
 			if (Xamount >= 0) {
 				c.posSellPrice = Xamount;
-				// Validate player still has the item before deleting
-				if (c.getItems().playerHasItem(c.posSellItemId, c.posSellAmount)) {
-					// Record amount before deletion
-					int amountBefore = c.getItems().getItemAmount(c.posSellItemId);
-					// Remove the full amount from inventory (deletes across all slots)
-					c.getItems().deleteItem2(c.posSellItemId, c.posSellAmount);
-					// Verify items were actually removed
-					int amountAfter = c.getItems().getItemAmount(c.posSellItemId);
-					int amountRemoved = amountBefore - amountAfter;
-					
-					if (amountRemoved < c.posSellAmount) {
-						// Not all items were removed - cancel listing
-						c.sendMessage("Failed to remove all items from inventory.");
-						resetSellState(c);
-						c.getPA().openPlayerOwnedShop();
-						return;
-					}
-					
-					// Add listing
-					boolean success = server.game.content.PlayerOwnedShop.addListing(c.playerName, c.posSellItemId, c.posSellAmount, c.posSellPrice);
-					if (!success) {
-						// addListing failed - restore the items
-						c.getItems().addItem(c.posSellItemId, c.posSellAmount);
-						c.sendMessage("Failed to add listing. Items have been restored.");
-						resetSellState(c);
-						c.getPA().openPlayerOwnedShop();
-						return;
-					}
-					
-					c.sendMessage("Item listed successfully!");
-					resetSellState(c);
-					c.getPA().openPlayerOwnedShop();
-				} else {
-					c.sendMessage("You don't have enough of that item.");
-					resetSellState(c);
-					c.getPA().openPlayerOwnedShop();
+				boolean success = server.game.content.PlayerOwnedShop.listItem(c, c.posSellItemId, c.posSellAmount, c.posSellPrice);
+				if (success) {
+					long total = (long) c.posSellAmount * (long) c.posSellPrice;
+					c.sendMessage("Listed " + c.posSellAmount + " x "
+							+ server.game.content.PlayerOwnedShop.getItemName(c.posSellItemId) + " @ "
+							+ c.posSellPrice + "gp each (" + total + "gp total).");
 				}
+				resetSellState(c);
+				c.getPA().openPlayerOwnedShop();
 			} else {
 				c.sendMessage("Invalid price. Please enter a non-negative number.");
 				resetSellState(c);
@@ -297,7 +311,7 @@ public class BankX2 implements PacketType {
 				break;
 				
 			case 5382:
-				c.getItems().fromBank(c.bankItems[c.xRemoveSlot] , c.xRemoveSlot, Xamount);
+				c.getItems().fromBank(c.xRemoveId, c.xRemoveSlot, Xamount);
 				break;
 				
 			case 3322:

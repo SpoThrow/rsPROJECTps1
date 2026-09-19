@@ -11,6 +11,32 @@ public class JoinChat implements PacketType {
 	public void processPacket(Client paramClient, int paramInt1, int paramInt2) {
 		String str = Misc.longToPlayerName2(
 				paramClient.getInStream().readQWord()).replaceAll("_", " ");
+		if (paramClient.isBanking && (paramClient.awaitingBankSearch || paramClient.bankSearching)) {
+			if (str != null && str.length() > 0) {
+				paramClient.getBank().applySearch(str);
+			} else {
+				paramClient.getBank().clearSearch();
+			}
+			return;
+		}
+		if (paramClient.posSearchingItem || paramClient.posSearchingPlayer) {
+			if (str != null && str.length() > 0) {
+				if (paramClient.posSearchingItem) {
+					paramClient.posSearchingItem = false;
+					paramClient.posSearchingPlayer = false;
+					paramClient.getPA().searchPOSByItemName(str);
+				} else {
+					paramClient.posSearchingItem = false;
+					paramClient.posSearchingPlayer = false;
+					paramClient.getPA().searchPOSByPlayer(str);
+				}
+			} else {
+				paramClient.posSearchingItem = false;
+				paramClient.posSearchingPlayer = false;
+				paramClient.sendMessage("Search cancelled.");
+			}
+			return;
+		}
 		if ((str != null) && (str.length() > 0) && (paramClient.clan == null)) {
 			Clan localClan = Server.clanManager.getClan(str);
 			if (localClan != null)

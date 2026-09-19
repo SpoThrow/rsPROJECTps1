@@ -36,6 +36,12 @@ public class ClickingButtons implements PacketType {
 	@Override
 	public void processPacket(final Client c, int packetType, int packetSize) {
 		int actionButtonId = Misc.hexToInt(c.getInStream().buffer, 0, packetSize);
+		if (packetSize >= 2) {
+			int wordId = ((c.getInStream().buffer[0] & 0xFF) << 8) | (c.getInStream().buffer[1] & 0xFF);
+			if (wordId == 5294 || (wordId >= 10324 && wordId <= 10332) || (wordId >= 26000 && wordId <= 26022)) {
+				actionButtonId = wordId;
+			}
+		}
 		//int actionButtonId = c.getInStream().readShort();
 		if (c.isDead)
 			return;
@@ -67,8 +73,8 @@ public class ClickingButtons implements PacketType {
 		PestControlRewards.handlePestButtons(c, actionButtonId);
 		
 		// Debug for POS buttons
-		if (actionButtonId >= 43000 && actionButtonId <= 45000) {
-			if(c.playerRights == 3) {
+		if (actionButtonId >= 43000 && actionButtonId <= 45000 || actionButtonId >= 167000 && actionButtonId <= 173000) {
+			if (Config.SERVER_DEBUG) {
 				c.sendMessage("POS Button range detected: " + actionButtonId);
 			}
 		}
@@ -1398,6 +1404,7 @@ break;*/
 			}
 			break;
 
+		case 27653:
 		case 108005:
 			c.getPA().showInterface(15106);
 			c.getItems().writeBonus();
@@ -1937,6 +1944,10 @@ break;*/
 			break;
 
 		case 9157:
+			if (c.dialogueAction == 8801) {
+				c.getPA().finishPOSRemove(true);
+				return;
+			}
 			switch(c.dialogueAction) {
 			case 596:
 				c.fade(2884, 9798, 0);
@@ -2331,6 +2342,10 @@ break;*/
 			break;
 
 		case 9158:  
+			if (c.dialogueAction == 8801) {
+				c.getPA().finishPOSRemove(false);
+				return;
+			}
 			switch(c.dialogueAction) {
 			case 564:
 				Sailing.startTravel(c, 11);
@@ -2744,6 +2759,83 @@ break;*/
 			int frame = c.isRunning2 == true ? 1 : 0;
 			c.getPA().sendFrame36(173,frame);
 			break;
+		case 906:
+			c.brightness = 1;
+			c.getPA().sendFrame36(166, 1);
+			break;
+		case 908:
+			c.brightness = 2;
+			c.getPA().sendFrame36(166, 2);
+			break;
+		case 910:
+			c.brightness = 3;
+			c.getPA().sendFrame36(166, 3);
+			break;
+		case 912:
+			c.brightness = 4;
+			c.getPA().sendFrame36(166, 4);
+			break;
+		case 930:
+			c.musicVolume = 4;
+			c.musicEnabled = false;
+			c.getPA().sendFrame36(168, 4);
+			break;
+		case 931:
+			c.musicVolume = 3;
+			c.musicEnabled = true;
+			c.getPA().sendFrame36(168, 3);
+			break;
+		case 932:
+			c.musicVolume = 2;
+			c.musicEnabled = true;
+			c.getPA().sendFrame36(168, 2);
+			break;
+		case 933:
+			c.musicVolume = 1;
+			c.musicEnabled = true;
+			c.getPA().sendFrame36(168, 1);
+			break;
+		case 934:
+			c.musicVolume = 0;
+			c.musicEnabled = true;
+			c.getPA().sendFrame36(168, 0);
+			break;
+		case 941:
+			c.soundEffectVolume = 4;
+			c.getPA().sendFrame36(169, 4);
+			break;
+		case 942:
+			c.soundEffectVolume = 3;
+			c.getPA().sendFrame36(169, 3);
+			break;
+		case 943:
+			c.soundEffectVolume = 2;
+			c.getPA().sendFrame36(169, 2);
+			break;
+		case 944:
+			c.soundEffectVolume = 1;
+			c.getPA().sendFrame36(169, 1);
+			break;
+		case 945:
+			c.soundEffectVolume = 0;
+			c.getPA().sendFrame36(169, 0);
+			break;
+		case 913:
+			c.mouseButton = !c.mouseButton;
+			c.getPA().sendFrame36(170, c.mouseButton ? 1 : 0);
+			break;
+		case 915:
+			c.chatEffects = !c.chatEffects;
+			c.getPA().sendFrame36(171, c.chatEffects ? 0 : 1);
+			break;
+		case 957:
+			c.splitChat = !c.splitChat;
+			c.getPA().sendFrame36(287, c.splitChat ? 1 : 0);
+			break;
+		case 12464:
+			c.acceptAid = !c.acceptAid;
+			c.getPA().sendFrame36(427, c.acceptAid ? 1 : 0);
+			break;
 		case 32195://1
 		case 32196:
 			c.getAgil().gnomeTicketCounter(c, "1", 2996, 1, 1000);
@@ -2778,10 +2870,65 @@ break;*/
 
 		case 21010:
 			c.takeAsNote = true;
+			c.getPA().sendFrame36(115, 1);
 			break;
 
 		case 21011:
 			c.takeAsNote = false;
+			c.getPA().sendFrame36(115, 0);
+			break;
+		case 26008:
+			c.takeAsNote = !c.takeAsNote;
+			c.getPA().sendFrame36(115, c.takeAsNote ? 1 : 0);
+			c.sendMessage(c.takeAsNote ? "Withdraw as note." : "Withdraw as item.");
+			break;
+		case 26000:
+			c.insertMode = !c.insertMode;
+			c.getPA().sendFrame36(304, c.insertMode ? 1 : 0);
+			c.sendMessage(c.insertMode ? "Insert mode." : "Swap mode.");
+			break;
+		case 5294:
+			c.sendMessage("A bank PIN is not required on this server.");
+			break;
+		case 26004:
+			if (c.isBanking) {
+				c.getBank().promptSearch();
+			}
+			break;
+		case 26012:
+			if (c.isBanking) {
+				for (int i = 0; i < c.playerItems.length; i++) {
+					if (c.playerItems[i] > 0) {
+						c.getItems().bankItem(c.playerItems[i], i, c.playerItemsN[i]);
+					}
+				}
+			}
+			break;
+		case 26016:
+			if (c.isBanking) {
+				for (int i = 0; i < c.playerEquipment.length; i++) {
+					if (c.playerEquipment[i] > 0 && c.playerEquipmentN[i] > 0) {
+						c.getItems().addItemToBank(c.playerEquipment[i], c.playerEquipmentN[i]);
+						c.getItems().replaceEquipment(i, -1);
+					}
+				}
+			}
+			break;
+		case 26020:
+			c.sendMessage("You have no beast of burden to deposit.");
+			break;
+		case 10324:
+			c.getBank().openTab(0);
+			break;
+		case 10325:
+		case 10326:
+		case 10327:
+		case 10328:
+		case 10329:
+		case 10330:
+		case 10331:
+		case 10332:
+			c.getBank().openTab(actionButtonId - 10324);
 			break;
 			//home teleports
 		case 4171:

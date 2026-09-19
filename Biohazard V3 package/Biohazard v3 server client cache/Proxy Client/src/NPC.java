@@ -13,12 +13,16 @@ public final class NPC extends Entity
 			int i1 = -1;
 			if(super.anInt1517 >= 0 && super.anInt1517 != super.anInt1511)
 				i1 = Animation.anims[super.anInt1517].anIntArray353[super.anInt1518];
-			return desc.method164(i1, k, Animation.anims[super.anim].anIntArray357);
+			return desc.method164(i1, k, Animation.anims[super.anim].anIntArray357,
+					Entity.frameId(super.anim, super.nextAnimFrame),
+					Entity.frameDuration(super.anim, super.anInt1527), super.anInt1528);
 		}
 		int l = -1;
 		if(super.anInt1517 >= 0)
 			l = Animation.anims[super.anInt1517].anIntArray353[super.anInt1518];
-		return desc.method164(-1, l, null);
+		return desc.method164(-1, l, null,
+				Entity.frameId(super.anInt1517, super.nextIdleFrame),
+				Entity.frameDuration(super.anInt1517, super.anInt1518), super.anInt1519);
 	}
 
 	public Model getRotatedModel()

@@ -41,73 +41,128 @@ public class RSApplet extends Applet implements Runnable, MouseListener, MouseMo
 
 	public void mouseWheelMoved(MouseWheelEvent event) {
 		int rotation = event.getWheelRotation();
-		handleInterfaceScrolling(event);
-		if(mouseX > 0 && mouseX < 512 && mouseY > 503 - 165 && mouseY < 503 - 25) {
+		if (client.instance == null) {
+			return;
+		}
+		int chatX = client.instance.chatDrawX();
+		int chatY = client.instance.chatDrawY();
+		int chatW = client.instance.chatWidth();
+		if (mouseX >= chatX && mouseX < chatX + chatW && mouseY >= chatY && mouseY < chatY + 165) {
 			int scrollPos = client.anInt1089;
-			scrollPos -= rotation * 30;		
-			if(scrollPos < 0)
+			scrollPos -= rotation * 30;
+			if (scrollPos < 0) {
 				scrollPos = 0;
-			if(scrollPos > client.anInt1211 - 110)
+			}
+			if (scrollPos > client.anInt1211 - 110) {
 				scrollPos = client.anInt1211 - 110;
-			if(client.anInt1089 != scrollPos) {
+			}
+			if (client.anInt1089 != scrollPos) {
 				client.anInt1089 = scrollPos;
 				client.inputTaken = true;
 			}
+			return;
 		}
-		// Camera zoom with mouse wheel
+		if (handleInterfaceScrolling(event)) {
+			return;
+		}
+		if (mouseX >= client.instance.tabDrawX() && mouseY >= client.instance.tabDrawY()) {
+			return;
+		}
+		if (overOpenInterface()) {
+			return;
+		}
 		client.adjustCameraZoom(rotation);
 	}
-	public void handleInterfaceScrolling(MouseWheelEvent event) {
+
+	public boolean handleInterfaceScrolling(MouseWheelEvent event) {
 		int rotation = event.getWheelRotation();
-		int positionX = 0;
-		int positionY = 0;
-		int width = 0;
-		int height = 0;
-		int offsetX = 0;
-		int offsetY = 0;
-		int childID = 0;
-		/* Tab interface scrolling */
 		int tabInterfaceID = client.tabInterfaceIDs[client.tabID];
-		if (tabInterfaceID != -1) {
+		if (tabInterfaceID != -1 && RSInterface.interfaceCache != null && tabInterfaceID < RSInterface.interfaceCache.length) {
 			RSInterface tab = RSInterface.interfaceCache[tabInterfaceID];
-			offsetX = 765 - 218;
-			offsetY = 503 - 298;
-			for (int index = 0; index < tab.children.length; index++) {
-				if (RSInterface.interfaceCache[tab.children[index]].scrollMax > 0) {
-					childID = index;
-					positionX = tab.childX[index];
-					positionY = tab.childY[index];
-					width = RSInterface.interfaceCache[tab.children[index]].width;
-					height = RSInterface.interfaceCache[tab.children[index]].height;
-					break;
-				}
-			}
-			if (mouseX > offsetX + positionX && mouseY > offsetY + positionY && mouseX < offsetX + positionX + width && mouseY < offsetY + positionY + height) {
-				RSInterface.interfaceCache[tab.children[childID]].scrollPosition += rotation * 30;
+			int offsetX = client.instance != null ? client.instance.tabDrawX() : 553;
+			int offsetY = client.instance != null ? client.instance.tabDrawY() : 205;
+			if (scrollInterfaceTree(tab, offsetX, offsetY, rotation)) {
 				client.tabAreaAltered = true;
 				client.needDrawTabArea = true;
+				return true;
 			}
 		}
-		/* Main interface scrolling */
-		if (client.openInterfaceID != -1) {
+		if (client.openInterfaceID != -1 && RSInterface.interfaceCache != null
+				&& client.openInterfaceID < RSInterface.interfaceCache.length) {
 			RSInterface rsi = RSInterface.interfaceCache[client.openInterfaceID];
-			offsetX = 4;
-			offsetY = 4;
-			for (int index = 0; index < rsi.children.length; index++) {
-				if (RSInterface.interfaceCache[rsi.children[index]].scrollMax > 0) {
-					childID = index;
-					positionX = rsi.childX[index];
-					positionY = rsi.childY[index];
-					width = RSInterface.interfaceCache[rsi.children[index]].width;
-					height = RSInterface.interfaceCache[rsi.children[index]].height;
-					break;
-				}
-			}
-			if (mouseX > offsetX + positionX && mouseY > offsetY + positionY && mouseX < offsetX + positionX + width && mouseY < offsetY + positionY + height) {
-				RSInterface.interfaceCache[rsi.children[childID]].scrollPosition += rotation * 30;
+			int offsetX = client.instance != null ? client.instance.interfaceMenuX() : 4;
+			int offsetY = client.instance != null ? client.instance.interfaceMenuY() : 4;
+			if (scrollInterfaceTree(rsi, offsetX, offsetY, rotation)) {
+				return true;
 			}
 		}
+		return false;
 	}
+
+	private boolean overOpenInterface() {
+		if (client.openInterfaceID == -1 || client.instance == null || RSInterface.interfaceCache == null) {
+			return false;
+		}
+		if (client.openInterfaceID < 0 || client.openInterfaceID >= RSInterface.interfaceCache.length) {
+			return false;
+		}
+		RSInterface rsi = RSInterface.interfaceCache[client.openInterfaceID];
+		if (rsi == null) {
+			return false;
+		}
+		int x = client.instance.interfaceMenuX();
+		int y = client.instance.interfaceMenuY();
+		int w = rsi.width > 0 ? rsi.width : 512;
+		int h = rsi.height > 0 ? rsi.height : 334;
+		return mouseX >= x && mouseY >= y && mouseX < x + w && mouseY < y + h;
+	}
+
+	private boolean scrollInterfaceTree(RSInterface rsi, int offsetX, int offsetY, int rotation) {
+		if (rsi == null) {
+			return false;
+		}
+		if (rsi.scrollMax > 0 && mouseOver(offsetX, offsetY, rsi.width, rsi.height)) {
+			int max = rsi.scrollMax - rsi.height;
+			if (max < 0) {
+				max = rsi.scrollMax;
+			}
+			rsi.scrollPosition += rotation * 30;
+			if (rsi.scrollPosition < 0) {
+				rsi.scrollPosition = 0;
+			}
+			if (rsi.scrollPosition > max) {
+				rsi.scrollPosition = max;
+			}
+			return true;
+		}
+		if (rsi.children == null) {
+			return false;
+		}
+		for (int index = 0; index < rsi.children.length; index++) {
+			int childId = rsi.children[index];
+			if (childId < 0 || RSInterface.interfaceCache == null || childId >= RSInterface.interfaceCache.length) {
+				continue;
+			}
+			RSInterface child = RSInterface.interfaceCache[childId];
+			if (child == null) {
+				continue;
+			}
+			int childX = offsetX + rsi.childX[index];
+			int childY = offsetY + rsi.childY[index];
+			if (rsi.scrollMax > 0) {
+				childY -= rsi.scrollPosition;
+			}
+			if (scrollInterfaceTree(child, childX, childY, rotation)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private boolean mouseOver(int x, int y, int width, int height) {
+		return mouseX > x && mouseY > y && mouseX < x + width && mouseY < y + height;
+	}
+
 	public void run()
 	{
 		getGameComponent().addMouseListener(this);
@@ -130,6 +185,9 @@ public class RSApplet extends Applet implements Runnable, MouseListener, MouseMo
 			aLongArray7[k1] = System.currentTimeMillis();
 
 		System.currentTimeMillis();
+		long lastLogicTime = System.currentTimeMillis();
+		int fpsFrames = 0;
+		long fpsSecond = lastLogicTime;
 		while(anInt4 >= 0) 
 		{
 			if(anInt4 > 0)
@@ -141,6 +199,48 @@ public class RSApplet extends Applet implements Runnable, MouseListener, MouseMo
 					return;
 				}
 			}
+			if (client.fpsUnlocked) {
+				long now = System.currentTimeMillis();
+				int ticks = 0;
+				while (now - lastLogicTime >= 20L && ticks < 8) {
+					clickMode3 = clickMode1;
+					saveClickX = clickX;
+					saveClickY = clickY;
+					aLong29 = clickTime;
+					clickMode1 = 0;
+					processGameLoop();
+					readIndex = writeIndex;
+					lastLogicTime += 20L;
+					ticks++;
+					now = System.currentTimeMillis();
+				}
+				if (ticks >= 8) {
+					lastLogicTime = now;
+				}
+				long drawStart = now;
+				processDrawing();
+				long after = System.currentTimeMillis();
+				fpsFrames++;
+				lastFrameMs = (int) (after - drawStart);
+				if (after - fpsSecond >= 1000L) {
+					fps = fpsFrames;
+					if (fps < fpsMin) {
+						fpsMin = fps;
+					}
+					if (fps > fpsMax) {
+						fpsMax = fps;
+					}
+					fpsFrames = 0;
+					fpsSecond = after;
+				}
+				if (after - fpsWindowAt > 5000L) {
+					fpsMin = fps;
+					fpsMax = fps;
+					fpsWindowAt = after;
+				}
+				continue;
+			}
+			lastLogicTime = System.currentTimeMillis();
 			int i2 = j;
 			int j2 = k;
 			j = 300;
@@ -195,6 +295,16 @@ public class RSApplet extends Applet implements Runnable, MouseListener, MouseMo
 			i1 &= 0xff;
 			if(delayTime > 0)
 				fps = (1000 * j) / (delayTime * 256);
+			if (fps < fpsMin)
+				fpsMin = fps;
+			if (fps > fpsMax)
+				fpsMax = fps;
+			if (System.currentTimeMillis() - fpsWindowAt > 5000L) {
+				fpsMin = fps;
+				fpsMax = fps;
+				fpsWindowAt = System.currentTimeMillis();
+			}
+			lastFrameMs = k;
 			processDrawing();
 			if(shouldDebug)
 			{
@@ -286,6 +396,7 @@ public class RSApplet extends Applet implements Runnable, MouseListener, MouseMo
 	{
 		int i = mouseevent.getX();
 		int j = mouseevent.getY();
+		shiftIsDown = mouseevent.isShiftDown();
 		if(gameFrame != null)
 		{
 			i -= 4;//4
@@ -295,19 +406,24 @@ public class RSApplet extends Applet implements Runnable, MouseListener, MouseMo
 		clickX = i;
 		clickY = j;
 		clickTime = System.currentTimeMillis();
-		// Java 6/7 treated Windows right-click as META; Java 8+ reports BUTTON3 instead.
-		boolean rightClick = mouseevent.getButton() == MouseEvent.BUTTON3
-				|| mouseevent.isMetaDown()
-				|| (mouseevent.getModifiersEx() & MouseEvent.BUTTON3_DOWN_MASK) != 0;
-		boolean middleClick = mouseevent.getButton() == MouseEvent.BUTTON2;
-		if(rightClick)
+		int button = mouseevent.getButton();
+		if(button == MouseEvent.BUTTON1)
+		{
+			clickMode1 = 1;
+			clickMode2 = 1;
+		} else if(button == MouseEvent.BUTTON2)
+		{
+			mouseWheelDown = true;
+			mouseWheelX = i;
+			mouseWheelY = j;
+		} else if(button == MouseEvent.BUTTON3)
 		{
 			clickMode1 = 2;
 			clickMode2 = 2;
-		} else if(middleClick)
+		} else if(mouseevent.isMetaDown())
 		{
-			clickMode1 = 3; // Middle mouse button for camera rotation
-			clickMode2 = 3;
+			clickMode1 = 2;
+			clickMode2 = 2;
 		} else
 		{
 			clickMode1 = 1;
@@ -319,7 +435,23 @@ public class RSApplet extends Applet implements Runnable, MouseListener, MouseMo
 	public final void mouseReleased(MouseEvent mouseevent)
 	{
 		idleTime = 0;
-		clickMode2 = 0;
+		int button = mouseevent.getButton();
+		if(button == MouseEvent.BUTTON1)
+		{
+			if(clickMode2 == 1)
+				clickMode2 = 0;
+		} else if(button == MouseEvent.BUTTON3)
+		{
+			if(clickMode2 == 2)
+				clickMode2 = 0;
+		} else if(button == MouseEvent.BUTTON2)
+		{
+			mouseWheelDown = false;
+		} else
+		{
+			clickMode2 = 0;
+			mouseWheelDown = false;
+		}
 	}
 
 	public final void mouseClicked(MouseEvent mouseevent)
@@ -345,6 +477,14 @@ public class RSApplet extends Applet implements Runnable, MouseListener, MouseMo
             i -= 4;
             j -= 22;
         }
+        if (mouseWheelDown) {
+            int dx = mouseWheelX - i;
+            int dy = mouseWheelY - j;
+            mouseWheelDragged(dx, -dy);
+            mouseWheelX = i;
+            mouseWheelY = j;
+            return;
+        }
         if (System.currentTimeMillis() - clickTime >= 250L
             || Math.abs(saveClickX - i) > 5 || Math.abs(saveClickY - j) > 5) {
             idleTime = 0;
@@ -352,6 +492,9 @@ public class RSApplet extends Applet implements Runnable, MouseListener, MouseMo
             mouseY = j;
         }
     }
+
+	void mouseWheelDragged(int i, int j) {
+	}
  public final void mouseMoved(MouseEvent mouseevent)
     {
         int i = mouseevent.getX();
@@ -374,7 +517,24 @@ public class RSApplet extends Applet implements Runnable, MouseListener, MouseMo
 		idleTime = 0;
 		int i = keyevent.getKeyCode();
 		int j = keyevent.getKeyChar();
-		if (i == KeyEvent.VK_ESCAPE) {
+		if (i == KeyEvent.VK_SHIFT) {
+			shiftIsDown = true;
+		}
+		if (KeyRemapper.isCapturing()) {
+			KeyRemapper.captureKey(i);
+			return;
+		}
+		boolean remap = client.keyRemapping;
+		boolean typing = client.chatTypeFocused || (client.instance != null && client.instance.isTypingOverlay());
+		if (remap && !typing) {
+			int tab = KeyRemapper.tabForKey(i);
+			if (tab >= 0) {
+				client.setTab(tab);
+				return;
+			}
+		}
+		if (!remap) {
+		    if (i == KeyEvent.VK_ESCAPE) {
 			client.setTab(3);
 		    }
 		    if (i == KeyEvent.VK_F1) {
@@ -410,9 +570,10 @@ public class RSApplet extends Applet implements Runnable, MouseListener, MouseMo
 		    if (i == KeyEvent.VK_F11) {
 			client.setTab(12);
 		    }
-		    if (i == KeyEvent.VK_F12) {
+		if (i == KeyEvent.VK_F12) {
 			client.setTab(13);
 		    }
+		}
 		if(j < 30)
 			j = 0;
 		if(i == 37)
@@ -423,6 +584,16 @@ public class RSApplet extends Applet implements Runnable, MouseListener, MouseMo
 			j = 3;
 		if(i == 40)
 			j = 4;
+		if (remap && client.wasdCamera && !typing) {
+			if (i == KeyEvent.VK_A)
+				j = 1;
+			else if (i == KeyEvent.VK_D)
+				j = 2;
+			else if (i == KeyEvent.VK_W)
+				j = 3;
+			else if (i == KeyEvent.VK_S)
+				j = 4;
+		}
 		if(i == 17)
 			j = 5;
 		if(i == 8)
@@ -457,6 +628,9 @@ public class RSApplet extends Applet implements Runnable, MouseListener, MouseMo
 		idleTime = 0;
 		int i = keyevent.getKeyCode();
 		char c = keyevent.getKeyChar();
+		if (i == KeyEvent.VK_SHIFT) {
+			shiftIsDown = false;
+		}
 		if(c < '\036')
 			c = '\0';
 		if(i == 37)
@@ -467,6 +641,16 @@ public class RSApplet extends Applet implements Runnable, MouseListener, MouseMo
 			c = '\003';
 		if(i == 40)
 			c = '\004';
+		if(client.keyRemapping && client.wasdCamera) {
+			if(i == KeyEvent.VK_A)
+				c = '\001';
+			if(i == KeyEvent.VK_D)
+				c = '\002';
+			if(i == KeyEvent.VK_W)
+				c = '\003';
+			if(i == KeyEvent.VK_S)
+				c = '\004';
+		}
 		if(i == 17)
 			c = '\005';
 		if(i == 8)
@@ -627,6 +811,8 @@ public class RSApplet extends Applet implements Runnable, MouseListener, MouseMo
 		awtFocus = true;
 		keyArray = new int[128];
 		charQueue = new int[128];
+		fpsMin = 999;
+		fpsMax = 0;
 	}
 
 	private int anInt4;
@@ -634,6 +820,11 @@ public class RSApplet extends Applet implements Runnable, MouseListener, MouseMo
 	int minDelay;
 	private final long[] aLongArray7;
 	int fps;
+	int fpsMin;
+	int fpsMax;
+	int lastFrameMs;
+	long fpsWindowAt;
+	static boolean shiftIsDown;
 	boolean shouldDebug;
 	int myWidth;
 	int myHeight;
@@ -654,6 +845,9 @@ public class RSApplet extends Applet implements Runnable, MouseListener, MouseMo
 	int saveClickX;
 	int saveClickY;
 	long aLong29;
+	boolean mouseWheelDown;
+	int mouseWheelX;
+	int mouseWheelY;
 	final int[] keyArray;
 	private final int[] charQueue;
 	private int readIndex;

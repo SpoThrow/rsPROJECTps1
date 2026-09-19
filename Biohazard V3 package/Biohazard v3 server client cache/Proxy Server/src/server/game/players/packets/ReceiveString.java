@@ -88,16 +88,11 @@ public class ReceiveString implements PacketType {
 			}
 			break;
 		case 4:
-			// POS search - handle item name search
 			if (player.posSearchingItem) {
-				System.out.println("[POS Search Debug] ReceiveString - Item mode, input: '" + string + "'");
 				player.posSearchingItem = false;
 				player.posSearchingPlayer = false;
 				player.getPA().searchPOSByItemName(string);
-			}
-			// POS search - handle player name search
-			else if (player.posSearchingPlayer) {
-				System.out.println("[POS Search Debug] ReceiveString - Player mode, input: '" + string + "'");
+			} else if (player.posSearchingPlayer) {
 				player.posSearchingItem = false;
 				player.posSearchingPlayer = false;
 				player.getPA().searchPOSByPlayer(string);

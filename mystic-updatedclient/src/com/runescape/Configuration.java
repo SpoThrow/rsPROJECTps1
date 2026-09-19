@@ -15,11 +15,16 @@ public final class Configuration {
 	 * Sends client-related debug messages to the client output stream
 	 */
 	public static boolean client_debug = true;
+
+	/** Temporary: log in as this account once the title screen is ready. */
+	public static boolean AUTO_LOGIN = false;
+	public static String AUTO_LOGIN_USER = "mystic1";
+	public static String AUTO_LOGIN_PASS = "mystic1";
 	
 	/**
 	 * Enables debug output for network connections
 	 */
-	public static boolean network_debug = true;
+	public static boolean network_debug = false;
 
 	/**
 	 * The address of the server that the client will be connecting to
@@ -39,7 +44,7 @@ public final class Configuration {
 	/**
 	 * Toggles a security feature called RSA to prevent packet sniffers
 	 */
-	public static final boolean ENABLE_RSA = false;
+	public static final boolean ENABLE_RSA = true;
 
 	/**
 	 * A string which indicates the Client's name.

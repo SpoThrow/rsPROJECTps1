@@ -4,6 +4,13 @@
 
 final class WorldController {
 
+	public static final int VIEW = 75;
+	public static final int VIEW_SPAN = VIEW * 2;
+	public static final int VIEW_TABLE = VIEW_SPAN + 1;
+	public static final int VIEW_PAD = VIEW + 1;
+	public static final int VIEW_CULL = VIEW_PAD * 2 + 1;
+	public static final int FAR_PLANE = 24000;
+
 	public WorldController(int ai[][][])
 	{
 		int i = 104;//was parameter
@@ -826,7 +833,7 @@ final class WorldController {
 		anInt498 = l;
 		anInt493 = k / 2;
 		anInt494 = l / 2;
-		boolean aflag[][][][] = new boolean[9][32][53][53];
+		boolean aflag[][][][] = new boolean[9][32][VIEW_CULL][VIEW_CULL];
 		for(int i1 = 128; i1 <= 384; i1 += 32)
 		{
 			for(int j1 = 0; j1 < 2048; j1 += 64)
@@ -837,9 +844,9 @@ final class WorldController {
 				anInt461 = Model.modelIntArray2[j1];
 				int l1 = (i1 - 128) / 32;
 				int j2 = j1 / 64;
-				for(int l2 = -26; l2 <= 26; l2++)
+				for(int l2 = -VIEW_PAD; l2 <= VIEW_PAD; l2++)
 				{
-					for(int j3 = -26; j3 <= 26; j3++)
+					for(int j3 = -VIEW_PAD; j3 <= VIEW_PAD; j3++)
 					{
 						int k3 = l2 * 128;
 						int i4 = j3 * 128;
@@ -852,7 +859,7 @@ final class WorldController {
 							break;
 						}
 
-						aflag[l1][j2][l2 + 25 + 1][j3 + 25 + 1] = flag2;
+						aflag[l1][j2][l2 + VIEW + 1][j3 + VIEW + 1] = flag2;
 					}
 
 				}
@@ -865,9 +872,9 @@ final class WorldController {
 		{
 			for(int i2 = 0; i2 < 32; i2++)
 			{
-				for(int k2 = -25; k2 < 25; k2++)
+				for(int k2 = -VIEW; k2 < VIEW; k2++)
 				{
-					for(int i3 = -25; i3 < 25; i3++)
+					for(int i3 = -VIEW; i3 < VIEW; i3++)
 					{
 						boolean flag1 = false;
 label0:
@@ -875,18 +882,18 @@ label0:
 						{
 							for(int j4 = -1; j4 <= 1; j4++)
 							{
-								if(aflag[k1][i2][k2 + l3 + 25 + 1][i3 + j4 + 25 + 1])
+								if(aflag[k1][i2][k2 + l3 + VIEW + 1][i3 + j4 + VIEW + 1])
 									flag1 = true;
 								else
-								if(aflag[k1][(i2 + 1) % 31][k2 + l3 + 25 + 1][i3 + j4 + 25 + 1])
+								if(aflag[k1][(i2 + 1) % 31][k2 + l3 + VIEW + 1][i3 + j4 + VIEW + 1])
 									flag1 = true;
 								else
-								if(aflag[k1 + 1][i2][k2 + l3 + 25 + 1][i3 + j4 + 25 + 1])
+								if(aflag[k1 + 1][i2][k2 + l3 + VIEW + 1][i3 + j4 + VIEW + 1])
 								{
 									flag1 = true;
 								} else
 								{
-									if(!aflag[k1 + 1][(i2 + 1) % 31][k2 + l3 + 25 + 1][i3 + j4 + 25 + 1])
+									if(!aflag[k1 + 1][(i2 + 1) % 31][k2 + l3 + VIEW + 1][i3 + j4 + VIEW + 1])
 										continue;
 									flag1 = true;
 								}
@@ -895,7 +902,7 @@ label0:
 
 						}
 
-						aBooleanArrayArrayArrayArray491[k1][i2][k2 + 25][i3 + 25] = flag1;
+						aBooleanArrayArrayArrayArray491[k1][i2][k2 + VIEW][i3 + VIEW] = flag1;
 					}
 
 				}
@@ -912,7 +919,7 @@ label0:
 		int i1 = j * anInt461 - k * anInt460 >> 16;
 		int j1 = i * anInt458 + i1 * anInt459 >> 16;
 		int k1 = i * anInt459 - i1 * anInt458 >> 16;
-		if(j1 < 50 || j1 > 3500)
+		if(j1 < 50 || j1 > FAR_PLANE)
 			return false;
 		int l1 = anInt493 + (l << 9) / j1;
 		int i2 = anInt494 + (k1 << 9) / j1;
@@ -952,21 +959,29 @@ label0:
 		anInt453 = i / 128;
 		anInt454 = j / 128;
 		anInt447 = i1;
-		anInt449 = anInt453 - 25;
+		hoverTileX = -1;
+		hoverTileY = -1;
+		int radius = client.drawDistance;
+		if(radius < 25)
+			radius = 25;
+		if(radius > VIEW)
+			radius = VIEW;
+		anInt449 = anInt453 - radius;
 		if(anInt449 < 0)
 			anInt449 = 0;
-		anInt451 = anInt454 - 25;
+		anInt451 = anInt454 - radius;
 		if(anInt451 < 0)
 			anInt451 = 0;
-		anInt450 = anInt453 + 25;
+		anInt450 = anInt453 + radius;
 		if(anInt450 > anInt438)
 			anInt450 = anInt438;
-		anInt452 = anInt454 + 25;
+		anInt452 = anInt454 + radius;
 		if(anInt452 > anInt439)
 			anInt452 = anInt439;
 		method319();
 		anInt446 = 0;
-		for(int k1 = anInt442; k1 < anInt437; k1++)
+		int planeEnd = anInt437;
+		for(int k1 = anInt442; k1 < planeEnd; k1++)
 		{
 			Ground aclass30_sub3[][] = groundArray[k1];
 			for(int i2 = anInt449; i2 < anInt450; i2++)
@@ -975,7 +990,7 @@ label0:
 				{
 					Ground class30_sub3 = aclass30_sub3[i2][k2];
 					if(class30_sub3 != null)
-						if(class30_sub3.anInt1321 > i1 || !aBooleanArrayArray492[(i2 - anInt453) + 25][(k2 - anInt454) + 25] && anIntArrayArrayArray440[k1][i2][k2] - l < 2000)
+						if(class30_sub3.anInt1321 > i1 || !aBooleanArrayArray492[(i2 - anInt453) + VIEW][(k2 - anInt454) + VIEW] && anIntArrayArrayArray440[k1][i2][k2] - l < 2000)
 						{
 							class30_sub3.aBoolean1322 = false;
 							class30_sub3.aBoolean1323 = false;
@@ -993,16 +1008,16 @@ label0:
 
 		}
 
-		for(int l1 = anInt442; l1 < anInt437; l1++)
+		for(int l1 = anInt442; l1 < planeEnd; l1++)
 		{
 			Ground aclass30_sub3_1[][] = groundArray[l1];
-			for(int l2 = -25; l2 <= 0; l2++)
+			for(int l2 = -radius; l2 <= 0; l2++)
 			{
 				int i3 = anInt453 + l2;
 				int k3 = anInt453 - l2;
 				if(i3 >= anInt449 || k3 < anInt450)
 				{
-					for(int i4 = -25; i4 <= 0; i4++)
+					for(int i4 = -radius; i4 <= 0; i4++)
 					{
 						int k4 = anInt454 + i4;
 						int i5 = anInt454 - i4;
@@ -1048,16 +1063,16 @@ label0:
 
 		}
 
-		for(int j2 = anInt442; j2 < anInt437; j2++)
+		for(int j2 = anInt442; j2 < planeEnd; j2++)
 		{
 			Ground aclass30_sub3_2[][] = groundArray[j2];
-			for(int j3 = -25; j3 <= 0; j3++)
+			for(int j3 = -radius; j3 <= 0; j3++)
 			{
 				int l3 = anInt453 + j3;
 				int j4 = anInt453 - j3;
 				if(l3 >= anInt449 || j4 < anInt450)
 				{
-					for(int l4 = -25; l4 <= 0; l4++)
+					for(int l4 = -radius; l4 <= 0; l4++)
 					{
 						int j5 = anInt454 + l4;
 						int k5 = anInt454 - l4;
@@ -1178,7 +1193,7 @@ label0:
 					for(int i2 = 0; i2 < class30_sub3_7.anInt1317; i2++)
 					{
 						Object5 class28 = class30_sub3_7.obj5Array[i2];
-						if(class28 != null)
+						if(class28 != null && !isHiddenRoof(class28))
 							class28.aClass30_Sub2_Sub4_521.method443(class28.anInt522, anInt458, anInt459, anInt460, anInt461, class28.anInt519 - anInt455, class28.anInt518 - anInt456, class28.anInt520 - anInt457, class28.uid);
 					}
 
@@ -1432,7 +1447,7 @@ label0:
 							break;
 						Object5 class28_3 = aClass28Array462[l3];
 						class28_3.anInt528 = anInt448;
-						if(!method323(l, class28_3.anInt523, class28_3.anInt524, class28_3.anInt525, class28_3.anInt526, class28_3.aClass30_Sub2_Sub4_521.modelHeight))
+						if(!isHiddenRoof(class28_3) && !method323(l, class28_3.anInt523, class28_3.anInt524, class28_3.anInt525, class28_3.anInt526, class28_3.aClass30_Sub2_Sub4_521.modelHeight))
 							class28_3.aClass30_Sub2_Sub4_521.method443(class28_3.anInt522, anInt458, anInt459, anInt460, anInt461, class28_3.anInt519 - anInt455, class28_3.anInt518 - anInt456, class28_3.anInt520 - anInt457, class28_3.uid);
 						for(int k7 = class28_3.anInt523; k7 <= class28_3.anInt524; k7++)
 						{
@@ -1619,6 +1634,7 @@ label0:
 		k4 = l4;
 		if(j3 < 50)
 			return;
+		Fog.sceneDepth = (k2 + j2 + k3 + j3) / 4;
 		int i5 = Texture.textureInt1 + (i2 << 9) / k2;
 		int j5 = Texture.textureInt2 + (l3 << 9) / k2;
 		int k5 = Texture.textureInt1 + (i3 << 9) / j2;
@@ -1635,6 +1651,11 @@ label0:
 			{
 				anInt470 = j1;
 				anInt471 = k1;
+			}
+			if((client.tileMarkers || GroundMarkers.enabled) && method318(hoverMouseX, hoverMouseY, j6, l6, l5, i6, k6, k5))
+			{
+				hoverTileX = j1;
+				hoverTileY = k1;
 			}
 			if(class43.anInt720 == -1)
 			{
@@ -1661,6 +1682,11 @@ label0:
 				anInt470 = j1;
 				anInt471 = k1;
 			}
+			if((client.tileMarkers || GroundMarkers.enabled) && method318(hoverMouseX, hoverMouseY, j5, l5, l6, i5, k5, k6))
+			{
+				hoverTileX = j1;
+				hoverTileY = k1;
+			}
 			if(class43.anInt720 == -1)
 			{
 				if(class43.anInt716 != 0xbc614e)
@@ -1672,11 +1698,25 @@ label0:
 				if(!lowMem)
 				{
 					Texture.method378(j5, l5, l6, i5, k5, k6, class43.anInt716, class43.anInt717, class43.anInt719, i2, i3, l1, l3, i4, k4, k2, j2, j3, class43.anInt720);
+					drawTileOverlays(j1, k1, i5, j5, k5, l5, i6, j6, k6, l6);
 					return;
 				}
 				int j7 = anIntArray485[class43.anInt720];
 				Texture.method374(j5, l5, l6, i5, k5, k6, method317(j7, class43.anInt716), method317(j7, class43.anInt717), method317(j7, class43.anInt719));
 			}
+		}
+		drawTileOverlays(j1, k1, i5, j5, k5, l5, i6, j6, k6, l6);
+	}
+
+	private void drawTileOverlays(int tileX, int tileY, int x1, int y1, int x2, int y2, int x3, int y3, int x4, int y4) {
+		if(client.tileMarkers && tileX == hoverTileX && tileY == hoverTileY)
+			drawTileOverlay(x1, y1, x2, y2, x3, y3, x4, y4, false, 0xC4C4C4);
+		if(client.tileMarkers && client.walkTileX != 0 && tileX == client.walkTileX && tileY == client.walkTileY)
+			drawTileOverlay(x1, y1, x2, y2, x3, y3, x4, y4, true, 0xE8E8E8);
+		if(GroundMarkers.enabled) {
+			int color = GroundMarkers.colorLocal(tileX, tileY, client.scenePlane);
+			if(color != 0)
+				drawTileOverlay(x1, y1, x2, y2, x3, y3, x4, y4, true, color);
 		}
 	}
 
@@ -1707,6 +1747,13 @@ label0:
 			Class40.anIntArray689[l1] = Texture.textureInt2 + (k2 << 9) / i3;
 		}
 
+		int dx = i - anInt453;
+		if(dx < 0)
+			dx = -dx;
+		int dy = i1 - anInt454;
+		if(dy < 0)
+			dy = -dy;
+		Fog.sceneDepth = (dx + dy) * 96 + 300;
 		Texture.anInt1465 = 0;
 		k1 = class40.anIntArray679.length;
 		for(int j2 = 0; j2 < k1; j2++)
@@ -1727,6 +1774,11 @@ label0:
 				{
 					anInt470 = i;
 					anInt471 = i1;
+				}
+				if((client.tileMarkers || GroundMarkers.enabled) && method318(hoverMouseX, hoverMouseY, l4, i5, j5, i4, j4, k4))
+				{
+					hoverTileX = i;
+					hoverTileY = i1;
 				}
 				if(class40.anIntArray682 == null || class40.anIntArray682[j2] == -1)
 				{
@@ -1761,6 +1813,84 @@ label0:
 		return (j & 0xff80) + k;
 	}
 
+	private boolean isHiddenRoof(Object5 object) {
+		if(!client.hideRoofs || object == null)
+			return false;
+		int type = object.aByte530 & 0x3f;
+		return type >= 12 && type <= 21;
+	}
+
+	private void drawTileOverlay(int x1, int y1, int x2, int y2, int x3, int y3, int x4, int y4, boolean outline, int color) {
+		int save = Texture.anInt1465;
+		int saveZ = Fog.sceneDepth;
+		boolean saveClip = Texture.aBoolean1462;
+		Fog.sceneDepth = 0;
+		Texture.aBoolean1462 = true;
+		if(outline) {
+			Texture.anInt1465 = 0;
+			drawOverlayQuad(x1, y1, x2, y2, x3, y3, x4, y4, color);
+		} else {
+			Texture.anInt1465 = 170;
+			if(x3 != x4 || y3 != y4)
+				Texture.method376(y3, y4, y2, x3, x4, x2, color);
+			Texture.method376(y1, y2, y4, x1, x2, x4, color);
+		}
+		Texture.anInt1465 = save;
+		Texture.aBoolean1462 = saveClip;
+		Fog.sceneDepth = saveZ;
+	}
+
+	private void drawOverlayQuad(int x1, int y1, int x2, int y2, int x3, int y3, int x4, int y4, int color) {
+		drawOverlayLine(x1, y1, x2, y2, color);
+		drawOverlayLine(x2, y2, x3, y3, color);
+		drawOverlayLine(x3, y3, x4, y4, color);
+		drawOverlayLine(x4, y4, x1, y1, color);
+		drawOverlayLine(x1 + 1, y1, x2 + 1, y2, color);
+		drawOverlayLine(x2, y2 + 1, x3, y3 + 1, color);
+		drawOverlayLine(x3 - 1, y3, x4 - 1, y4, color);
+		drawOverlayLine(x4, y4 - 1, x1, y1 - 1, color);
+	}
+
+	private void drawOverlayLine(int x0, int y0, int x1, int y1, int color) {
+		int dx = x1 - x0;
+		int dy = y1 - y0;
+		if(dx < 0)
+			dx = -dx;
+		if(dy < 0)
+			dy = -dy;
+		int sx = x0 < x1 ? 1 : -1;
+		int sy = y0 < y1 ? 1 : -1;
+		int err = dx - dy;
+		int x = x0;
+		int y = y0;
+		int[] pixels = DrawingArea.pixels;
+		if(pixels == null)
+			return;
+		int width = DrawingArea.width;
+		int left = DrawingArea.topX;
+		int right = DrawingArea.bottomX;
+		int top = DrawingArea.topY;
+		int bottom = DrawingArea.bottomY;
+		while(true) {
+			if(x >= left && x < right && y >= top && y < bottom) {
+				int i = y * width + x;
+				if(i >= 0 && i < pixels.length)
+					pixels[i] = color;
+			}
+			if(x == x1 && y == y1)
+				break;
+			int e2 = err << 1;
+			if(e2 > -dy) {
+				err -= dy;
+				x += sx;
+			}
+			if(e2 < dx) {
+				err += dx;
+				y += sy;
+			}
+		}
+	}
+
 	private boolean method318(int i, int j, int k, int l, int i1, int j1, int k1,
 			int l1)
 	{
@@ -1788,15 +1918,15 @@ label0:
 			Class47 class47 = aclass47[k];
 			if(class47.anInt791 == 1)
 			{
-				int l = (class47.anInt787 - anInt453) + 25;
-				if(l < 0 || l > 50)
+				int l = (class47.anInt787 - anInt453) + VIEW;
+				if(l < 0 || l > VIEW_SPAN)
 					continue;
-				int k1 = (class47.anInt789 - anInt454) + 25;
+				int k1 = (class47.anInt789 - anInt454) + VIEW;
 				if(k1 < 0)
 					k1 = 0;
-				int j2 = (class47.anInt790 - anInt454) + 25;
-				if(j2 > 50)
-					j2 = 50;
+				int j2 = (class47.anInt790 - anInt454) + VIEW;
+				if(j2 > VIEW_SPAN)
+					j2 = VIEW_SPAN;
 				boolean flag = false;
 				while(k1 <= j2) 
 					if(aBooleanArrayArray492[l][k1++])
@@ -1826,15 +1956,15 @@ label0:
 			}
 			if(class47.anInt791 == 2)
 			{
-				int i1 = (class47.anInt789 - anInt454) + 25;
-				if(i1 < 0 || i1 > 50)
+				int i1 = (class47.anInt789 - anInt454) + VIEW;
+				if(i1 < 0 || i1 > VIEW_SPAN)
 					continue;
-				int l1 = (class47.anInt787 - anInt453) + 25;
+				int l1 = (class47.anInt787 - anInt453) + VIEW;
 				if(l1 < 0)
 					l1 = 0;
-				int k2 = (class47.anInt788 - anInt453) + 25;
-				if(k2 > 50)
-					k2 = 50;
+				int k2 = (class47.anInt788 - anInt453) + VIEW;
+				if(k2 > VIEW_SPAN)
+					k2 = VIEW_SPAN;
 				boolean flag1 = false;
 				while(l1 <= k2) 
 					if(aBooleanArrayArray492[l1++][i1])
@@ -1866,20 +1996,20 @@ label0:
 				int j1 = class47.anInt796 - anInt456;
 				if(j1 > 128)
 				{
-					int i2 = (class47.anInt789 - anInt454) + 25;
+					int i2 = (class47.anInt789 - anInt454) + VIEW;
 					if(i2 < 0)
 						i2 = 0;
-					int l2 = (class47.anInt790 - anInt454) + 25;
-					if(l2 > 50)
-						l2 = 50;
+					int l2 = (class47.anInt790 - anInt454) + VIEW;
+					if(l2 > VIEW_SPAN)
+						l2 = VIEW_SPAN;
 					if(i2 <= l2)
 					{
-						int i3 = (class47.anInt787 - anInt453) + 25;
+						int i3 = (class47.anInt787 - anInt453) + VIEW;
 						if(i3 < 0)
 							i3 = 0;
-						int l3 = (class47.anInt788 - anInt453) + 25;
-						if(l3 > 50)
-							l3 = 50;
+						int l3 = (class47.anInt788 - anInt453) + VIEW;
+						if(l3 > VIEW_SPAN)
+							l3 = VIEW_SPAN;
 						boolean flag2 = false;
 label0:
 						for(int i4 = i3; i4 <= l3; i4++)
@@ -2192,6 +2322,10 @@ label0:
 	private static int anInt469;
 	public static int anInt470 = -1;
 	public static int anInt471 = -1;
+	public static int hoverMouseX;
+	public static int hoverMouseY;
+	public static int hoverTileX = -1;
+	public static int hoverTileY = -1;
 	private static final int anInt472;
 	private static int[] anIntArray473;
 	private static Class47[][] aClass47ArrayArray474;
@@ -2284,7 +2418,7 @@ label0:
 			9, 13, 0, 4, 8, 12
 		}
 	};
-	private static boolean[][][][] aBooleanArrayArrayArrayArray491 = new boolean[8][32][51][51];
+	private static boolean[][][][] aBooleanArrayArrayArrayArray491 = new boolean[8][32][VIEW_TABLE][VIEW_TABLE];
 	private static boolean[][] aBooleanArrayArray492;
 	private static int anInt493;
 	private static int anInt494;

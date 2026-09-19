@@ -12,6 +12,9 @@ public class InterfaceProject {
     private String spriteRootDirectory;
     private String cachePath;
     private String interfacesFilePath;
+    private String sourceMethodName = "";
+    private boolean clientLinked;
+    private List<LoopBoundsBlock> loopBlocks = new ArrayList<>();
     private int offsetX = 12;  // Default X offset for game display
     private int offsetY = 14;  // Default Y offset for game display
 
@@ -54,11 +57,23 @@ public class InterfaceProject {
         components.add(component);
     }
 
+    /** Keep parsed widget IDs and child slots. Used when loading Interfaces.java. */
+    public void addExistingComponent(InterfaceComponent component) {
+        if (component.getParentInterfaceId() == 0) {
+            component.setParentInterfaceId(interfaceId);
+        }
+        components.add(component);
+        if (component.getId() >= nextComponentId) {
+            nextComponentId = component.getId() + 1;
+        }
+    }
+
     public void removeComponent(InterfaceComponent component) {
         components.remove(component);
-        // Re-index remaining components
-        for (int i = 0; i < components.size(); i++) {
-            components.get(i).setChildIndex(i);
+        if (!clientLinked) {
+            for (int i = 0; i < components.size(); i++) {
+                components.get(i).setChildIndex(i);
+            }
         }
     }
 
@@ -116,5 +131,29 @@ public class InterfaceProject {
 
     public void setInterfacesFilePath(String interfacesFilePath) {
         this.interfacesFilePath = interfacesFilePath;
+    }
+
+    public String getSourceMethodName() {
+        return sourceMethodName;
+    }
+
+    public void setSourceMethodName(String sourceMethodName) {
+        this.sourceMethodName = sourceMethodName == null ? "" : sourceMethodName;
+    }
+
+    public boolean isClientLinked() {
+        return clientLinked;
+    }
+
+    public void setClientLinked(boolean clientLinked) {
+        this.clientLinked = clientLinked;
+    }
+
+    public List<LoopBoundsBlock> getLoopBlocks() {
+        return loopBlocks;
+    }
+
+    public void setLoopBlocks(List<LoopBoundsBlock> loopBlocks) {
+        this.loopBlocks = loopBlocks == null ? new ArrayList<>() : loopBlocks;
     }
 }

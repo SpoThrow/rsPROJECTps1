@@ -50,7 +50,7 @@ public class ProjectSerializer {
                 JsonObject compJson = componentsArray.get(i).getAsJsonObject();
                 ComponentType type = ComponentType.valueOf(compJson.get("type").getAsString());
                 InterfaceComponent comp = deserializeComponent(compJson, type);
-                project.addComponent(comp);
+                project.addExistingComponent(comp);
             }
             
             return project;

@@ -15,6 +15,7 @@ public class PrivateMessage implements OutgoingPacket {
 	@Override
 	public void buildPacket(ByteBuffer buf) {
 		buf.putOpcode(126);
+		buf.putByte(8 + msg.length() + 1);
 		buf.putLong(friend);
 		buf.putString(msg);
 	}

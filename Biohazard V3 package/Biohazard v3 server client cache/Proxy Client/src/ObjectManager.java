@@ -99,11 +99,12 @@ try {
                 anIntArray128[k5] = 0;
             }
 
-            for(int l6 = -5; l6 < anInt146 + 5; l6++)
+            int blendR = client.tileBlending ? 5 : 1;
+            for(int l6 = -blendR; l6 < anInt146 + blendR; l6++)
             {
                 for(int i8 = 0; i8 < anInt147; i8++)
                 {
-                    int k9 = l6 + 5;
+                    int k9 = l6 + blendR;
                     if(k9 >= 0 && k9 < anInt146)
                     {
                         int l12 = aByteArrayArrayArray142[l][k9][i8] & 0xff;
@@ -117,7 +118,7 @@ try {
                             anIntArray128[i8]++;
                         }
                     }
-                    int i13 = l6 - 5;
+                    int i13 = l6 - blendR;
                     if(i13 >= 0 && i13 < anInt146)
                     {
                         int i14 = aByteArrayArrayArray142[l][i13][i8] & 0xff;
@@ -140,9 +141,9 @@ try {
                     int j14 = 0;
                     int k15 = 0;
                     int k16 = 0;
-                    for(int k17 = -5; k17 < anInt147 + 5; k17++)
+                    for(int k17 = -blendR; k17 < anInt147 + blendR; k17++)
                     {
-                        int j18 = k17 + 5;
+                        int j18 = k17 + blendR;
                         if(j18 >= 0 && j18 < anInt147)
                         {
                             l9 += anIntArray124[j18];
@@ -151,7 +152,7 @@ try {
                             k15 += anIntArray127[j18];
                             k16 += anIntArray128[j18];
                         }
-                        int k18 = k17 - 5;
+                        int k18 = k17 - blendR;
                         if(k18 >= 0 && k18 < anInt147)
                         {
                             l9 -= anIntArray124[k18];
@@ -180,18 +181,38 @@ try {
                                 int k21 = -1;
                                 if(l18 > 0)
                                 {
-                                    int l21 = (l9 * 256) / k15;
-                                    int j22 = j13 / k16;
-                                    int l22 = j14 / k16;
-                                    j21 = method177(l21, j22, l22);
-                                    /*l21 = l21 + anInt123 & 0xff;
-                                    l22 += anInt133;
+                                    int l21;
+                                    int j22;
+                                    int l22;
+                                    if(!client.tileBlending || k15 == 0 || k16 == 0)
+                                    {
+                                        Flo floLocal = Flo.cache[l18 - 1];
+                                        if(floLocal.anInt398 == 0)
+                                            l21 = 0;
+                                        else
+                                            l21 = (floLocal.anInt397 * 256) / floLocal.anInt398;
+                                        j22 = floLocal.anInt395;
+                                        l22 = floLocal.anInt396;
+                                    } else
+                                    {
+                                        l21 = (l9 * 256) / k15;
+                                        j22 = j13 / k16;
+                                        l22 = j14 / k16;
+                                    }
+                                    if(l21 < 0)
+                                        l21 = 0;
+                                    else if(l21 > 255)
+                                        l21 = 255;
+                                    if(j22 < 0)
+                                        j22 = 0;
+                                    else if(j22 > 255)
+                                        j22 = 255;
                                     if(l22 < 0)
                                         l22 = 0;
-                                    else
-                                    if(l22 > 255)
-                                        l22 = 255;*/
-                                    k21 = method177(l21, j22, l22);
+                                    else if(l22 > 255)
+                                        l22 = 255;
+                                    j21 = method177(l21, j22, l22);
+                                    k21 = j21;
                                 }
                                 if(l > 0)
                                 {
@@ -205,7 +226,11 @@ try {
                                 }
                                 int i22 = 0;
                                 if(j21 != -1)
-                                    i22 = Texture.anIntArray1482[method187(k21, 96)];
+                                {
+                                    int pal = method187(k21, 96);
+                                    if(pal >= 0 && pal < Texture.anIntArray1482.length)
+                                        i22 = Texture.anIntArray1482[pal];
+                                }
                                 if(i19 == 0)
                                 {
                                     worldController.method279(l, l6, k17, 0, 0, -1, j19, k19, l19, i20, method187(j21, j20), method187(j21, k20), method187(j21, l20), method187(j21, i21), 0, 0, 0, 0, i22, 0);
@@ -245,12 +270,10 @@ try {
 										}
                                 worldController.method279(l, l6, k17, k22,
                                         byte4, i23, j19, k19, l19, i20,
-                                        method187(j21, j20), method187(j21,
-                                                k20), method187(j21, l20),
-                                                method187(j21, i21), method185(j23,
-                                                        j20), method185(j23, k20),
-                                                        method185(j23, l20), method185(j23,
-                                                                i21), i22, k23);
+                                        method187(j21, j20), method187(j21, k20),
+                                        method187(j21, l20), method187(j21, i21),
+                                        method185(j23, j20), method185(j23, k20),
+                                        method185(j23, l20), method185(j23, i21), i22, k23);
                                 }
                                else { }
                                 }
@@ -842,6 +865,18 @@ label0:
 
     private int method177(int i, int j, int k)
     {
+        if(i < 0)
+            i = 0;
+        else if(i > 255)
+            i = 255;
+        if(j < 0)
+            j = 0;
+        else if(j > 255)
+            j = 255;
+        if(k < 0)
+            k = 0;
+        else if(k > 255)
+            k = 255;
         if(k > 179)
             j /= 2;
         if(k > 192)

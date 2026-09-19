@@ -2,6 +2,8 @@
 // Jad home page: http://www.kpdus.com/jad.html
 // Decompiler options: packimports(3) 
 
+import java.util.Arrays;
+
 public class DrawingArea extends NodeSub {
 
 	public static void initDrawingArea(int i, int j, int ai[])
@@ -43,10 +45,10 @@ public class DrawingArea extends NodeSub {
 
 	public static void setAllPixelsToZero()
 	{
-		int i = width * height;
-		for(int j = 0; j < i; j++)
-			pixels[j] = 0;
-
+		if (pixels == null) {
+			return;
+		}
+		Arrays.fill(pixels, 0, width * height, 0);
 	}
 	
 	public static void drawHorizontalLine(int yPos, int lineColor, int lineWidth, int xPos) {//method339

@@ -3,26 +3,33 @@ package server.game.players.packets;
 import server.game.players.Client;
 import server.game.players.PacketType;
 
-/**
- * Move Items
- **/
 public class MoveItems implements PacketType {
 
 	@Override
 	public void processPacket(Client c, int packetType, int packetSize) {
-		int somejunk = c.getInStream().readUnsignedWordA(); //junk
-		int itemFrom =  c.getInStream().readUnsignedWordA();// slot1
-		int itemTo = (c.getInStream().readUnsignedWordA() -128);// slot2
-		//c.sendMessage("junk: " + somejunk);
-		if(c.inTrade) {
-                             		return;
-                        	}
-		if(c.tradeStatus == 1) {
-                             		return;
-                        	}
-		if(c.duelStatus == 1) {
+		int interfaceId = c.getInStream().readUnsignedWordBigEndianA();
+		int insertMode = c.getInStream().readSignedByteC();
+		int itemFrom = c.getInStream().readUnsignedWordBigEndianA();
+		int itemTo = c.getInStream().readUnsignedWordBigEndian();
+		if (c.inTrade || c.tradeStatus == 1 || c.duelStatus == 1) {
 			return;
 		}
-		c.getItems().moveItems(itemFrom, itemTo, somejunk);
+		if (interfaceId >= 10335 && interfaceId <= 10342) {
+			if (!c.isBanking) {
+				return;
+			}
+			int destTab = interfaceId - 10335 + 1;
+			int abs = c.getBank().toAbsolute(itemFrom);
+			c.getBank().moveToTab(abs, destTab);
+			return;
+		}
+		if (interfaceId == 5382) {
+			if (!c.isBanking) {
+				return;
+			}
+			c.getBank().swapOrInsert(itemFrom, itemTo, insertMode == 1 || c.insertMode);
+			return;
+		}
+		c.getItems().moveItems(itemFrom, itemTo, interfaceId);
 	}
 }

@@ -174,13 +174,24 @@ public final class Player extends Entity {
 		if(desc != null)
 		{
 			int j = -1;
+			int next = -1;
+			int duration = 1;
+			int cycle = 0;
 			if(super.anim >= 0 && super.anInt1529 == 0)
+			{
 				j = Animation.anims[super.anim].anIntArray353[super.anInt1527];
-			else
-			if(super.anInt1517 >= 0)
+				next = Entity.frameId(super.anim, super.nextAnimFrame);
+				duration = Entity.frameDuration(super.anim, super.anInt1527);
+				cycle = super.anInt1528;
+			}
+			else if(super.anInt1517 >= 0)
+			{
 				j = Animation.anims[super.anInt1517].anIntArray353[super.anInt1518];
-			Model model = desc.method164(-1, j, null);
-			return model;
+				next = Entity.frameId(super.anInt1517, super.nextIdleFrame);
+				duration = Entity.frameDuration(super.anInt1517, super.anInt1518);
+				cycle = super.anInt1519;
+			}
+			return desc.method164(-1, j, null, next, duration, cycle);
 		}
 		long l = aLong1718;
 		int k = -1;
@@ -277,9 +288,15 @@ public final class Player extends Entity {
 		model_2.method464(model_1, Class36.method532(k) & Class36.method532(i1));
 		if(k != -1 && i1 != -1)
 			model_2.method471(Animation.anims[super.anim].anIntArray357, i1, k);
-		else
-		if(k != -1)
-			model_2.method470(k);
+		else if(k != -1)
+		{
+			if(super.anim >= 0 && super.anInt1529 == 0)
+				model_2.applyAnimationFrame(k, Entity.frameId(super.anim, super.nextAnimFrame),
+						Entity.frameDuration(super.anim, super.anInt1527), super.anInt1528);
+			else
+				model_2.applyAnimationFrame(k, Entity.frameId(super.anInt1517, super.nextIdleFrame),
+						Entity.frameDuration(super.anInt1517, super.anInt1518), super.anInt1519);
+		}
 		model_2.method466();
 		model_2.anIntArrayArray1658 = null;
 		model_2.anIntArrayArray1657 = null;

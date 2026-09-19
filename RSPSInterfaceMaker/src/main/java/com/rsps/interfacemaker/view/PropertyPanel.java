@@ -70,6 +70,9 @@ public class PropertyPanel extends VBox {
             case TOOLTIP:
                 // Tooltips use common properties only
                 break;
+            case CONTAINER:
+            case ITEM_SLOT:
+                break;
         }
     }
 

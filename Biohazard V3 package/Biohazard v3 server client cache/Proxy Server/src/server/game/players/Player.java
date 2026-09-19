@@ -25,9 +25,10 @@ public abstract class Player {
 	 */
 	public boolean isLoopingMusic = true;
 	public int auto = 1;
-	public int musicVolume = 4; // 0-4, default 4 (max)
-	public int soundEffectVolume = 4; // 0-4, default 4 (max)
+	public int musicVolume = 0; // 0-4, 0 = loudest (matches client config 168)
+	public int soundEffectVolume = 0; // 0-4, 0 = loudest (matches client config 169)
 	public boolean musicEnabled = true;
+	public int brightness = 3;
 	
 	/**
 	 * coop
@@ -96,9 +97,19 @@ public abstract class Player {
 	public int posSellItemId;
 	public int posSellAmount;
 	public int posSellPrice;
-	public int posSellStep; // 0=none, 1=selecting item, 2=entering amount, 3=entering price
+	public int posSellStep;
 	public String[] posBuySellers = new String[20];
 	public int[] posBuyIndexes = new int[20];
+	public long[] posBuyListingIds = new long[20];
+	public boolean posBuying;
+	public long posBuyListingId;
+	public int posBuyMax;
+	public int posSortMode;
+	public int posBrowseType;
+	public String posBrowseQuery = "";
+	public String posBrowseTitle = "Recent Listings";
+	public long posConfirmRemoveId;
+	public long posEditListingId;
 	public long buySlayerTimer;
 	public boolean needsNewTask = false;
 	public int leatherType = -1;
@@ -1053,7 +1064,13 @@ public abstract class Player {
 	public int playerItemsN[] = new int[28];
 	public int bankItems[] = new int[Config.BANK_SIZE];
 	public int bankItemsN[] = new int[Config.BANK_SIZE];
+	public int tabAmounts[] = new int[9];
+	public int bankingTab = 0;
+	public boolean insertMode;
 	public boolean bankNotes = false;
+	public boolean bankSearching = false;
+	public boolean awaitingBankSearch = false;
+	public String bankSearch = "";
 	
 	public int playerStandIndex = 0x328;
 	public int playerTurnIndex = 0x337;

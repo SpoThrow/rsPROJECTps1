@@ -307,6 +307,10 @@ public class PlayerSave {
 						p.splitChat = Boolean.parseBoolean(token2);
 					} else if (token.equals("chatEffects")) {
 						p.chatEffects = Boolean.parseBoolean(token2);
+					} else if (token.equals("acceptAid")) {
+						p.acceptAid = Boolean.parseBoolean(token2);
+					} else if (token.equals("brightness")) {
+						p.brightness = Integer.parseInt(token2);
 					}
 					break;
 				case 3:
@@ -338,6 +342,14 @@ public class PlayerSave {
 						p.bankItemsN[Integer.parseInt(token3[0])] = Integer.parseInt(token3[2]);
 					}
 					break;
+				case 10:
+					if (token.equals("character-banktab")) {
+						int tab = Integer.parseInt(token3[0]);
+						if (tab >= 0 && tab < p.tabAmounts.length) {
+							p.tabAmounts[tab] = Integer.parseInt(token3[1]);
+						}
+					}
+					break;
 				case 8:
 					 if (token.equals("character-friend")) {
 						p.friends[Integer.parseInt(token3[0])] = Long.parseLong(token3[1]);
@@ -357,6 +369,7 @@ public class PlayerSave {
 				} else if (line.equals("[SKILLS]")) {		ReadMode = 5;
 				} else if (line.equals("[ITEMS]")) {		ReadMode = 6;
 				} else if (line.equals("[BANK]")) {		ReadMode = 7;
+				} else if (line.equals("[BANKTABS]")) {	ReadMode = 10;
 				} else if (line.equals("[FRIENDS]")) {		ReadMode = 8;
 				} else if (line.equals("[IGNORES]")) {		ReadMode = 9;
 				} else if (line.equals("[EOF]")) {		try { characterfile.close(); } catch(IOException ioexception) { } return 1;
@@ -630,6 +643,12 @@ public class PlayerSave {
 			characterfile.write("chatEffects = ", 0, 14);
 			characterfile.write(Boolean.toString(p.chatEffects), 0, Boolean.toString(p.chatEffects).length());
 			characterfile.newLine();
+			characterfile.write("acceptAid = ", 0, 12);
+			characterfile.write(Boolean.toString(p.acceptAid), 0, Boolean.toString(p.acceptAid).length());
+			characterfile.newLine();
+			characterfile.write("brightness = ", 0, 13);
+			characterfile.write(Integer.toString(p.brightness), 0, Integer.toString(p.brightness).length());
+			characterfile.newLine();
 			characterfile.write("void = ", 0, 7);
 			String toWrite = p.voidStatus[0] + "\t" + p.voidStatus[1] + "\t" + p.voidStatus[2] + "\t" + p.voidStatus[3] + "\t" + p.voidStatus[4];
 			characterfile.write(toWrite);
@@ -707,6 +726,23 @@ public class PlayerSave {
 					characterfile.write(Integer.toString(p.bankItems[i]), 0, Integer.toString(p.bankItems[i]).length());
 					characterfile.write("	", 0, 1);
 					characterfile.write(Integer.toString(p.bankItemsN[i]), 0, Integer.toString(p.bankItemsN[i]).length());
+					characterfile.newLine();
+				}
+			}
+			characterfile.newLine();
+			
+		/*BANK TABS*/
+			if (p.getBank() != null) {
+				p.getBank().ensureInitialized();
+			}
+			characterfile.write("[BANKTABS]", 0, 10);
+			characterfile.newLine();
+			for (int i = 0; i < p.tabAmounts.length; i++) {
+				if (p.tabAmounts[i] > 0) {
+					characterfile.write("character-banktab = ", 0, 20);
+					characterfile.write(Integer.toString(i), 0, Integer.toString(i).length());
+					characterfile.write("	", 0, 1);
+					characterfile.write(Integer.toString(p.tabAmounts[i]), 0, Integer.toString(p.tabAmounts[i]).length());
 					characterfile.newLine();
 				}
 			}

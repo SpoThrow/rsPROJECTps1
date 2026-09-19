@@ -164,6 +164,8 @@ public class Entity extends Animable {
 	int smallXYIndex;
 	public int anim;
 	int anInt1527;
+	int nextAnimFrame = -1;
+	int nextIdleFrame = -1;
 	int anInt1528;
 	int anInt1529;
 	int anInt1530;
@@ -193,4 +195,23 @@ public class Entity extends Animable {
 	int anInt1555;
 	int anInt1556;
 	int anInt1557;
+
+	static int frameId(int anim, int frame) {
+		if (anim < 0 || frame < 0 || Animation.anims == null || anim >= Animation.anims.length) {
+			return -1;
+		}
+		Animation animation = Animation.anims[anim];
+		if (animation == null || animation.anIntArray353 == null || frame >= animation.anIntArray353.length) {
+			return -1;
+		}
+		return animation.anIntArray353[frame];
+	}
+
+	static int frameDuration(int anim, int frame) {
+		if (anim < 0 || Animation.anims == null || anim >= Animation.anims.length) {
+			return 1;
+		}
+		int duration = Animation.anims[anim].method258(frame);
+		return duration < 1 ? 1 : duration;
+	}
 }

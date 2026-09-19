@@ -120,12 +120,16 @@ public final class EntityDef {
 	}
 
 	public Model method164(int j, int k, int ai[]) {
+		return method164(j, k, ai, -1, 1, 0);
+	}
+
+	public Model method164(int j, int k, int ai[], int nextFrame, int duration, int cycle) {
 		if (childrenIDs != null) {
 			EntityDef entityDef = method161();
 			if (entityDef == null)
 				return null;
 			else
-				return entityDef.method164(j, k, ai);
+				return entityDef.method164(j, k, ai, nextFrame, duration, cycle);
 		}
 		Model model = (Model) mruNodes.insertFromCache(interfaceType);
 		if (model == null) {
@@ -161,7 +165,7 @@ public final class EntityDef {
 		if (k != -1 && j != -1)
 			model_1.method471(ai, j, k);
 		else if (k != -1)
-			model_1.method470(k);
+			model_1.applyAnimationFrame(k, nextFrame, duration, cycle);
 		if (anInt91 != 128 || anInt86 != 128)
 			model_1.method478(anInt91, anInt91, anInt86);
 		model_1.method466();

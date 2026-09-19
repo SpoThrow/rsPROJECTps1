@@ -2,87 +2,97 @@ package com.rsps.interfacemaker.util;
 
 import javafx.scene.image.Image;
 import java.io.File;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class SpriteLoader {
-    private static Map<String, Image> spriteCache = new HashMap<>();
+    private static final Map<String, Image> spriteCache = new HashMap<>();
+    private static final List<File> searchRoots = new ArrayList<>();
     private static String spriteRootDirectory = "";
-    
+
     public static void setSpriteRootDirectory(String path) {
-        spriteRootDirectory = path;
-        clearCache(); // Clear cache when root directory changes
+        spriteRootDirectory = path == null ? "" : path;
+        if (path != null && !path.isEmpty()) {
+            File dir = new File(path);
+            if (dir.isDirectory() && !searchRoots.contains(dir)) {
+                searchRoots.add(0, dir);
+            }
+        }
+        clearCache();
     }
-    
+
+    public static void addSearchRoot(File dir) {
+        if (dir != null && dir.isDirectory() && !searchRoots.contains(dir)) {
+            searchRoots.add(dir);
+        }
+    }
+
     public static String getSpriteRootDirectory() {
         return spriteRootDirectory;
     }
-    
+
     public static Image loadSprite(String spritePath) {
-        return loadSprite(spritePath, 0); // Default sprite ID
+        return loadSprite(spritePath, 0);
     }
-    
+
     public static Image loadSprite(String spritePath, int spriteId) {
         if (spritePath == null || spritePath.isEmpty()) {
             return null;
         }
-        
-        // Create cache key with sprite ID
-        String cacheKey = spritePath + "_" + spriteId;
-        
-        // Check cache first
+
+        String normalized = spritePath.replace('\\', '/').replaceFirst("^/+", "");
+        String cacheKey = normalized + "_" + spriteId;
         if (spriteCache.containsKey(cacheKey)) {
             return spriteCache.get(cacheKey);
         }
-        
-        // Try to load the sprite
-        Image image = null;
-        
-        // RSPS naming convention: path + space + spriteId + .png (e.g., "MAIN 0.png")
-        // Also try standard naming: path + .png (e.g., "MAIN.png")
+
         String[] variations = {
-            spritePath + " " + spriteId + ".png",        // RSPS format: "MAIN 0.png"
-            spritePath + " " + spriteId + ".PNG",        // RSPS format uppercase
-            spritePath + spriteId + ".png",              // No space: "MAIN0.png"
-            spritePath + ".png",                         // Standard: "MAIN.png"
-            spritePath + ".PNG"                          // Standard uppercase
+            normalized + " " + spriteId + ".png",
+            normalized + " " + spriteId + ".PNG",
+            normalized + spriteId + ".png",
+            normalized + ".png",
+            normalized + ".PNG"
         };
-        
-        for (String variation : variations) {
-            try {
-                String fullPath = variation.replace("/", File.separator);
-                File spriteFile;
-                
-                if (!spriteRootDirectory.isEmpty()) {
-                    spriteFile = new File(spriteRootDirectory, fullPath);
-                } else {
-                    spriteFile = new File(fullPath);
+
+        Image image = null;
+        List<File> roots = new ArrayList<>();
+        if (!spriteRootDirectory.isEmpty()) {
+            roots.add(new File(spriteRootDirectory));
+        }
+        roots.addAll(searchRoots);
+        if (roots.isEmpty()) {
+            roots.add(new File("."));
+        }
+
+        search:
+        for (File root : roots) {
+            for (String variation : variations) {
+                File spriteFile = new File(root, variation.replace("/", File.separator));
+                if (!spriteFile.isFile()) {
+                    spriteFile = new File(root, "Sprites" + File.separator + variation.replace("/", File.separator));
                 }
-                
-                if (spriteFile.exists()) {
-                    image = new Image(spriteFile.toURI().toString());
-                    System.out.println("Loaded sprite: " + spriteFile.getAbsolutePath());
-                    break;
+                if (spriteFile.isFile()) {
+                    try {
+                        image = new Image(spriteFile.toURI().toString());
+                        System.out.println("Loaded sprite: " + spriteFile.getAbsolutePath());
+                        break search;
+                    } catch (Exception e) {
+                        System.out.println("Failed to load sprite: " + spriteFile.getAbsolutePath() + " - " + e.getMessage());
+                    }
                 }
-            } catch (Exception e) {
-                System.out.println("Failed to load sprite: " + variation + " - " + e.getMessage());
             }
         }
-        
-        if (image == null) {
-            System.out.println("Sprite not found: " + spritePath + " (spriteId: " + spriteId + ", Root: " + spriteRootDirectory + ")");
-        }
-        
-        // Cache the result (even if null to avoid repeated failed loads)
+
         spriteCache.put(cacheKey, image);
-        
         return image;
     }
-    
+
     public static void clearCache() {
         spriteCache.clear();
     }
-    
+
     public static boolean spriteExists(String spritePath) {
         return loadSprite(spritePath) != null;
     }

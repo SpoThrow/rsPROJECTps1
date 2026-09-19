@@ -11,6 +11,11 @@ public class InterfaceComponent {
     private String tooltip;
     private int parentInterfaceId;
     private int childIndex;
+    private int originalX;
+    private int originalY;
+    private boolean fromLoop;
+    private String loopGroup = "";
+    private String parentVarName = "";
 
     public InterfaceComponent() {
         this.x = 0;
@@ -105,5 +110,49 @@ public class InterfaceComponent {
 
     public void setChildIndex(int childIndex) {
         this.childIndex = childIndex;
+    }
+
+    public int getOriginalX() {
+        return originalX;
+    }
+
+    public void setOriginalX(int originalX) {
+        this.originalX = originalX;
+    }
+
+    public int getOriginalY() {
+        return originalY;
+    }
+
+    public void setOriginalY(int originalY) {
+        this.originalY = originalY;
+    }
+
+    public boolean isFromLoop() {
+        return fromLoop;
+    }
+
+    public void setFromLoop(boolean fromLoop) {
+        this.fromLoop = fromLoop;
+    }
+
+    public String getLoopGroup() {
+        return loopGroup;
+    }
+
+    public void setLoopGroup(String loopGroup) {
+        this.loopGroup = loopGroup == null ? "" : loopGroup;
+    }
+
+    public String getParentVarName() {
+        return parentVarName;
+    }
+
+    public void setParentVarName(String parentVarName) {
+        this.parentVarName = parentVarName == null ? "" : parentVarName;
+    }
+
+    public boolean positionChanged() {
+        return x != originalX || y != originalY;
     }
 }

@@ -17,6 +17,7 @@ public class Chat implements OutgoingPacket{
 	@Override
 	public void buildPacket(ByteBuffer buf) {
 		buf.putOpcode(4);
+		buf.putByte(2 + say.length() + 1);
 		buf.putByte(color);
 		buf.putByte(effect);
 		buf.putString(say);

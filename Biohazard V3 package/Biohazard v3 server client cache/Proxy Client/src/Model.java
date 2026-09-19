@@ -1312,6 +1312,70 @@ public final class Model extends Animable {
 
     }
 
+	public void applyAnimationFrame(int frame, int nextFrame, int end, int cycle) {
+		if (!client.tweeningEnabled || nextFrame == -1 || end <= 1 || cycle <= 0) {
+			method470(frame);
+			return;
+		}
+		if (anIntArrayArray1657 == null || frame == -1) {
+			return;
+		}
+		Class36 current = Class36.method531(frame);
+		if (current == null) {
+			return;
+		}
+		Class18 currentList = current.aClass18_637;
+		anInt1681 = 0;
+		anInt1682 = 0;
+		anInt1683 = 0;
+		Class36 next = Class36.method531(nextFrame);
+		if (next == null || next.aClass18_637 != currentList) {
+			method470(frame);
+			return;
+		}
+		if (cycle > end) {
+			cycle = end;
+		}
+		for (int i1 = 0; i1 < current.anInt638; i1++) {
+			int n1 = current.anIntArray639[i1];
+			int opcode = currentList.anIntArray342[n1];
+			int[] skin = currentList.anIntArrayArray343[n1];
+			int x = current.anIntArray640[i1];
+			int y = current.anIntArray641[i1];
+			int z = current.anIntArray642[i1];
+			for (int i2 = 0; i2 < next.anInt638; i2++) {
+				if (next.anIntArray639[i2] != n1) {
+					continue;
+				}
+				if (opcode != 2) {
+					x += (next.anIntArray640[i2] - x) * cycle / end;
+					y += (next.anIntArray641[i2] - y) * cycle / end;
+					z += (next.anIntArray642[i2] - z) * cycle / end;
+				} else {
+					x &= 0xff;
+					y &= 0xff;
+					z &= 0xff;
+					int dx = next.anIntArray640[i2] - x & 0xff;
+					int dy = next.anIntArray641[i2] - y & 0xff;
+					int dz = next.anIntArray642[i2] - z & 0xff;
+					if (dx >= 128) {
+						dx -= 256;
+					}
+					if (dy >= 128) {
+						dy -= 256;
+					}
+					if (dz >= 128) {
+						dz -= 256;
+					}
+					x = x + dx * cycle / end & 0xff;
+					y = y + dy * cycle / end & 0xff;
+					z = z + dz * cycle / end & 0xff;
+				}
+				break;
+			}
+			method472(opcode, skin, x, y, z);
+		}
+	}
 
 	public void method471(int ai[], int j, int k) {
         if (k == -1)
@@ -1821,24 +1885,34 @@ public final class Model extends Animable {
 		int k2 = k1 * j + j2 * k >> 16;
 		int l2 = anInt1650 * k >> 16;
 		int i3 = k2 + l2;
-		if(i3 <= 50 || k2 >= 3500)
+		if(i3 <= 50 || k2 >= WorldController.FAR_PLANE)
 			return;
+		int oldFog = Fog.sceneDepth;
+		Fog.sceneDepth = k2;
 		int j3 = l1 * l + j1 * i1 >> 16;
 		int k3 = j3 - anInt1650 << 9;
-		if(k3 / i3 >= DrawingArea.centerY)
+		if(k3 / i3 >= DrawingArea.centerY) {
+			Fog.sceneDepth = oldFog;
 			return;
+		}
 		int l3 = j3 + anInt1650 << 9;
-		if(l3 / i3 <= -DrawingArea.centerY)
+		if(l3 / i3 <= -DrawingArea.centerY) {
+			Fog.sceneDepth = oldFog;
 			return;
+		}
 		int i4 = k1 * k - j2 * j >> 16;
 		int j4 = anInt1650 * j >> 16;
 		int k4 = i4 + j4 << 9;
-		if(k4 / i3 <= -DrawingArea.anInt1387)
+		if(k4 / i3 <= -DrawingArea.anInt1387) {
+			Fog.sceneDepth = oldFog;
 			return;
+		}
 		int l4 = j4 + (super.modelHeight * k >> 16);
 		int i5 = i4 - l4 << 9;
-		if(i5 / i3 >= DrawingArea.anInt1387)
+		if(i5 / i3 >= DrawingArea.anInt1387) {
+			Fog.sceneDepth = oldFog;
 			return;
+		}
 		int j5 = l2 + (super.modelHeight * j >> 16);
 		boolean flag = false;
 		if(k2 - j5 <= 50)
@@ -1929,6 +2003,7 @@ public final class Model extends Animable {
 		catch(Exception _ex)
 		{
 		}
+		Fog.sceneDepth = oldFog;
 	}
 
 	private void method483(boolean flag, boolean flag1, int i)

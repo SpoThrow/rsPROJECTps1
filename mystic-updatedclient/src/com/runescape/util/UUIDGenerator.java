@@ -73,10 +73,27 @@ public final class UUIDGenerator {
 		try {
 			String serial = getWMIValue("SELECT SerialNumber FROM Win32_BIOS", "SerialNumber");
 			String idate = getWMIValue("Select InstallDate from Win32_OperatingSystem", "InstallDate");
-			return serial.concat(idate);
+			return sanitize(serial.concat(idate));
 		} catch (Exception e) {
-			// Fallback to a simple random UUID if WMI fails
-			return java.util.UUID.randomUUID().toString();
+			return sanitize(java.util.UUID.randomUUID().toString());
 		}
+	}
+
+	/**
+	 * RS2 strings are terminated with byte 10, so strip CR/LF and keep the
+	 * identifier short enough to fit inside the 128-byte RSA block with name/pass.
+	 */
+	private static String sanitize(String value) {
+		if (value == null) {
+			return "unknown";
+		}
+		String cleaned = value.replace('\r', ' ').replace('\n', ' ').trim();
+		if (cleaned.isEmpty()) {
+			return "unknown";
+		}
+		if (cleaned.length() > 60) {
+			return cleaned.substring(0, 60);
+		}
+		return cleaned;
 	}
 }

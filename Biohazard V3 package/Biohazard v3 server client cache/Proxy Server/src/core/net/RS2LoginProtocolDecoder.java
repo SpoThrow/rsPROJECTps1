@@ -76,6 +76,8 @@ public class RS2LoginProtocolDecoder extends CumulativeProtocolDecoder {
 						loginType = in.get() & 0xff; //should be 16 or 18
 						loginPacketSize = in.get() & 0xff;
 						loginEncryptPacketSize = loginPacketSize-(36+1+1+2);
+						System.out.println("Login attempt - Type: " + loginType + ", PacketSize: " + loginPacketSize
+								+ ", EncryptSize: " + loginEncryptPacketSize + ", remaining: " + in.remaining());
 						if(loginPacketSize <= 0 || loginEncryptPacketSize <= 0) {
 							System.out.println("Zero or negative login size.");
 							session.close();
@@ -102,20 +104,25 @@ public class RS2LoginProtocolDecoder extends CumulativeProtocolDecoder {
 							in.getInt();
 						}
 						loginEncryptPacketSize--;
-						if(loginEncryptPacketSize != (in.get() & 0xff)) {
-							System.out.println("Encrypted size mismatch.");
+						int reportedEncryptSize = in.get() & 0xff;
+						if(loginEncryptPacketSize != reportedEncryptSize) {
+							System.out.println("Encrypted size mismatch. expected=" + loginEncryptPacketSize
+									+ " reported=" + reportedEncryptSize);
 							session.close();
 							return false;
 						}
+						System.out.println("Reading RSA block, bytes=" + loginEncryptPacketSize);
                         byte[] encryptionBytes = new byte[loginEncryptPacketSize];
                         in.get(encryptionBytes);
                         ByteBuffer rsaBuffer = ByteBuffer.wrap(new BigInteger(encryptionBytes)
                                 .modPow(RSA_EXPONENT, RSA_MODULUS).toByteArray());
-						if((rsaBuffer.get() & 0xff) != 10) {
-							System.out.println("Encrypted id != 10.");
+						int rsaId = rsaBuffer.get() & 0xff;
+						if(rsaId != 10) {
+							System.out.println("Encrypted id != 10. got=" + rsaId);
 							session.close();
 							return false;
 						}
+						System.out.println("RSA block decrypted, id=10");
 						long clientSessionKey = rsaBuffer.getLong();
 						long serverSessionKey = rsaBuffer.getLong();
 						int uid = rsaBuffer.getInt();
@@ -127,6 +134,7 @@ public class RS2LoginProtocolDecoder extends CumulativeProtocolDecoder {
 						UUID = readRS2String(rsaBuffer);
 						String name = readRS2String(rsaBuffer);
 						String pass = readRS2String(rsaBuffer);
+						System.out.println("Login parsed uid=" + uid + " uuid=" + UUID + " name=" + name);
 						int sessionKey[] = new int[4];
 						sessionKey[0] = (int)(clientSessionKey >> 32);
 						sessionKey[1] = (int)clientSessionKey;
@@ -141,6 +149,11 @@ public class RS2LoginProtocolDecoder extends CumulativeProtocolDecoder {
 						session.getFilterChain().addLast("protocolFilter", new ProtocolCodecFilter(new GameCodecFactory(inC)));
 						return true;
 					} else {
+						if(session.getAttribute("LOGIN_WAIT_LOGGED") == null) {
+							session.setAttribute("LOGIN_WAIT_LOGGED", Boolean.TRUE);
+							System.out.println("Login payload incomplete - need " + loginPacketSize
+									+ " bytes, have " + in.remaining());
+						}
 						in.rewind();
 						return false;
 					}

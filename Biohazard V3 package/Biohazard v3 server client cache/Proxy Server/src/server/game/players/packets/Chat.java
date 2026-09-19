@@ -17,13 +17,22 @@ public class Chat implements PacketType {
         c.setChatTextSize((byte)(c.packetSize - 2));
         c.inStream.readBytes_reverseA(c.getChatText(), c.getChatTextSize(), 0);
 		
+		if (c.isBanking && (c.awaitingBankSearch || c.bankSearching)) {
+			String chatText = Misc.textUnpack(c.getChatText(), c.packetSize - 2);
+			chatText = chatText.trim();
+			if (chatText.equalsIgnoreCase("cancel")) {
+				c.getBank().clearSearch();
+				c.sendMessage("Bank search cancelled.");
+			} else {
+				c.getBank().applySearch(chatText);
+			}
+			return;
+		}
+
 		// Handle POS search input via chat
 		if (c.posSearchingItem || c.posSearchingPlayer) {
 			String chatText = Misc.textUnpack(c.getChatText(), c.packetSize - 2);
-			System.out.println("[POS Search Debug] Raw chatText: '" + chatText + "'");
 			chatText = chatText.toLowerCase().trim();
-			System.out.println("[POS Search Debug] Processed chatText: '" + chatText + "'");
-			
 			if (chatText.equals("cancel")) {
 				c.posSearchingItem = false;
 				c.posSearchingPlayer = false;
@@ -32,12 +41,11 @@ public class Chat implements PacketType {
 				c.posSearchingItem = false;
 				c.posSearchingPlayer = false;
 				c.getPA().searchPOSByItemName(chatText);
-			} else if (c.posSearchingPlayer) {
+			} else {
 				c.posSearchingItem = false;
 				c.posSearchingPlayer = false;
 				c.getPA().searchPOSByPlayer(chatText);
 			}
-			// Don't send as public chat - consume the message
 			return;
 		}
 		

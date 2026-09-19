@@ -1,0 +1,140 @@
+            Loaded 5475 npc drops for 331 npcs in 9ms.
+[GTLVote V1.1] Settings initializing...
+[GTLVote V1.1] Error connecting to the database.
+[ObjectDef] DONE LOADING OBJECT CONFIGURATION
+Error loading map region: 12688
+Error loading map region: 12689
+[Region] DONE LOADING REGION CONFIGURATIONS
+[18/09/26 7:04 PM]: Succesfully loaded npc config
+[18/09/26 7:04 PM]: [Stage 1] NPC drops have been loaded...
+[18/09/26 7:04 PM]: [Stage 2] NPC spawns have been loaded...
+[18/09/26 7:04 PM]: [Stage 3] Shops have been loaded...
+[18/09/26 7:04 PM]: [Stage 4] Object spawns have been loaded...
+[18/09/26 7:04 PM]: [Stage 5] Teleport and spawn points have been loaded...
+[18/09/26 7:04 PM]: [Stage 6] Player Owned Shops have been loaded...
+[18/09/26 7:04 PM]: [Stage 7] Connections are now being accepted...
+[18/09/26 7:04 PM]: [Stage 6] 1020 doors have been loaded in 28ms...
+[18/09/26 7:04 PM]: [Stage 7] 273 double doors have been loaded in 4ms...
+[18/09/26 7:04 PM]: [Final Stage] Acquittal has been launched on localhost:43594...
+[18/09/26 7:04 PM]: Login attempt - Type: 16, PacketSize: 169, EncryptSize: 129, remaining: 169
+[18/09/26 7:04 PM]: Reading RSA block, bytes=128
+[18/09/26 7:04 PM]: RSA block decrypted, id=10
+[18/09/26 7:04 PM]: Login parsed uid=2 uuid=To be filled by O.E.M.20240917123300.000000+480 name=test
+[18/09/26 7:04 PM]: Login attempt - Type: 16, PacketSize: 169, EncryptSize: 129, remaining: 169
+[18/09/26 7:04 PM]: Reading RSA block, bytes=128
+[18/09/26 7:04 PM]: RSA block decrypted, id=10
+[18/09/26 7:04 PM]: Login parsed uid=2 uuid=To be filled by O.E.M.20240917123300.000000+480 name=Testf
+[18/09/26 7:04 PM]: Login attempt - Type: 16, PacketSize: 170, EncryptSize: 130, remaining: 170
+[18/09/26 7:04 PM]: Reading RSA block, bytes=129
+[18/09/26 7:04 PM]: RSA block decrypted, id=10
+[18/09/26 7:04 PM]: Login parsed uid=2 uuid=To be filled by O.E.M.20240917123300.000000+480 name=Testf
+[18/09/26 7:06 PM]: Login attempt - Type: 16, PacketSize: 169, EncryptSize: 129, remaining: 169
+[18/09/26 7:06 PM]: Reading RSA block, bytes=128
+[18/09/26 7:06 PM]: RSA block decrypted, id=10
+[18/09/26 7:06 PM]: Login parsed uid=2 uuid=To be filled by O.E.M.20240917123300.000000+480 name=mystic1
+[18/09/26 7:06 PM]: [ONLINE]: Mystic1
+[18/09/26 7:06 PM]: Incoming packet from mystic1: type=210 size=4
+[18/09/26 7:06 PM]: Incoming packet from mystic1: type=121 size=0
+[18/09/26 7:06 PM]: Incoming packet from mystic1: type=40 size=2
+[18/09/26 7:06 PM]: Incoming packet from mystic1: type=40 size=2
+[18/09/26 7:06 PM]: Incoming packet from mystic1: type=229 size=0
+[18/09/26 7:06 PM]: mystic1is sending invalid PacketType: 229. PacketSize: 0
+[18/09/26 7:06 PM]: Incoming packet from mystic1: type=134 size=0
+[18/09/26 7:06 PM]: mystic1is sending invalid PacketType: 134. PacketSize: 0
+[18/09/26 7:06 PM]: Game saved for player mystic1
+[18/09/26 7:06 PM]: [OFFLINE]: Mystic1
+[18/09/26 7:06 PM]: Hiscores Connection to SQL database failed!
+[18/09/26 7:06 PM]: Hiscores Error, could not save highscores for mystic1.
+[18/09/26 7:07 PM]: Login attempt - Type: 16, PacketSize: 169, EncryptSize: 129, remaining: 169
+[18/09/26 7:07 PM]: Reading RSA block, bytes=128
+[18/09/26 7:07 PM]: RSA block decrypted, id=10
+[18/09/26 7:07 PM]: Login parsed uid=2 uuid=To be filled by O.E.M.20240917123300.000000+480 name=Test
+[18/09/26 7:07 PM]: Login attempt - Type: 16, PacketSize: 169, EncryptSize: 129, remaining: 169
+[18/09/26 7:07 PM]: Reading RSA block, bytes=128
+[18/09/26 7:07 PM]: RSA block decrypted, id=10
+[18/09/26 7:07 PM]: Login parsed uid=2 uuid=To be filled by O.E.M.20240917123300.000000+480 name=Testdawad
+[18/09/26 7:07 PM]: [ONLINE]: Testdawad
+[18/09/26 7:07 PM]: Incoming packet from testdawad: type=210 size=4
+[18/09/26 7:07 PM]: Incoming packet from testdawad: type=121 size=0
+[18/09/26 7:08 PM]: Incoming packet from testdawad: type=229 size=0
+[18/09/26 7:08 PM]: testdawadis sending invalid PacketType: 229. PacketSize: 0
+[18/09/26 7:08 PM]: Incoming packet from testdawad: type=216 size=0
+[18/09/26 7:08 PM]: testdawadis sending invalid PacketType: 216. PacketSize: 0
+[18/09/26 7:08 PM]: Incoming packet from testdawad: type=154 size=0
+[18/09/26 7:08 PM]: testdawadis sending invalid PacketType: 154. PacketSize: 0
+[18/09/26 7:08 PM]: Incoming packet from testdawad: type=36 size=4
+[18/09/26 7:08 PM]: Incoming packet from testdawad: type=169 size=0
+[18/09/26 7:08 PM]: testdawadis sending invalid PacketType: 169. PacketSize: 0
+[18/09/26 7:08 PM]: Incoming packet from testdawad: type=67 size=0
+[18/09/26 7:08 PM]: testdawadis sending invalid PacketType: 67. PacketSize: 0
+[18/09/26 7:08 PM]: Incoming packet from testdawad: type=67 size=0
+[18/09/26 7:08 PM]: testdawadis sending invalid PacketType: 67. PacketSize: 0
+[18/09/26 7:08 PM]: Incoming packet from testdawad: type=32 size=0
+[18/09/26 7:08 PM]: testdawadis sending invalid PacketType: 32. PacketSize: 0
+[18/09/26 7:08 PM]: Incoming packet from testdawad: type=187 size=0
+[18/09/26 7:08 PM]: testdawadis sending invalid PacketType: 187. PacketSize: 0
+[18/09/26 7:08 PM]: Incoming packet from testdawad: type=20 size=0
+[18/09/26 7:08 PM]: testdawadis sending invalid PacketType: 20. PacketSize: 0
+[18/09/26 7:08 PM]: Incoming packet from testdawad: type=127 size=0
+[18/09/26 7:08 PM]: Incoming packet from testdawad: type=206 size=0
+[18/09/26 7:08 PM]: testdawadis sending invalid PacketType: 206. PacketSize: 0
+[18/09/26 7:08 PM]: Incoming packet from testdawad: type=182 size=0
+[18/09/26 7:08 PM]: testdawadis sending invalid PacketType: 182. PacketSize: 0
+[18/09/26 7:08 PM]: Incoming packet from testdawad: type=221 size=0
+[18/09/26 7:08 PM]: testdawadis sending invalid PacketType: 221. PacketSize: 0
+[18/09/26 7:08 PM]: Incoming packet from testdawad: type=207 size=0
+[18/09/26 7:08 PM]: testdawadis sending invalid PacketType: 207. PacketSize: 0
+[18/09/26 7:08 PM]: Incoming packet from testdawad: type=83 size=0
+[18/09/26 7:08 PM]: testdawadis sending invalid PacketType: 83. PacketSize: 0
+[18/09/26 7:08 PM]: Incoming packet from testdawad: type=238 size=1
+[18/09/26 7:08 PM]: Incoming packet from testdawad: type=139 size=2
+[18/09/26 7:08 PM]: Game saved for player testdawad
+[18/09/26 7:08 PM]: [OFFLINE]: Testdawad
+[18/09/26 7:08 PM]: Login attempt - Type: 18, PacketSize: 169, EncryptSize: 129, remaining: 169
+[18/09/26 7:08 PM]: Reading RSA block, bytes=128
+[18/09/26 7:08 PM]: RSA block decrypted, id=10
+[18/09/26 7:08 PM]: Login parsed uid=2 uuid=To be filled by O.E.M.20240917123300.000000+480 name=Testdawad
+[18/09/26 7:08 PM]: Hiscores Connection to SQL database failed!
+[18/09/26 7:08 PM]: Hiscores Error, could not save highscores for testdawad.
+[18/09/26 7:10 PM]: Currently online: 0, engine load: 2.5%
+[18/09/26 7:16 PM]: Currently online: 0, engine load: 0.0%
+[18/09/26 7:22 PM]: Currently online: 0, engine load: 0.0%
+[18/09/26 7:22 PM]: Login attempt - Type: 16, PacketSize: 169, EncryptSize: 129, remaining: 169
+[18/09/26 7:22 PM]: Reading RSA block, bytes=128
+[18/09/26 7:22 PM]: RSA block decrypted, id=10
+[18/09/26 7:22 PM]: Login parsed uid=2 uuid=To be filled by O.E.M.20240917123300.000000+480 name=Testdawad
+[18/09/26 7:22 PM]: [ONLINE]: Testdawad
+[18/09/26 7:22 PM]: Incoming packet from testdawad: type=210 size=4
+[18/09/26 7:22 PM]: Incoming packet from testdawad: type=121 size=0
+[18/09/26 7:23 PM]: Incoming packet from testdawad: type=185 size=2
+[18/09/26 7:23 PM]: Game saved for player testdawad
+[18/09/26 7:23 PM]: [OFFLINE]: Testdawad
+[18/09/26 7:23 PM]: Hiscores Connection to SQL database failed!
+[18/09/26 7:23 PM]: Hiscores Error, could not save highscores for testdawad.
+[18/09/26 7:28 PM]: Currently online: 0, engine load: 1.17%
+[18/09/26 7:34 PM]: Currently online: 0, engine load: 0.0%
+[18/09/26 7:35 PM]: Login attempt - Type: 16, PacketSize: 169, EncryptSize: 129, remaining: 169
+[18/09/26 7:35 PM]: Reading RSA block, bytes=128
+[18/09/26 7:35 PM]: RSA block decrypted, id=10
+[18/09/26 7:35 PM]: Login parsed uid=2 uuid=To be filled by O.E.M.20240917123300.000000+480 name=Testdawad
+[18/09/26 7:35 PM]: [ONLINE]: Testdawad
+[18/09/26 7:35 PM]: Incoming packet from testdawad: type=210 size=4
+[18/09/26 7:35 PM]: Incoming packet from testdawad: type=121 size=0
+[18/09/26 7:35 PM]: Incoming packet from testdawad: type=229 size=0
+[18/09/26 7:35 PM]: testdawadis sending invalid PacketType: 229. PacketSize: 0
+[18/09/26 7:35 PM]: Incoming packet from testdawad: type=210 size=4
+[18/09/26 7:35 PM]: Game saved for player testdawad
+[18/09/26 7:35 PM]: [OFFLINE]: Testdawad
+[18/09/26 7:35 PM]: Login attempt - Type: 18, PacketSize: 169, EncryptSize: 129, remaining: 169
+[18/09/26 7:35 PM]: Reading RSA block, bytes=128
+[18/09/26 7:35 PM]: RSA block decrypted, id=10
+[18/09/26 7:35 PM]: Login parsed uid=2 uuid=To be filled by O.E.M.20240917123300.000000+480 name=Testdawad
+[18/09/26 7:35 PM]: Hiscores Connection to SQL database failed!
+[18/09/26 7:35 PM]: Hiscores Error, could not save highscores for testdawad.
+[18/09/26 7:36 PM]: Login attempt - Type: 16, PacketSize: 169, EncryptSize: 129, remaining: 169
+[18/09/26 7:36 PM]: Reading RSA block, bytes=128
+[18/09/26 7:36 PM]: RSA block decrypted, id=10
+[18/09/26 7:36 PM]: Login parsed uid=2 uuid=To be filled by O.E.M.20240917123300.000000+480 name=Testdawad
+[18/09/26 7:36 PM]: [ONLINE]: Testdawad
+[18/09/26 7:36 PM]: Incoming packet from testdawad: type=210 size=4
+[18/09/26 7:36 PM]: Incoming packet from testdawad: type=121 size=0

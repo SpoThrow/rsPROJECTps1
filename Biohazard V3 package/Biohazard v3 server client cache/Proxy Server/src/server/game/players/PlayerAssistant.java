@@ -1550,8 +1550,7 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 		if (c.getOutStream() != null && c != null) {
 			resetVariables();
 			c.getItems().resetItems(5064);
-			c.getItems().rearrangeBank();
-			c.getItems().resetBank();
+			c.getBank().refresh();
 			c.getItems().resetTempItems();
 			c.getOutStream().createFrame(248);
 			c.getOutStream().writeWordA(5292);
@@ -4000,6 +3999,9 @@ public void underWaterTele() {
 			//sendFrame126("" + getXPForLevel(getLevelForXP(c.playerXP[22]) + 1) + "", 18821);
 			break;
 		}
+		if (i >= 0 && i < c.playerLevel.length) {
+			setSkillLevel(i, c.playerLevel[i], c.playerXP[i]);
+		}
 	}
 
 	public int getXPForLevel(int level) {
@@ -4750,488 +4752,427 @@ public void underWaterTele() {
 	// Interface IDs - Matched to client-side implementation
 	private static final int POS_MAIN_INTERFACE = 43000;
 	private static final int POS_BUY_INTERFACE = 44000;
-	private static final int POS_SEARCH_INTERFACE = 44000; // Uses same interface with different mode
 	
 	public boolean handlePOSButton(int buttonId) {
-		if(c.playerRights == 3) {
-			c.sendMessage("POS Button clicked: " + buttonId);
-		}
-		
-		// Main interface buttons (actual IDs)
-		if (buttonId == 167252) { // Close button
+		server.game.content.PlayerOwnedShop.debug(c, "button " + buttonId);
+
+		if (posClick(buttonId, 43004, 43051)) {
 			c.getPA().closeAllWindows();
 			return true;
 		}
-		if (buttonId == 167255) { // Search Item button - Re-implement createFrame(187)
-			try {
-				c.getPA().closeAllWindows();
-				c.posSearchingItem = true;
-				c.posSearchingPlayer = false;
-				c.sendMessage("Enter an item name to search:");
-				
-				if (c.getOutStream() != null) {
-					c.getOutStream().createFrame(187);
-					c.getOutStream().writeQWord(0); // placeholder
-					c.flushOutStream();
-				}
-			} catch (Exception e) {
-				System.out.println("[POS Search Error] Search Item button exception:");
-				e.printStackTrace();
-				c.sendMessage("Error opening search input. Please try again.");
-				c.posSearchingItem = false;
-				c.posSearchingPlayer = false;
+		if (posClick(buttonId, 43007, 43053, 44006)) {
+			c.posSearchingItem = true;
+			c.posSearchingPlayer = false;
+			c.sendMessage("Enter an item name or id to search:");
+			if (c.getOutStream() != null) {
+				c.getOutStream().createFrame(187);
+				c.flushOutStream();
 			}
 			return true;
 		}
-		if (buttonId == 168000) { // Search Player button - Re-implement createFrame(187)
-			try {
-				c.getPA().closeAllWindows();
-				c.posSearchingPlayer = true;
-				c.posSearchingItem = false;
-				c.sendMessage("Enter a player name to search:");
-				
-				if (c.getOutStream() != null) {
-					c.getOutStream().createFrame(187);
-					c.getOutStream().writeQWord(0); // placeholder
-					c.flushOutStream();
-				}
-			} catch (Exception e) {
-				System.out.println("[POS Search Error] Search Player button exception:");
-				e.printStackTrace();
-				c.sendMessage("Error opening search input. Please try again.");
-				c.posSearchingItem = false;
-				c.posSearchingPlayer = false;
+		if (posClick(buttonId, 43008, 43055, 44007)) {
+			c.posSearchingPlayer = true;
+			c.posSearchingItem = false;
+			c.sendMessage("Enter a player name to search:");
+			if (c.getOutStream() != null) {
+				c.getOutStream().createFrame(187);
+				c.flushOutStream();
 			}
 			return true;
 		}
-		if (buttonId == 168001) { // Recent Listings button
+		if (posClick(buttonId, 43009, 43057)) {
 			c.getPA().openPOSBuyInterface();
 			return true;
 		}
-		if (buttonId == 168112) { // Claim button
-			long claimed = server.game.content.PlayerOwnedShop.claimGold(c.playerName);
-			if (claimed > 0) {
-				// Coins are item 995 on most PI bases
-				c.getItems().addItem(995, (int) Math.min(claimed, Integer.MAX_VALUE));
-				c.sendMessage("You claimed " + claimed + " coins from your shop.");
-			} else {
-				c.sendMessage("You have no gold to claim.");
-			}
-			openPlayerOwnedShop(); // refresh so pending shows 0
+		if (posClick(buttonId, 43120, 43121)) {
+			server.game.content.PlayerOwnedShop.claimGold(c);
+			openPlayerOwnedShop();
 			return true;
 		}
-		
-		// Sell buttons (actual IDs: 168092-168101)
+		if (posClick(buttonId, 43123, 43124)) {
+			server.game.content.PlayerOwnedShop.claimCollect(c);
+			openPlayerOwnedShop();
+			return true;
+		}
+		if (posClick(buttonId, 43140, 43141)) {
+			startPOSList();
+			return true;
+		}
 		for (int i = 0; i < 10; i++) {
-			if (buttonId == 168092 + i) {
-				// Start sell dialog process
-				c.posSelling = true;
-				c.posSellStep = 1;
-				c.sendMessage("Click an item in your inventory to sell");
-				// Don't close the interface - keep it open
+			if (posClick(buttonId, 43100 + i, 43600 + i)) {
+				startPOSList();
+				return true;
+			}
+			if (posClick(buttonId, 43110 + i)) {
+				confirmPOSRemove(i);
+				return true;
+			}
+			if (posClick(buttonId, 43130 + i, 43150 + i)) {
+				startPOSEditPrice(i);
 				return true;
 			}
 		}
-		
-		// Remove buttons (actual IDs: 168102-168111)
-		for (int i = 0; i < 10; i++) {
-			if (buttonId == 168102 + i) {
-				c.getPA().removePOSListing(i);
-				return true;
-			}
-		}
-		
-		// Buy interface buttons (actual IDs)
-		if (buttonId == 171227) { // Close button
-			// Clear the buy arrays
-			for (int i = 0; i < 20; i++) {
-				c.posBuySellers[i] = null;
-				c.posBuyIndexes[i] = -1;
-			}
+		if (posClick(buttonId, 44003, 44081)) {
+			clearPOSBuySlots();
 			c.getPA().closeAllWindows();
 			return true;
 		}
-		if (buttonId == 171228) { // Refresh button
-			c.getPA().openPOSBuyInterface();
+		if (posClick(buttonId, 44004, 44083)) {
+			refreshPOSBrowse();
 			return true;
 		}
-		if (buttonId == 171229) { // Return button
-			// Clear the buy arrays
-			for (int i = 0; i < 20; i++) {
-				c.posBuySellers[i] = null;
-				c.posBuyIndexes[i] = -1;
-			}
+		if (posClick(buttonId, 44005)) {
+			clearPOSBuySlots();
 			c.getPA().openPlayerOwnedShop();
 			return true;
 		}
-		
-		// Buy buttons (actual IDs: 172068-172087)
+		if (posClick(buttonId, 44900)) {
+			c.posSortMode = 1;
+			refreshPOSBrowse();
+			return true;
+		}
+		if (posClick(buttonId, 44901)) {
+			c.posSortMode = 0;
+			refreshPOSBrowse();
+			return true;
+		}
+		if (posClick(buttonId, 44902)) {
+			c.posSortMode = 2;
+			refreshPOSBrowse();
+			return true;
+		}
 		for (int i = 0; i < 20; i++) {
-			if (buttonId == 172068 + i) {
-				String seller = c.posBuySellers[i];
-				int realIndex = c.posBuyIndexes[i];
-				if (seller != null && realIndex >= 0) {
-					c.getPA().buyFromPOS(seller, realIndex);
-				} else {
-					c.sendMessage("No listing at this slot");
-				}
+			if (posClick(buttonId, 44100 + i, 44800 + i, 44160 + i)) {
+				startPOSBuy(c.posBuyListingIds[i]);
+				return true;
+			}
+			if (posClick(buttonId, 44120 + i)) {
+				buyPOSAmount(c.posBuyListingIds[i], 1);
+				return true;
+			}
+			if (posClick(buttonId, 44140 + i)) {
+				buyPOSAmount(c.posBuyListingIds[i], 10);
+				return true;
+			}
+			if (posClick(buttonId, 44180 + i)) {
+				buyPOSAmount(c.posBuyListingIds[i], Integer.MAX_VALUE);
 				return true;
 			}
 		}
-		
 		return false;
+	}
+
+	private static int posAction(int interfaceId) {
+		return ((interfaceId >> 8) & 0xff) * 1000 + (interfaceId & 0xff);
+	}
+
+	private static boolean posClick(int clicked, int... interfaceIds) {
+		for (int id : interfaceIds) {
+			if (clicked == id || clicked == posAction(id)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	public void startPOSBuy(long listingId) {
+		if (listingId <= 0) {
+			c.sendMessage("No listing at this slot.");
+			return;
+		}
+		server.game.content.PlayerOwnedShop.ShopListing listing = server.game.content.PlayerOwnedShop.getListingById(listingId);
+		if (listing == null) {
+			c.sendMessage("That listing is no longer available.");
+			refreshPOSBrowse();
+			return;
+		}
+		if (listing.ownerName.equalsIgnoreCase(c.playerName)) {
+			c.sendMessage("You can't buy from your own shop.");
+			return;
+		}
+		c.posBuying = true;
+		c.posBuyListingId = listingId;
+		c.posBuyMax = listing.amount;
+		c.xInterfaceId = 44000;
+		c.sendMessage("How many? 1 is unnoted, 2+ is noted. Stock " + listing.amount + " @ " + listing.price + "gp each.");
+		if (c.getOutStream() != null) {
+			c.getOutStream().createFrame(27);
+			c.flushOutStream();
+		}
+	}
+
+	private void buyPOSAmount(long listingId, int amount) {
+		if (listingId <= 0) {
+			c.sendMessage("No listing at this slot.");
+			return;
+		}
+		if (server.game.content.PlayerOwnedShop.buyListing(c, listingId, amount)) {
+			refreshPOSBrowse();
+		} else {
+			refreshPOSBrowse();
+		}
+	}
+
+	private void startPOSList() {
+		c.posSelling = true;
+		c.posSellStep = 1;
+		c.posEditListingId = 0;
+		c.sendMessage("Click the item in your inventory. Noted items list as the real item.");
+		c.sendMessage("You will enter amount, then price each. Coins cannot be listed.");
+	}
+
+	private void confirmPOSRemove(int index) {
+		server.game.content.PlayerOwnedShop.PlayerShop shop = server.game.content.PlayerOwnedShop.getPlayerShop(c.playerName);
+		if (index < 0 || index >= shop.listings.size()) {
+			return;
+		}
+		server.game.content.PlayerOwnedShop.ShopListing listing = shop.listings.get(index);
+		c.posConfirmRemoveId = listing.listingId;
+		c.dialogueAction = 8801;
+		c.getDH().sendOption2("Yes, remove this listing", "Never mind");
+	}
+
+	public void finishPOSRemove(boolean confirmed) {
+		long id = c.posConfirmRemoveId;
+		c.posConfirmRemoveId = 0;
+		c.dialogueAction = 0;
+		if (!confirmed || id <= 0) {
+			openPlayerOwnedShop();
+			return;
+		}
+		server.game.content.PlayerOwnedShop.reclaimListing(c, id);
+		openPlayerOwnedShop();
+	}
+
+	private void startPOSEditPrice(int index) {
+		server.game.content.PlayerOwnedShop.PlayerShop shop = server.game.content.PlayerOwnedShop.getPlayerShop(c.playerName);
+		if (index < 0 || index >= shop.listings.size()) {
+			return;
+		}
+		server.game.content.PlayerOwnedShop.ShopListing listing = shop.listings.get(index);
+		c.posEditListingId = listing.listingId;
+		c.xInterfaceId = 43002;
+		c.sendMessage("Enter the new price EACH for " + server.game.content.PlayerOwnedShop.getItemName(listing.itemId) + ".");
+		c.sendMessage(server.game.content.PlayerOwnedShop.priceHint(listing.itemId));
+		if (c.getOutStream() != null) {
+			c.getOutStream().createFrame(27);
+			c.flushOutStream();
+		}
+	}
+
+	private void clearPOSBuySlots() {
+		for (int i = 0; i < 20; i++) {
+			c.posBuySellers[i] = null;
+			c.posBuyIndexes[i] = -1;
+			c.posBuyListingIds[i] = 0;
+		}
+	}
+
+	private void showPOSItem(int interfaceId, int itemId, int amount) {
+		if (itemId <= 0 || amount <= 0) {
+			sendFrame34a(interfaceId, -1, 0, 0);
+			return;
+		}
+		sendFrame34a(interfaceId, itemId, 0, amount);
+	}
+
+	private String formatPosNumber(long value) {
+		return String.format("%,d", value);
+	}
+
+	private String shortPosName(String name) {
+		if (name == null) {
+			return "";
+		}
+		if (name.length() > 14) {
+			return name.substring(0, 14);
+		}
+		return name;
 	}
 	
 	public void openPlayerOwnedShop() {
-		// Show main POS interface
 		showInterface(POS_MAIN_INTERFACE);
-		
-		// Get player's shop
 		server.game.content.PlayerOwnedShop.PlayerShop shop = server.game.content.PlayerOwnedShop.getPlayerShop(c.playerName);
-		
-		// Update interface text
 		sendFrame126("Player Owned Shop", 43001);
-		sendFrame126("" + shop.pendingGold, 43002);           // claimable gold
-		sendFrame126("Listings: " + shop.listings.size(), 43003);
-		
-		// Display active listings (up to 10)
-		for (int i = 0; i < Math.min(10, shop.listings.size()); i++) {
-			server.game.content.PlayerOwnedShop.ShopListing listing = shop.listings.get(i);
-			String itemName = server.game.content.PlayerOwnedShop.getItemName(listing.itemId);
-			sendFrame126(itemName + " x" + listing.amount, 43010 + i);
-			sendFrame126("" + listing.price, 43020 + i);
+		sendFrame126(formatPosNumber(shop.pendingGold), 43002);
+		sendFrame126("Claim", 43077);
+		sendFrame126(shop.collect.size() > 0 ? ("Collect: " + shop.collect.size()) : "", 43003);
+		for (int i = 0; i < 10; i++) {
+			if (i < shop.listings.size()) {
+				server.game.content.PlayerOwnedShop.ShopListing listing = shop.listings.get(i);
+				String itemName = server.game.content.PlayerOwnedShop.getItemName(listing.itemId);
+				sendFrame126("Selling", 43010 + i);
+				sendFrame126(shortPosName(itemName), 43040 + i);
+				sendFrame126(formatPosNumber(listing.price), 43020 + i);
+				showPOSItem(43200 + i, listing.itemId, listing.amount);
+				sendFrame126("Remove", 43110 + i);
+				sendFrame126("Price", 43130 + i);
+				sendFrame171(1, 43900 + i);
+			} else {
+				sendFrame126("Empty", 43010 + i);
+				sendFrame126("", 43040 + i);
+				sendFrame126("", 43020 + i);
+				showPOSItem(43200 + i, -1, 0);
+				sendFrame126("", 43110 + i);
+				sendFrame126("", 43130 + i);
+				sendFrame171(0, 43900 + i);
+			}
 		}
-		
-		// Clear empty listing slots
-		for (int i = shop.listings.size(); i < 10; i++) {
-			sendFrame126("", 43010 + i);
-			sendFrame126("", 43020 + i);
+		for (int i = 0; i < 5; i++) {
+			if (i < shop.sales.size()) {
+				String line = shop.sales.get(i);
+				if (line.length() > 28) {
+					line = line.substring(0, 28);
+				}
+				sendFrame126(line, 43030 + i);
+				sendFrame126("", 43035 + i);
+			} else {
+				sendFrame126("", 43030 + i);
+				sendFrame126("", 43035 + i);
+			}
 		}
-		
-		// Display recent listings (up to 5)
-		java.util.List<server.game.content.PlayerOwnedShop.ShopListing> recent = server.game.content.PlayerOwnedShop.getRecentListings();
-		for (int i = 0; i < Math.min(5, recent.size()); i++) {
-			server.game.content.PlayerOwnedShop.ShopListing listing = recent.get(i);
-			String itemName = server.game.content.PlayerOwnedShop.getItemName(listing.itemId);
-			sendFrame126(listing.ownerName + ": " + itemName, 43030 + i);
-			sendFrame126("" + listing.price, 43035 + i);
-		}
-		
-		// Clear empty recent listing slots
-		for (int i = recent.size(); i < 5; i++) {
-			sendFrame126("", 43030 + i);
-			sendFrame126("", 43035 + i);
-		}
-		
-		c.sendMessage("Opened your Player Owned Shop");
+		c.sendMessage("Opened your Player Owned Shop. List item, then click inventory.");
 	}
 	
 	public void openPOSSearchInterface() {
-		// Show search interface
-		showInterface(POS_SEARCH_INTERFACE);
-		
-		sendFrame126("Search Player Owned Shops", POS_SEARCH_INTERFACE + 1);
-		sendFrame126("Enter item ID or player name:", POS_SEARCH_INTERFACE + 2);
-		
-		c.sendMessage("Search interface opened - use ::searchitem [id] or ::searchplayer [name]");
+		openPOSBuyInterface();
 	}
-	
-	public void searchPOSByItemName(String itemName) {
-		// Search for listings by item name (partial match)
-		java.util.List<server.game.content.PlayerOwnedShop.ShopListing> allListings = server.game.content.PlayerOwnedShop.getAllListings();
-		java.util.List<server.game.content.PlayerOwnedShop.ShopListing> results = new java.util.ArrayList<>();
-		
-		itemName = itemName.toLowerCase();
-		
-		for (server.game.content.PlayerOwnedShop.ShopListing listing : allListings) {
-			String listingItemName = server.game.content.PlayerOwnedShop.getItemName(listing.itemId).toLowerCase();
-			if (listingItemName.contains(itemName)) {
-				results.add(listing);
-			}
-		}
-		
-		if (results.isEmpty()) {
-			c.sendMessage("No items found matching: " + itemName);
-			return;
-		}
-		
-		// Show buy interface with search results
+
+	private void displayPOSBuyList(String title, java.util.List<server.game.content.PlayerOwnedShop.ShopListing> results) {
+		c.posBrowseTitle = title;
+		results = server.game.content.PlayerOwnedShop.sortedListings(results, c.posSortMode);
 		showInterface(POS_BUY_INTERFACE);
-		
-		sendFrame126("Search Results: " + itemName, 44001);
-		sendFrame126("", 44002);
-		
-		// Clear the buy arrays
-		for (int i = 0; i < 20; i++) {
-			c.posBuySellers[i] = null;
-			c.posBuyIndexes[i] = -1;
-		}
-		
-		// Display search results (up to 20)
-		for (int i = 0; i < Math.min(20, results.size()); i++) {
-			server.game.content.PlayerOwnedShop.ShopListing listing = results.get(i);
-			String listingItemName = server.game.content.PlayerOwnedShop.getItemName(listing.itemId);
-			sendFrame126(listingItemName + " x" + listing.amount, 44010 + i);
-			sendFrame126(listing.ownerName, 44030 + i);
-			sendFrame126("" + listing.price, 44050 + i);
-			
-			// Store the real seller name and index in that seller's shop
-			c.posBuySellers[i] = listing.ownerName;
-			c.posBuyIndexes[i] = server.game.content.PlayerOwnedShop.indexOfListing(listing.ownerName, listing);
-		}
-		
-		// Clear empty listing slots
-		for (int i = results.size(); i < 20; i++) {
-			sendFrame126("", 44010 + i);
-			sendFrame126("", 44030 + i);
-			sendFrame126("", 44050 + i);
-		}
-		
-		c.sendMessage("Found " + results.size() + " listings matching: " + itemName);
-	}
-	
-	public void searchPOSByItem(int itemId) {
-		// Get listings for this item
-		java.util.List<server.game.content.PlayerOwnedShop.ShopListing> results = server.game.content.PlayerOwnedShop.searchByItem(itemId);
-		
-		// Show buy interface with search results
-		showInterface(POS_BUY_INTERFACE);
-		
-		sendFrame126("Search Results: Item " + itemId, 44001);
-		sendFrame126("", 44002);
-		
-		// Clear the buy arrays
-		for (int i = 0; i < 20; i++) {
-			c.posBuySellers[i] = null;
-			c.posBuyIndexes[i] = -1;
-		}
-		
-		// Display search results (up to 20)
-		for (int i = 0; i < Math.min(20, results.size()); i++) {
-			server.game.content.PlayerOwnedShop.ShopListing listing = results.get(i);
-			String itemName = server.game.content.PlayerOwnedShop.getItemName(listing.itemId);
-			sendFrame126(itemName + " x" + listing.amount, 44010 + i);
-			sendFrame126(listing.ownerName, 44030 + i);
-			sendFrame126("" + listing.price, 44050 + i);
-			
-			// Store the real seller name and index in that seller's shop
-			c.posBuySellers[i] = listing.ownerName;
-			c.posBuyIndexes[i] = server.game.content.PlayerOwnedShop.indexOfListing(listing.ownerName, listing);
-		}
-		
-		// Clear empty listing slots
-		for (int i = results.size(); i < 20; i++) {
-			sendFrame126("", 44010 + i);
-			sendFrame126("", 44030 + i);
-			sendFrame126("", 44050 + i);
-		}
-		
-		c.sendMessage("Found " + results.size() + " listings for item " + itemId);
-	}
-	
-	public void searchPOSByPlayer(String playerName) {
-		// Get listings for this player
-		java.util.List<server.game.content.PlayerOwnedShop.ShopListing> results = server.game.content.PlayerOwnedShop.searchByOwner(playerName);
-		
-		// Show buy interface with search results
-		showInterface(POS_BUY_INTERFACE);
-		
-		sendFrame126("Search Results: " + playerName, 44001);
-		sendFrame126("", 44002);
-		
-		// Clear the buy arrays
-		for (int i = 0; i < 20; i++) {
-			c.posBuySellers[i] = null;
-			c.posBuyIndexes[i] = -1;
-		}
-		
-		// Display search results (up to 20)
-		for (int i = 0; i < Math.min(20, results.size()); i++) {
-			server.game.content.PlayerOwnedShop.ShopListing listing = results.get(i);
-			String itemName = server.game.content.PlayerOwnedShop.getItemName(listing.itemId);
-			sendFrame126(itemName + " x" + listing.amount, 44010 + i);
-			sendFrame126(listing.ownerName, 44030 + i);
-			sendFrame126("" + listing.price, 44050 + i);
-			
-			// Store the real seller name and index in that seller's shop
-			c.posBuySellers[i] = listing.ownerName;
-			c.posBuyIndexes[i] = server.game.content.PlayerOwnedShop.indexOfListing(listing.ownerName, listing);
-		}
-		
-		// Clear empty listing slots
-		for (int i = results.size(); i < 20; i++) {
-			sendFrame126("", 44010 + i);
-			sendFrame126("", 44030 + i);
-			sendFrame126("", 44050 + i);
-		}
-		
-		c.sendMessage("Found " + results.size() + " listings for player " + playerName);
-	}
-	
-	public void openPOSBuyInterface() {
-		// Show buy interface
-		showInterface(POS_BUY_INTERFACE);
-		
 		sendFrame126("Player Owned Shop", 44001);
 		sendFrame126("", 44002);
-		
-		// Clear the buy arrays
-		for (int i = 0; i < 20; i++) {
-			c.posBuySellers[i] = null;
-			c.posBuyIndexes[i] = -1;
-		}
-		
-		// Display recent listings (up to 20)
-		java.util.List<server.game.content.PlayerOwnedShop.ShopListing> recent = server.game.content.PlayerOwnedShop.getRecentListings();
-		for (int i = 0; i < Math.min(20, recent.size()); i++) {
-			server.game.content.PlayerOwnedShop.ShopListing listing = recent.get(i);
-			String itemName = server.game.content.PlayerOwnedShop.getItemName(listing.itemId);
-			sendFrame126(itemName + " x" + listing.amount, 44010 + i);
+		clearPOSBuySlots();
+		int shown = Math.min(20, results.size());
+		for (int i = 0; i < shown; i++) {
+			server.game.content.PlayerOwnedShop.ShopListing listing = results.get(i);
+			sendFrame126(shortPosName(server.game.content.PlayerOwnedShop.getItemName(listing.itemId)), 44010 + i);
 			sendFrame126(listing.ownerName, 44030 + i);
-			sendFrame126("" + listing.price, 44050 + i);
-			
-			// Store the real seller name and index in that seller's shop
+			sendFrame126(formatPosNumber(listing.price), 44050 + i);
+			sendFrame126("1", 44120 + i);
+			sendFrame126("10", 44140 + i);
+			sendFrame126("X", 44160 + i);
+			sendFrame126("All", 44180 + i);
 			c.posBuySellers[i] = listing.ownerName;
 			c.posBuyIndexes[i] = server.game.content.PlayerOwnedShop.indexOfListing(listing.ownerName, listing);
+			c.posBuyListingIds[i] = listing.listingId;
+			showPOSItem(44200 + i, listing.itemId, listing.amount);
 		}
-		
-		// Clear empty listing slots
-		for (int i = recent.size(); i < 20; i++) {
+		for (int i = shown; i < 20; i++) {
 			sendFrame126("", 44010 + i);
 			sendFrame126("", 44030 + i);
 			sendFrame126("", 44050 + i);
-		}
-		
-		c.sendMessage("Buy interface opened");
-	}
-	
-	public void addPOSListing(int itemId, int amount, int price) {
-		if (c.playerRights == 3) {
-			c.sendMessage("[DEBUG] addPOSListing: itemId=" + itemId + ", amount=" + amount + ", price=" + price);
-		}
-		boolean success = server.game.content.PlayerOwnedShop.addListing(c.playerName, itemId, amount, price);
-		if (success) {
-			if (c.playerRights == 3) {
-				c.sendMessage("[DEBUG] addPOSListing: SUCCESS");
-			}
-			c.sendMessage("Added listing to your shop");
-			openPlayerOwnedShop(); // Refresh interface
-		} else {
-			if (c.playerRights == 3) {
-				c.sendMessage("[DEBUG] addPOSListing: FAILED");
-			}
-			c.sendMessage("Failed to add listing");
+			sendFrame126("", 44120 + i);
+			sendFrame126("", 44140 + i);
+			sendFrame126("", 44160 + i);
+			sendFrame126("", 44180 + i);
+			showPOSItem(44200 + i, -1, 0);
 		}
 	}
-	
-	public void removePOSListing(int index) {
-		if (c.playerRights == 3) {
-			c.sendMessage("[DEBUG] removePOSListing: index=" + index);
-		}
-		// First peek the listing (do not remove yet)
-		server.game.content.PlayerOwnedShop.ShopListing listing = server.game.content.PlayerOwnedShop.getListing(c.playerName, index);
-		if (listing == null) {
-			if (c.playerRights == 3) {
-				c.sendMessage("[DEBUG] removePOSListing: Listing not found");
+
+	public void searchPOSByItemName(String itemName) {
+		if (itemName == null || itemName.trim().length() == 0) {
+			c.sendMessage("Type part of an item name or an item id.");
+			c.posSearchingItem = true;
+			if (c.getOutStream() != null) {
+				c.getOutStream().createFrame(187);
+				c.flushOutStream();
 			}
-			c.sendMessage("Failed to remove listing");
 			return;
 		}
-		
-		if (c.playerRights == 3) {
-			c.sendMessage("[DEBUG] removePOSListing: itemId=" + listing.itemId + ", amount=" + listing.amount);
-		}
-		
-		// Check inventory space using helper
-		if (!c.getItems().hasSpaceFor(listing.itemId, listing.amount)) {
-			if (c.playerRights == 3) {
-				c.sendMessage("[DEBUG] removePOSListing: Insufficient inventory space");
+		c.posBrowseType = 1;
+		c.posBrowseQuery = itemName;
+		java.util.List<server.game.content.PlayerOwnedShop.ShopListing> results = server.game.content.PlayerOwnedShop.searchByItemName(itemName);
+		if (results.isEmpty()) {
+			c.sendMessage("No items found matching: " + itemName + ". Try again.");
+			c.posSearchingItem = true;
+			if (c.getOutStream() != null) {
+				c.getOutStream().createFrame(187);
+				c.flushOutStream();
 			}
-			c.sendMessage("You don't have enough inventory space to retrieve these items.");
-			return; // Don't remove the listing if player can't receive items
+			return;
 		}
-		
-		// Only if space exists → call removeListingAndGetDetails → add item to inventory
-		listing = server.game.content.PlayerOwnedShop.removeListingAndGetDetails(c.playerName, index);
-		if (listing != null) {
-			if (c.playerRights == 3) {
-				c.sendMessage("[DEBUG] removePOSListing: SUCCESS");
+		displayPOSBuyList("Search: " + itemName, results);
+		c.sendMessage("Found " + results.size() + " listings matching: " + itemName);
+	}
+
+	public void searchPOSByItem(int itemId) {
+		c.posBrowseType = 1;
+		c.posBrowseQuery = Integer.toString(itemId);
+		java.util.List<server.game.content.PlayerOwnedShop.ShopListing> results = server.game.content.PlayerOwnedShop.searchByItem(itemId);
+		if (results.isEmpty()) {
+			c.sendMessage("No listings found for that item.");
+			return;
+		}
+		displayPOSBuyList("Search: item " + itemId, results);
+		c.sendMessage("Found " + results.size() + " listings for item " + itemId);
+	}
+
+	public void searchPOSByPlayer(String playerName) {
+		if (playerName == null || playerName.trim().length() == 0) {
+			c.sendMessage("Enter a player name.");
+			c.posSearchingPlayer = true;
+			if (c.getOutStream() != null) {
+				c.getOutStream().createFrame(187);
+				c.flushOutStream();
 			}
-			// Return items to inventory
-			c.getItems().addItem(listing.itemId, listing.amount);
-			c.sendMessage("Removed listing and returned " + listing.amount + "x " + server.game.content.PlayerOwnedShop.getItemName(listing.itemId));
-			openPlayerOwnedShop(); // Refresh interface
+			return;
+		}
+		c.posBrowseType = 2;
+		c.posBrowseQuery = playerName;
+		java.util.List<server.game.content.PlayerOwnedShop.ShopListing> results = server.game.content.PlayerOwnedShop.searchByOwner(playerName);
+		if (results.isEmpty()) {
+			c.sendMessage("No shop listings found for " + playerName + ".");
+			c.posSearchingPlayer = true;
+			if (c.getOutStream() != null) {
+				c.getOutStream().createFrame(187);
+				c.flushOutStream();
+			}
+			return;
+		}
+		displayPOSBuyList("Shop: " + playerName, results);
+		c.sendMessage("Found " + results.size() + " listings for " + playerName);
+	}
+
+	public void openPOSBuyInterface() {
+		c.posBrowseType = 0;
+		c.posBrowseQuery = "";
+		displayPOSBuyList("Recent Listings", server.game.content.PlayerOwnedShop.getRecentListings());
+	}
+
+	public void refreshPOSBrowse() {
+		if (c.posBrowseType == 1 && c.posBrowseQuery != null && c.posBrowseQuery.length() > 0) {
+			displayPOSBuyList("Search: " + c.posBrowseQuery, server.game.content.PlayerOwnedShop.searchByItemName(c.posBrowseQuery));
+		} else if (c.posBrowseType == 2 && c.posBrowseQuery != null && c.posBrowseQuery.length() > 0) {
+			displayPOSBuyList("Shop: " + c.posBrowseQuery, server.game.content.PlayerOwnedShop.searchByOwner(c.posBrowseQuery));
 		} else {
-			if (c.playerRights == 3) {
-				c.sendMessage("[DEBUG] removePOSListing: FAILED to remove");
-			}
-			c.sendMessage("Failed to remove listing");
+			displayPOSBuyList("Recent Listings", server.game.content.PlayerOwnedShop.getRecentListings());
 		}
 	}
-	
-	public void buyFromPOS(String sellerName, int listingIndex) {
-		if (c.playerRights == 3) {
-			c.sendMessage("[DEBUG] buyFromPOS: seller=" + sellerName + ", index=" + listingIndex);
+
+	public void addPOSListing(int itemId, int amount, int price) {
+		if (server.game.content.PlayerOwnedShop.listItem(c, itemId, amount, price)) {
+			c.sendMessage("Added listing to your shop.");
+			openPlayerOwnedShop();
 		}
-		// Look up the exact listing with getListing(sellerName, listingIndex)
+	}
+
+	public void removePOSListing(int index) {
+		if (server.game.content.PlayerOwnedShop.reclaimListingByIndex(c, index)) {
+			openPlayerOwnedShop();
+		}
+	}
+
+	public void buyFromPOS(String sellerName, int listingIndex) {
 		server.game.content.PlayerOwnedShop.ShopListing listing = server.game.content.PlayerOwnedShop.getListing(sellerName, listingIndex);
 		if (listing == null) {
-			if (c.playerRights == 3) {
-				c.sendMessage("[DEBUG] buyFromPOS: Listing not found");
-			}
 			c.sendMessage("Listing not found.");
 			return;
 		}
-		
-		if (c.playerRights == 3) {
-			c.sendMessage("[DEBUG] buyFromPOS: itemId=" + listing.itemId + ", amount=" + listing.amount + ", price=" + listing.price);
-		}
-		
-		// Calculate total cost
-		long totalCost = (long) listing.price * listing.amount;
-		
-		if (c.playerRights == 3) {
-			c.sendMessage("[DEBUG] buyFromPOS: totalCost=" + totalCost);
-		}
-		
-		// Check buyer has enough coins
-		if (!c.getItems().playerHasItem(995, (int)totalCost)) {
-			if (c.playerRights == 3) {
-				c.sendMessage("[DEBUG] buyFromPOS: Insufficient coins");
-			}
-			c.sendMessage("You don't have enough coins to buy this item.");
-			c.sendMessage("Cost: " + totalCost + "gp");
-			return;
-		}
-		
-		// Check inventory space using helper
-		if (!c.getItems().hasSpaceFor(listing.itemId, listing.amount)) {
-			if (c.playerRights == 3) {
-				c.sendMessage("[DEBUG] buyFromPOS: Insufficient inventory space");
-			}
-			c.sendMessage("You don't have enough inventory space to buy this item.");
-			return;
-		}
-		
-		// Only then call PlayerOwnedShop.buyItem(...)
-		boolean success = server.game.content.PlayerOwnedShop.buyItem(c.playerName, sellerName, listingIndex);
-		
-		if (success) {
-			if (c.playerRights == 3) {
-				c.sendMessage("[DEBUG] buyFromPOS: SUCCESS");
-			}
-			// On success: delete coins from buyer, add item to buyer, refresh interface
-			c.getItems().deleteItem(995, c.getItems().getItemSlot(995), (int)totalCost);
-			c.getItems().addItem(listing.itemId, listing.amount);
-			c.sendMessage("Item purchased successfully!");
-			c.sendMessage("Cost: " + totalCost + "gp");
-			openPOSBuyInterface(); // Refresh interface
-		} else {
-			if (c.playerRights == 3) {
-				c.sendMessage("[DEBUG] buyFromPOS: FAILED");
-			}
-			// On any failure: leave the listing untouched (already handled by buyItem returning false)
-			c.sendMessage("Failed to purchase item");
+		if (server.game.content.PlayerOwnedShop.buyListing(c, listing.listingId)) {
+			refreshPOSBrowse();
 		}
 	}
 

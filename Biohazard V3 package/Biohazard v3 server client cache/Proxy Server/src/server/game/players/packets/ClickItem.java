@@ -32,11 +32,18 @@ public class ClickItem implements PacketType {
 		
 		// Handle POS sell dialog FIRST - before any other item handlers
 		if (c.posSelling && c.posSellStep == 1) {
+			String why = server.game.content.PlayerOwnedShop.cannotList(itemId);
+			if (why != null) {
+				c.sendMessage(why);
+				return;
+			}
 			if(c.getItems().playerHasItem(itemId, 1)) {
-				c.posSellItemId = itemId;
+				c.posSellItemId = server.game.content.PlayerOwnedShop.unnotedId(itemId);
 				c.posSellStep = 2;
-				c.xInterfaceId = 43000; // Set interface ID for POS
-				c.getOutStream().createFrame(27); // Open Enter Amount dialog
+				c.xInterfaceId = 43000;
+				c.sendMessage("Enter how many to list. You have "
+						+ server.game.content.PlayerOwnedShop.ownedCount(c, c.posSellItemId) + ".");
+				c.getOutStream().createFrame(27);
 			} else {
 				c.sendMessage("You don't have that item.");
 				c.posSelling = false;

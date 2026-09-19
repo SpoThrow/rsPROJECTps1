@@ -21,6 +21,7 @@ import javafx.scene.control.MenuItem;
 import javafx.scene.control.Alert;
 import java.util.function.Consumer;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
@@ -79,9 +80,9 @@ public class InterfaceCanvas extends Canvas {
         double y = e.getY();
         boolean isCtrlDown = e.isControlDown();
 
-        // Find component under mouse (reverse order for top-most first)
-        for (int i = project.getComponents().size() - 1; i >= 0; i--) {
-            InterfaceComponent comp = project.getComponents().get(i);
+        List<InterfaceComponent> ordered = drawOrdered();
+        for (int i = ordered.size() - 1; i >= 0; i--) {
+            InterfaceComponent comp = ordered.get(i);
             if (x >= comp.getX() && x <= comp.getX() + comp.getWidth() &&
                 y >= comp.getY() && y <= comp.getY() + comp.getHeight()) {
                 
@@ -249,7 +250,7 @@ public class InterfaceCanvas extends Canvas {
         }
 
         // Draw components
-        for (InterfaceComponent comp : project.getComponents()) {
+        for (InterfaceComponent comp : drawOrdered()) {
             drawComponent(gc, comp);
         }
 
@@ -303,7 +304,19 @@ public class InterfaceCanvas extends Canvas {
             case TOOLTIP:
                 drawTooltip(gc, comp);
                 break;
+            case CONTAINER:
+                drawContainer(gc, comp);
+                break;
+            case ITEM_SLOT:
+                drawItemSlot(gc, comp);
+                break;
         }
+    }
+
+    private List<InterfaceComponent> drawOrdered() {
+        List<InterfaceComponent> ordered = new ArrayList<>(project.getComponents());
+        ordered.sort(Comparator.comparingInt(InterfaceComponent::getChildIndex));
+        return ordered;
     }
 
     private void drawSprite(GraphicsContext gc, InterfaceComponent comp) {
@@ -317,7 +330,7 @@ public class InterfaceCanvas extends Canvas {
                 Image image = SpriteLoader.loadSprite(spritePath, spriteId);
                 
                 if (image != null) {
-                    gc.drawImage(image, comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
+                    gc.drawImage(image, comp.getX(), comp.getY());
                     return;
                 }
             }
@@ -366,10 +379,15 @@ public class InterfaceCanvas extends Canvas {
     }
 
     private void drawText(GraphicsContext gc, InterfaceComponent comp) {
-        gc.setFill(Color.rgb(200, 200, 200));
-        gc.fillRect(comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
-        gc.setStroke(Color.rgb(255, 255, 255));
-        gc.strokeRect(comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
+        String message = comp.getName();
+        int color = 0xFFFFFF;
+        if (comp instanceof TextComponent) {
+            TextComponent text = (TextComponent) comp;
+            message = text.getText();
+            color = text.getTextColor();
+        }
+        gc.setFill(Color.rgb((color >> 16) & 255, (color >> 8) & 255, color & 255));
+        gc.fillText(message == null ? "" : message, comp.getX(), comp.getY() + Math.max(11, comp.getHeight() - 2));
     }
 
     private void drawCloseButton(GraphicsContext gc, InterfaceComponent comp) {
@@ -379,7 +397,7 @@ public class InterfaceCanvas extends Canvas {
             String spritePath = button.getNormalSpritePath();
             
             if (spritePath != null && !spritePath.isEmpty()) {
-                Image image = SpriteLoader.loadSprite(spritePath);
+                Image image = SpriteLoader.loadSprite(spritePath, button.getNormalSpriteId());
                 
                 if (image != null) {
                     gc.drawImage(image, comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
@@ -415,6 +433,23 @@ public class InterfaceCanvas extends Canvas {
         gc.setFill(Color.rgb(255, 255, 200));
         gc.fillRect(comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
         gc.setStroke(Color.rgb(200, 200, 150));
+        gc.strokeRect(comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
+    }
+
+    private void drawContainer(GraphicsContext gc, InterfaceComponent comp) {
+        gc.setFill(Color.rgb(80, 140, 180, 0.18));
+        gc.fillRect(comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
+        gc.setStroke(Color.rgb(120, 180, 220, 0.9));
+        gc.setLineWidth(1);
+        gc.strokeRect(comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
+        gc.setFill(Color.rgb(180, 220, 255));
+        gc.fillText(comp.getName() + " [" + comp.getId() + "]", comp.getX() + 4, comp.getY() + 12);
+    }
+
+    private void drawItemSlot(GraphicsContext gc, InterfaceComponent comp) {
+        gc.setFill(Color.rgb(90, 70, 40, 0.45));
+        gc.fillRect(comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
+        gc.setStroke(Color.rgb(180, 150, 80));
         gc.strokeRect(comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
     }
 

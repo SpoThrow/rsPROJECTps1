@@ -5,6 +5,10 @@ import java.net.*;
 import java.awt.*;
 import java.awt.event.ActionListener;
 import java.awt.event.ActionEvent;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
 
 import javax.imageio.ImageIO;
@@ -18,6 +22,35 @@ public class Jframe extends client implements ActionListener {
 	 */
 	private static final long serialVersionUID = -6978617783576386732L;
 	private static JFrame frame;
+	private static JPanel gamePanel;
+
+	public static void setCanvasSize(int width, int height, boolean resizable) {
+		if (frame == null || gamePanel == null || client.instance == null) {
+			return;
+		}
+		Dimension canvas = new Dimension(width, height);
+		gamePanel.setPreferredSize(canvas);
+		instance.setPreferredSize(canvas);
+		instance.setSize(canvas);
+		frame.setResizable(resizable);
+		if (resizable) {
+			frame.setMinimumSize(new Dimension(773, 531));
+			frame.pack();
+			Insets insets = frame.getInsets();
+			frame.setSize(width + insets.left + insets.right, height + insets.top + insets.bottom);
+		} else {
+			frame.setMinimumSize(new Dimension(0, 0));
+			frame.pack();
+			frame.setMinimumSize(frame.getSize());
+			frame.setSize(frame.getPreferredSize());
+		}
+		frame.validate();
+		frame.repaint();
+	}
+
+	public static JFrame getFrame() {
+		return frame;
+	}
 
 	public Jframe(String args[]) {
 		super();
@@ -31,27 +64,48 @@ public class Jframe extends client implements ActionListener {
 
 	public void initUI() {
 		try {
+			loadClientSettings();
 			UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
 			JPopupMenu.setDefaultLightWeightPopupEnabled(false);
 			frame = new JFrame("Biohazard");
 			frame.setLayout(new BorderLayout());
 			setFocusTraversalKeysEnabled(false);
 			setFocusable(true);
-			frame.setResizable(false);
+			boolean resizable = frameMode == ScreenMode.RESIZABLE;
+			frame.setResizable(resizable);
 			frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-			JPanel gamePanel = new JPanel();
+			gamePanel = new JPanel();
 
 			gamePanel.setLayout(new BorderLayout());
 			gamePanel.setFocusable(false);
 			gamePanel.add(this);
-			gamePanel.setPreferredSize(new Dimension(765, 503));
+			int canvasW = resizable ? Math.max(765, savedResizeWidth) : 765;
+			int canvasH = resizable ? Math.max(503, savedResizeHeight) : 503;
+			gamePanel.setPreferredSize(new Dimension(canvasW, canvasH));
+			setPreferredSize(new Dimension(canvasW, canvasH));
 			frame.getContentPane().add(gamePanel, BorderLayout.CENTER);
 			frame.pack();
+			if (resizable) {
+				frame.setMinimumSize(new Dimension(773, 531));
+			} else {
+				frame.setMinimumSize(frame.getSize());
+			}
 			frame.setLocationRelativeTo(null);
-			frame.setVisible(true); // can see the client
-			frame.setResizable(false); // resizeable frame
+			frame.setVisible(true);
 			frame.addKeyListener(this);
 			frame.addFocusListener(this);
+			frame.addWindowListener(new WindowAdapter() {
+				public void windowClosing(WindowEvent e) {
+					saveClientSettings();
+				}
+			});
+			frame.addComponentListener(new ComponentAdapter() {
+				public void componentResized(ComponentEvent e) {
+					if (frameMode == ScreenMode.RESIZABLE) {
+						refreshFrameSize();
+					}
+				}
+			});
 			requestFocus();
 			requestFocusInWindow();
 			init();

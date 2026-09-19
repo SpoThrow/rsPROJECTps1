@@ -82,10 +82,11 @@ public final class ByteBuffer {
 		position = reserve_packet_slots ? pkt_content_start : pkt_opcode_slot;
 
 		/*
-		 * We put the length of the {@code #encodedBuffer} to the buffer as a
-		 * word (2 bytes, big-endian) to match the old client's RSA format.
+		 * Old 317 doKeys() uses writeWordBigEndian(length), which is a single
+		 * unsigned byte — not a 2-byte word. The server then reads that length
+		 * with in.get() & 0xff.
 		 */
-		putShort(encodedBuffer.length);
+		putByte(encodedBuffer.length);
 
 		/* Put the bytes of the {@code #encodedBuffer} into the buffer. */
 		putBytes(encodedBuffer, encodedBuffer.length, 0);
@@ -458,9 +459,9 @@ public final class ByteBuffer {
 
 	public int bufferLength() {
 		int size = position;
-		if(reserve_packet_slots) {
-			/* Update the pkt_size slot and encrypt it */
-			buffer[pkt_size_slot] = (byte) (size + cipher.getNextKey());
+		if (reserve_packet_slots) {
+			// 317 variable packets use a plain size byte, not an extra ISAAC key.
+			buffer[pkt_size_slot] = (byte) (size - pkt_content_start);
 		}
 		return size;
 	}

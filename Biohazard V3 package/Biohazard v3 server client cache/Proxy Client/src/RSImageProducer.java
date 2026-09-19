@@ -15,14 +15,31 @@ final class RSImageProducer
 		anInt317 = j;
 		anIntArray315 = new int[i * j];
 		aColorModel318 = new DirectColorModel(32, 0xff0000, 65280, 255);
-		anImage320 = component.createImage(this);
-		method239();
-		component.prepareImage(anImage320, this);
-		method239();
-		component.prepareImage(anImage320, this);
-		method239();
-		component.prepareImage(anImage320, this);
+		anImage320 = createImageBuffer(component);
+		if (!(anImage320 instanceof BufferedImage)) {
+			method239();
+			component.prepareImage(anImage320, this);
+			method239();
+			component.prepareImage(anImage320, this);
+			method239();
+			component.prepareImage(anImage320, this);
+		}
 		initDrawingArea();
+	}
+
+	private Image createImageBuffer(Component component)
+	{
+		if (client.openGlEnabled) {
+			try {
+				DataBufferInt db = new DataBufferInt(anIntArray315, anInt316 * anInt317);
+				WritableRaster raster = Raster.createPackedRaster(db, anInt316, anInt317, anInt316,
+						new int[] { 0xff0000, 0xff00, 0xff }, null);
+				return new BufferedImage(aColorModel318, raster, false, null);
+			} catch (Exception e) {
+			}
+		}
+		Image image = component.createImage(this);
+		return image;
 	}
 
 	public void initDrawingArea()
@@ -32,7 +49,9 @@ final class RSImageProducer
 
 	public void drawGraphics(int i, Graphics g, int k)
 	{
-		method239();
+		if (!(anImage320 instanceof BufferedImage)) {
+			method239();
+		}
 		g.drawImage(anImage320, k, i, this);
 	}
 
@@ -81,8 +100,8 @@ final class RSImageProducer
 	}
 
 	public final int[] anIntArray315;
-	private final int anInt316;
-	private final int anInt317;
+	final int anInt316;
+	final int anInt317;
 	private final ColorModel aColorModel318;
 	private ImageConsumer anImageConsumer319;
 	private final Image anImage320;

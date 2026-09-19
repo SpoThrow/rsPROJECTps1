@@ -51,6 +51,7 @@ public class PacketHandler{
 	static {
 		
 		SilentPacket u = new SilentPacket();
+		packetId[0] = u;
 		packetId[3] = u;
 		packetId[202] = u;
 		packetId[77] = u;
@@ -136,7 +137,7 @@ public class PacketHandler{
 
 	public static void processPacket(Client c, int packetType, int packetSize) {
         PacketType p = packetId[packetType];
-        if(p != null && packetType > 0 && packetType < 257 && packetType == c.packetType && packetSize == c.packetSize) {
+        if(p != null && packetType >= 0 && packetType < 257 && packetType == c.packetType && packetSize == c.packetSize) {
             if (Config.sendServerPackets && c.playerRights == 3) {
                 c.sendMessage("PacketType: " + packetType + ". PacketSize: " + packetSize + ".");
             }

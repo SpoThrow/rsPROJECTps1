@@ -1170,6 +1170,21 @@ RSInterface rsi = interfaceCache[id] = new RSInterface();
 		setBounds(hoverID + 1, 0, 0, 0, rsi);
 	}
 
+	public static void addRectangle(int id, int width, int height, int color, int alpha, boolean filled) {
+		RSInterface tab = addInterface(id);
+		tab.id = id;
+		tab.parentID = id;
+		tab.type = 3;
+		tab.width = width;
+		tab.height = height;
+		tab.textColor = color;
+		tab.aByte254 = (byte) alpha;
+		tab.aBoolean227 = filled;
+		tab.atActionType = 0;
+		tab.contentType = 0;
+		tab.mOverInterToTrigger = -1;
+	}
+
 	public static void addBox(int id, int byte1, boolean filled, int color,
 			String text) {
 		RSInterface Interface = addInterface(id);
@@ -1313,6 +1328,28 @@ RSInterface rsi = interfaceCache[id] = new RSInterface();
 		tab.anInt219 = 0;
 		tab.anInt216 = 0;
 		tab.anInt239 = 0;
+	}
+
+	public static void addBankItem(int id) {
+		RSInterface rsi = interfaceCache[id] = new RSInterface();
+		rsi.actions = new String[5];
+		rsi.spritesX = new int[20];
+		rsi.spritesY = new int[20];
+		rsi.invStackSizes = new int[1];
+		rsi.inv = new int[1];
+		rsi.children = new int[0];
+		rsi.childX = new int[0];
+		rsi.childY = new int[0];
+		rsi.invSpritePadX = 24;
+		rsi.invSpritePadY = 24;
+		rsi.height = 1;
+		rsi.width = 1;
+		rsi.parentID = 5292;
+		rsi.id = id;
+		rsi.type = 2;
+		rsi.usableItemInterface = false;
+		rsi.isInventoryInterface = false;
+		rsi.aBoolean259 = true;
 	}
 
 	public String hoverText;

@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import server.Config;
+import server.game.content.PlayerOwnedShop;
 import server.game.players.PlayerHandler;
 import core.util.Misc;
 
@@ -54,6 +55,7 @@ public class ShopHandler {
 	}
 	
 	public void process() {
+		PlayerOwnedShop.process();
 		boolean DidUpdate = false;
 		for(int i = 1; i <= TotalShops; i++) {
 			for(int j = 0; j < MaxShopItems; j++) {

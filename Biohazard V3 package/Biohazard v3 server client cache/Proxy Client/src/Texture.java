@@ -273,6 +273,11 @@ final class Texture extends DrawingArea {
 
 	public static void method374(int i, int j, int k, int l, int i1, int j1,
 			int k1, int l1, int i2) {
+		if (Fog.sceneDepth > 50 && client.fogStrength > 0) {
+			k1 = Fog.fadeHsl(k1, Fog.sceneDepth);
+			l1 = Fog.fadeHsl(l1, Fog.sceneDepth);
+			i2 = Fog.fadeHsl(i2, Fog.sceneDepth);
+		}
 		int j2 = 0;
 		int k2 = 0;
 		if (j != i) {
@@ -798,6 +803,7 @@ final class Texture extends DrawingArea {
 
 	public static void method376(int i, int j, int k, int l, int i1, int j1,
 			int k1) {
+		k1 = Fog.applyFlat(k1);
 		int l1 = 0;
 		if (j != i)
 			l1 = (i1 - l << 16) / (j - i);
@@ -1096,16 +1102,22 @@ final class Texture extends DrawingArea {
 
 	private static void method377(int ai[], int i, int j, int l, int i1) {
 		int k;// was parameter
-		if (aBoolean1462) {
-			if (i1 > DrawingArea.centerX)
-				i1 = DrawingArea.centerX;
-			if (l < 0)
-				l = 0;
-		}
+		if (i1 > DrawingArea.centerX)
+			i1 = DrawingArea.centerX;
+		if (l < 0)
+			l = 0;
 		if (l >= i1)
 			return;
 		i += l;
-		k = i1 - l >> 2;
+		if (i < 0 || i >= ai.length)
+			return;
+		int span = i1 - l;
+		if (span > ai.length - i)
+			span = ai.length - i;
+		if (span <= 0)
+			return;
+		i1 = l + span;
+		k = span >> 2;
 		if (anInt1465 == 0) {
 			while (--k >= 0) {
 				ai[i] = j;
@@ -1150,6 +1162,11 @@ final class Texture extends DrawingArea {
 	public static void method378(int i, int j, int k, int l, int i1, int j1,
 			int k1, int l1, int i2, int j2, int k2, int l2, int i3, int j3,
 			int k3, int l3, int i4, int j4, int k4) {
+		if (Fog.sceneDepth > 50 && client.fogStrength > 0) {
+			k1 = Fog.fadeHsl(k1, Fog.sceneDepth);
+			l1 = Fog.fadeHsl(l1, Fog.sceneDepth);
+			i2 = Fog.fadeHsl(i2, Fog.sceneDepth);
+		}
 		int ai[] = method371(k4);
 		aBoolean1463 = !aBooleanArray1475[k4];
 		k2 = j2 - k2;

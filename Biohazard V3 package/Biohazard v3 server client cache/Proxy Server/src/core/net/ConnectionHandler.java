@@ -12,8 +12,8 @@ public class ConnectionHandler implements IoHandler {
 	@Override
 	public void exceptionCaught(IoSession arg0, Throwable arg1)
 			throws Exception {
-		// TODO Auto-generated method stub
-
+		System.out.println("Connection exception: " + arg1);
+		arg1.printStackTrace();
 	}
 
 	/*public void messageReceived(IoSession arg0, Object arg1) throws Exception {

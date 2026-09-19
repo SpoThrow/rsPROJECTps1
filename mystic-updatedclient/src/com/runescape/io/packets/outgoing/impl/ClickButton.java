@@ -14,7 +14,7 @@ public class ClickButton implements OutgoingPacket {
 	@Override
 	public void buildPacket(ByteBuffer buf) {
 		buf.putOpcode(185);
-		buf.putInt(buttonId);
+		buf.putShort(buttonId);
 	}
 
 }

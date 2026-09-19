@@ -557,15 +557,26 @@ public class ItemAssistant {
 	*Add Item
 	**/
 	 public void addItemToBank(int itemId, int amount) {
-	        for (int i = 0; i < Config.BANK_SIZE; i++) {
-	            if (c.bankItems[i] <= 0 || c.bankItems[i] == itemId + 1
-	                && c.bankItemsN[i] + amount < Integer.MAX_VALUE) {
-	                c.bankItems[i] = itemId + 1;
-	                c.bankItemsN[i] += amount;
-	                resetBank();
-	                return;
-	            }
-	        }
+		if (itemId < 0 || amount <= 0) {
+			return;
+		}
+		int bankId = itemId + 1;
+		int slot = c.getBank().findExistingSlot(bankId);
+		if (slot != -1) {
+			long total = (long) c.bankItemsN[slot] + amount;
+			if (total > Config.MAXITEM_AMOUNT) {
+				c.sendMessage("Bank full!");
+				return;
+			}
+			c.bankItemsN[slot] += amount;
+			c.getBank().refresh();
+			return;
+		}
+		if (c.getBank().insertNewItem(bankId, amount) < 0) {
+			c.sendMessage("Bank full!");
+			return;
+		}
+		c.getBank().refresh();
 	    }
 	public boolean addItem(int item, int amount) {
 		//synchronized(c) {
@@ -1658,44 +1669,41 @@ public class ItemAssistant {
 	*/
 	
 	public void rearrangeBank() {
-		int totalItems = 0;
-		int highestSlot = 0;
-		for (int i = 0; i < Config.BANK_SIZE; i++) {
-			if (c.bankItems[i] != 0) { 
-				totalItems ++;
-				if (highestSlot <= i) {	
-					highestSlot = i;
-				}
-			}  
-		}
-		
-		for (int i = 0; i <= highestSlot; i++) {
-			if (c.bankItems[i] == 0) {
-				boolean stop = false;
-			
-			for (int k = i; k <= highestSlot; k++) {
-				if (c.bankItems[k] != 0 && !stop) {
-					int spots = k - i;
-						for (int j = k; j <= highestSlot; j++) {
-							c.bankItems[j-spots] = c.bankItems[j];
-							c.bankItemsN[j-spots] = c.bankItemsN[j];
-							stop = true;
-							c.bankItems[j] = 0; c.bankItemsN[j] = 0; 
-						}
-					}
-				}					
-			}
-		}
-		
-	int totalItemsAfter = 0;
-	for (int i = 0; i < Config.BANK_SIZE; i++) {
-		if (c.bankItems[i] != 0) { 
-		totalItemsAfter ++; 
-		} 
+		c.getBank().ensureInitialized();
 	}
-		
-	if (totalItems != totalItemsAfter) 
-		c.disconnected = true;
+	
+	public void resetBank(){
+		synchronized(c) {
+			c.getBank().ensureInitialized();
+			int[] map = c.getBank().getDisplayMap();
+			c.getOutStream().createFrameVarSizeWord(53);
+			c.getOutStream().writeWord(5382);
+			c.getOutStream().writeWord(BankTabs.DISPLAY_SIZE);
+			for (int i=0; i<BankTabs.DISPLAY_SIZE; i++){
+				int src = (map != null && i < map.length) ? map[i] : -1;
+				int id = 0;
+				int amt = 0;
+				if (src >= 0 && src < Config.BANK_SIZE) {
+					id = c.bankItems[src];
+					amt = c.bankItemsN[src];
+				}
+				if (amt > 254){
+					c.getOutStream().writeByte(255);
+					c.getOutStream().writeDWord_v2(amt);
+				} else {
+					c.getOutStream().writeByte(amt);
+				}
+				if (amt < 1) {
+					id = 0;
+				}
+				if (id > Config.ITEM_LIMIT || id < 0) {
+					id = Config.ITEM_LIMIT;
+				}
+				c.getOutStream().writeWordBigEndianA(id);
+			}
+			c.getOutStream().endFrameVarSizeWord();
+			c.flushOutStream();
+		}
 	}
 	
 	
@@ -1715,32 +1723,6 @@ public class ItemAssistant {
 			c.flushOutStream();
 		//}
 	}
-	
-	public void resetBank(){
-		synchronized(c) {
-			c.getOutStream().createFrameVarSizeWord(53);
-			c.getOutStream().writeWord(5382); // bank
-			c.getOutStream().writeWord(Config.BANK_SIZE);
-			for (int i=0; i<Config.BANK_SIZE; i++){
-				if (c.bankItemsN[i] > 254){
-					c.getOutStream().writeByte(255);
-					c.getOutStream().writeDWord_v2(c.bankItemsN[i]);
-				} else {
-					c.getOutStream().writeByte(c.bankItemsN[i]); 	
-				}
-				if (c.bankItemsN[i] < 1) {
-					c.bankItems[i] = 0;
-				}
-				if (c.bankItems[i] > Config.ITEM_LIMIT || c.bankItems[i] < 0) {
-					c.bankItems[i] = Config.ITEM_LIMIT;
-				}
-				c.getOutStream().writeWordBigEndianA(c.bankItems[i]); 
-			}
-			c.getOutStream().endFrameVarSizeWord();
-			c.flushOutStream();
-		}
-	}
-	
 	
 	public void resetTempItems(){
 		//synchronized(c) {
@@ -1771,6 +1753,21 @@ public class ItemAssistant {
 	}
 	
 	
+	private int newBankSlot(int bankId) {
+		return c.getBank().insertNewItem(bankId, 0);
+	}
+
+	private void rollbackEmptyBankSlot(int slot) {
+		if (slot < 0 || slot >= Config.BANK_SIZE) {
+			return;
+		}
+		if (c.bankItems[slot] <= 0 || c.bankItemsN[slot] <= 0) {
+			c.bankItems[slot] = 0;
+			c.bankItemsN[slot] = 0;
+			c.getBank().onEmptiedSlot(slot);
+		}
+	}
+
 	public boolean bankItem(int itemID, int fromSlot, int amount){
 		if(!c.isBanking)
 			return false;
@@ -1795,25 +1792,24 @@ public class ItemAssistant {
 				}
 
 				if (!alreadyInBank && freeBankSlots() > 0) {
-						for (int i=0; i<Config.BANK_SIZE; i++) {
-							if (c.bankItems[i] <= 0) {
-									toBankSlot = i;
-									i=Config.BANK_SIZE+1;
-							}
+						toBankSlot = newBankSlot(c.playerItems[fromSlot]);
+						if (toBankSlot < 0) {
+							c.sendMessage("Bank full!");
+							return false;
 						}
-						c.bankItems[toBankSlot] = c.playerItems[fromSlot];
 						if (c.playerItemsN[fromSlot]<amount){
 							amount = c.playerItemsN[fromSlot];
 						}
 						if ((c.bankItemsN[toBankSlot] + amount) <= Config.MAXITEM_AMOUNT && (c.bankItemsN[toBankSlot] + amount) > -1) {
 							c.bankItemsN[toBankSlot] += amount;
 						} else {
+							rollbackEmptyBankSlot(toBankSlot);
 							c.sendMessage("Bank full!");
 							return false;
 						}
 						deleteItem((c.playerItems[fromSlot]-1), fromSlot, amount);
 						resetTempItems();
-						resetBank();
+						c.getBank().refresh();
 						return true;
 				}
 				else if (alreadyInBank) {
@@ -1825,7 +1821,7 @@ public class ItemAssistant {
 						}
 						deleteItem((c.playerItems[fromSlot]-1), fromSlot, amount);
 						resetTempItems();
-						resetBank();
+						c.getBank().refresh();
 						return true;
 				} else {
 						c.sendMessage("Bank full!");
@@ -1843,11 +1839,10 @@ public class ItemAssistant {
 						}
 				}
 				if (!alreadyInBank && freeBankSlots() > 0) {
-			       	for (int i=0; i<Config.BANK_SIZE; i++) {
-						if (c.bankItems[i] <= 0) {
-								toBankSlot = i;
-								i=Config.BANK_SIZE+1;
-						}
+			       	toBankSlot = newBankSlot(c.playerItems[fromSlot]);
+					if (toBankSlot < 0) {
+						c.sendMessage("Bank full!");
+						return false;
 					}
 						int firstPossibleSlot=0;
 						boolean itemExists = false;
@@ -1870,7 +1865,10 @@ public class ItemAssistant {
 							}
 						}
 						resetTempItems();
-						resetBank();
+						if (c.bankItemsN[toBankSlot] <= 0) {
+							rollbackEmptyBankSlot(toBankSlot);
+						}
+						c.getBank().refresh();
 						return true;
 				} else if (alreadyInBank) {
 						int firstPossibleSlot=0;
@@ -1893,7 +1891,7 @@ public class ItemAssistant {
 							}
 						}
 						resetTempItems();
-						resetBank();
+						c.getBank().refresh();
 						return true;
 				} else {
 						c.sendMessage("Bank full!");
@@ -1919,24 +1917,23 @@ public class ItemAssistant {
 				}
 
 				if (!alreadyInBank && freeBankSlots() > 0) {
-			       	for (int i=0; i<Config.BANK_SIZE; i++) {
-						if (c.bankItems[i] <= 0) {
-								toBankSlot = i;
-								i=Config.BANK_SIZE+1;
-						}
+			       	toBankSlot = newBankSlot(c.playerItems[fromSlot]-1);
+					if (toBankSlot < 0) {
+						c.sendMessage("Bank full!");
+						return false;
 					}
-					c.bankItems[toBankSlot] = (c.playerItems[fromSlot]-1);
 					if (c.playerItemsN[fromSlot]<amount){
 						amount = c.playerItemsN[fromSlot];
 					}
 					if ((c.bankItemsN[toBankSlot] + amount) <= Config.MAXITEM_AMOUNT && (c.bankItemsN[toBankSlot] + amount) > -1) {
 						c.bankItemsN[toBankSlot] += amount;
 					} else {
+						rollbackEmptyBankSlot(toBankSlot);
 						return false;
 					}
 					deleteItem((c.playerItems[fromSlot]-1), fromSlot, amount);
 					resetTempItems();
-					resetBank();
+					c.getBank().refresh();
 					return true;
 				}
 				else if (alreadyInBank) {
@@ -1947,7 +1944,7 @@ public class ItemAssistant {
 					}
 					deleteItem((c.playerItems[fromSlot]-1), fromSlot, amount);
 					resetTempItems();
-					resetBank();
+					c.getBank().refresh();
 					return true;
 				} else {
 						c.sendMessage("Bank full!");
@@ -1965,11 +1962,10 @@ public class ItemAssistant {
 					}
 				}
 				if (!alreadyInBank && freeBankSlots() > 0) {
-			       	for (int i=0; i<Config.BANK_SIZE; i++) {
-						if (c.bankItems[i] <= 0){
-								toBankSlot = i;
-								i=Config.BANK_SIZE+1;
-						}
+			       	toBankSlot = newBankSlot(c.playerItems[fromSlot]-1);
+					if (toBankSlot < 0) {
+						c.sendMessage("Bank full!");
+						return false;
 					}
 						int firstPossibleSlot=0;
 						boolean itemExists = false;
@@ -1983,7 +1979,6 @@ public class ItemAssistant {
 								}
 							}
 							if (itemExists) {
-									c.bankItems[toBankSlot] = (c.playerItems[firstPossibleSlot]-1);
 									c.bankItemsN[toBankSlot] += 1;
 									deleteItem((c.playerItems[firstPossibleSlot]-1), firstPossibleSlot, 1);
 									amount--;
@@ -1992,7 +1987,10 @@ public class ItemAssistant {
 							}
 						}
 						resetTempItems();
-						resetBank();
+						if (c.bankItemsN[toBankSlot] <= 0) {
+							rollbackEmptyBankSlot(toBankSlot);
+						}
+						c.getBank().refresh();
 						return true;
 				}
 				else if (alreadyInBank) {
@@ -2016,7 +2014,7 @@ public class ItemAssistant {
 							}
 						}
 						resetTempItems();
-						resetBank();
+						c.getBank().refresh();
 						return true;
 				} else {
 						c.sendMessage("Bank full!");
@@ -2039,100 +2037,55 @@ public class ItemAssistant {
 		}
 		return freeS;
 	}
-	
-	
-	public void fromBank(int itemID, int fromSlot, int amount) {
-		if(!c.isBanking)
-			return;
-		if (amount > 0) {
-		  if (c.bankItems[fromSlot] > 0) {
-			if (!c.takeAsNote) {
-			  if (Item.itemStackable[c.bankItems[fromSlot]-1]) {
-				if (c.bankItemsN[fromSlot] > amount) {
-				  if (addItem((c.bankItems[fromSlot]-1), amount)) {
-					c.bankItemsN[fromSlot] -= amount;
-					resetBank();
-					c.getItems().resetItems(5064);
-				  }
-				} else {
-				  if (addItem((c.bankItems[fromSlot]-1), c.bankItemsN[fromSlot])) {
-					c.bankItems[fromSlot] = 0;
-					c.bankItemsN[fromSlot] = 0;
-					resetBank();
-					c.getItems().resetItems(5064);
-				  }
-				}
-			  } else {
-				while (amount > 0) {
-				  if (c.bankItemsN[fromSlot] > 0) {
-					if (addItem((c.bankItems[fromSlot]-1), 1)) {
-					  c.bankItemsN[fromSlot] += -1;
-					  amount--;
-					} else {
-					  amount = 0;
-					}
-				  } else {
-					amount = 0;
-				  }
-				}
-				resetBank();
-				c.getItems().resetItems(5064);
-			  }
-			} else if (c.takeAsNote && Item.itemIsNote[c.bankItems[fromSlot]]) {
-				if(c.bankItems[fromSlot] == 6813) {
-					  c.sendMessage("This item can't be withdrawn as a note.");
-					  return;
-				}
-				if (c.bankItemsN[fromSlot] > amount) {
-					if (addItem(c.bankItems[fromSlot], amount)) {
-						c.bankItemsN[fromSlot] -= amount;
-						resetBank();
-						c.getItems().resetItems(5064);
-					}
-				} else {
-					if (addItem(c.bankItems[fromSlot], c.bankItemsN[fromSlot])) {
-						c.bankItems[fromSlot] = 0;
-						c.bankItemsN[fromSlot] = 0;
-						resetBank();
-						c.getItems().resetItems(5064);
-					}
-				}
-			} else {
-			  c.sendMessage("This item can't be withdrawn as a note.");
-			  if (Item.itemStackable[c.bankItems[fromSlot]-1]) {
-				if (c.bankItemsN[fromSlot] > amount) {
-				  if (addItem((c.bankItems[fromSlot]-1), amount)) {
-					c.bankItemsN[fromSlot] -= amount;
-					resetBank();
-					c.getItems().resetItems(5064);
-				  }
-				} else {
-				  if (addItem((c.bankItems[fromSlot]-1), c.bankItemsN[fromSlot])) {
-					c.bankItems[fromSlot] = 0;
-					c.bankItemsN[fromSlot] = 0;
-					resetBank();
-					c.getItems().resetItems(5064);
-				  }
-				}
-			  } else {
-				while (amount > 0) {
-				  if (c.bankItemsN[fromSlot] > 0) {
-					if (addItem((c.bankItems[fromSlot]-1), 1)) {
-					  c.bankItemsN[fromSlot] += -1;
-					  amount--;
-					} else {
-					  amount = 0;
-					}
-				  } else {
-					amount = 0;
-				  }
-				}
-				resetBank();
-				c.getItems().resetItems(5064);
-			  }
-			}
-		  }
+
+	private void finishBankWithdraw(int slot) {
+		if (slot >= 0 && slot < Config.BANK_SIZE && c.bankItemsN[slot] <= 0) {
+			c.bankItems[slot] = 0;
+			c.bankItemsN[slot] = 0;
+			c.getBank().onEmptiedSlot(slot);
 		}
+		c.getBank().refresh();
+		resetItems(5064);
+	}
+
+	public void fromBank(int itemID, int fromSlot, int amount) {
+		if (!c.isBanking || amount <= 0) {
+			return;
+		}
+		fromSlot = c.getBank().toAbsolute(fromSlot);
+		if (fromSlot < 0 || fromSlot >= Config.BANK_SIZE) {
+			return;
+		}
+		int bankId = c.bankItems[fromSlot];
+		int stack = c.bankItemsN[fromSlot];
+		if (bankId <= 0 || stack <= 0) {
+			return;
+		}
+		if (amount > stack) {
+			amount = stack;
+		}
+		boolean canNote = bankId >= 0 && bankId < Item.itemIsNote.length && Item.itemIsNote[bankId] && bankId != 6813;
+		boolean note = c.takeAsNote && canNote;
+		if (c.takeAsNote && !note) {
+			c.sendMessage("This item can't be withdrawn as a note.");
+		}
+		int giveId = note ? bankId : (bankId - 1);
+		boolean stackable = giveId >= 0 && giveId < Item.itemStackable.length && Item.itemStackable[giveId];
+		if (note || stackable) {
+			if (addItem(giveId, amount)) {
+				c.bankItemsN[fromSlot] -= amount;
+				finishBankWithdraw(fromSlot);
+			}
+			return;
+		}
+		while (amount > 0 && c.bankItemsN[fromSlot] > 0) {
+			if (!addItem(bankId - 1, 1)) {
+				break;
+			}
+			c.bankItemsN[fromSlot]--;
+			amount--;
+		}
+		finishBankWithdraw(fromSlot);
 	}
 
   	public int itemAmount(int itemID){
@@ -2182,6 +2135,11 @@ public class ItemAssistant {
 	**/
 	
 	public void moveItems(int from, int to, int moveWindow) {
+		if (moveWindow >= 10335 && moveWindow <= 10342) {
+			int destTab = moveWindow - 10335 + 1;
+			c.getBank().moveToTab(c.getBank().toAbsolute(from), destTab);
+			return;
+		}
 		if (moveWindow == 3724) {
 			int tempI;
 			int tempN;
@@ -2194,21 +2152,11 @@ public class ItemAssistant {
 			c.playerItemsN[to] = tempN;
 		}
 
-		if (moveWindow == 34453 && from >= 0 && to >= 0 && from < Config.BANK_SIZE && to < Config.BANK_SIZE && to < Config.BANK_SIZE) {
-			int tempI;
-			int tempN;
-			tempI = c.bankItems[from];
-			tempN = c.bankItemsN[from];
-
-			c.bankItems[from] = c.bankItems[to];
-			c.bankItemsN[from] = c.bankItemsN[to];
-			c.bankItems[to] = tempI;
-			c.bankItemsN[to] = tempN;
+		if (moveWindow == 5382 || moveWindow == 34453) {
+			c.getBank().swapOrInsert(from, to, c.insertMode);
+			return;
 		}
 
-		if (moveWindow == 34453) {
-			resetBank();
-		}
 		if (moveWindow == 18579) {
 			int tempI;
 			int tempN;
