@@ -5,7 +5,7 @@ import com.rsps.interfacemaker.model.InterfaceProject;
 import com.rsps.interfacemaker.model.SpriteComponent;
 import com.rsps.interfacemaker.model.ButtonComponent;
 import com.rsps.interfacemaker.model.TextComponent;
-import com.rsps.interfacemaker.model.ComponentType;
+import com.rsps.interfacemaker.model.EditHistory;
 import com.rsps.interfacemaker.generator.CodeGenerator;
 import com.rsps.interfacemaker.util.ProjectSerializer;
 import com.rsps.interfacemaker.util.Templates;
@@ -42,6 +42,8 @@ public class MainView extends BorderPane {
     private Stage primaryStage;
     private String cachePath = "";
     private String interfacesFilePath = "";
+    private final EditHistory history = new EditHistory();
+    private Label zoomLabel;
 
     public MainView(Stage primaryStage) {
         this.primaryStage = primaryStage;
@@ -99,9 +101,12 @@ public class MainView extends BorderPane {
         canvas.setOnComponentSelected(this::onComponentSelected);
         canvas.setOnComponentsDuplicated(this::onComponentsDuplicated);
         canvas.setOnComponentsChanged(this::onComponentsChanged);
+        canvas.setOnEditStarted(() -> history.push(project));
+        canvas.setOnZoomChanged(this::updateZoomLabel);
         ScrollPane centerScroll = new ScrollPane(canvas);
-        centerScroll.setFitToWidth(true);
-        centerScroll.setFitToHeight(true);
+        centerScroll.setFitToWidth(false);
+        centerScroll.setFitToHeight(false);
+        centerScroll.setPannable(true);
         centerScroll.setStyle("-fx-background: #1a1a1a;");
         
         // Right sidebar: Properties vs Code Preview
@@ -185,6 +190,15 @@ public class MainView extends BorderPane {
         teleportTemplate.setOnAction(e -> loadTemplate(Templates.createTeleportMenuTemplate()));
         templatesMenu.getItems().addAll(emptyTemplate, basicDialogTemplate, shopTemplate, teleportTemplate);
 
+        Menu editMenu = new Menu("Edit");
+        MenuItem undoItem = new MenuItem("Undo");
+        undoItem.setAccelerator(new KeyCodeCombination(KeyCode.Z, KeyCombination.CONTROL_DOWN));
+        undoItem.setOnAction(e -> undo());
+        MenuItem redoItem = new MenuItem("Redo");
+        redoItem.setAccelerator(new KeyCodeCombination(KeyCode.Y, KeyCombination.CONTROL_DOWN));
+        redoItem.setOnAction(e -> redo());
+        editMenu.getItems().addAll(undoItem, redoItem);
+
         // Alignment menu
         Menu alignMenu = new Menu("Align");
         MenuItem alignLeft = new MenuItem("Align Left");
@@ -236,7 +250,7 @@ public class MainView extends BorderPane {
         viewMenu.getItems().add(toggleGrid);
 
         MenuBar menuBar = new MenuBar();
-        menuBar.getMenus().addAll(fileMenu, templatesMenu, alignMenu, distributeMenu, advancedMenu, viewMenu);
+        menuBar.getMenus().addAll(fileMenu, editMenu, templatesMenu, alignMenu, distributeMenu, advancedMenu, viewMenu);
 
         // Add component buttons
         Button addSpriteBtn = new Button("Add Sprite");
@@ -262,7 +276,24 @@ public class MainView extends BorderPane {
         Button saveClientBtn = new Button("Save to Client");
         saveClientBtn.setOnAction(e -> saveToClient());
 
-        toolBar.getItems().addAll(menuBar, new Separator(), saveClientBtn, new Separator(),
+        Button zoomOutBtn = new Button("Zoom -");
+        zoomOutBtn.setOnAction(e -> {
+            canvas.setZoom(canvas.getZoom() / 1.25);
+            updateZoomLabel();
+        });
+        zoomLabel = new Label("100%");
+        Button zoomInBtn = new Button("Zoom +");
+        zoomInBtn.setOnAction(e -> {
+            canvas.setZoom(canvas.getZoom() * 1.25);
+            updateZoomLabel();
+        });
+        Button undoBtn = new Button("Undo");
+        undoBtn.setOnAction(e -> undo());
+        Button redoBtn = new Button("Redo");
+        redoBtn.setOnAction(e -> redo());
+
+        toolBar.getItems().addAll(menuBar, new Separator(), saveClientBtn, undoBtn, redoBtn, new Separator(),
+            zoomOutBtn, zoomLabel, zoomInBtn, new Separator(),
             addSpriteBtn, addButtonBtn, addTextBtn, addCloseBtn, new Separator(),
             alignLeftBtn, alignCenterBtn, alignRightBtn);
 
@@ -841,6 +872,9 @@ public class MainView extends BorderPane {
             for (InterfaceComponent component : project.getComponents()) {
                 component.setOriginalX(component.getX());
                 component.setOriginalY(component.getY());
+                component.setOriginalWidth(component.getWidth());
+                component.setOriginalHeight(component.getHeight());
+                component.setOriginalScrollMax(component.getScrollMax());
             }
             codePreviewPanel.updatePreview();
             logDebug("Saved setBounds to " + project.getInterfacesFilePath());
@@ -892,8 +926,37 @@ public class MainView extends BorderPane {
         propertyPanel.setProject(project);
         codePreviewPanel.setProject(project);
         canvas.render();
+        history.clear();
         if (primaryStage != null) {
             primaryStage.setTitle("RSPS Interface Maker — " + project.getName());
+        }
+    }
+
+    private void undo() {
+        if (!history.canUndo()) {
+            return;
+        }
+        history.undo(project);
+        canvas.render();
+        propertyPanel.refresh();
+        codePreviewPanel.updatePreview();
+        logDebug("Undo");
+    }
+
+    private void redo() {
+        if (!history.canRedo()) {
+            return;
+        }
+        history.redo(project);
+        canvas.render();
+        propertyPanel.refresh();
+        codePreviewPanel.updatePreview();
+        logDebug("Redo");
+    }
+
+    private void updateZoomLabel() {
+        if (zoomLabel != null) {
+            zoomLabel.setText(Math.round(canvas.getZoom() * 100) + "%");
         }
     }
 

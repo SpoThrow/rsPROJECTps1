@@ -33,6 +33,9 @@ public class JavaInterfaceParser {
 
     private final Map<String, Integer> intVars = new HashMap<>();
     private final Map<String, Integer> ifaceVars = new HashMap<>();
+    private final Map<String, int[]> arrays = new HashMap<>();
+    private final Map<Integer, String> varNames = new HashMap<>();
+    private final Map<String, Map<Integer, ChildSlot>> childSlots = new HashMap<>();
     private final Map<Integer, InterfaceComponent> widgets = new LinkedHashMap<>();
     private final List<Placement> placements = new ArrayList<>();
     private final List<LoopBoundsBlock> loopBlocks = new ArrayList<>();
@@ -56,6 +59,7 @@ public class JavaInterfaceParser {
 
             JavaInterfaceParser parser = new JavaInterfaceParser();
             parser.scan(span.body);
+            parser.flushChildSlots();
             if (parser.rootInterfaceId < 0) {
                 System.err.println("Interface ID not found in method body");
                 return null;
@@ -69,18 +73,15 @@ public class JavaInterfaceParser {
             project.setClientLinked(true);
             project.setLoopBlocks(parser.loopBlocks);
 
-            List<Placement> rootPlacements = new ArrayList<>();
-            for (Placement placement : parser.placements) {
-                if (placement.parentId == parser.rootInterfaceId || placement.parentId < 0) {
-                    rootPlacements.add(placement);
-                }
-            }
-            rootPlacements.sort(Comparator.comparingInt(p -> p.frame));
+            List<Placement> allPlacements = new ArrayList<>(parser.placements);
+            allPlacements.sort(Comparator.comparingInt((Placement p) -> p.parentId == parser.rootInterfaceId ? 0 : 1)
+                .thenComparingInt(p -> p.frame));
 
-            for (Placement placement : rootPlacements) {
+            for (Placement placement : allPlacements) {
                 InterfaceComponent component = parser.widgets.get(placement.id);
                 if (component == null) {
                     component = parser.placeholder(placement.id);
+                    parser.widgets.put(placement.id, component);
                 }
                 component.setId(placement.id);
                 component.setX(placement.x);
@@ -91,8 +92,17 @@ public class JavaInterfaceParser {
                 component.setFromLoop(placement.fromLoop);
                 component.setLoopGroup(placement.loopGroup);
                 component.setParentVarName(placement.parentVar);
-                component.setParentInterfaceId(parser.rootInterfaceId);
-                project.addExistingComponent(component);
+                component.setParentInterfaceId(placement.parentId);
+                String sourceVar = parser.varNames.get(placement.id);
+                if (sourceVar != null) {
+                    component.setSourceVarName(sourceVar);
+                }
+                component.setOriginalWidth(component.getWidth());
+                component.setOriginalHeight(component.getHeight());
+                component.setOriginalScrollMax(component.getScrollMax());
+                if (project.findById(placement.id) == null) {
+                    project.addExistingComponent(component);
+                }
             }
 
             System.out.println("Parsed " + methodName + " id=" + parser.rootInterfaceId
@@ -193,24 +203,37 @@ public class JavaInterfaceParser {
 
         String init = parts[0].trim();
         String loopVar = loopIndexName(init);
-        interpret(init);
+        String parentVar = "";
+        try {
+            interpret(init);
+            evalCondition(parts[1].trim());
+        } catch (RuntimeException e) {
+            System.err.println("Skipping for-loop (" + e.getMessage() + "): " + header.trim());
+            if (loopVar != null) {
+                intVars.remove(loopVar);
+            }
+            return bodyClose + 1;
+        }
         String cond = parts[1].trim();
         String incr = parts[2].trim();
-        String parentVar = "";
 
         int guard = 0;
-        while (evalCondition(cond) && guard++ < 256) {
-            int before = placements.size();
-            scan(loopBody);
-            for (int p = before; p < placements.size(); p++) {
-                Placement placement = placements.get(p);
-                placement.fromLoop = true;
-                placement.loopGroup = groupId;
-                if (parentVar.isEmpty()) {
-                    parentVar = placement.parentVar;
+        try {
+            while (evalCondition(cond) && guard++ < 512) {
+                int before = placements.size();
+                scan(loopBody);
+                for (int p = before; p < placements.size(); p++) {
+                    Placement placement = placements.get(p);
+                    placement.fromLoop = true;
+                    placement.loopGroup = groupId;
+                    if (parentVar.isEmpty()) {
+                        parentVar = placement.parentVar;
+                    }
                 }
+                interpret(incr);
             }
-            interpret(incr);
+        } catch (RuntimeException e) {
+            System.err.println("Stopping for-loop (" + e.getMessage() + ")");
         }
         if (loopVar != null) {
             intVars.remove(loopVar);
@@ -236,12 +259,32 @@ public class JavaInterfaceParser {
             interpretIfaceAssign(stmt.substring("RSInterface ".length()).trim());
             return;
         }
+        if (stmt.startsWith("int[]") || stmt.startsWith("int []")) {
+            interpretArrayDecl(stmt);
+            return;
+        }
         if (stmt.startsWith("int ") && !stmt.contains("[")) {
             interpretIntAssign(stmt.substring(4).trim());
             return;
         }
+        if (stmt.contains(".child(") && !stmt.contains("totalChildren") && !stmt.contains("setChildren")) {
+            interpretChildCall(stmt);
+            return;
+        }
         if (stmt.startsWith("setBounds(") && stmt.endsWith(")")) {
             interpretSetBounds(insideCall(stmt, "setBounds"));
+            return;
+        }
+        if (stmt.startsWith("addRectangle(")) {
+            interpretAddRectangle(insideCall(stmt, "addRectangle"));
+            return;
+        }
+        if (stmt.startsWith("addHoverText(")) {
+            interpretAddHoverText(insideCall(stmt, "addHoverText"));
+            return;
+        }
+        if (stmt.startsWith("addPosItemSlot(")) {
+            interpretAddBankItem(insideCall(stmt, "addPosItemSlot"));
             return;
         }
         if (stmt.startsWith("addSprite(")) {
@@ -284,10 +327,18 @@ public class JavaInterfaceParser {
 
         int dot = stmt.indexOf('.');
         int eq = stmt.indexOf('=');
+        if (stmt.contains("interfaceCache[") && eq > 0) {
+            interpretCacheField(stmt);
+            return;
+        }
         if (dot > 0 && eq > dot) {
             String var = stmt.substring(0, dot).trim();
             String field = stmt.substring(dot + 1, eq).trim();
             String value = stmt.substring(eq + 1).trim();
+            if (field.startsWith("children[") || field.startsWith("childX[") || field.startsWith("childY[")) {
+                interpretIndexedChildField(var, field, value);
+                return;
+            }
             Integer id = ifaceVars.get(var);
             if (id != null) {
                 InterfaceComponent component = widgets.get(id);
@@ -301,6 +352,11 @@ public class JavaInterfaceParser {
                         component.setWidth(n);
                     } else if ("height".equals(field)) {
                         component.setHeight(n);
+                    } else if ("scrollMax".equals(field)) {
+                        component.setScrollMax(n);
+                        if (component.getType() != ComponentType.CONTAINER) {
+                            component.setType(ComponentType.CONTAINER);
+                        }
                     }
                 } catch (RuntimeException ignored) {
                 }
@@ -308,12 +364,19 @@ public class JavaInterfaceParser {
             return;
         }
 
-        if (eq > 0 && !stmt.contains("(")) {
+        if (eq > 0) {
             String left = stmt.substring(0, eq).trim();
             String right = stmt.substring(eq + 1).trim();
+            if (left.contains("[") && left.endsWith("]")) {
+                interpretArrayIndexAssign(left, right);
+                return;
+            }
             if (left.endsWith("+")) {
                 String name = left.substring(0, left.length() - 1).trim();
-                intVars.put(name, getInt(name) + evalExpr(right));
+                try {
+                    intVars.put(name, getInt(name) + evalExpr(right));
+                } catch (RuntimeException ignored) {
+                }
             } else if (intVars.containsKey(left) || looksLikeIdent(left)) {
                 try {
                     intVars.put(left, evalExpr(right));
@@ -355,6 +418,18 @@ public class JavaInterfaceParser {
         }
         if (id != null) {
             ifaceVars.put(var, id);
+            varNames.put(id, var);
+            if (id != rootInterfaceId && !widgets.containsKey(id)) {
+                InterfaceComponent container = new InterfaceComponent(ComponentType.CONTAINER);
+                container.setId(id);
+                container.setName(var.substring(0, 1).toUpperCase(Locale.ROOT) + var.substring(1) + "_" + id);
+                container.setWidth(100);
+                container.setHeight(100);
+                container.setSourceVarName(var);
+                widgets.put(id, container);
+            } else if (widgets.containsKey(id)) {
+                widgets.get(id).setSourceVarName(var);
+            }
         }
     }
 
@@ -370,23 +445,193 @@ public class JavaInterfaceParser {
         }
     }
 
-    private void interpretSetBounds(String inside) {
+    private void interpretArrayDecl(String stmt) {
+        int eq = stmt.indexOf('=');
+        if (eq < 0) {
+            return;
+        }
+        String left = stmt.substring(0, eq).trim();
+        String name = left.replace("int[]", "").replace("int []", "").trim();
+        String rhs = stmt.substring(eq + 1).trim();
+        try {
+            if (rhs.startsWith("{") && rhs.endsWith("}")) {
+                List<String> parts = splitArgs(rhs.substring(1, rhs.length() - 1));
+                int[] values = new int[parts.size()];
+                for (int i = 0; i < parts.size(); i++) {
+                    values[i] = evalExpr(parts.get(i));
+                }
+                arrays.put(name, values);
+            } else if (rhs.contains("new int[")) {
+                int open = rhs.indexOf('[');
+                int close = rhs.lastIndexOf(']');
+                int n = evalExpr(rhs.substring(open + 1, close));
+                arrays.put(name, new int[Math.max(0, Math.min(n, 512))]);
+            }
+        } catch (RuntimeException e) {
+            System.err.println("Skipping array " + name + ": " + e.getMessage());
+        }
+    }
+
+    private void interpretArrayIndexAssign(String left, String right) {
+        int open = left.indexOf('[');
+        String name = left.substring(0, open).trim();
+        try {
+            int index = evalExpr(left.substring(open + 1, left.lastIndexOf(']')));
+            int[] arr = arrays.get(name);
+            if (arr == null || index < 0 || index >= arr.length) {
+                return;
+            }
+            arr[index] = evalExpr(right);
+        } catch (RuntimeException ignored) {
+        }
+    }
+
+    private void interpretChildCall(String stmt) {
+        int dot = stmt.indexOf(".child(");
+        if (dot < 0) {
+            return;
+        }
+        String var = stmt.substring(0, dot).trim();
+        interpretSetBoundsLike(insideCall(stmt.substring(dot + 1), "child"), var, true);
+    }
+
+    private void interpretSetBoundsLike(String inside, String parentVar, boolean childOrder) {
         List<String> args = splitArgs(inside);
-        if (args.size() != 5) {
+        if (args.size() != 4 && args.size() != 5) {
             return;
         }
         try {
             Placement placement = new Placement();
-            placement.id = evalExpr(args.get(0));
-            placement.x = evalExpr(args.get(1));
-            placement.y = evalExpr(args.get(2));
-            placement.frame = evalExpr(args.get(3));
-            placement.parentVar = args.get(4).trim();
+            if (childOrder) {
+                placement.frame = evalExpr(args.get(0));
+                placement.id = evalExpr(args.get(1));
+                placement.x = evalExpr(args.get(2));
+                placement.y = evalExpr(args.get(3));
+                placement.parentVar = parentVar;
+            } else {
+                placement.id = evalExpr(args.get(0));
+                placement.x = evalExpr(args.get(1));
+                placement.y = evalExpr(args.get(2));
+                placement.frame = evalExpr(args.get(3));
+                placement.parentVar = args.size() > 4 ? args.get(4).trim() : parentVar;
+            }
             Integer parentId = ifaceVars.get(placement.parentVar);
             placement.parentId = parentId == null ? rootInterfaceId : parentId;
             placements.add(placement);
         } catch (RuntimeException ignored) {
         }
+    }
+
+    private void interpretAddRectangle(String inside) {
+        List<String> args = splitArgs(inside);
+        if (args.size() < 6) {
+            return;
+        }
+        int id = evalExpr(args.get(0));
+        InterfaceComponent rect = new InterfaceComponent(ComponentType.RECTANGLE);
+        rect.setId(id);
+        rect.setWidth(evalExpr(args.get(1)));
+        rect.setHeight(evalExpr(args.get(2)));
+        rect.setFillColor(parseColor(args.get(3)));
+        rect.setFilled(Boolean.parseBoolean(args.get(5).trim()));
+        rect.setName("Rect_" + id);
+        widgets.put(id, rect);
+    }
+
+    private void interpretAddHoverText(String inside) {
+        List<String> args = splitArgs(inside);
+        if (args.size() < 9) {
+            return;
+        }
+        int id = evalExpr(args.get(0));
+        TextComponent text = new TextComponent();
+        text.setId(id);
+        text.setText(unquote(args.get(1)));
+        text.setTooltip(unquote(args.get(2)));
+        text.setFontIndex(evalExpr(args.get(4)));
+        text.setTextColor(parseColor(args.get(5)));
+        text.setCentered(Boolean.parseBoolean(args.get(6).trim()));
+        text.setHasShadow(Boolean.parseBoolean(args.get(7).trim()));
+        text.setWidth(evalExpr(args.get(8)));
+        text.setHeight(16);
+        text.setName(labelFor(text.getText(), "Text_" + id));
+        widgets.put(id, text);
+    }
+
+    private void interpretCacheField(String stmt) {
+        int open = stmt.indexOf('[');
+        int close = stmt.indexOf(']');
+        int eq = stmt.indexOf('=');
+        if (open < 0 || close < open || eq < close) {
+            return;
+        }
+        try {
+            int id = evalExpr(stmt.substring(open + 1, close));
+            String field = stmt.substring(close + 1, eq).replace(".", "").trim();
+            int n = evalExpr(stmt.substring(eq + 1).trim());
+            InterfaceComponent component = widgets.get(id);
+            if (component == null) {
+                return;
+            }
+            if ("width".equals(field)) {
+                component.setWidth(n);
+            } else if ("height".equals(field)) {
+                component.setHeight(n);
+            } else if ("scrollMax".equals(field)) {
+                component.setScrollMax(n);
+            }
+        } catch (RuntimeException ignored) {
+        }
+    }
+
+    private void interpretIndexedChildField(String var, String field, String value) {
+        int open = field.indexOf('[');
+        int close = field.lastIndexOf(']');
+        if (open < 0 || close < open) {
+            return;
+        }
+        try {
+            int index = evalExpr(field.substring(open + 1, close));
+            ChildSlot slot = childSlots.computeIfAbsent(var, k -> new HashMap<>())
+                .computeIfAbsent(index, k -> new ChildSlot());
+            int n = evalExpr(value);
+            if (field.startsWith("children[")) {
+                slot.id = n;
+            } else if (field.startsWith("childX[")) {
+                slot.x = n;
+            } else if (field.startsWith("childY[")) {
+                slot.y = n;
+            }
+        } catch (RuntimeException ignored) {
+        }
+    }
+
+    private void flushChildSlots() {
+        for (Map.Entry<String, Map<Integer, ChildSlot>> parent : childSlots.entrySet()) {
+            String var = parent.getKey();
+            Integer parentId = ifaceVars.get(var);
+            if (parentId == null) {
+                parentId = rootInterfaceId;
+            }
+            for (Map.Entry<Integer, ChildSlot> entry : parent.getValue().entrySet()) {
+                ChildSlot slot = entry.getValue();
+                if (slot.id == Integer.MIN_VALUE) {
+                    continue;
+                }
+                Placement placement = new Placement();
+                placement.id = slot.id;
+                placement.x = slot.x == Integer.MIN_VALUE ? 0 : slot.x;
+                placement.y = slot.y == Integer.MIN_VALUE ? 0 : slot.y;
+                placement.frame = entry.getKey();
+                placement.parentVar = var;
+                placement.parentId = parentId;
+                placements.add(placement);
+            }
+        }
+    }
+
+    private void interpretSetBounds(String inside) {
+        interpretSetBoundsLike(inside, "", false);
     }
 
     private void interpretAddSprite(String inside) {
@@ -617,7 +862,7 @@ public class JavaInterfaceParser {
 
     private int evalExpr(String expr) {
         expr = expr.trim();
-        if (expr.endsWith("++")) {
+        if (expr.endsWith("++") && looksLikeIdent(expr.substring(0, expr.length() - 2).trim())) {
             String name = expr.substring(0, expr.length() - 2).trim();
             int value = getInt(name);
             intVars.put(name, value + 1);
@@ -629,7 +874,7 @@ public class JavaInterfaceParser {
             intVars.put(name, value);
             return value;
         }
-        if (expr.endsWith("--")) {
+        if (expr.endsWith("--") && looksLikeIdent(expr.substring(0, expr.length() - 2).trim())) {
             String name = expr.substring(0, expr.length() - 2).trim();
             int value = getInt(name);
             intVars.put(name, value - 1);
@@ -644,25 +889,103 @@ public class JavaInterfaceParser {
         if (expr.contains("&&") || expr.contains("||")) {
             throw new RuntimeException("complex");
         }
-        String[] parts = expr.split("\\+");
-        if (parts.length > 1) {
-            int sum = 0;
-            for (String part : parts) {
-                sum += evalAtom(part.trim());
+        return evalAdd(expr);
+    }
+
+    private int evalAdd(String expr) {
+        List<String> parts = new ArrayList<>();
+        List<Character> ops = new ArrayList<>();
+        StringBuilder cur = new StringBuilder();
+        int depth = 0;
+        for (int i = 0; i < expr.length(); i++) {
+            char c = expr.charAt(i);
+            if (c == '(' || c == '[') {
+                depth++;
+            } else if (c == ')' || c == ']') {
+                depth--;
             }
-            return sum;
+            if (depth == 0 && (c == '+' || (c == '-' && i > 0 && cur.length() > 0))) {
+                parts.add(cur.toString());
+                ops.add(c);
+                cur.setLength(0);
+            } else {
+                cur.append(c);
+            }
         }
-        int minus = expr.lastIndexOf('-');
-        if (minus > 0) {
-            return evalAtom(expr.substring(0, minus).trim()) - evalAtom(expr.substring(minus + 1).trim());
+        parts.add(cur.toString());
+        int value = evalMul(parts.get(0));
+        for (int i = 0; i < ops.size(); i++) {
+            int rhs = evalMul(parts.get(i + 1));
+            value = ops.get(i) == '+' ? value + rhs : value - rhs;
         }
-        return evalAtom(expr);
+        return value;
+    }
+
+    private int evalMul(String expr) {
+        expr = expr.trim();
+        List<String> parts = new ArrayList<>();
+        List<Character> ops = new ArrayList<>();
+        StringBuilder cur = new StringBuilder();
+        int depth = 0;
+        for (int i = 0; i < expr.length(); i++) {
+            char c = expr.charAt(i);
+            if (c == '(' || c == '[') {
+                depth++;
+            } else if (c == ')' || c == ']') {
+                depth--;
+            }
+            if (depth == 0 && (c == '*' || c == '/' || c == '%')) {
+                parts.add(cur.toString());
+                ops.add(c);
+                cur.setLength(0);
+            } else {
+                cur.append(c);
+            }
+        }
+        parts.add(cur.toString());
+        int value = evalAtom(parts.get(0));
+        for (int i = 0; i < ops.size(); i++) {
+            int rhs = evalAtom(parts.get(i + 1));
+            char op = ops.get(i);
+            if (op == '*') {
+                value *= rhs;
+            } else if (op == '/') {
+                value = rhs == 0 ? 0 : value / rhs;
+            } else {
+                value = rhs == 0 ? 0 : value % rhs;
+            }
+        }
+        return value;
     }
 
     private int evalAtom(String atom) {
         atom = atom.trim();
         if (atom.isEmpty()) {
             return 0;
+        }
+        if (atom.startsWith("(") && atom.endsWith(")")) {
+            return evalExpr(atom.substring(1, atom.length() - 1));
+        }
+        if (atom.endsWith(".length")) {
+            String name = atom.substring(0, atom.length() - 7).trim();
+            int[] arr = arrays.get(name);
+            if (arr != null) {
+                return arr.length;
+            }
+            if (name.equals("KeyRemapper.NAMES") || name.endsWith("KeyRemapper.NAMES")) {
+                return 13;
+            }
+            throw new RuntimeException("unknown length " + name);
+        }
+        int bracket = atom.indexOf('[');
+        if (bracket > 0 && atom.endsWith("]")) {
+            String name = atom.substring(0, bracket).trim();
+            int index = evalExpr(atom.substring(bracket + 1, atom.length() - 1));
+            int[] arr = arrays.get(name);
+            if (arr == null || index < 0 || index >= arr.length) {
+                throw new RuntimeException("bad array access " + atom);
+            }
+            return arr[index];
         }
         if (looksLikeNumber(atom)) {
             return parseColor(atom);
@@ -976,6 +1299,12 @@ public class JavaInterfaceParser {
 
     static String readFile(File file) throws IOException {
         return Files.readString(file.toPath(), StandardCharsets.UTF_8);
+    }
+
+    private static class ChildSlot {
+        int id = Integer.MIN_VALUE;
+        int x = Integer.MIN_VALUE;
+        int y = Integer.MIN_VALUE;
     }
 
     private static class Placement {

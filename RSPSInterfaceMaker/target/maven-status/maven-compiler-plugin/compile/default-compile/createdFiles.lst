@@ -3,6 +3,7 @@ com\rsps\interfacemaker\util\CacheReader$ChildData.class
 com\rsps\interfacemaker\util\SpriteLoader.class
 com\rsps\interfacemaker\view\SpriteLibraryPanel$SpriteInfo.class
 com\rsps\interfacemaker\util\JavaInterfaceParser.class
+com\rsps\interfacemaker\util\JavaInterfaceParser$ChildSlot.class
 com\rsps\interfacemaker\view\MainView.class
 com\rsps\interfacemaker\util\ComponentTypeAdapter.class
 com\rsps\interfacemaker\util\ProjectSerializer$1.class
@@ -11,6 +12,7 @@ com\rsps\interfacemaker\view\SpriteLibraryPanel.class
 com\rsps\interfacemaker\view\InterfaceCanvas$1.class
 com\rsps\interfacemaker\generator\CodeGenerator.class
 com\rsps\interfacemaker\model\InterfaceProject.class
+com\rsps\interfacemaker\model\EditHistory.class
 com\rsps\interfacemaker\model\ButtonComponent.class
 com\rsps\interfacemaker\util\CacheReader.class
 com\rsps\interfacemaker\util\ProjectSerializer.class
@@ -22,6 +24,7 @@ com\rsps\interfacemaker\view\PropertyPanel$1.class
 com\rsps\interfacemaker\view\PropertyPanel.class
 com\rsps\interfacemaker\view\ComponentListView.class
 com\rsps\interfacemaker\generator\CodeGenerator$1.class
+com\rsps\interfacemaker\model\EditHistory$Snapshot.class
 com\rsps\interfacemaker\model\SpriteComponent.class
 com\rsps\interfacemaker\view\InterfaceCanvas.class
 com\rsps\interfacemaker\view\ComponentListView$ComponentListCell.class

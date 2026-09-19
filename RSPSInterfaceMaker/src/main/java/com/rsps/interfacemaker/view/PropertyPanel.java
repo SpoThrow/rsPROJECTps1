@@ -72,6 +72,7 @@ public class PropertyPanel extends VBox {
                 break;
             case CONTAINER:
             case ITEM_SLOT:
+            case RECTANGLE:
                 break;
         }
     }
@@ -178,8 +179,29 @@ public class PropertyPanel extends VBox {
         });
         grid.add(heightField, 1, 5);
 
-        // Tooltip
-        grid.add(new Label("Tooltip:"), 0, 6);
+        if (component.getType() == ComponentType.CONTAINER || component.getScrollMax() > 0) {
+            grid.add(new Label("Scroll Max:"), 0, 6);
+            TextField scrollField = new TextField(String.valueOf(component.getScrollMax()));
+            scrollField.focusedProperty().addListener((obs, oldValue, newVal) -> {
+                if (!newVal) {
+                    try {
+                        component.setScrollMax(Integer.parseInt(scrollField.getText()));
+                        notifyModified();
+                    } catch (NumberFormatException ex) {}
+                }
+            });
+            scrollField.setOnAction(e -> {
+                try {
+                    component.setScrollMax(Integer.parseInt(scrollField.getText()));
+                    notifyModified();
+                } catch (NumberFormatException ex) {}
+            });
+            grid.add(scrollField, 1, 6);
+            grid.add(new Label("Wheel over the list to preview scroll. The bar on the right is the in-game scrollbar."), 0, 7, 2, 1);
+        }
+
+        int tooltipRow = (component.getType() == ComponentType.CONTAINER || component.getScrollMax() > 0) ? 8 : 6;
+        grid.add(new Label("Tooltip:"), 0, tooltipRow);
         TextField tooltipField = new TextField(component.getTooltip());
         tooltipField.focusedProperty().addListener((obs, oldValue, newVal) -> {
             if (!newVal) { // When focus is lost
@@ -191,7 +213,7 @@ public class PropertyPanel extends VBox {
             component.setTooltip(tooltipField.getText());
             notifyModified();
         });
-        grid.add(tooltipField, 1, 6);
+        grid.add(tooltipField, 1, tooltipRow);
 
         getChildren().add(grid);
     }

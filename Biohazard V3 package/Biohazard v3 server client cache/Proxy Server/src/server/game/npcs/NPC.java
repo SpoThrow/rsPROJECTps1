@@ -26,7 +26,7 @@ public class NPC {
 	/**
 	 * attackType: 0 = melee, 1 = range, 2 = mage
 	 */
-	public int attackType, projectileId, endGfx, spawnedBy, hitDelayTimer, HP, MaxHP, hitDiff, animNumber, actionTimer, enemyX, enemyY;
+	public int attackType, projectileId, endGfx, spawnedBy, hitDelayTimer, HP, MaxHP, pendingDamage, hitDiff, animNumber, actionTimer, enemyX, enemyY;
 	public boolean applyDead, isDead, needRespawn, respawns;
 	public boolean walkingHome, underAttack;
 	public int freezeTimer, attackTimer, killerId, killedBy, oldIndex, underAttackBy;

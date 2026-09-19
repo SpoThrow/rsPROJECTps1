@@ -14,7 +14,12 @@ public class BankTabs {
 	public static final int MAX_COUNT_ID = 19996;
 	public static final int SEARCH_CONFIG = 116;
 	public static final int VIEW_TAB_CONFIG = 160;
-	public static final int TAB_AMOUNT_CONFIG = 540;
+	public static final int QTY_1 = 26030;
+	public static final int QTY_5 = 26031;
+	public static final int QTY_10 = 26032;
+	public static final int QTY_X = 26033;
+	public static final int QTY_ALL = 26034;
+	public static final int QTY_PLACEHOLDERS = 26035;
 
 	private final Client c;
 	private int[] displayMap = new int[DISPLAY_SIZE];
@@ -44,7 +49,7 @@ public class BankTabs {
 	public void compactOccupied() {
 		int write = 0;
 		for (int read = 0; read < Config.BANK_SIZE; read++) {
-			if (c.bankItems[read] > 0 && c.bankItemsN[read] > 0) {
+			if (slotUsed(read)) {
 				if (write != read) {
 					c.bankItems[write] = c.bankItems[read];
 					c.bankItemsN[write] = c.bankItemsN[read];
@@ -58,10 +63,14 @@ public class BankTabs {
 		}
 	}
 
+	public boolean slotUsed(int i) {
+		return i >= 0 && i < Config.BANK_SIZE && c.bankItems[i] > 0;
+	}
+
 	public int itemCount() {
 		int count = 0;
 		for (int i = 0; i < Config.BANK_SIZE; i++) {
-			if (c.bankItems[i] > 0 && c.bankItemsN[i] > 0) {
+			if (slotUsed(i)) {
 				count++;
 			}
 		}
@@ -124,7 +133,7 @@ public class BankTabs {
 			String term = c.bankSearch.toLowerCase();
 			int d = 0;
 			for (int i = 0; i < Config.BANK_SIZE && d < DISPLAY_SIZE; i++) {
-				if (c.bankItems[i] <= 0 || c.bankItemsN[i] <= 0) {
+				if (!slotUsed(i)) {
 					continue;
 				}
 				String name = ItemAssistant.getItemName(c.bankItems[i] - 1);
@@ -250,7 +259,7 @@ public class BankTabs {
 		if (absSlot < 0 || absSlot >= Config.BANK_SIZE) {
 			return;
 		}
-		if (c.bankItems[absSlot] > 0 && c.bankItemsN[absSlot] > 0) {
+		if (slotUsed(absSlot) && (c.placeholders || c.bankItemsN[absSlot] > 0)) {
 			return;
 		}
 		int tab = tabForSlot(absSlot);
@@ -281,7 +290,7 @@ public class BankTabs {
 
 	public void moveToTab(int absSlot, int destTab) {
 		ensureInitialized();
-		if (absSlot < 0 || absSlot >= Config.BANK_SIZE || c.bankItems[absSlot] <= 0 || c.bankItemsN[absSlot] <= 0) {
+		if (absSlot < 0 || absSlot >= Config.BANK_SIZE || !slotUsed(absSlot)) {
 			return;
 		}
 		if (destTab < 0 || destTab >= TAB_COUNT) {
@@ -339,6 +348,57 @@ public class BankTabs {
 		c.getPA().sendFrame36(115, c.takeAsNote ? 1 : 0);
 		c.getPA().sendFrame36(SEARCH_CONFIG, (c.bankSearching || c.awaitingBankSearch) ? 1 : 0);
 		c.getPA().sendFrame36(VIEW_TAB_CONFIG, c.bankingTab);
+		refreshQuantityUi();
+	}
+
+	public void refreshQuantityUi() {
+		c.getPA().sendFrame126(qtyLabel("1", c.bankQuantity == 1), QTY_1);
+		c.getPA().sendFrame126(qtyLabel("5", c.bankQuantity == 5), QTY_5);
+		c.getPA().sendFrame126(qtyLabel("10", c.bankQuantity == 10), QTY_10);
+		String xText = c.lastBankX > 1 ? "X:" + c.lastBankX : "X";
+		c.getPA().sendFrame126(qtyLabel(xText, c.bankQuantity < 0), QTY_X);
+		c.getPA().sendFrame126(qtyLabel("All", c.bankQuantity == 0), QTY_ALL);
+		c.getPA().sendFrame126(c.placeholders ? "@yel@PH" : "PH", QTY_PLACEHOLDERS);
+	}
+
+	private String qtyLabel(String text, boolean selected) {
+		return selected ? "@yel@" + text : text;
+	}
+
+	public int clickAmount() {
+		if (c.bankQuantity == 0) {
+			return Integer.MAX_VALUE;
+		}
+		if (c.bankQuantity < 0) {
+			return c.lastBankX > 0 ? c.lastBankX : -1;
+		}
+		return c.bankQuantity;
+	}
+
+	public void setQuantity(int amount, boolean promptX) {
+		c.bankQuantity = amount;
+		if (amount < 0 && (promptX || c.lastBankX <= 0)) {
+			c.settingBankX = true;
+			c.xInterfaceId = QTY_X;
+			c.getOutStream().createFrame(27);
+			c.flushOutStream();
+		}
+		refreshQuantityUi();
+	}
+
+	public void togglePlaceholders() {
+		c.placeholders = !c.placeholders;
+		if (!c.placeholders) {
+			for (int i = Config.BANK_SIZE - 1; i >= 0; i--) {
+				if (c.bankItems[i] > 0 && c.bankItemsN[i] <= 0) {
+					c.bankItems[i] = 0;
+					c.bankItemsN[i] = 0;
+					onEmptiedSlot(i);
+				}
+			}
+		}
+		refresh();
+		c.sendMessage(c.placeholders ? "Bank placeholders on." : "Bank placeholders off.");
 	}
 
 	public void sendTabIcons() {
@@ -361,7 +421,7 @@ public class BankTabs {
 		if (from < 0 || to < 0 || from >= Config.BANK_SIZE || to >= Config.BANK_SIZE) {
 			return;
 		}
-		if (c.bankItems[from] <= 0 || c.bankItemsN[from] <= 0) {
+		if (!slotUsed(from)) {
 			return;
 		}
 		if (c.bankingTab > 0) {

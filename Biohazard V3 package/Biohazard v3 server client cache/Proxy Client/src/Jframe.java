@@ -135,8 +135,15 @@ public class Jframe extends client implements ActionListener {
 	}
 
 	public static void takeScreenshot() {
+		takeScreenshot(client.silentScreenshots);
+	}
+
+	public static void takeScreenshot(boolean silent) {
 		try {
 			Window window = KeyboardFocusManager.getCurrentKeyboardFocusManager().getFocusedWindow();
+			if (window == null) {
+				window = frame;
+			}
 			Point point = window.getLocationOnScreen();
 			int x = (int)point.getX();
 			int y = (int)point.getY();
@@ -145,9 +152,25 @@ public class Jframe extends client implements ActionListener {
 			Robot robot = new Robot(window.getGraphicsConfiguration().getDevice());
 			Rectangle captureSize = new Rectangle(x, y, w, h);
 			BufferedImage bufferedimage = robot.createScreenCapture(captureSize);
-			String imageName = JOptionPane.showInputDialog(frame, "Image Name :", "Screenshot", JOptionPane.OK_CANCEL_OPTION);
-			if(!imageName.equals("null"))
-				ImageIO.write(bufferedimage, "png", new File(signlink.findcachedir()+"./Screenshots/" + imageName + ".png"));
+			File folder = new File(signlink.findcachedir() + "Screenshots");
+			folder.mkdirs();
+			String imageName;
+			if (silent) {
+				java.util.Calendar cal = java.util.Calendar.getInstance();
+				imageName = String.format("screenshot_%04d-%02d-%02d_%02d-%02d-%02d",
+						Integer.valueOf(cal.get(java.util.Calendar.YEAR)),
+						Integer.valueOf(cal.get(java.util.Calendar.MONTH) + 1),
+						Integer.valueOf(cal.get(java.util.Calendar.DAY_OF_MONTH)),
+						Integer.valueOf(cal.get(java.util.Calendar.HOUR_OF_DAY)),
+						Integer.valueOf(cal.get(java.util.Calendar.MINUTE)),
+						Integer.valueOf(cal.get(java.util.Calendar.SECOND)));
+			} else {
+				imageName = JOptionPane.showInputDialog(frame, "Image Name :", "Screenshot", JOptionPane.OK_CANCEL_OPTION);
+				if (imageName == null || imageName.equals("null") || imageName.trim().length() == 0) {
+					return;
+				}
+			}
+			ImageIO.write(bufferedimage, "png", new File(folder, imageName + ".png"));
 		} catch (Exception e) {
 		}
 	}

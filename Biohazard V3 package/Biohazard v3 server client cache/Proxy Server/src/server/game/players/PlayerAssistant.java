@@ -613,6 +613,126 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 				ItemAssistant.getItemName(c.playerEquipment[c.playerWeapon]));
 	}
 
+	public int bookForAutocastSpell(int spellId) {
+		if (spellId >= 32 && spellId <= 47) {
+			return 1;
+		}
+		if (spellId >= 0 && spellId <= 31) {
+			return 0;
+		}
+		return -1;
+	}
+
+	public boolean isAutocastWeapon(int weaponId) {
+		if (weaponId <= 0) {
+			return false;
+		}
+		String name = ItemAssistant.getItemName(weaponId);
+		if (name == null) {
+			return false;
+		}
+		name = name.toLowerCase();
+		return name.contains("staff") || name.endsWith("wand");
+	}
+
+	public boolean weaponMatchesAutocastBook(int weaponId, int book) {
+		if (book == 1) {
+			return weaponId == 4675;
+		}
+		if (book == 0) {
+			return isAutocastWeapon(weaponId);
+		}
+		return false;
+	}
+
+	public void rememberAutocast() {
+		int weapon = c.playerEquipment[c.playerWeapon];
+		if (!isAutocastWeapon(weapon) || c.autocastId < 0) {
+			return;
+		}
+		int book = bookForAutocastSpell(c.autocastId);
+		if (book < 0 || book != c.playerMagicBook) {
+			return;
+		}
+		if (!weaponMatchesAutocastBook(weapon, book)) {
+			return;
+		}
+		int empty = -1;
+		for (int i = 0; i < c.autocastMemWeapon.length; i++) {
+			if (c.autocastMemWeapon[i] == weapon) {
+				c.autocastMemSpell[i] = c.autocastId;
+				c.autocastMemBook[i] = book;
+				return;
+			}
+			if (empty < 0 && c.autocastMemWeapon[i] <= 0) {
+				empty = i;
+			}
+		}
+		int slot = empty >= 0 ? empty : (c.autocastMemWeapon.length - 1);
+		c.autocastMemWeapon[slot] = weapon;
+		c.autocastMemSpell[slot] = c.autocastId;
+		c.autocastMemBook[slot] = book;
+	}
+
+	public int rememberedAutocastSpell(int weapon) {
+		if (weapon <= 0) {
+			return -1;
+		}
+		for (int i = 0; i < c.autocastMemWeapon.length; i++) {
+			if (c.autocastMemWeapon[i] == weapon) {
+				return c.autocastMemSpell[i];
+			}
+		}
+		return -1;
+	}
+
+	public int rememberedAutocastBook(int weapon) {
+		if (weapon <= 0) {
+			return -1;
+		}
+		for (int i = 0; i < c.autocastMemWeapon.length; i++) {
+			if (c.autocastMemWeapon[i] == weapon) {
+				return c.autocastMemBook[i];
+			}
+		}
+		return -1;
+	}
+
+	public boolean applyRememberedAutocast() {
+		int weapon = c.playerEquipment[c.playerWeapon];
+		if (!isAutocastWeapon(weapon)) {
+			if (c.autocasting || c.autocastId >= 0) {
+				resetAutocast();
+			}
+			return false;
+		}
+		int spell = rememberedAutocastSpell(weapon);
+		int book = rememberedAutocastBook(weapon);
+		if (spell < 0 || book < 0) {
+			if (c.autocasting) {
+				resetAutocast();
+			}
+			return false;
+		}
+		if (book != c.playerMagicBook || bookForAutocastSpell(spell) != c.playerMagicBook
+				|| !weaponMatchesAutocastBook(weapon, c.playerMagicBook)) {
+			resetAutocast();
+			return false;
+		}
+		c.autocastId = spell;
+		c.autocasting = true;
+		c.setSidebarInterface(0, 328);
+		sendFrame36(108, 1);
+		c.getItems().sendWeapon(weapon, ItemAssistant.getItemName(weapon));
+		return true;
+	}
+
+	public void refreshAutocastMemory() {
+		if (!applyRememberedAutocast() && (c.autocasting || c.autocastId >= 0)) {
+			resetAutocast();
+		}
+	}
+
 	public int getItemSlot(int itemID) {
 		for (int i = 0; i < c.playerItems.length; i++) {
 			if ((c.playerItems[i] - 1) == itemID) {

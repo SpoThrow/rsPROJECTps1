@@ -150,6 +150,7 @@ public class ComponentListView extends VBox {
                 case CLOSE_BUTTON: return "❌";
                 case CONTAINER: return "▭";
                 case ITEM_SLOT: return "▣";
+                case RECTANGLE: return "⬛";
                 default: return "❓";
             }
         }

@@ -67,9 +67,11 @@ public class CodePreviewPanel extends VBox {
         if (project != null && project.isClientLinked()) {
             codeArea.setText(com.rsps.interfacemaker.util.JavaInterfaceWriter.preview(project));
             guideArea.setText("This interface is linked to Interfaces.java.\n\n"
-                + "File > Save to Client (Ctrl+S) writes only setBounds X/Y.\n"
-                + "Tab for-loops are expanded into individual setBounds if you move a loop child.\n"
-                + "It does not regenerate the method or change server files.");
+                + "File > Save to Client (Ctrl+S) writes setBounds X/Y, child() positions,\n"
+                + "and scroll width/height/scrollMax (and rectangle sizes).\n"
+                + "Drag the yellow bottom-right handle on a scroll box to resize it.\n"
+                + "Mouse-wheel over a list to preview the in-game scrollbar.\n"
+                + "Ctrl+wheel or Zoom +/- to zoom. Ctrl+Z / Ctrl+Y undo and redo.");
             return;
         }
         CodeGenerator generator = new CodeGenerator(project);

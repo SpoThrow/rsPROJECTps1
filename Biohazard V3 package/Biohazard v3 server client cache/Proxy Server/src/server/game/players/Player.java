@@ -133,6 +133,9 @@ public abstract class Player {
 	public boolean isPotionMaking = false, isGrinding = false;
 	public long lastTeleport;
 	public int[] woodcuttingProp = new int[10];
+	public int[] autocastMemWeapon = new int[12];
+	public int[] autocastMemSpell = new int[12];
+	public int[] autocastMemBook = new int[12];
 	public int[] pouch = {
 			0, 0, 0, 0
 		};
@@ -263,6 +266,7 @@ public abstract class Player {
 	barrageCount = 0,
 	delayedDamage = 0,
 	delayedDamage2 = 0,
+	pendingHitpoints = 0,
 	pcPoints = 0,
 	magePoints = 0,
 	lastArrowUsed = -1,
@@ -802,6 +806,7 @@ public abstract class Player {
 				Client c = (Client) PlayerHandler.players[this.playerId];
 				autocasting = true;
 				autocastId = autocastIds[j+1];
+				c.getPA().rememberAutocast();
 				c.getPA().sendFrame36(108, 1);
 				c.setSidebarInterface(0, 328);
 				//spellName = getSpellName(autocastId);
@@ -912,7 +917,7 @@ public abstract class Player {
 	
 	public boolean doubleHit, usingSpecial, npcDroppingItems, usingRangeWeapon, usingBow, usingMagic, castingMagic;
 	public int specMaxHitIncrease, freezeDelay, freezeTimer = -6, killerId, playerIndex, oldPlayerIndex, lastWeaponUsed, projectileStage, crystalBowArrowCount, playerMagicBook, teleGfx, teleEndAnimation, teleHeight, teleX, teleY, rangeItemUsed, killingNpcIndex, totalDamageDealt, oldNpcIndex, fightMode, attackTimer, npcIndex,npcClickIndex, npcType, castingSpellId, oldSpellId, spellId, hitDelay;
-	public boolean magicFailed, oldMagicFailed;
+	public boolean magicFailed, oldMagicFailed, swingXpAwarded;
 	public int bowSpecShot, clickNpcType, clickObjectType, objectId, objectX, objectY, objectXOffset, objectYOffset, objectDistance;
 	public int pItemX, pItemY, pItemId;
 	public boolean isMoving, walkingToItem;
@@ -924,6 +929,10 @@ public abstract class Player {
 	public int[] playerBonus = new int[12];
 	public boolean isRunning2 = true;
 	public boolean takeAsNote;
+	public int bankQuantity = 1;
+	public int lastBankX = 0;
+	public boolean placeholders = true;
+	public boolean settingBankX;
 	public int combatLevel;
 	public boolean saveFile = false;
 	public int playerAppearance[] = new int[13];
@@ -2460,9 +2469,15 @@ public abstract class Player {
 	}
 	
 	public void dealDamage(int damage) {
-		if (teleTimer <= 0)
+		if (teleTimer <= 0) {
 			playerLevel[3] -= damage;
-		else {
+			if (pendingHitpoints > 0) {
+				pendingHitpoints -= damage;
+				if (pendingHitpoints < 0) {
+					pendingHitpoints = 0;
+				}
+			}
+		} else {
 			if (hitUpdateRequired)
 				hitUpdateRequired = false;
 			if (hitUpdateRequired2)

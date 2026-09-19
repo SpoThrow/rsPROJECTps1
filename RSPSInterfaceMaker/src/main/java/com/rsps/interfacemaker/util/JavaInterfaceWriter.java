@@ -39,6 +39,13 @@ public class JavaInterfaceWriter {
                 out.append(" // moved from ").append(component.getOriginalX()).append(", ")
                     .append(component.getOriginalY());
             }
+            if (component.sizeChanged()) {
+                out.append(" // size ").append(component.getWidth()).append("x")
+                    .append(component.getHeight());
+                if (component.getScrollMax() > 0) {
+                    out.append(" scrollMax=").append(component.getScrollMax());
+                }
+            }
             out.append('\n');
         }
         return out.toString();
@@ -62,6 +69,9 @@ public class JavaInterfaceWriter {
         String method = content.substring(span.start, span.end);
         method = expandMovedLoops(method, project);
         method = patchLiteralBounds(method, project);
+        method = patchChildCalls(method, project);
+        method = patchSizes(method, project);
+        method = patchRectangles(method, project);
 
         String updated = content.substring(0, span.start) + method + content.substring(span.end);
         Files.writeString(file.toPath(), updated, StandardCharsets.UTF_8);
@@ -132,6 +142,76 @@ public class JavaInterfaceWriter {
             String replacement = "setBounds(" + component.getId() + ", " + component.getX() + ", "
                 + component.getY() + ", " + component.getChildIndex() + ", " + parentName + ")";
             method = matcher.replaceFirst(Matcher.quoteReplacement(replacement));
+        }
+        return method;
+    }
+
+    private static String patchChildCalls(String method, InterfaceProject project) {
+        for (InterfaceComponent component : project.getComponents()) {
+            String parent = component.getParentVarName();
+            if (parent == null || parent.isEmpty()) {
+                parent = "\\w+";
+            } else {
+                parent = Pattern.quote(parent);
+            }
+            Pattern pattern = Pattern.compile(
+                "(" + parent + ")\\.child\\(\\s*" + component.getChildIndex() + "\\s*,\\s*"
+                    + component.getId() + "\\s*,\\s*-?\\d+\\s*,\\s*-?\\d+\\s*\\)");
+            Matcher matcher = pattern.matcher(method);
+            if (!matcher.find()) {
+                continue;
+            }
+            String parentName = matcher.group(1);
+            String replacement = parentName + ".child(" + component.getChildIndex() + ", "
+                + component.getId() + ", " + component.getX() + ", " + component.getY() + ")";
+            method = matcher.replaceFirst(Matcher.quoteReplacement(replacement));
+        }
+        return method;
+    }
+
+    private static String patchSizes(String method, InterfaceProject project) {
+        for (InterfaceComponent component : project.getComponents()) {
+            String var = component.getSourceVarName();
+            if (var == null || var.isEmpty()) {
+                continue;
+            }
+            if (component.getOriginalWidth() >= 50 && component.getWidth() != component.getOriginalWidth()) {
+                method = patchAssign(method, var, "width", component.getOriginalWidth(), component.getWidth());
+            }
+            if (component.getOriginalHeight() >= 50 && component.getHeight() != component.getOriginalHeight()) {
+                method = patchAssign(method, var, "height", component.getOriginalHeight(), component.getHeight());
+            }
+            if (component.getScrollMax() != component.getOriginalScrollMax()) {
+                method = patchAssign(method, var, "scrollMax", component.getOriginalScrollMax(), component.getScrollMax());
+            }
+        }
+        return method;
+    }
+
+    private static String patchAssign(String method, String var, String field, int from, int to) {
+        Pattern pattern = Pattern.compile(Pattern.quote(var) + "\\." + Pattern.quote(field) + "\\s*=\\s*" + from);
+        Matcher matcher = pattern.matcher(method);
+        if (!matcher.find()) {
+            return method;
+        }
+        return matcher.replaceFirst(Matcher.quoteReplacement(var + "." + field + " = " + to));
+    }
+
+    private static String patchRectangles(String method, InterfaceProject project) {
+        for (InterfaceComponent component : project.getComponents()) {
+            if (component.getType() != com.rsps.interfacemaker.model.ComponentType.RECTANGLE
+                || !component.sizeChanged()) {
+                continue;
+            }
+            Pattern pattern = Pattern.compile(
+                "addRectangle\\(\\s*" + component.getId() + "\\s*,\\s*" + component.getOriginalWidth()
+                    + "\\s*,\\s*" + component.getOriginalHeight());
+            Matcher matcher = pattern.matcher(method);
+            if (!matcher.find()) {
+                continue;
+            }
+            method = matcher.replaceFirst(Matcher.quoteReplacement(
+                "addRectangle(" + component.getId() + ", " + component.getWidth() + ", " + component.getHeight()));
         }
         return method;
     }

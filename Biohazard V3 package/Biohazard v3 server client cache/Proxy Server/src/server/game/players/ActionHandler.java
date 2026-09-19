@@ -908,6 +908,7 @@ public class ActionHandler {
                         c.autocasting = false;
                         c.sendMessage("An ancient wisdomin fills your mind.");
                         c.getPA().resetAutocast();
+                        c.getPA().applyRememberedAutocast();
 		} else {
 			c.setSidebarInterface(6, 1151); //modern
 			c.playerMagicBook = 0;
@@ -915,6 +916,7 @@ public class ActionHandler {
 			c.sendMessage("You feel a drain on your memory.");
 			c.autocastId = -1;
 			c.getPA().resetAutocast();
+			c.getPA().applyRememberedAutocast();
 		}	
 		break;
 		case 410:
@@ -924,6 +926,7 @@ public class ActionHandler {
 	                        c.autocasting = false;
 	                        c.sendMessage("Lunar Spells have been activated!");
 	                        c.getPA().resetAutocast();
+	                        c.getPA().applyRememberedAutocast();
 			} else {
 				c.setSidebarInterface(6, 1151); //modern
 				c.playerMagicBook = 0;
@@ -931,6 +934,7 @@ public class ActionHandler {
 				c.sendMessage("You feel a drain on your memory.");
 				c.autocastId = -1;
 				c.getPA().resetAutocast();
+				c.getPA().applyRememberedAutocast();
 			}	
 			break;
 		

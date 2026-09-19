@@ -2933,6 +2933,7 @@ public class NPCHandler {
 						npcs[i].absX = npcs[i].makeX;
 						npcs[i].absY = npcs[i].makeY;
 						npcs[i].HP = npcs[i].MaxHP;
+						npcs[i].pendingDamage = 0;
 						npcs[i].animNumber = 0x328;
 						npcs[i].updateRequired = true;
 						npcs[i].animUpdateRequired = true;

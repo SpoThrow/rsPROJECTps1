@@ -303,14 +303,28 @@ public class BankX2 implements PacketType {
 				} catch (Exception e){}
 		}
 		}
+		if (c.settingBankX || c.xInterfaceId == 26033) {
+			if (Xamount < 1) {
+				Xamount = 1;
+			}
+			c.lastBankX = Xamount;
+			c.bankQuantity = -1;
+			c.settingBankX = false;
+			c.xInterfaceId = 0;
+			c.getBank().refreshQuantityUi();
+			c.sendMessage("Bank X set to " + Xamount + ".");
+			return;
+		}
 		switch(c.xInterfaceId) {
 			case 5064:
 				if(!c.getItems().playerHasItem(c.xRemoveId, Xamount))
 					return;
+				c.lastBankX = Xamount;
 				c.getItems().bankItem(c.playerItems[c.xRemoveSlot] , c.xRemoveSlot, Xamount);
 				break;
 				
 			case 5382:
+				c.lastBankX = Xamount;
 				c.getItems().fromBank(c.xRemoveId, c.xRemoveSlot, Xamount);
 				break;
 				

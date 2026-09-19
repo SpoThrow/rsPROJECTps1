@@ -37,11 +37,11 @@ public class RemoveItem implements PacketType {
 			break;
 			
 			case 5064:
-			c.getItems().bankItem(removeId, removeSlot, 1);
+			c.getItems().bankClickDeposit(removeId, removeSlot);
 			break;
 			
 			case 5382:
-			c.getItems().fromBank(removeId, removeSlot, 1);
+			c.getItems().bankClickWithdraw(removeId, removeSlot);
 			break;
 			
 			case 3900:

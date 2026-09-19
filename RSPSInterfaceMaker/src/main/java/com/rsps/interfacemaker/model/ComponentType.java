@@ -8,5 +8,6 @@ public enum ComponentType {
     TOOLTIP,
     CLOSE_BUTTON,
     CONTAINER,
-    ITEM_SLOT
+    ITEM_SLOT,
+    RECTANGLE
 }

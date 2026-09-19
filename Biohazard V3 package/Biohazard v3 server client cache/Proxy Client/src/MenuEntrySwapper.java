@@ -50,6 +50,40 @@ final class MenuEntrySwapper {
 		return row;
 	}
 
+	static void promoteVerb(String[] names, int[] ids, int[] cmd1, int[] cmd2, int[] cmd3, int row, String verb) {
+		if (row <= 1 || verb == null) {
+			return;
+		}
+		int current = row - 1;
+		int found = -1;
+		for (int i = 0; i < row; i++) {
+			if (isExamine(ids[i]) || ids[i] == 1107) {
+				continue;
+			}
+			if (actionVerb(names[i]).equalsIgnoreCase(verb)) {
+				found = i;
+				break;
+			}
+		}
+		if (found >= 0 && found != current) {
+			swap(names, ids, cmd1, cmd2, cmd3, found, current);
+		}
+	}
+
+	static int findVerb(String[] names, int[] ids, int row, String[] verbs) {
+		for (int v = 0; v < verbs.length; v++) {
+			for (int i = 0; i < row; i++) {
+				if (isExamine(ids[i]) || ids[i] == 1107) {
+					continue;
+				}
+				if (actionVerb(names[i]).equalsIgnoreCase(verbs[v])) {
+					return i;
+				}
+			}
+		}
+		return -1;
+	}
+
 	static boolean captureFromMenu(String[] names, int[] ids, int index, int row) {
 		if (index < 0 || index >= row) {
 			return false;

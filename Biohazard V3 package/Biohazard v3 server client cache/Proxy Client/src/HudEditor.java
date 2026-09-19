@@ -29,6 +29,7 @@ public final class HudEditor extends JFrame {
 		private final SizeRow hp = new SizeRow("HP orb", "hp", -2000, 2000, 1, 4096);
 		private final SizeRow prayer = new SizeRow("Prayer", "prayer", -2000, 2000, 1, 4096);
 		private final SizeRow run = new SizeRow("Run", "run", -2000, 2000, 1, 4096);
+		private final SizeRow spec = new SizeRow("Spec", "spec", -2000, 2000, 1, 4096);
 		private final SizeRow world = new SizeRow("World map", "world", -2000, 2000, 1, 4096);
 		private final SizeRow frame = new SizeRow("Map frame", "frame", -2000, 2000, 1, 4096);
 	private final JSpinner mapX = numberSpinner(0, -2000, 2000);
@@ -68,7 +69,7 @@ public final class HudEditor extends JFrame {
 	private HudEditor() {
 		super("Minimap HUD layout editor");
 		setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-		rows = new SizeRow[] { compass, hp, prayer, run, world, frame };
+		rows = new SizeRow[] { compass, hp, prayer, run, spec, world, frame };
 
 		JPanel position = new JPanel(new GridLayout(0, 5, 4, 4));
 		position.setBorder(BorderFactory.createTitledBorder("Position (pixels from minimap buffer)"));
@@ -237,6 +238,7 @@ public final class HudEditor extends JFrame {
 			hp.load(h.hpOrbX, h.hpOrbY, h.hpOrbW, h.hpOrbH);
 			prayer.load(h.prayerOrbX, h.prayerOrbY, h.prayerOrbW, h.prayerOrbH);
 			run.load(h.runOrbX, h.runOrbY, h.runOrbW, h.runOrbH);
+			spec.load(h.specOrbX, h.specOrbY, h.specOrbW, h.specOrbH);
 			world.load(h.worldMapX, h.worldMapY, h.worldMapW, h.worldMapH);
 			frame.load(h.mapFrameX, h.mapFrameY, h.mapFrameW, h.mapFrameH);
 			setSpinnerValue(mapX, h.minimapX);
@@ -265,6 +267,10 @@ public final class HudEditor extends JFrame {
 		h.runOrbY = run.yValue();
 		h.runOrbW = run.wToSave();
 		h.runOrbH = run.hToSave();
+		h.specOrbX = spec.xValue();
+		h.specOrbY = spec.yValue();
+		h.specOrbW = spec.wToSave();
+		h.specOrbH = spec.hToSave();
 		h.worldMapX = world.xValue();
 		h.worldMapY = world.yValue();
 		h.worldMapW = world.wToSave();

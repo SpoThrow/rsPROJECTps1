@@ -13,7 +13,9 @@ import javafx.scene.image.Image;
 import javafx.scene.paint.Color;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.input.KeyEvent;
+import javafx.scene.input.ScrollEvent;
 import javafx.scene.input.KeyCode;
+import javafx.scene.Cursor;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
 import javafx.scene.control.ContextMenu;
@@ -42,6 +44,11 @@ public class InterfaceCanvas extends Canvas {
     private ContextMenu contextMenu;
     private Map<InterfaceComponent, double[]> dragOffsets = new HashMap<>();
     private boolean showGrid = true;
+    private double zoom = 1.0;
+    private boolean resizing;
+    private Runnable onEditStarted;
+    private Runnable onZoomChanged;
+    private boolean editStarted;
 
     private static final int CANVAS_WIDTH = 512;
     private static final int CANVAS_HEIGHT = 334;
@@ -57,6 +64,8 @@ public class InterfaceCanvas extends Canvas {
         setOnMousePressed(this::onMousePressed);
         setOnMouseDragged(this::onMouseDragged);
         setOnMouseReleased(this::onMouseReleased);
+        setOnMouseMoved(this::onMouseMoved);
+        setOnScroll(this::onScroll);
         setOnKeyPressed(this::onKeyPressed);
         setFocusTraversable(true);
         
@@ -75,46 +84,171 @@ public class InterfaceCanvas extends Canvas {
         });
     }
 
-    private void onMousePressed(MouseEvent e) {
-        double x = e.getX();
-        double y = e.getY();
-        boolean isCtrlDown = e.isControlDown();
+    private int ax(InterfaceComponent component) {
+        return project.absX(component);
+    }
 
-        List<InterfaceComponent> ordered = drawOrdered();
-        for (int i = ordered.size() - 1; i >= 0; i--) {
-            InterfaceComponent comp = ordered.get(i);
-            if (x >= comp.getX() && x <= comp.getX() + comp.getWidth() &&
-                y >= comp.getY() && y <= comp.getY() + comp.getHeight()) {
-                
+    private int ay(InterfaceComponent component) {
+        return project.absY(component);
+    }
+
+    private double lx(MouseEvent e) {
+        return e.getX() / zoom;
+    }
+
+    private double ly(MouseEvent e) {
+        return e.getY() / zoom;
+    }
+
+    private void setAbs(InterfaceComponent component, int absX, int absY) {
+        InterfaceComponent parent = project.parentOf(component);
+        if (parent == null) {
+            component.setX(absX);
+            component.setY(absY);
+        } else {
+            component.setX(absX - project.absX(parent));
+            component.setY(absY - project.absY(parent) + parent.getPreviewScroll());
+        }
+    }
+
+    private boolean canResize(InterfaceComponent component) {
+        return component.getType() == ComponentType.CONTAINER
+            || component.getType() == ComponentType.RECTANGLE
+            || component.getScrollMax() > 0;
+    }
+
+    private boolean overResizeHandle(InterfaceComponent component, double x, double y) {
+        double handle = Math.max(6, 8 / zoom);
+        int right = ax(component) + component.getWidth();
+        int bottom = ay(component) + component.getHeight();
+        return x >= right - handle && x <= right + handle && y >= bottom - handle && y <= bottom + handle;
+    }
+
+    private void beginEdit() {
+        if (!editStarted && onEditStarted != null) {
+            onEditStarted.run();
+            editStarted = true;
+        }
+    }
+
+    private void onMouseMoved(MouseEvent e) {
+        if (selectedComponent != null && canResize(selectedComponent) && overResizeHandle(selectedComponent, lx(e), ly(e))) {
+            setCursor(Cursor.SE_RESIZE);
+        } else {
+            setCursor(Cursor.DEFAULT);
+        }
+    }
+
+    private void onScroll(ScrollEvent e) {
+        if (e.isControlDown()) {
+            double factor = e.getDeltaY() > 0 ? 1.1 : 0.9;
+            setZoom(zoom * factor);
+            e.consume();
+            return;
+        }
+        double x = e.getX() / zoom;
+        double y = e.getY() / zoom;
+        InterfaceComponent scroll = scrollableAt(x, y);
+        if (scroll != null && scroll.isScrollable()) {
+            int step = e.getDeltaY() > 0 ? -16 : 16;
+            scroll.setPreviewScroll(scroll.getPreviewScroll() + step);
+            render();
+            e.consume();
+        }
+    }
+
+    private InterfaceComponent scrollableAt(double x, double y) {
+        List<InterfaceComponent> ordered = hitOrdered();
+        for (InterfaceComponent component : ordered) {
+            if (component.isScrollable()
+                && x >= ax(component) && x <= ax(component) + component.getWidth() + 16
+                && y >= ay(component) && y <= ay(component) + component.getHeight()) {
+                return component;
+            }
+        }
+        return null;
+    }
+
+    private List<InterfaceComponent> hitOrdered() {
+        List<InterfaceComponent> ordered = new ArrayList<>(project.getComponents());
+        ordered.sort((a, b) -> {
+            int depth = Integer.compare(depthOf(b), depthOf(a));
+            if (depth != 0) {
+                return depth;
+            }
+            return Integer.compare(b.getChildIndex(), a.getChildIndex());
+        });
+        return ordered;
+    }
+
+    private int depthOf(InterfaceComponent component) {
+        int depth = 0;
+        InterfaceComponent parent = project.parentOf(component);
+        while (parent != null && depth < 12) {
+            depth++;
+            parent = project.parentOf(parent);
+        }
+        return depth;
+    }
+
+    private boolean insideParentClip(InterfaceComponent component, double x, double y) {
+        InterfaceComponent parent = project.parentOf(component);
+        if (parent == null) {
+            return true;
+        }
+        return x >= ax(parent) && x <= ax(parent) + parent.getWidth()
+            && y >= ay(parent) && y <= ay(parent) + parent.getHeight();
+    }
+
+    private void onMousePressed(MouseEvent e) {
+        double x = lx(e);
+        double y = ly(e);
+        boolean isCtrlDown = e.isControlDown();
+        editStarted = false;
+        resizing = false;
+
+        if (selectedComponent != null && canResize(selectedComponent) && overResizeHandle(selectedComponent, x, y)) {
+            beginEdit();
+            resizing = true;
+            draggingComponent = selectedComponent;
+            requestFocus();
+            return;
+        }
+
+        for (InterfaceComponent comp : hitOrdered()) {
+            if (!insideParentClip(comp, x, y)) {
+                continue;
+            }
+            if (x >= ax(comp) && x <= ax(comp) + comp.getWidth() &&
+                y >= ay(comp) && y <= ay(comp) + comp.getHeight()) {
+
                 if (isCtrlDown) {
-                    // Multi-select: toggle selection
                     if (selectedComponents.contains(comp)) {
                         selectedComponents.remove(comp);
                     } else {
                         selectedComponents.add(comp);
                     }
-                    selectedComponent = comp; // Last clicked becomes primary selection
+                    selectedComponent = comp;
                 } else {
                     selectedComponents.clear();
                     selectedComponents.add(comp);
                     selectedComponent = comp;
                     draggingComponent = comp;
-                    dragOffsetX = x - comp.getX();
-                    dragOffsetY = y - comp.getY();
                     for (InterfaceComponent other : project.getComponents()) {
-                        if (other != comp && other.getX() == comp.getX() && other.getY() == comp.getY()) {
+                        if (other != comp && other.getParentInterfaceId() == comp.getParentInterfaceId()
+                            && other.getX() == comp.getX() && other.getY() == comp.getY()) {
                             selectedComponents.add(other);
                         }
                     }
                     dragOffsets.clear();
                     for (InterfaceComponent selectedComp : selectedComponents) {
                         dragOffsets.put(selectedComp, new double[]{
-                            x - selectedComp.getX(),
-                            y - selectedComp.getY()
+                            x - ax(selectedComp),
+                            y - ay(selectedComp)
                         });
                     }
                 }
-                
+
                 if (onComponentSelected != null) {
                     onComponentSelected.accept(comp);
                 }
@@ -124,7 +258,6 @@ public class InterfaceCanvas extends Canvas {
             }
         }
 
-        // Clicked on empty space
         if (!isCtrlDown) {
             selectedComponents.clear();
             selectedComponent = null;
@@ -136,25 +269,56 @@ public class InterfaceCanvas extends Canvas {
     }
 
     private void onMouseDragged(MouseEvent e) {
-        if (draggingComponent != null) {
-            // Move all selected components maintaining their relative positions
-            for (InterfaceComponent comp : selectedComponents) {
-                double[] offsets = dragOffsets.get(comp);
-                if (offsets != null) {
-                    comp.setX((int)(e.getX() - offsets[0]));
-                    comp.setY((int)(e.getY() - offsets[1]));
-                }
+        if (draggingComponent == null) {
+            return;
+        }
+        beginEdit();
+        double x = lx(e);
+        double y = ly(e);
+        if (resizing && selectedComponent != null) {
+            int newW = Math.max(16, (int) x - ax(selectedComponent));
+            int newH = Math.max(16, (int) y - ay(selectedComponent));
+            selectedComponent.setWidth(newW);
+            selectedComponent.setHeight(newH);
+            if (selectedComponent.getScrollMax() > 0 && selectedComponent.getScrollMax() < newH) {
+                selectedComponent.setScrollMax(newH);
             }
-            
             render();
             if (onComponentsChanged != null) {
                 onComponentsChanged.run();
             }
+            return;
         }
+        for (InterfaceComponent comp : selectedComponents) {
+            if (parentSelected(comp)) {
+                continue;
+            }
+            double[] offsets = dragOffsets.get(comp);
+            if (offsets != null) {
+                setAbs(comp, (int) (x - offsets[0]), (int) (y - offsets[1]));
+            }
+        }
+        render();
+        if (onComponentsChanged != null) {
+            onComponentsChanged.run();
+        }
+    }
+
+    private boolean parentSelected(InterfaceComponent component) {
+        InterfaceComponent parent = project.parentOf(component);
+        while (parent != null) {
+            if (selectedComponents.contains(parent)) {
+                return true;
+            }
+            parent = project.parentOf(parent);
+        }
+        return false;
     }
 
     private void onMouseReleased(MouseEvent e) {
         draggingComponent = null;
+        resizing = false;
+        editStarted = false;
     }
 
     private void onKeyPressed(KeyEvent e) {
@@ -177,10 +341,16 @@ public class InterfaceCanvas extends Canvas {
             }
             
             int delta = e.isShiftDown() ? 10 : 1;
+            if (e.getCode() == KeyCode.UP || e.getCode() == KeyCode.DOWN
+                || e.getCode() == KeyCode.LEFT || e.getCode() == KeyCode.RIGHT) {
+                beginEdit();
+            }
             switch (e.getCode()) {
                 case UP:
                     for (InterfaceComponent comp : selectedComponents) {
-                        comp.setY(comp.getY() - delta);
+                        if (!parentSelected(comp)) {
+                            setAbs(comp, ax(comp), ay(comp) - delta);
+                        }
                     }
                     render();
                     if (onComponentsChanged != null) {
@@ -189,7 +359,9 @@ public class InterfaceCanvas extends Canvas {
                     break;
                 case DOWN:
                     for (InterfaceComponent comp : selectedComponents) {
-                        comp.setY(comp.getY() + delta);
+                        if (!parentSelected(comp)) {
+                            setAbs(comp, ax(comp), ay(comp) + delta);
+                        }
                     }
                     render();
                     if (onComponentsChanged != null) {
@@ -198,7 +370,9 @@ public class InterfaceCanvas extends Canvas {
                     break;
                 case LEFT:
                     for (InterfaceComponent comp : selectedComponents) {
-                        comp.setX(comp.getX() - delta);
+                        if (!parentSelected(comp)) {
+                            setAbs(comp, ax(comp) - delta, ay(comp));
+                        }
                     }
                     render();
                     if (onComponentsChanged != null) {
@@ -207,7 +381,9 @@ public class InterfaceCanvas extends Canvas {
                     break;
                 case RIGHT:
                     for (InterfaceComponent comp : selectedComponents) {
-                        comp.setX(comp.getX() + delta);
+                        if (!parentSelected(comp)) {
+                            setAbs(comp, ax(comp) + delta, ay(comp));
+                        }
                     }
                     render();
                     if (onComponentsChanged != null) {
@@ -234,12 +410,13 @@ public class InterfaceCanvas extends Canvas {
 
     public void render() {
         GraphicsContext gc = getGraphicsContext2D();
-        
-        // Clear canvas with dark background
+        gc.setTransform(1, 0, 0, 1, 0, 0);
+        gc.clearRect(0, 0, getWidth(), getHeight());
+        gc.scale(zoom, zoom);
+
         gc.setFill(Color.rgb(30, 30, 30));
         gc.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-        // Draw grid (if enabled)
         if (showGrid) {
             gc.setStroke(Color.rgb(50, 50, 50));
             gc.setLineWidth(0.5);
@@ -251,41 +428,61 @@ public class InterfaceCanvas extends Canvas {
             }
         }
 
-        // Draw components
-        for (InterfaceComponent comp : drawOrdered()) {
-            drawComponent(gc, comp);
-        }
+        drawLayer(gc, project.getInterfaceId());
 
-        // Draw selection outlines
         for (InterfaceComponent comp : selectedComponents) {
-            // Draw outer glow effect
+            int x = ax(comp);
+            int y = ay(comp);
             gc.setStroke(Color.rgb(255, 255, 0, 0.3));
             gc.setLineWidth(4);
-            gc.strokeRect(
-                comp.getX() - 2,
-                comp.getY() - 2,
-                comp.getWidth() + 4,
-                comp.getHeight() + 4
-            );
-            
-            // Draw main selection outline
+            gc.strokeRect(x - 2, y - 2, comp.getWidth() + 4, comp.getHeight() + 4);
             gc.setStroke(Color.rgb(255, 255, 0));
             gc.setLineWidth(2);
-            gc.strokeRect(
-                comp.getX() - 1,
-                comp.getY() - 1,
-                comp.getWidth() + 2,
-                comp.getHeight() + 2
-            );
-            
-            // Draw corner handles for visual clarity
+            gc.strokeRect(x - 1, y - 1, comp.getWidth() + 2, comp.getHeight() + 2);
             gc.setFill(Color.rgb(255, 255, 0));
             int handleSize = 4;
-            gc.fillRect(comp.getX() - handleSize, comp.getY() - handleSize, handleSize, handleSize);
-            gc.fillRect(comp.getX() + comp.getWidth() - handleSize, comp.getY() - handleSize, handleSize, handleSize);
-            gc.fillRect(comp.getX() - handleSize, comp.getY() + comp.getHeight() - handleSize, handleSize, handleSize);
-            gc.fillRect(comp.getX() + comp.getWidth() - handleSize, comp.getY() + comp.getHeight() - handleSize, handleSize, handleSize);
+            gc.fillRect(x - handleSize, y - handleSize, handleSize, handleSize);
+            gc.fillRect(x + comp.getWidth() - handleSize, y - handleSize, handleSize, handleSize);
+            gc.fillRect(x - handleSize, y + comp.getHeight() - handleSize, handleSize, handleSize);
+            gc.fillRect(x + comp.getWidth() - handleSize, y + comp.getHeight() - handleSize, handleSize, handleSize);
         }
+    }
+
+    private void drawLayer(GraphicsContext gc, int parentId) {
+        for (InterfaceComponent comp : project.childrenOf(parentId)) {
+            drawComponent(gc, comp);
+            if (!project.childrenOf(comp.getId()).isEmpty() || comp.isScrollable()) {
+                gc.save();
+                gc.beginPath();
+                gc.rect(ax(comp), ay(comp), comp.getWidth(), comp.getHeight());
+                gc.closePath();
+                gc.clip();
+                drawLayer(gc, comp.getId());
+                gc.restore();
+                if (comp.isScrollable()) {
+                    drawScrollbar(gc, comp);
+                }
+            }
+        }
+    }
+
+    private void drawScrollbar(GraphicsContext gc, InterfaceComponent comp) {
+        int x = ax(comp) + comp.getWidth();
+        int y = ay(comp);
+        int h = comp.getHeight();
+        int max = Math.max(comp.getScrollMax(), h + 1);
+        gc.setFill(Color.rgb(0, 0, 1));
+        gc.fillRect(x, y, 16, h);
+        gc.setFill(Color.rgb(61, 52, 38));
+        gc.fillRect(x, y + 16, 15, Math.max(0, h - 32));
+        gc.setFill(Color.rgb(129, 112, 81));
+        int track = Math.max(8, h - 32);
+        int thumb = Math.max(8, track * h / max);
+        int travel = Math.max(1, max - h);
+        int thumbY = y + 16 + (track - thumb) * comp.getPreviewScroll() / travel;
+        gc.fillRect(x, thumbY, 16, thumb);
+        gc.setStroke(Color.rgb(115, 101, 74));
+        gc.strokeRect(x, y, 16, h);
     }
 
     private void drawComponent(GraphicsContext gc, InterfaceComponent comp) {
@@ -312,6 +509,9 @@ public class InterfaceCanvas extends Canvas {
             case ITEM_SLOT:
                 drawItemSlot(gc, comp);
                 break;
+            case RECTANGLE:
+                drawRectangle(gc, comp);
+                break;
         }
     }
 
@@ -322,62 +522,44 @@ public class InterfaceCanvas extends Canvas {
     }
 
     private void drawSprite(GraphicsContext gc, InterfaceComponent comp) {
-        // Try to load and render the actual sprite
+        int x = ax(comp);
+        int y = ay(comp);
         if (comp instanceof SpriteComponent) {
             SpriteComponent sprite = (SpriteComponent) comp;
             String spritePath = sprite.getSpritePath();
             int spriteId = sprite.getSpriteId();
-            
             if (spritePath != null && !spritePath.isEmpty()) {
                 Image image = SpriteLoader.loadSprite(spritePath, spriteId);
-                
                 if (image != null) {
-                    gc.drawImage(image, comp.getX(), comp.getY());
+                    gc.drawImage(image, x, y);
                     return;
                 }
             }
-            
-            // Fallback to colored rectangle if sprite not found
-            gc.setFill(Color.rgb(100, 100, 150));
-            gc.fillRect(comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
-            gc.setStroke(Color.rgb(150, 150, 200));
-            gc.strokeRect(comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
-        } else {
-            // Fallback for non-SpriteComponent
-            gc.setFill(Color.rgb(100, 100, 150));
-            gc.fillRect(comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
-            gc.setStroke(Color.rgb(150, 150, 200));
-            gc.strokeRect(comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
         }
+        gc.setFill(Color.rgb(100, 100, 150));
+        gc.fillRect(x, y, comp.getWidth(), comp.getHeight());
+        gc.setStroke(Color.rgb(150, 150, 200));
+        gc.strokeRect(x, y, comp.getWidth(), comp.getHeight());
     }
 
     private void drawButton(GraphicsContext gc, InterfaceComponent comp) {
-        // Try to load and render the actual button sprite
+        int x = ax(comp);
+        int y = ay(comp);
         if (comp instanceof ButtonComponent) {
             ButtonComponent button = (ButtonComponent) comp;
             String spritePath = button.getNormalSpritePath();
-            
             if (spritePath != null && !spritePath.isEmpty()) {
                 Image image = SpriteLoader.loadSprite(spritePath, button.getNormalSpriteId());
-                
                 if (image != null) {
-                    gc.drawImage(image, comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
+                    gc.drawImage(image, x, y, comp.getWidth(), comp.getHeight());
                     return;
                 }
             }
-            
-            // Fallback to colored rectangle if sprite not found
-            gc.setFill(Color.rgb(100, 150, 100));
-            gc.fillRect(comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
-            gc.setStroke(Color.rgb(150, 200, 150));
-            gc.strokeRect(comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
-        } else {
-            // Fallback for non-ButtonComponent
-            gc.setFill(Color.rgb(100, 150, 100));
-            gc.fillRect(comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
-            gc.setStroke(Color.rgb(150, 200, 150));
-            gc.strokeRect(comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
         }
+        gc.setFill(Color.rgb(100, 150, 100));
+        gc.fillRect(x, y, comp.getWidth(), comp.getHeight());
+        gc.setStroke(Color.rgb(150, 200, 150));
+        gc.strokeRect(x, y, comp.getWidth(), comp.getHeight());
     }
 
     private void drawText(GraphicsContext gc, InterfaceComponent comp) {
@@ -389,70 +571,62 @@ public class InterfaceCanvas extends Canvas {
             color = text.getTextColor();
         }
         gc.setFill(Color.rgb((color >> 16) & 255, (color >> 8) & 255, color & 255));
-        gc.fillText(message == null ? "" : message, comp.getX(), comp.getY() + Math.max(11, comp.getHeight() - 2));
+        gc.fillText(message == null ? "" : message, ax(comp), ay(comp) + Math.max(11, comp.getHeight() - 2));
     }
 
     private void drawCloseButton(GraphicsContext gc, InterfaceComponent comp) {
-        // Try to load and render the actual close button sprite
+        int x = ax(comp);
+        int y = ay(comp);
         if (comp instanceof ButtonComponent) {
             ButtonComponent button = (ButtonComponent) comp;
             String spritePath = button.getNormalSpritePath();
-            
             if (spritePath != null && !spritePath.isEmpty()) {
                 Image image = SpriteLoader.loadSprite(spritePath, button.getNormalSpriteId());
-                
                 if (image != null) {
-                    gc.drawImage(image, comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
+                    gc.drawImage(image, x, y, comp.getWidth(), comp.getHeight());
                     return;
                 }
             }
-            
-            // Fallback to colored rectangle with X if sprite not found
-            gc.setFill(Color.rgb(150, 50, 50));
-            gc.fillRect(comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
-            gc.setStroke(Color.rgb(200, 100, 100));
-            gc.strokeRect(comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
-            // Draw X
-            gc.setStroke(Color.WHITE);
-            gc.setLineWidth(2);
-            gc.strokeLine(comp.getX() + 5, comp.getY() + 5, comp.getX() + comp.getWidth() - 5, comp.getY() + comp.getHeight() - 5);
-            gc.strokeLine(comp.getX() + comp.getWidth() - 5, comp.getY() + 5, comp.getX() + 5, comp.getY() + comp.getHeight() - 5);
-        } else {
-            // Fallback for non-ButtonComponent
-            gc.setFill(Color.rgb(150, 50, 50));
-            gc.fillRect(comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
-            gc.setStroke(Color.rgb(200, 100, 100));
-            gc.strokeRect(comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
-            // Draw X
-            gc.setStroke(Color.WHITE);
-            gc.setLineWidth(2);
-            gc.strokeLine(comp.getX() + 5, comp.getY() + 5, comp.getX() + comp.getWidth() - 5, comp.getY() + comp.getHeight() - 5);
-            gc.strokeLine(comp.getX() + comp.getWidth() - 5, comp.getY() + 5, comp.getX() + 5, comp.getY() + comp.getHeight() - 5);
         }
+        gc.setFill(Color.rgb(150, 50, 50));
+        gc.fillRect(x, y, comp.getWidth(), comp.getHeight());
+        gc.setStroke(Color.WHITE);
+        gc.setLineWidth(2);
+        gc.strokeLine(x + 5, y + 5, x + comp.getWidth() - 5, y + comp.getHeight() - 5);
+        gc.strokeLine(x + comp.getWidth() - 5, y + 5, x + 5, y + comp.getHeight() - 5);
     }
 
     private void drawTooltip(GraphicsContext gc, InterfaceComponent comp) {
         gc.setFill(Color.rgb(255, 255, 200));
-        gc.fillRect(comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
+        gc.fillRect(ax(comp), ay(comp), comp.getWidth(), comp.getHeight());
         gc.setStroke(Color.rgb(200, 200, 150));
-        gc.strokeRect(comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
+        gc.strokeRect(ax(comp), ay(comp), comp.getWidth(), comp.getHeight());
+    }
+
+    private void drawRectangle(GraphicsContext gc, InterfaceComponent comp) {
+        int color = comp.getFillColor();
+        Color fill = Color.rgb((color >> 16) & 255, (color >> 8) & 255, color & 255, comp.isFilled() ? 0.92 : 0.0);
+        gc.setFill(fill);
+        gc.fillRect(ax(comp), ay(comp), comp.getWidth(), comp.getHeight());
+        gc.setStroke(Color.rgb((color >> 16) & 255, (color >> 8) & 255, color & 255));
+        gc.strokeRect(ax(comp), ay(comp), comp.getWidth(), comp.getHeight());
     }
 
     private void drawContainer(GraphicsContext gc, InterfaceComponent comp) {
         gc.setFill(Color.rgb(80, 140, 180, 0.18));
-        gc.fillRect(comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
+        gc.fillRect(ax(comp), ay(comp), comp.getWidth(), comp.getHeight());
         gc.setStroke(Color.rgb(120, 180, 220, 0.9));
         gc.setLineWidth(1);
-        gc.strokeRect(comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
+        gc.strokeRect(ax(comp), ay(comp), comp.getWidth(), comp.getHeight());
         gc.setFill(Color.rgb(180, 220, 255));
-        gc.fillText(comp.getName() + " [" + comp.getId() + "]", comp.getX() + 4, comp.getY() + 12);
+        gc.fillText(comp.getName() + " [" + comp.getId() + "]", ax(comp) + 4, ay(comp) + 12);
     }
 
     private void drawItemSlot(GraphicsContext gc, InterfaceComponent comp) {
         gc.setFill(Color.rgb(90, 70, 40, 0.45));
-        gc.fillRect(comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
+        gc.fillRect(ax(comp), ay(comp), comp.getWidth(), comp.getHeight());
         gc.setStroke(Color.rgb(180, 150, 80));
-        gc.strokeRect(comp.getX(), comp.getY(), comp.getWidth(), comp.getHeight());
+        gc.strokeRect(ax(comp), ay(comp), comp.getWidth(), comp.getHeight());
     }
 
     public void setProject(InterfaceProject project) {
@@ -626,6 +800,28 @@ public class InterfaceCanvas extends Canvas {
     
     public void setOnComponentsChanged(Runnable onComponentsChanged) {
         this.onComponentsChanged = onComponentsChanged;
+    }
+
+    public void setOnEditStarted(Runnable onEditStarted) {
+        this.onEditStarted = onEditStarted;
+    }
+
+    public double getZoom() {
+        return zoom;
+    }
+
+    public void setZoom(double zoom) {
+        this.zoom = Math.max(0.5, Math.min(4.0, zoom));
+        setWidth(CANVAS_WIDTH * this.zoom);
+        setHeight(CANVAS_HEIGHT * this.zoom);
+        render();
+        if (onZoomChanged != null) {
+            onZoomChanged.run();
+        }
+    }
+
+    public void setOnZoomChanged(Runnable onZoomChanged) {
+        this.onZoomChanged = onZoomChanged;
     }
     
     public void toggleGrid() {

@@ -156,4 +156,49 @@ public class InterfaceProject {
     public void setLoopBlocks(List<LoopBoundsBlock> loopBlocks) {
         this.loopBlocks = loopBlocks == null ? new ArrayList<>() : loopBlocks;
     }
+
+    public InterfaceComponent findById(int id) {
+        for (InterfaceComponent component : components) {
+            if (component.getId() == id) {
+                return component;
+            }
+        }
+        return null;
+    }
+
+    public InterfaceComponent parentOf(InterfaceComponent component) {
+        int parentId = component.getParentInterfaceId();
+        if (parentId == 0 || parentId == interfaceId) {
+            return null;
+        }
+        return findById(parentId);
+    }
+
+    public int absX(InterfaceComponent component) {
+        InterfaceComponent parent = parentOf(component);
+        if (parent == null) {
+            return component.getX();
+        }
+        return absX(parent) + component.getX();
+    }
+
+    public int absY(InterfaceComponent component) {
+        InterfaceComponent parent = parentOf(component);
+        if (parent == null) {
+            return component.getY();
+        }
+        return absY(parent) + component.getY() - parent.getPreviewScroll();
+    }
+
+    public List<InterfaceComponent> childrenOf(int parentId) {
+        List<InterfaceComponent> children = new ArrayList<>();
+        for (InterfaceComponent component : components) {
+            int pid = component.getParentInterfaceId();
+            if (pid == parentId || (parentId == interfaceId && (pid == 0 || pid == interfaceId))) {
+                children.add(component);
+            }
+        }
+        children.sort((a, b) -> Integer.compare(a.getChildIndex(), b.getChildIndex()));
+        return children;
+    }
 }

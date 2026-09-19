@@ -325,6 +325,7 @@ public class Client extends Player {
 		getPA().sendFrame107(); // reset screen
 		getPA().setChatOptions(0, 0, 0); // reset private messaging options
 		getPA().setSidebarInterfaces(this, true);
+		getPA().applyRememberedAutocast();
 		correctCoordinates();
 		getPA().sendFrame36(173,1);
 		getPA().sendFrame36(166, brightness);

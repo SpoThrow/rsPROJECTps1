@@ -1117,13 +1117,25 @@ public static int boxIds[] = { 4041, 4077, 4113, 4047, 4083, 4119, 4053, 4089, 4
 		addHoverText(24232, "Show ping: Off", "Toggle connection latency to the server", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24233, "OpenGL acceleration: Off", "Java2D OpenGL pipeline (restart to fully apply)", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24234, "FPS cap: 50", "Unlock the 50 FPS draw cap", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24236, "Shift-click drop: On", "Shift-left-click drops inventory items", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24237, "Middle-click wear: On", "Middle-click wears or wields inventory items", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24238, "Special attack orb: On", "Show a spec orb next to HP/prayer/run", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24239, "Hide loot below: Off", "Hide ground items cheaper than this value", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24240, "Loot beams: Off", "Beams on valuable ground items", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24241, "Destination tile: On", "Highlight the tile you clicked to walk to", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24242, "True tile: Off", "Highlight the tile you are actually standing on", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24243, "Chat timestamps: On", "Prefix chat lines with the time", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24244, "Silent screenshots: On", "Print Screen saves without a name prompt", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24245, "XP tracker: Off", "Session XP and XP per hour", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24246, "Status timers: Off", "Freeze, Vengeance, teleblock, antifire, energy", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24247, "Low HP/prayer flash: On", "Flash the HP and prayer orbs when low", tda, 1, 0xff981f, false, true, 300);
 		addText(24214, "Shift-right-click to swap menu entries and mark tiles. OpenGL needs a restart.", tda, 0, 0x8f7d5f, false, true);
 		RSInterface list = addInterface(24230);
-		list.width = 340;
-		list.height = 198;
-		list.scrollMax = 560;
-		setChildren(25, list);
-		int[] ids = { 24210, 24211, 24212, 24213, 24215, 24216, 24217, 24218, 24219, 24220, 24221, 24222, 24235, 24223, 24224, 24225, 24226, 24227, 24228, 24229, 24231, 24232, 24233, 24234, 24214 };
+		list.width = 317;
+		list.height = 208;
+		list.scrollMax = 800;
+		setChildren(37, list);
+		int[] ids = { 24210, 24211, 24212, 24213, 24215, 24216, 24217, 24218, 24219, 24220, 24221, 24222, 24235, 24223, 24224, 24225, 24226, 24227, 24228, 24229, 24231, 24232, 24233, 24234, 24236, 24237, 24238, 24239, 24240, 24241, 24242, 24243, 24244, 24245, 24246, 24247, 24214 };
 		for (int i = 0; i < ids.length; i++) {
 			setBounds(ids[i], 4, i * 20, i, list);
 			RSInterface.interfaceCache[ids[i]].height = 16;
@@ -1131,10 +1143,10 @@ public static int boxIds[] = { 4041, 4077, 4113, 4047, 4083, 4119, 4053, 4089, 4
 		tab.totalChildren(6);
 		tab.child(0, 24201, 76, 28);
 		tab.child(1, 24202, 76, 28);
-		tab.child(2, 24203, 256, 38);
-		tab.child(3, 24204, 400, 38);
-		tab.child(4, 24205, 256, 60);
-		tab.child(5, 24230, 96, 78);
+		tab.child(2, 24203, 97, 33);
+		tab.child(3, 24204, 392, 32);
+		tab.child(4, 24205, 97, 56);
+		tab.child(5, 24230, 90, 78);
 		RSInterface.interfaceCache[24204].height = 16;
 	}
 
@@ -1155,7 +1167,7 @@ public static int boxIds[] = { 4041, 4077, 4113, 4047, 4083, 4119, 4053, 4089, 4
 			addHoverText(24320 + i, KeyRemapper.NAMES[i] + ": F" + (i + 1), "Click, then press a key. Backspace unbinds.", tda, 1, 0xff981f, false, true, 300);
 		}
 		RSInterface list = addInterface(24340);
-		list.width = 340;
+		list.width = 310;
 		list.height = 198;
 		list.scrollMax = 420;
 		int[] ids = new int[6 + KeyRemapper.NAMES.length];
@@ -1176,9 +1188,9 @@ public static int boxIds[] = { 4041, 4077, 4113, 4047, 4083, 4119, 4053, 4089, 4
 		tab.totalChildren(6);
 		tab.child(0, 24301, 76, 28);
 		tab.child(1, 24302, 76, 28);
-		tab.child(2, 24303, 256, 38);
-		tab.child(3, 24304, 400, 38);
-		tab.child(4, 24305, 256, 60);
+		tab.child(2, 24303, 101, 36);
+		tab.child(3, 24304, 395, 32);
+		tab.child(4, 24305, 98, 56);
 		tab.child(5, 24340, 96, 78);
 		RSInterface.interfaceCache[24304].height = 16;
 	}
@@ -2299,8 +2311,8 @@ public static int boxIds[] = { 4041, 4077, 4113, 4047, 4083, 4119, 4053, 4089, 4
 			addText(43035 + i, "", tda, 0, 0x00FF00, false, true);
 		}
 		RSInterface scroll = addInterface(43300);
-		scroll.width = 248;
-		scroll.height = 210;
+		scroll.width = 235;
+		scroll.height = 244;
 		scroll.scrollMax = 580;
 		setChildren(100, scroll);
 		int child = 0;
@@ -2341,33 +2353,33 @@ public static int boxIds[] = { 4041, 4077, 4113, 4047, 4083, 4119, 4053, 4089, 4
 		}
 		setChildren(28, rsi);
 		setBounds(43050, 12, 14, 0, rsi);
-		setBounds(43001, 256, 18, 1, rsi);
+		setBounds(43001, 185, 22, 1, rsi);
 		setBounds(43004, 475, 20, 2, rsi);
 		setBounds(43051, 475, 20, 3, rsi);
-		setBounds(43120, 348, 42, 4, rsi);
-		setBounds(43121, 348, 42, 5, rsi);
-		setBounds(43002, 390, 48, 6, rsi);
-		setBounds(43077, 390, 62, 7, rsi);
+		setBounds(43120, 336, 53, 4, rsi);
+		setBounds(43121, 335, 53, 5, rsi);
+		setBounds(43002, 380, 56, 6, rsi);
+		setBounds(43077, 382, 70, 7, rsi);
 		setBounds(43003, 348, 84, 8, rsi);
-		setBounds(43074, 418, 100, 9, rsi);
+		setBounds(43074, 329, 100, 9, rsi);
 		setBounds(43030, 348, 118, 10, rsi);
 		setBounds(43031, 348, 132, 11, rsi);
 		setBounds(43032, 348, 146, 12, rsi);
 		setBounds(43033, 348, 160, 13, rsi);
 		setBounds(43034, 348, 174, 14, rsi);
-		setBounds(43007, 332, 258, 15, rsi);
-		setBounds(43053, 332, 258, 16, rsi);
-		setBounds(43071, 377, 265, 17, rsi);
-		setBounds(43008, 422, 258, 18, rsi);
-		setBounds(43055, 422, 258, 19, rsi);
-		setBounds(43072, 467, 265, 20, rsi);
-		setBounds(43009, 332, 286, 21, rsi);
-		setBounds(43057, 332, 286, 22, rsi);
-		setBounds(43073, 377, 293, 23, rsi);
-		setBounds(43123, 422, 286, 24, rsi);
-		setBounds(43124, 422, 286, 25, rsi);
-		setBounds(43076, 467, 293, 26, rsi);
-		setBounds(43300, 20, 42, 27, rsi);
+		setBounds(43007, 294, 250, 15, rsi);
+		setBounds(43053, 294, 250, 16, rsi);
+		setBounds(43071, 311, 253, 17, rsi);
+		setBounds(43008, 393, 252, 18, rsi);
+		setBounds(43055, 395, 251, 19, rsi);
+		setBounds(43072, 400, 255, 20, rsi);
+		setBounds(43009, 295, 282, 21, rsi);
+		setBounds(43057, 297, 281, 22, rsi);
+		setBounds(43073, 304, 283, 23, rsi);
+		setBounds(43123, 395, 282, 24, rsi);
+		setBounds(43124, 397, 282, 25, rsi);
+		setBounds(43076, 419, 285, 26, rsi);
+		setBounds(43300, 28, 59, 27, rsi);
 	}
 
 	public static void playerOwnedShopBuy(TextDrawingArea[] tda) {
@@ -2392,8 +2404,8 @@ public static int boxIds[] = { 4041, 4077, 4113, 4047, 4083, 4119, 4053, 4089, 4
 		RSInterface.interfaceCache[44901].height = 16;
 		RSInterface.interfaceCache[44902].height = 16;
 		RSInterface scroll = addInterface(44500);
-		scroll.width = 450;
-		scroll.height = 232;
+		scroll.width = 441;
+		scroll.height = 225;
 		scroll.scrollMax = 780;
 		setChildren(220, scroll);
 		int child = 0;
@@ -2434,13 +2446,13 @@ public static int boxIds[] = { 4041, 4077, 4113, 4047, 4083, 4119, 4053, 4089, 4
 		setBounds(44081, 475, 20, 4, rsi);
 		setBounds(44004, 454, 20, 5, rsi);
 		setBounds(44083, 454, 20, 6, rsi);
-		setBounds(44005, 24, 20, 7, rsi);
-		setBounds(44006, 70, 20, 8, rsi);
-		setBounds(44007, 104, 20, 9, rsi);
-		setBounds(44901, 80, 40, 10, rsi);
-		setBounds(44900, 175, 40, 11, rsi);
-		setBounds(44902, 278, 40, 12, rsi);
-		setBounds(44500, 24, 56, 13, rsi);
+		setBounds(44005, 27, 21, 7, rsi);
+		setBounds(44006, 81, 21, 8, rsi);
+		setBounds(44007, 129, 22, 9, rsi);
+		setBounds(44901, 36, 55, 10, rsi);
+		setBounds(44900, 164, 54, 11, rsi);
+		setBounds(44902, 291, 54, 12, rsi);
+		setBounds(44500, 31, 81, 13, rsi);
 	}
 
 	public static void ShopInterface(TextDrawingArea[] tda) {
@@ -2458,7 +2470,7 @@ public static int boxIds[] = { 4041, 4077, 4113, 4047, 4083, 4119, 4053, 4089, 4
 
 	public static void bank(TextDrawingArea[] tda) {
 		RSInterface bank = addInterface(5292);
-		setChildren(38, bank);
+		setChildren(44, bank);
 		addSprite(5293, 0, "BankTab/BANK");
 		addHover(5384, 3, 0, 5380, 1, "BankTab/BANK", 17, 17, "Close Window");
 		addHovered(5380, 2, "BankTab/BANK", 17, 17, 5379);
@@ -2487,12 +2499,21 @@ public static int boxIds[] = { 4041, 4077, 4113, 4047, 4083, 4119, 4053, 4089, 4
 		addButton(10332, 4, "BankTab/TAB", "Drag an item here to create a new tab");
 		addText(19995, "0", tda, 0, 0xb4b864, true, false);
 		addText(19996, "352", tda, 0, 0xb4b864, true, false);
+		addHoverText(26030, "1", "Withdraw/deposit 1", tda, 1, 0xff981f, true, true, 22);
+		addHoverText(26031, "5", "Withdraw/deposit 5", tda, 1, 0xff981f, true, true, 22);
+		addHoverText(26032, "10", "Withdraw/deposit 10", tda, 1, 0xff981f, true, true, 28);
+		addHoverText(26033, "X", "Withdraw/deposit last X (click to set)", tda, 1, 0xff981f, true, true, 40);
+		addHoverText(26034, "All", "Withdraw/deposit all", tda, 1, 0xff981f, true, true, 30);
+		addHoverText(26035, "PH", "Toggle placeholders", tda, 1, 0xff981f, true, true, 28);
+		for (int id = 26030; id <= 26035; id++) {
+			interfaceCache[id].height = 16;
+		}
 		for (int i = 0; i < 8; i++) {
 			addBankItem(10335 + i);
 		}
-		setBounds(5293, 13, 13, 0, bank);
+		setBounds(5293, 13, 12, 0, bank);
 		setBounds(5383, 170, 15, 1, bank);
-		setBounds(5385, 12, 70, 2, bank);
+		setBounds(5385, 30, 79, 2, bank);
 		setBounds(5384, 476, 16, 3, bank);
 		setBounds(5380, 476, 16, 4, bank);
 		setBounds(5294, 110, 285, 5, bank);
@@ -2515,16 +2536,22 @@ public static int boxIds[] = { 4041, 4077, 4113, 4047, 4083, 4119, 4053, 4089, 4
 			setBounds(10325 + i, tabX, 36, 20 + i, bank);
 			tabX += 48;
 		}
-		setBounds(19995, 476, 287, 28, bank);
-		setBounds(19996, 476, 301, 29, bank);
+		setBounds(19995, 465, 283, 28, bank);
+		setBounds(19996, 465, 294, 29, bank);
 		tabX = 77;
 		for (int i = 0; i < 8; i++) {
 			setBounds(10335 + i, tabX, 39, 30 + i, bank);
 			tabX += 48;
 		}
+		setBounds(26030, 28, 267, 38, bank);
+		setBounds(26031, 52, 267, 39, bank);
+		setBounds(26032, 80, 267, 40, bank);
+		setBounds(26033, 114, 267, 41, bank);
+		setBounds(26034, 158, 267, 42, bank);
+		setBounds(26035, 198, 267, 43, bank);
 		RSInterface scroll = interfaceCache[5385];
-		scroll.height = 206;
-		scroll.width = 454;
+		scroll.height = 186;
+		scroll.width = 406;
 		scroll.scrollMax = 2000;
 		setChildren(1, scroll);
 		scroll.children[0] = 5382;

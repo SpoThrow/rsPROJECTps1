@@ -416,6 +416,7 @@ public class RSApplet extends Applet implements Runnable, MouseListener, MouseMo
 			mouseWheelDown = true;
 			mouseWheelX = i;
 			mouseWheelY = j;
+			middleClickDragged = false;
 		} else if(button == MouseEvent.BUTTON3)
 		{
 			clickMode1 = 2;
@@ -446,6 +447,9 @@ public class RSApplet extends Applet implements Runnable, MouseListener, MouseMo
 				clickMode2 = 0;
 		} else if(button == MouseEvent.BUTTON2)
 		{
+			if (!middleClickDragged) {
+				middleClickQueued = true;
+			}
 			mouseWheelDown = false;
 		} else
 		{
@@ -480,6 +484,9 @@ public class RSApplet extends Applet implements Runnable, MouseListener, MouseMo
         if (mouseWheelDown) {
             int dx = mouseWheelX - i;
             int dy = mouseWheelY - j;
+            if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
+                middleClickDragged = true;
+            }
             mouseWheelDragged(dx, -dy);
             mouseWheelX = i;
             mouseWheelY = j;
@@ -519,6 +526,10 @@ public class RSApplet extends Applet implements Runnable, MouseListener, MouseMo
 		int j = keyevent.getKeyChar();
 		if (i == KeyEvent.VK_SHIFT) {
 			shiftIsDown = true;
+		}
+		if (i == KeyEvent.VK_PRINTSCREEN) {
+			Jframe.takeScreenshot(client.silentScreenshots);
+			return;
 		}
 		if (KeyRemapper.isCapturing()) {
 			KeyRemapper.captureKey(i);
@@ -848,6 +859,8 @@ public class RSApplet extends Applet implements Runnable, MouseListener, MouseMo
 	boolean mouseWheelDown;
 	int mouseWheelX;
 	int mouseWheelY;
+	boolean middleClickQueued;
+	boolean middleClickDragged;
 	final int[] keyArray;
 	private final int[] charQueue;
 	private int readIndex;

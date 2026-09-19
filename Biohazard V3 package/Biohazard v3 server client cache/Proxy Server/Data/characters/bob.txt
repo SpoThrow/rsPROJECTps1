@@ -3,8 +3,8 @@ character-username = bob
 character-password = 9cdfb439c7876e703e307864c9167a15
 [CHARACTER]
 character-height = 0
-character-posx = 3094
-character-posy = 3491
+character-posx = 3087
+character-posy = 3492
 character-rights = 3
 donator = 0
 respected = 0
@@ -16,12 +16,12 @@ donated = 0
 assaultPoints = 0
 cw-games = 0
 lockedEXP = 0
-music-unlocked = true	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	true	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	
+music-unlocked = true	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	true	false	false	false	false	false	false	false	false	true	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	true	true	false	false	true	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	true	false	false	false	false	false	false	false	false	false	false	true	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	true	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	true	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	true	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	false	true	true	true	true	true	true	true	true	true	true	true	true	true	true	true	true	true	true	true	true	true	true	true	true	true	true	true	true	true	true	true	true	true	
 membership = false
 expModifier = 1.0
 lastclanchat = 
 lastLoginDate = 0
-character-energy = 99
+character-energy = 100
 desert-treasure = 0
 dt-kill = 0
 horror-from-deep = 0
@@ -38,7 +38,8 @@ trailborn false
 crystal-bow-shots = 0
 skull-timer = -1
 play-time = 0
-magic-book = 0
+magic-book = 1
+autocast-memory = 
 brother-info = 0	0
 brother-info = 1	0
 brother-info = 2	0
@@ -80,18 +81,21 @@ splitChat = false
 chatEffects = true
 acceptAid = false
 brightness = 3
+placeholders = true
+lastBankX = 1
+bankQuantity = 1
 void = 0	0	0	0	0
 completed-tut = false
 
 [EQUIPMENT]
-character-equip = 0	-1	1	
+character-equip = 0	7400	1	
 character-equip = 1	-1	1	
 character-equip = 2	-1	1	
-character-equip = 3	-1	92	
-character-equip = 4	-1	1	
+character-equip = 3	4675	1	
+character-equip = 4	7399	1	
 character-equip = 5	-1	1	
 character-equip = 6	-1	0	
-character-equip = 7	-1	1	
+character-equip = 7	7398	1	
 character-equip = 8	-1	0	
 character-equip = 9	-1	1	
 character-equip = 10	-1	1	
@@ -115,13 +119,13 @@ character-look = 11	5
 character-look = 12	0
 
 [SKILLS]
-character-skill = 0	1	0
-character-skill = 1	1	0
-character-skill = 2	1	0
-character-skill = 3	12	1682
-character-skill = 4	9	1150
-character-skill = 5	1	0
-character-skill = 6	1	0
+character-skill = 0	99	13034436
+character-skill = 1	99	13034436
+character-skill = 2	99	13142436
+character-skill = 3	59	260437
+character-skill = 4	99	13034436
+character-skill = 5	99	13034976
+character-skill = 6	99	13691356
 character-skill = 7	1	0
 character-skill = 8	1	0
 character-skill = 9	1	0
@@ -130,7 +134,7 @@ character-skill = 11	1	0
 character-skill = 12	1	0
 character-skill = 13	1	0
 character-skill = 14	1	0
-character-skill = 15	1	0
+character-skill = 15	1	48
 character-skill = 16	1	0
 character-skill = 17	1	0
 character-skill = 18	1	0
@@ -142,24 +146,61 @@ character-skill = 23	1	0
 character-skill = 24	1	0
 
 [ITEMS]
+character-item = 3	566	781
+character-item = 4	561	560
+character-item = 6	315	2378
+character-item = 7	556	340
+character-item = 8	3843	1
 
 [BANK]
 character-bank = 0	4154	1
-character-bank = 1	1306	1
-character-bank = 2	1378	1
-character-bank = 3	1216	1
-character-bank = 4	996	212492384
-character-bank = 5	4676	1
-character-bank = 6	2498	1
-character-bank = 7	2492	1
-character-bank = 8	2504	1
-character-bank = 9	1926	10
+character-bank = 1	2498	1
+character-bank = 2	2504	1
+character-bank = 3	2492	1
+character-bank = 4	4676	1
+character-bank = 5	3041	0
+character-bank = 6	170	0
+character-bank = 7	996	210974716
+character-bank = 8	158	1
+character-bank = 9	146	1
+character-bank = 10	134	0
+character-bank = 11	116	1
+character-bank = 12	122	0
+character-bank = 13	566	0
+character-bank = 14	556	0
+character-bank = 15	561	0
+character-bank = 16	1216	1
+character-bank = 17	208	1
+character-bank = 18	214	1
+character-bank = 19	965	10
+character-bank = 20	910	18
+character-bank = 21	940	61
+character-bank = 22	879	16
+character-bank = 23	817	88
+character-bank = 24	907	13
+character-bank = 25	947	43
+character-bank = 26	961	35
+character-bank = 27	1378	1
+character-bank = 28	124	1
+character-bank = 29	136	1
+character-bank = 30	172	1
+character-bank = 31	3043	1
+character-bank = 32	1632	1
+character-bank = 33	990	31
+character-bank = 34	2364	1
+character-bank = 35	925	76
+character-bank = 36	992	86
+character-bank = 37	969	15
+character-bank = 38	1926	10
+character-bank = 39	1306	1
 
 [BANKTABS]
-character-banktab = 0	9
+character-banktab = 0	38
 character-banktab = 1	1
+character-banktab = 2	1
 
 [FRIENDS]
+character-friend = 0	1020628
 
 [EOF]
 

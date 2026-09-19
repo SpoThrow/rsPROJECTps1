@@ -16,6 +16,14 @@ public class InterfaceComponent {
     private boolean fromLoop;
     private String loopGroup = "";
     private String parentVarName = "";
+    private String sourceVarName = "";
+    private int originalWidth;
+    private int originalHeight;
+    private int scrollMax;
+    private int originalScrollMax;
+    private int previewScroll;
+    private int fillColor = 0x2B2319;
+    private boolean filled = true;
 
     public InterfaceComponent() {
         this.x = 0;
@@ -154,5 +162,89 @@ public class InterfaceComponent {
 
     public boolean positionChanged() {
         return x != originalX || y != originalY;
+    }
+
+    public boolean sizeChanged() {
+        return (originalWidth > 0 && width != originalWidth)
+            || (originalHeight > 0 && height != originalHeight)
+            || scrollMax != originalScrollMax;
+    }
+
+    public String getSourceVarName() {
+        return sourceVarName;
+    }
+
+    public void setSourceVarName(String sourceVarName) {
+        this.sourceVarName = sourceVarName == null ? "" : sourceVarName;
+    }
+
+    public int getOriginalWidth() {
+        return originalWidth;
+    }
+
+    public void setOriginalWidth(int originalWidth) {
+        this.originalWidth = originalWidth;
+    }
+
+    public int getOriginalHeight() {
+        return originalHeight;
+    }
+
+    public void setOriginalHeight(int originalHeight) {
+        this.originalHeight = originalHeight;
+    }
+
+    public int getScrollMax() {
+        return scrollMax;
+    }
+
+    public void setScrollMax(int scrollMax) {
+        this.scrollMax = Math.max(0, scrollMax);
+        if (previewScroll > Math.max(0, this.scrollMax - height)) {
+            previewScroll = Math.max(0, this.scrollMax - height);
+        }
+    }
+
+    public int getOriginalScrollMax() {
+        return originalScrollMax;
+    }
+
+    public void setOriginalScrollMax(int originalScrollMax) {
+        this.originalScrollMax = originalScrollMax;
+    }
+
+    public int getPreviewScroll() {
+        return previewScroll;
+    }
+
+    public void setPreviewScroll(int previewScroll) {
+        int max = Math.max(0, scrollMax - height);
+        if (previewScroll < 0) {
+            previewScroll = 0;
+        }
+        if (previewScroll > max) {
+            previewScroll = max;
+        }
+        this.previewScroll = previewScroll;
+    }
+
+    public int getFillColor() {
+        return fillColor;
+    }
+
+    public void setFillColor(int fillColor) {
+        this.fillColor = fillColor;
+    }
+
+    public boolean isFilled() {
+        return filled;
+    }
+
+    public void setFilled(boolean filled) {
+        this.filled = filled;
+    }
+
+    public boolean isScrollable() {
+        return scrollMax > height && height > 0;
     }
 }

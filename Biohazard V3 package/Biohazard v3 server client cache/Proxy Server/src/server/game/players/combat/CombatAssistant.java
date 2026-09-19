@@ -230,6 +230,7 @@ public class CombatAssistant{
 						if(!c.isRestoringSpec){
 							RestoreSpecialAttack.execute(c);
 						}
+						awardCombatXpOnSwingNpc(i);
 						return;
 					} else {
 						c.sendMessage("You don't have the required special energy to use this attack.");
@@ -362,14 +363,358 @@ public class CombatAssistant{
 						}
 					}	
 				}
+				awardCombatXpOnSwingNpc(i);
 			}
 		}
 	}
 	
 
+	private int remainingNpcHp(int i) {
+		if (NPCHandler.npcs[i] == null) {
+			return 0;
+		}
+		int hp = NPCHandler.npcs[i].HP - NPCHandler.npcs[i].pendingDamage;
+		return hp < 0 ? 0 : hp;
+	}
+
+	private int remainingPlayerHp(int i) {
+		if (PlayerHandler.players[i] == null) {
+			return 0;
+		}
+		int hp = PlayerHandler.players[i].playerLevel[3] - PlayerHandler.players[i].pendingHitpoints;
+		return hp < 0 ? 0 : hp;
+	}
+
+	private int capHit(int damage, int remaining) {
+		if (damage < 0) {
+			return 0;
+		}
+		if (damage > remaining) {
+			return remaining;
+		}
+		return damage;
+	}
+
+	private void reserveNpcHit(int i, int damage) {
+		if (damage > 0 && NPCHandler.npcs[i] != null) {
+			NPCHandler.npcs[i].pendingDamage += damage;
+		}
+	}
+
+	private void reservePlayerHit(int i, int damage) {
+		if (damage > 0 && PlayerHandler.players[i] != null) {
+			PlayerHandler.players[i].pendingHitpoints += damage;
+		}
+	}
+
+	private void consumeNpcPending(int i, int damage) {
+		if (NPCHandler.npcs[i] == null) {
+			return;
+		}
+		NPCHandler.npcs[i].pendingDamage -= damage;
+		if (NPCHandler.npcs[i].pendingDamage < 0) {
+			NPCHandler.npcs[i].pendingDamage = 0;
+		}
+	}
+
+	private void awardMeleeXp(int damage) {
+		if (c.fightMode == 3) {
+			c.getPA().addSkillXP((damage * Config.MELEE_EXP_RATE / 3), 0);
+			c.getPA().addSkillXP((damage * Config.MELEE_EXP_RATE / 3), 1);
+			c.getPA().addSkillXP((damage * Config.MELEE_EXP_RATE / 3), 2);
+			c.getPA().addSkillXP((damage * Config.MELEE_EXP_RATE / 3), 3);
+			c.getPA().refreshSkill(0);
+			c.getPA().refreshSkill(1);
+			c.getPA().refreshSkill(2);
+			c.getPA().refreshSkill(3);
+		} else {
+			c.getPA().addSkillXP((damage * Config.MELEE_EXP_RATE), c.fightMode);
+			c.getPA().addSkillXP((damage * Config.MELEE_EXP_RATE / 3), 3);
+			c.getPA().refreshSkill(c.fightMode);
+			c.getPA().refreshSkill(3);
+		}
+	}
+
+	private void awardRangeXp(int damage) {
+		if (c.fightMode == 3) {
+			c.getPA().addSkillXP((damage * Config.RANGE_EXP_RATE / 3), 4);
+			c.getPA().addSkillXP((damage * Config.RANGE_EXP_RATE / 3), 1);
+			c.getPA().addSkillXP((damage * Config.RANGE_EXP_RATE / 3), 3);
+			c.getPA().refreshSkill(1);
+			c.getPA().refreshSkill(3);
+			c.getPA().refreshSkill(4);
+		} else {
+			c.getPA().addSkillXP((damage * Config.RANGE_EXP_RATE), 4);
+			c.getPA().addSkillXP((damage * Config.RANGE_EXP_RATE / 3), 3);
+			c.getPA().refreshSkill(3);
+			c.getPA().refreshSkill(4);
+		}
+	}
+
+	private void awardMagicXp(int damage) {
+		if (c.oldSpellId < 0 || c.oldSpellId >= c.MAGIC_SPELLS.length) {
+			return;
+		}
+		c.getPA().addSkillXP((c.MAGIC_SPELLS[c.oldSpellId][7] + damage * Config.MAGIC_EXP_RATE), 6);
+		c.getPA().addSkillXP((c.MAGIC_SPELLS[c.oldSpellId][7] + damage * Config.MAGIC_EXP_RATE / 3), 3);
+		c.getPA().refreshSkill(3);
+		c.getPA().refreshSkill(6);
+	}
+
+	private int rollNpcMeleeDamage(int i) {
+		int damage = Misc.random(calculateMeleeMaxHit());
+		boolean fullVeracsEffect = c.getPA().fullVeracs() && Misc.random(3) == 1;
+		if (!fullVeracsEffect) {
+			if (Misc.random(NPCHandler.npcs[i].defence) > 10 + Misc.random(calculateMeleeAttack())) {
+				damage = 0;
+			} else if (NPCHandler.npcs[i].npcType == 2882 || NPCHandler.npcs[i].npcType == 2883) {
+				damage = 0;
+			}
+		}
+		return capHit(damage, remainingNpcHp(i));
+	}
+
+	private void rollNpcRangeDamage(int i) {
+		int damage = Misc.random(rangeMaxHit());
+		int damage2 = -1;
+		if (c.lastWeaponUsed == 11235 || c.bowSpecShot == 1) {
+			damage2 = Misc.random(rangeMaxHit());
+		}
+		boolean ignoreDef = false;
+		if (Misc.random(5) == 1 && c.lastArrowUsed == 9243) {
+			ignoreDef = true;
+			NPCHandler.npcs[i].gfx0(758);
+		}
+		if (Misc.random(NPCHandler.npcs[i].defence) > Misc.random(10 + calculateRangeAttack()) && !ignoreDef) {
+			damage = 0;
+		} else if (NPCHandler.npcs[i].npcType == 2881 || NPCHandler.npcs[i].npcType == 2883 && !ignoreDef) {
+			damage = 0;
+		}
+		if (Misc.random(4) == 1 && c.lastArrowUsed == 9242 && damage > 0) {
+			NPCHandler.npcs[i].gfx0(754);
+			damage = NPCHandler.npcs[i].HP / 5;
+			c.handleHitMask(c.playerLevel[3] / 10);
+			c.dealDamage(c.playerLevel[3] / 10);
+			c.gfx0(754);
+		}
+		if (c.lastWeaponUsed == 11235 || c.bowSpecShot == 1) {
+			if (Misc.random(NPCHandler.npcs[i].defence) > Misc.random(10 + calculateRangeAttack())) {
+				damage2 = 0;
+			}
+		}
+		if (c.dbowSpec) {
+			NPCHandler.npcs[i].gfx100(1100);
+			if (damage < 8) {
+				damage = 8;
+			}
+			if (damage2 < 8) {
+				damage2 = 8;
+			}
+			c.dbowSpec = false;
+		}
+		if (damage > 0 && Misc.random(5) == 1 && c.lastArrowUsed == 9244) {
+			damage *= 1.45;
+			NPCHandler.npcs[i].gfx0(756);
+		}
+		damage = capHit(damage, remainingNpcHp(i));
+		if (damage2 > 0) {
+			damage2 = capHit(damage2, remainingNpcHp(i) - damage);
+		}
+		c.delayedDamage = damage;
+		c.delayedDamage2 = damage2;
+	}
+
+	private void rollNpcMagicDamage(int i) {
+		int damage = Misc.random(c.MAGIC_SPELLS[c.oldSpellId][6]);
+		if (godSpells()) {
+			if (System.currentTimeMillis() - c.godSpellDelay < Config.GOD_SPELL_CHARGE) {
+				damage += Misc.random(10);
+			}
+		}
+		boolean magicFailed = false;
+		int bonusAttack = getBonusAttack(i);
+		if (Misc.random(NPCHandler.npcs[i].defence) > 10 + Misc.random(mageAtk()) + bonusAttack) {
+			damage = 0;
+			magicFailed = true;
+		} else if (NPCHandler.npcs[i].npcType == 2881 || NPCHandler.npcs[i].npcType == 2882) {
+			damage = 0;
+			magicFailed = true;
+		}
+		damage = capHit(damage, remainingNpcHp(i));
+		c.magicFailed = magicFailed;
+		c.delayedDamage = damage;
+	}
+
+	public void awardCombatXpOnSwingNpc(int i) {
+		if (c.hitDelay <= 0 || NPCHandler.npcs[i] == null || NPCHandler.npcs[i].isDead) {
+			return;
+		}
+		c.swingXpAwarded = false;
+		if (c.projectileStage == 0) {
+			c.delayedDamage = rollNpcMeleeDamage(i);
+			reserveNpcHit(i, c.delayedDamage);
+			awardMeleeXp(c.delayedDamage);
+			if (c.doubleHit) {
+				c.delayedDamage2 = rollNpcMeleeDamage(i);
+				reserveNpcHit(i, c.delayedDamage2);
+				awardMeleeXp(c.delayedDamage2);
+			}
+			c.swingXpAwarded = true;
+			return;
+		}
+		if (!c.castingMagic && c.projectileStage > 0) {
+			rollNpcRangeDamage(i);
+			reserveNpcHit(i, c.delayedDamage);
+			if (c.delayedDamage2 > 0) {
+				reserveNpcHit(i, c.delayedDamage2);
+			}
+			awardRangeXp(c.delayedDamage);
+			c.swingXpAwarded = true;
+			return;
+		}
+		if (c.projectileStage > 0) {
+			rollNpcMagicDamage(i);
+			reserveNpcHit(i, c.delayedDamage);
+			awardMagicXp(c.delayedDamage);
+			c.swingXpAwarded = true;
+		}
+	}
+
+	private int rollPlayerMeleeDamage(int i, int stored) {
+		Client o = (Client) PlayerHandler.players[i];
+		int damage = stored;
+		boolean veracsEffect = c.getPA().fullVeracs() && Misc.random(4) == 1;
+		if (Misc.random(o.getCombat().calculateMeleeDefence()) > Misc.random(calculateMeleeAttack()) && !veracsEffect) {
+			damage = 0;
+			c.bonusAttack = 0;
+		} else {
+			c.bonusAttack += damage / 3;
+		}
+		if (o.prayerActive[18] && System.currentTimeMillis() - o.protMeleeDelay > 1500 && !veracsEffect) {
+			damage = damage * 60 / 100;
+		}
+		if (c.maxNextHit) {
+			damage = calculateMeleeMaxHit();
+		}
+		return capHit(damage, remainingPlayerHp(i));
+	}
+
+	private void rollPlayerRangeDamage(int i) {
+		Client o = (Client) PlayerHandler.players[i];
+		int damage = Misc.random(rangeMaxHit());
+		int damage2 = -1;
+		if (c.lastWeaponUsed == 11235 || c.bowSpecShot == 1) {
+			damage2 = Misc.random(rangeMaxHit());
+		}
+		boolean ignoreDef = false;
+		if (Misc.random(4) == 1 && c.lastArrowUsed == 9243) {
+			ignoreDef = true;
+			o.gfx0(758);
+		}
+		if (Misc.random(10 + o.getCombat().calculateRangeDefence()) > Misc.random(10 + calculateRangeAttack()) && !ignoreDef) {
+			damage = 0;
+		}
+		if (c.lastWeaponUsed == 11235 || c.bowSpecShot == 1) {
+			if (Misc.random(10 + o.getCombat().calculateRangeDefence()) > Misc.random(10 + calculateRangeAttack())) {
+				damage2 = 0;
+			}
+		}
+		if (c.dbowSpec) {
+			o.gfx100(1100);
+			if (damage < 8) {
+				damage = 8;
+			}
+			if (damage2 < 8) {
+				damage2 = 8;
+			}
+			c.dbowSpec = false;
+		}
+		if (damage > 0 && Misc.random(5) == 1 && c.lastArrowUsed == 9244) {
+			damage *= 1.45;
+			o.gfx0(756);
+		}
+		if (o.prayerActive[17] && System.currentTimeMillis() - o.protRangeDelay > 1500) {
+			damage = damage * 60 / 100;
+			if (c.lastWeaponUsed == 11235 || c.bowSpecShot == 1) {
+				damage2 = damage2 * 60 / 100;
+			}
+		}
+		if (Misc.random(4) == 1 && c.lastArrowUsed == 9242 && damage > 0) {
+			o.gfx0(754);
+			damage = remainingPlayerHp(i) / 5;
+			c.handleHitMask(c.playerLevel[3] / 10);
+			c.dealDamage(c.playerLevel[3] / 10);
+			c.gfx0(754);
+		}
+		damage = capHit(damage, remainingPlayerHp(i));
+		if (damage2 > 0) {
+			damage2 = capHit(damage2, remainingPlayerHp(i) - damage);
+		}
+		c.delayedDamage = damage;
+		c.delayedDamage2 = damage2;
+	}
+
+	private void rollPlayerMagicDamage(int i) {
+		Client o = (Client) PlayerHandler.players[i];
+		int damage = Misc.random(c.MAGIC_SPELLS[c.oldSpellId][6]);
+		if (godSpells()) {
+			if (System.currentTimeMillis() - c.godSpellDelay < Config.GOD_SPELL_CHARGE) {
+				damage += 10;
+			}
+		}
+		if (c.magicFailed) {
+			damage = 0;
+		}
+		if (o.prayerActive[16] && System.currentTimeMillis() - o.protMageDelay > 1500) {
+			damage = damage * 60 / 100;
+		}
+		c.delayedDamage = capHit(damage, remainingPlayerHp(i));
+	}
+
+	public void awardCombatXpOnSwingPlayer(int i) {
+		if (c.hitDelay <= 0 || PlayerHandler.players[i] == null || PlayerHandler.players[i].isDead) {
+			return;
+		}
+		c.swingXpAwarded = false;
+		if (c.projectileStage == 0) {
+			c.delayedDamage = rollPlayerMeleeDamage(i, c.delayedDamage);
+			reservePlayerHit(i, c.delayedDamage);
+			awardMeleeXp(c.delayedDamage);
+			if (c.doubleHit) {
+				c.delayedDamage2 = rollPlayerMeleeDamage(i, c.delayedDamage2);
+				if (c.ssSpec) {
+					c.delayedDamage2 = capHit(5 + Misc.random(11), remainingPlayerHp(i));
+					c.ssSpec = false;
+				}
+				reservePlayerHit(i, c.delayedDamage2);
+				awardMeleeXp(c.delayedDamage2);
+			}
+			c.swingXpAwarded = true;
+			return;
+		}
+		if (!c.castingMagic && c.projectileStage > 0) {
+			rollPlayerRangeDamage(i);
+			reservePlayerHit(i, c.delayedDamage);
+			if (c.delayedDamage2 > 0) {
+				reservePlayerHit(i, c.delayedDamage2);
+			}
+			awardRangeXp(c.delayedDamage);
+			c.swingXpAwarded = true;
+			return;
+		}
+		if (c.projectileStage > 0) {
+			rollPlayerMagicDamage(i);
+			reservePlayerHit(i, c.delayedDamage);
+			awardMagicXp(c.delayedDamage);
+			c.swingXpAwarded = true;
+		}
+	}
+
 	public void delayedHit(int i) { // npc hit delay
 		if (NPCHandler.npcs[i] != null) {
 			if (NPCHandler.npcs[i].isDead) {
+				NPCHandler.npcs[i].pendingDamage = 0;
+				c.swingXpAwarded = false;
 				c.npcIndex = 0;
 				return;
 			}
@@ -393,8 +738,13 @@ public class CombatAssistant{
 			}
 
 			if(!c.castingMagic && c.projectileStage > 0) { // range hit damage
-				int damage = Misc.random(rangeMaxHit());
+				int damage;
 				int damage2 = -1;
+				if (c.swingXpAwarded) {
+					damage = c.delayedDamage;
+					damage2 = c.delayedDamage2;
+				} else {
+				damage = Misc.random(rangeMaxHit());
 				if (c.lastWeaponUsed == 11235 || c.bowSpecShot == 1)
 					damage2 = Misc.random(rangeMaxHit());
 				boolean ignoreDef = false;
@@ -442,6 +792,14 @@ public class CombatAssistant{
 				if (NPCHandler.npcs[i].HP - damage <= 0 && damage2 > 0) {
 					damage2 = 0;
 				}
+				}
+				if (NPCHandler.npcs[i].HP - damage < 0) { 
+					damage = NPCHandler.npcs[i].HP;
+				}
+				if (damage2 > 0 && NPCHandler.npcs[i].HP - damage - damage2 < 0) {
+					damage2 = NPCHandler.npcs[i].HP - damage;
+				}
+				if(!c.swingXpAwarded) {
 				if(c.fightMode == 3) {
 					
 					c.getPA().addSkillXP((damage*Config.RANGE_EXP_RATE/3), 4); 
@@ -458,6 +816,7 @@ public class CombatAssistant{
 					c.getPA().refreshSkill(3);
 					c.getPA().refreshSkill(4);
 					
+				}
 				}
 				if (damage > 0) {
 					if (NPCHandler.npcs[i].npcType >= 6142 && NPCHandler.npcs[i].npcType <= 6145) {
@@ -478,9 +837,11 @@ public class CombatAssistant{
 				NPCHandler.npcs[i].underAttack = true;
 				NPCHandler.npcs[i].hitDiff = damage;
 				NPCHandler.npcs[i].HP -= damage;
+				consumeNpcPending(i, damage);
 				if (damage2 > -1) {
 					NPCHandler.npcs[i].hitDiff2 = damage2;
 					NPCHandler.npcs[i].HP -= damage2;
+					consumeNpcPending(i, damage2);
 					c.totalDamageDealt += damage2;	
 				}
 				if (c.killingNpcIndex != c.oldNpcIndex) {
@@ -494,13 +855,19 @@ public class CombatAssistant{
 				NPCHandler.npcs[i].updateRequired = true;
 
 			} else if (c.projectileStage > 0) { // magic hit damage
-				int damage = Misc.random(c.MAGIC_SPELLS[c.oldSpellId][6]);
+				int damage;
+				boolean magicFailed;
+				if (c.swingXpAwarded) {
+					damage = c.delayedDamage;
+					magicFailed = c.magicFailed;
+				} else {
+				damage = Misc.random(c.MAGIC_SPELLS[c.oldSpellId][6]);
 				if(godSpells()) {
 					if(System.currentTimeMillis() - c.godSpellDelay < Config.GOD_SPELL_CHARGE) {
 						damage += Misc.random(10);
 					}
 				}
-				boolean magicFailed = false;
+				magicFailed = false;
 				//c.npcIndex = 0;
 				int bonusAttack = getBonusAttack(i);
 				if (Misc.random(NPCHandler.npcs[i].defence) > 10+ Misc.random(mageAtk()) + bonusAttack) {
@@ -519,6 +886,10 @@ public class CombatAssistant{
 				c.getPA().addSkillXP((c.MAGIC_SPELLS[c.oldSpellId][7] + damage*Config.MAGIC_EXP_RATE/3), 3);
 				c.getPA().refreshSkill(3);
 				c.getPA().refreshSkill(6);
+				}
+				if (NPCHandler.npcs[i].HP - damage < 0) { 
+					damage = NPCHandler.npcs[i].HP;
+				}
 				
 				if (damage > 0) {
 					if (NPCHandler.npcs[i].npcType >= 6142 && NPCHandler.npcs[i].npcType <= 6145) {
@@ -559,6 +930,7 @@ public class CombatAssistant{
 				if(c.MAGIC_SPELLS[c.oldSpellId][6] != 0) {
 					NPCHandler.npcs[i].hitDiff = damage;
 					NPCHandler.npcs[i].HP -= damage;
+					consumeNpcPending(i, damage);
 					NPCHandler.npcs[i].hitUpdateRequired = true;
 					c.totalDamageDealt += damage;
 				}
@@ -586,11 +958,16 @@ public class CombatAssistant{
 			c.hitDelay = 2;
 			c.bowSpecShot = 0;
 		}
+		c.swingXpAwarded = false;
 	}
 	
 	
 	public void applyNpcMeleeDamage(int i, int damageMask) {
-		int damage = Misc.random(calculateMeleeMaxHit());
+		int damage;
+		if (c.swingXpAwarded) {
+			damage = damageMask == 1 ? c.delayedDamage : c.delayedDamage2;
+		} else {
+		damage = Misc.random(calculateMeleeMaxHit());
 		boolean fullVeracsEffect = c.getPA().fullVeracs() && Misc.random(3) == 1;
 		if (NPCHandler.npcs[i].HP - damage < 0) { 
 			damage = NPCHandler.npcs[i].HP;
@@ -603,12 +980,17 @@ public class CombatAssistant{
 				damage = 0;
 			}
 		}	
+		}
+		if (NPCHandler.npcs[i].HP - damage < 0) { 
+			damage = NPCHandler.npcs[i].HP;
+		}
 		boolean guthansEffect = false;
 		if (c.getPA().fullGuthans()) {
 			if (Misc.random(3) == 1) {
 				guthansEffect = true;			
 			}		
 		}
+		if(!c.swingXpAwarded) {
 		if(c.fightMode == 3) {
 			
 			c.getPA().addSkillXP((damage*Config.MELEE_EXP_RATE/3), 0); 
@@ -627,6 +1009,7 @@ public class CombatAssistant{
 			c.getPA().refreshSkill(c.fightMode);
 			c.getPA().refreshSkill(3);
 			
+		}
 		}
 		if (damage > 0) {
 			if (NPCHandler.npcs[i].npcType >= 6142 && NPCHandler.npcs[i].npcType <= 6145) {
@@ -664,6 +1047,7 @@ public class CombatAssistant{
 			case 1:
 			NPCHandler.npcs[i].hitDiff = damage;
 			NPCHandler.npcs[i].HP -= damage;
+			consumeNpcPending(i, damage);
 			c.totalDamageDealt += damage;
 			NPCHandler.npcs[i].hitUpdateRequired = true;	
 			NPCHandler.npcs[i].updateRequired = true;
@@ -672,6 +1056,7 @@ public class CombatAssistant{
 			case 2:
 			NPCHandler.npcs[i].hitDiff2 = damage;
 			NPCHandler.npcs[i].HP -= damage;
+			consumeNpcPending(i, damage);
 			c.totalDamageDealt += damage;
 			NPCHandler.npcs[i].hitUpdateRequired2 = true;	
 			NPCHandler.npcs[i].updateRequired = true;
@@ -937,6 +1322,7 @@ public class CombatAssistant{
 						if(!c.isRestoringSpec){
 							RestoreSpecialAttack.execute(c);
 						}
+						awardCombatXpOnSwingPlayer(i);
 						return;
 					} else {
 						c.sendMessage("You don't have the required special energy to use this attack.");
@@ -1085,6 +1471,7 @@ public class CombatAssistant{
 						}
 					}	
 				}
+				awardCombatXpOnSwingPlayer(i);
 			}
 		}
 	}
@@ -1118,6 +1505,10 @@ public class CombatAssistant{
 	public void playerDelayedHit(int i) {
 		if (PlayerHandler.players[i] != null) {
 			if (PlayerHandler.players[i].isDead || c.isDead || PlayerHandler.players[i].playerLevel[3] <= 0 || c.playerLevel[3] <= 0) {
+				if (c.swingXpAwarded) {
+					PlayerHandler.players[i].pendingHitpoints = 0;
+					c.swingXpAwarded = false;
+				}
 				c.playerIndex = 0;
 				return;
 			}
@@ -1148,8 +1539,13 @@ public class CombatAssistant{
 			}
 			
 			if(!c.castingMagic && c.projectileStage > 0) { // range hit damage
-				int damage = Misc.random(rangeMaxHit());
+				int damage;
 				int damage2 = -1;
+				if (c.swingXpAwarded) {
+					damage = c.delayedDamage;
+					damage2 = c.delayedDamage2;
+				} else {
+				damage = Misc.random(rangeMaxHit());
 				if (c.lastWeaponUsed == 11235 || c.bowSpecShot == 1)
 					damage2 = Misc.random(rangeMaxHit());
 				boolean ignoreDef = false;
@@ -1160,14 +1556,6 @@ public class CombatAssistant{
 				if(Misc.random(10+o.getCombat().calculateRangeDefence()) > Misc.random(10+calculateRangeAttack()) && !ignoreDef) {
 					damage = 0;
 				}
-				if(c.playerEquipment[c.playerWeapon] == 700 && o.poisonDamage <= 0 && Misc.random(3) == 0)
-					o.getPA().appendPoison(o, 4);
-				if (ItemAssistant.getItemName(c.playerEquipment[c.playerArrows]).contains(("(p)")) && o.poisonDamage <= 0 && Misc.random(20) == 1)
-					o.getPA().appendPoison(o, 5);
-				if (ItemAssistant.getItemName(c.playerEquipment[c.playerArrows]).contains(("(p+)")) && o.poisonDamage <= 0 && Misc.random(10) == 1)
-					o.getPA().appendPoison(o, 9);
-				if ((ItemAssistant.getItemName(c.playerEquipment[c.playerArrows]).contains(("(p++)"))) && o.poisonDamage <= 0 && Misc.random(4) == 1)
-					o.getPA().appendPoison(o, 13);
 				if (Misc.random(4) == 1 && c.lastArrowUsed == 9242 && damage > 0) {
 					PlayerHandler.players[i].gfx0(754);
 					damage = NPCHandler.npcs[i].HP/5;
@@ -1198,6 +1586,15 @@ public class CombatAssistant{
 					if (c.lastWeaponUsed == 11235 || c.bowSpecShot == 1)
 						damage2 = (int)damage2 * 60 / 100;
 				}
+				}
+				if(c.playerEquipment[c.playerWeapon] == 700 && o.poisonDamage <= 0 && Misc.random(3) == 0)
+					o.getPA().appendPoison(o, 4);
+				if (ItemAssistant.getItemName(c.playerEquipment[c.playerArrows]).contains(("(p)")) && o.poisonDamage <= 0 && Misc.random(20) == 1)
+					o.getPA().appendPoison(o, 5);
+				if (ItemAssistant.getItemName(c.playerEquipment[c.playerArrows]).contains(("(p+)")) && o.poisonDamage <= 0 && Misc.random(10) == 1)
+					o.getPA().appendPoison(o, 9);
+				if ((ItemAssistant.getItemName(c.playerEquipment[c.playerArrows]).contains(("(p++)"))) && o.poisonDamage <= 0 && Misc.random(4) == 1)
+					o.getPA().appendPoison(o, 13);
 				if (PlayerHandler.players[i].playerLevel[3] - damage < 0) { 
 					damage = PlayerHandler.players[i].playerLevel[3];
 				}
@@ -1216,6 +1613,7 @@ public class CombatAssistant{
 					applyRecoil(damage, i);
 				if (damage2 > 0)
 					applyRecoil(damage2, i);
+				if(!c.swingXpAwarded) {
 				if(c.fightMode == 3) {
 					
 					c.getPA().addSkillXP((damage*Config.RANGE_EXP_RATE/3), 4); 
@@ -1232,6 +1630,7 @@ public class CombatAssistant{
 					c.getPA().refreshSkill(3);
 					c.getPA().refreshSkill(4);
 					
+				}
 				}
 				boolean dropArrows = true;
 						
@@ -1270,7 +1669,11 @@ public class CombatAssistant{
 					applySmite(i, damage2);
 			
 			} else if (c.projectileStage > 0) { // magic hit damage
-				int damage = Misc.random(c.MAGIC_SPELLS[c.oldSpellId][6]);
+				int damage;
+				if (c.swingXpAwarded) {
+					damage = c.delayedDamage;
+				} else {
+				damage = Misc.random(c.MAGIC_SPELLS[c.oldSpellId][6]);
 				if(godSpells()) {
 					if(System.currentTimeMillis() - c.godSpellDelay < Config.GOD_SPELL_CHARGE) {
 						damage += 10;
@@ -1283,6 +1686,7 @@ public class CombatAssistant{
 				if(o.prayerActive[16] && System.currentTimeMillis() - o.protMageDelay > 1500) { // if prayer active reduce damage by half 
 					damage = (int)damage * 60 / 100;
 				}
+				}
 				if (PlayerHandler.players[i].playerLevel[3] - damage < 0) {
 					damage = PlayerHandler.players[i].playerLevel[3];
 				}
@@ -1291,10 +1695,12 @@ public class CombatAssistant{
 				if (damage > 0)
 					applyRecoil(damage, i);
 				
+				if (!c.swingXpAwarded) {
 				c.getPA().addSkillXP((c.MAGIC_SPELLS[c.oldSpellId][7] + damage*Config.MAGIC_EXP_RATE), 6); 
 				c.getPA().addSkillXP((c.MAGIC_SPELLS[c.oldSpellId][7] + damage*Config.MAGIC_EXP_RATE/3), 3);
 				c.getPA().refreshSkill(3);
 				c.getPA().refreshSkill(6);
+				}
 				
 				
 				if(getEndGfxHeight() == 100 && !c.magicFailed){ // end GFX
@@ -1439,6 +1845,7 @@ public class CombatAssistant{
 		if(c.bowSpecShot != 0) {
 			c.bowSpecShot = 0;
 		}
+		c.swingXpAwarded = false;
 	}
 	
 	public boolean multis() {
@@ -1588,9 +1995,11 @@ public class CombatAssistant{
 			damage = c.delayedDamage2;
 			c.delayedDamage2 = 0;
 		}
+		if (!c.swingXpAwarded) {
 		if(Misc.random(o.getCombat().calculateMeleeDefence()) > Misc.random(calculateMeleeAttack()) && !veracsEffect) {
 			damage = 0;
 			c.bonusAttack = 0;
+		}
 		}
 		if (ItemAssistant.getItemName(c.playerEquipment[c.playerArrows]).contains(("(p)")) && o.poisonDamage <= 0 && Misc.random(20) == 1) {
 			o.getPA().appendPoison(o, 5);
@@ -1610,11 +2019,13 @@ public class CombatAssistant{
 		} else {
 			c.bonusAttack += damage/3;
 		}
+		if (!c.swingXpAwarded) {
 		if(o.prayerActive[18] && System.currentTimeMillis() - o.protMeleeDelay > 1500 && !veracsEffect) { // if prayer active reduce damage by 40%
 			damage = (int)damage * 60 / 100;
 		}
 		if (c.maxNextHit) {
 			damage = calculateMeleeMaxHit();
+		}
 		}
 		if (damage > 0 && guthansEffect) {
 			c.playerLevel[3] += damage;
@@ -1623,7 +2034,7 @@ public class CombatAssistant{
 			c.getPA().refreshSkill(3);
 			o.gfx0(398);		
 		}
-		if (c.ssSpec && damageMask == 2) {
+		if (!c.swingXpAwarded && c.ssSpec && damageMask == 2) {
 			damage = 5 + Misc.random(11);
 			c.ssSpec = false;
 		}
@@ -1684,6 +2095,7 @@ public class CombatAssistant{
 			break;
 		}
 		c.specEffect = 0;
+		if(!c.swingXpAwarded) {
 		if(c.fightMode == 3) {
 			
 			c.getPA().addSkillXP((damage*Config.MELEE_EXP_RATE/3), 0); 
@@ -1702,6 +2114,7 @@ public class CombatAssistant{
 			c.getPA().refreshSkill(c.fightMode);
 			c.getPA().refreshSkill(3);
 			
+		}
 		}
 		PlayerHandler.players[i].logoutDelay = System.currentTimeMillis();
 		PlayerHandler.players[i].underAttackBy = c.playerId;

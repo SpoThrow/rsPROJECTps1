@@ -1441,7 +1441,7 @@ public class ItemAssistant {
 				
 				if (targetSlot == c.playerWeapon) {
 					c.autocasting = false;
-					c.autocastId = 0;
+					c.autocastId = -1;
 					c.getPA().sendFrame36(108, 0);
 				}
 				
@@ -1558,6 +1558,9 @@ public class ItemAssistant {
 				writeBonus();
 				c.getItems();
 				c.getCombat().getPlayerAnimIndex(ItemAssistant.getItemName(c.playerEquipment[c.playerWeapon]).toLowerCase());
+				if (targetSlot == c.playerWeapon) {
+					c.getPA().refreshAutocastMemory();
+				}
 				c.getPA().requestUpdates();
 				return true;
 			} else {
@@ -1594,6 +1597,9 @@ public class ItemAssistant {
 				c.getCombat().getPlayerAnimIndex(ItemAssistant.getItemName(c.playerEquipment[c.playerWeapon]).toLowerCase());
 				c.updateRequired = true; 
 				c.setAppearanceUpdateRequired(true);
+				if (targetSlot == c.playerWeapon) {
+					c.getPA().refreshAutocastMemory();
+				}
 			}
 		}
 	}
@@ -1658,6 +1664,9 @@ public class ItemAssistant {
 						c.flushOutStream();
 						c.updateRequired = true; 
 						c.setAppearanceUpdateRequired(true);
+						if (slot == c.playerWeapon) {
+							c.getPA().resetAutocast();
+						}
 					}
 				}
 			}
@@ -1693,7 +1702,9 @@ public class ItemAssistant {
 				} else {
 					c.getOutStream().writeByte(amt);
 				}
-				if (amt < 1) {
+				if (amt < 1 && id > 0) {
+					amt = 0;
+				} else if (amt < 1) {
 					id = 0;
 				}
 				if (id > Config.ITEM_LIMIT || id < 0) {
@@ -2040,9 +2051,13 @@ public class ItemAssistant {
 
 	private void finishBankWithdraw(int slot) {
 		if (slot >= 0 && slot < Config.BANK_SIZE && c.bankItemsN[slot] <= 0) {
-			c.bankItems[slot] = 0;
-			c.bankItemsN[slot] = 0;
-			c.getBank().onEmptiedSlot(slot);
+			if (c.placeholders && c.bankItems[slot] > 0) {
+				c.bankItemsN[slot] = 0;
+			} else {
+				c.bankItems[slot] = 0;
+				c.bankItemsN[slot] = 0;
+				c.getBank().onEmptiedSlot(slot);
+			}
 		}
 		c.getBank().refresh();
 		resetItems(5064);
@@ -2058,7 +2073,15 @@ public class ItemAssistant {
 		}
 		int bankId = c.bankItems[fromSlot];
 		int stack = c.bankItemsN[fromSlot];
-		if (bankId <= 0 || stack <= 0) {
+		if (bankId <= 0) {
+			return;
+		}
+		if (stack <= 0) {
+			c.bankItems[fromSlot] = 0;
+			c.bankItemsN[fromSlot] = 0;
+			c.getBank().onEmptiedSlot(fromSlot);
+			c.getBank().refresh();
+			resetItems(5064);
 			return;
 		}
 		if (amount > stack) {
@@ -2088,11 +2111,37 @@ public class ItemAssistant {
 		finishBankWithdraw(fromSlot);
 	}
 
-  	public int itemAmount(int itemID){
-		int tempAmount=0;
-        for (int i=0; i < c.playerItems.length; i++) {
+  	public void bankClickWithdraw(int itemId, int slot) {
+		int amt = c.getBank().clickAmount();
+		if (amt < 0) {
+			c.xRemoveSlot = slot;
+			c.xInterfaceId = 5382;
+			c.xRemoveId = itemId;
+			c.getOutStream().createFrame(27);
+			c.flushOutStream();
+			return;
+		}
+		fromBank(itemId, slot, amt);
+	}
+
+	public void bankClickDeposit(int itemId, int slot) {
+		int amt = c.getBank().clickAmount();
+		if (amt < 0) {
+			c.xRemoveSlot = slot;
+			c.xInterfaceId = 5064;
+			c.xRemoveId = itemId;
+			c.getOutStream().createFrame(27);
+			c.flushOutStream();
+			return;
+		}
+		bankItem(itemId, slot, amt);
+	}
+
+	public int itemAmount(int itemID) {
+		int tempAmount = 0;
+		for (int i = 0; i < c.playerItems.length; i++) {
 			if (c.playerItems[i] == itemID) {
-				tempAmount+=c.playerItemsN[i];
+				tempAmount += c.playerItemsN[i];
 			}
 		}
 		return tempAmount;
@@ -2200,6 +2249,7 @@ public class ItemAssistant {
 			getBonus();
 			if(j == c.playerWeapon) {
 			 sendWeapon(-1, "Unarmed");
+			 c.getPA().resetAutocast();
 			}
 			resetBonus();
 			getBonus();

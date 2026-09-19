@@ -240,6 +240,18 @@ public class PlayerSave {
 						p.pTime = Integer.parseInt(token2);
 					} else if (token.equals("magic-book")) {
 						p.playerMagicBook = Integer.parseInt(token2);
+					} else if (token.equals("autocast-memory")) {
+						if (token2 != null && token2.length() > 0 && token3 != null && token3.length >= 3) {
+							int count = token3.length / 3;
+							if (count > p.autocastMemWeapon.length) {
+								count = p.autocastMemWeapon.length;
+							}
+							for (int j = 0; j < count; j++) {
+								p.autocastMemWeapon[j] = Integer.parseInt(token3[j * 3]);
+								p.autocastMemSpell[j] = Integer.parseInt(token3[j * 3 + 1]);
+								p.autocastMemBook[j] = Integer.parseInt(token3[j * 3 + 2]);
+							}
+						}
 					} else if (token.equals("brother-info")) {
 						p.barrowsNpcs[Integer.parseInt(token3[0])][1] = Integer.parseInt(token3[1]);
 					 } else if (token.equals("special-amount")) {
@@ -309,8 +321,12 @@ public class PlayerSave {
 						p.chatEffects = Boolean.parseBoolean(token2);
 					} else if (token.equals("acceptAid")) {
 						p.acceptAid = Boolean.parseBoolean(token2);
-					} else if (token.equals("brightness")) {
-						p.brightness = Integer.parseInt(token2);
+					} else if (token.equals("placeholders")) {
+						p.placeholders = Boolean.parseBoolean(token2);
+					} else if (token.equals("lastBankX")) {
+						p.lastBankX = Integer.parseInt(token2);
+					} else if (token.equals("bankQuantity")) {
+						p.bankQuantity = Integer.parseInt(token2);
 					}
 					break;
 				case 3:
@@ -543,6 +559,21 @@ public class PlayerSave {
 			characterfile.write("magic-book = ", 0, 13);
 			characterfile.write(Integer.toString(p.playerMagicBook), 0, Integer.toString(p.playerMagicBook).length());
 			characterfile.newLine();
+			characterfile.write("autocast-memory = ", 0, 18);
+			StringBuilder autocastMem = new StringBuilder();
+			for (int j = 0; j < p.autocastMemWeapon.length; j++) {
+				if (p.autocastMemWeapon[j] <= 0) {
+					continue;
+				}
+				if (autocastMem.length() > 0) {
+					autocastMem.append("\t");
+				}
+				autocastMem.append(p.autocastMemWeapon[j]).append("\t")
+						.append(p.autocastMemSpell[j]).append("\t")
+						.append(p.autocastMemBook[j]);
+			}
+			characterfile.write(autocastMem.toString(), 0, autocastMem.length());
+			characterfile.newLine();
 			for (int b = 0; b < p.barrowsNpcs.length; b++) {
 				characterfile.write("brother-info = ", 0, 15);
 				characterfile.write(Integer.toString(b), 0, Integer.toString(b).length());
@@ -648,6 +679,15 @@ public class PlayerSave {
 			characterfile.newLine();
 			characterfile.write("brightness = ", 0, 13);
 			characterfile.write(Integer.toString(p.brightness), 0, Integer.toString(p.brightness).length());
+			characterfile.newLine();
+			characterfile.write("placeholders = ", 0, 15);
+			characterfile.write(Boolean.toString(p.placeholders), 0, Boolean.toString(p.placeholders).length());
+			characterfile.newLine();
+			characterfile.write("lastBankX = ", 0, 12);
+			characterfile.write(Integer.toString(p.lastBankX), 0, Integer.toString(p.lastBankX).length());
+			characterfile.newLine();
+			characterfile.write("bankQuantity = ", 0, 15);
+			characterfile.write(Integer.toString(p.bankQuantity), 0, Integer.toString(p.bankQuantity).length());
 			characterfile.newLine();
 			characterfile.write("void = ", 0, 7);
 			String toWrite = p.voidStatus[0] + "\t" + p.voidStatus[1] + "\t" + p.voidStatus[2] + "\t" + p.voidStatus[3] + "\t" + p.voidStatus[4];

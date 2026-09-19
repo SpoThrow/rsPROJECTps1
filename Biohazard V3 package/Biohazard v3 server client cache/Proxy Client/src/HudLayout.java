@@ -19,6 +19,8 @@ public final class HudLayout {
 	public int prayerOrbY;
 	public int runOrbX;
 	public int runOrbY;
+	public int specOrbX;
+	public int specOrbY;
 	public int worldMapX;
 	public int worldMapY;
 	public int mapFrameX;
@@ -33,6 +35,8 @@ public final class HudLayout {
 	public int prayerOrbH;
 	public int runOrbW;
 	public int runOrbH;
+	public int specOrbW;
+	public int specOrbH;
 	public int worldMapW;
 	public int worldMapH;
 	public int mapFrameW;
@@ -87,6 +91,8 @@ public final class HudLayout {
 			prayerOrbY = read(properties, "prayerOrbY", prayerOrbY);
 			runOrbX = read(properties, "runOrbX", runOrbX);
 			runOrbY = read(properties, "runOrbY", runOrbY);
+			specOrbX = read(properties, "specOrbX", specOrbX);
+			specOrbY = read(properties, "specOrbY", specOrbY);
 			worldMapX = read(properties, "worldMapX", worldMapX);
 			worldMapY = read(properties, "worldMapY", worldMapY);
 			mapFrameX = read(properties, "mapFrameX", mapFrameX);
@@ -107,6 +113,8 @@ public final class HudLayout {
 			prayerOrbH = read(properties, "prayerOrbH", prayerOrbH);
 			runOrbW = read(properties, "runOrbW", runOrbW);
 			runOrbH = read(properties, "runOrbH", runOrbH);
+			specOrbW = read(properties, "specOrbW", specOrbW);
+			specOrbH = read(properties, "specOrbH", specOrbH);
 			worldMapW = read(properties, "worldMapW", worldMapW);
 			worldMapH = read(properties, "worldMapH", worldMapH);
 			mapFrameW = read(properties, "mapFrameW", mapFrameW);
@@ -134,6 +142,8 @@ public final class HudLayout {
 		properties.setProperty("prayerOrbY", Integer.toString(prayerOrbY));
 		properties.setProperty("runOrbX", Integer.toString(runOrbX));
 		properties.setProperty("runOrbY", Integer.toString(runOrbY));
+		properties.setProperty("specOrbX", Integer.toString(specOrbX));
+		properties.setProperty("specOrbY", Integer.toString(specOrbY));
 		properties.setProperty("worldMapX", Integer.toString(worldMapX));
 		properties.setProperty("worldMapY", Integer.toString(worldMapY));
 		properties.setProperty("mapFrameX", Integer.toString(mapFrameX));
@@ -148,6 +158,8 @@ public final class HudLayout {
 		properties.setProperty("prayerOrbH", Integer.toString(prayerOrbH));
 		properties.setProperty("runOrbW", Integer.toString(runOrbW));
 		properties.setProperty("runOrbH", Integer.toString(runOrbH));
+		properties.setProperty("specOrbW", Integer.toString(specOrbW));
+		properties.setProperty("specOrbH", Integer.toString(specOrbH));
 		properties.setProperty("worldMapW", Integer.toString(worldMapW));
 		properties.setProperty("worldMapH", Integer.toString(worldMapH));
 		properties.setProperty("mapFrameW", Integer.toString(mapFrameW));
@@ -179,6 +191,8 @@ public final class HudLayout {
 		b.append("h.prayerOrbY = ").append(prayerOrbY).append(";\n");
 		b.append("h.runOrbX = ").append(runOrbX).append(";\n");
 		b.append("h.runOrbY = ").append(runOrbY).append(";\n");
+		b.append("h.specOrbX = ").append(specOrbX).append(";\n");
+		b.append("h.specOrbY = ").append(specOrbY).append(";\n");
 		b.append("h.worldMapX = ").append(worldMapX).append(";\n");
 		b.append("h.worldMapY = ").append(worldMapY).append(";\n");
 		b.append("h.mapFrameX = ").append(mapFrameX).append(";\n");
@@ -193,6 +207,8 @@ public final class HudLayout {
 		b.append("h.prayerOrbH = ").append(prayerOrbH).append(";\n");
 		b.append("h.runOrbW = ").append(runOrbW).append(";\n");
 		b.append("h.runOrbH = ").append(runOrbH).append(";\n");
+		b.append("h.specOrbW = ").append(specOrbW).append(";\n");
+		b.append("h.specOrbH = ").append(specOrbH).append(";\n");
 		b.append("h.worldMapW = ").append(worldMapW).append(";\n");
 		b.append("h.worldMapH = ").append(worldMapH).append(";\n");
 		b.append("h.mapFrameW = ").append(mapFrameW).append(";\n");
@@ -223,6 +239,8 @@ public final class HudLayout {
 		h.prayerOrbY = 53;
 		h.runOrbX = 190;
 		h.runOrbY = 92;
+		h.specOrbX = 174;
+		h.specOrbY = 131;
 		h.worldMapX = 8;
 		h.worldMapY = 124;
 		h.mapFrameX = 0;
@@ -242,6 +260,8 @@ public final class HudLayout {
 		h.prayerOrbY = 81;
 		h.runOrbX = 64;
 		h.runOrbY = 119;
+		h.specOrbX = 82;
+		h.specOrbY = 157;
 		h.worldMapX = 213;
 		h.worldMapY = 122;
 		h.mapFrameX = 65;

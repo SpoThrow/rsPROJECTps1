@@ -1711,8 +1711,10 @@ label0:
 	private void drawTileOverlays(int tileX, int tileY, int x1, int y1, int x2, int y2, int x3, int y3, int x4, int y4) {
 		if(client.tileMarkers && tileX == hoverTileX && tileY == hoverTileY)
 			drawTileOverlay(x1, y1, x2, y2, x3, y3, x4, y4, false, 0xC4C4C4);
-		if(client.tileMarkers && client.walkTileX != 0 && tileX == client.walkTileX && tileY == client.walkTileY)
+		if(client.destTile && client.walkTileX != 0 && tileX == client.walkTileX && tileY == client.walkTileY)
 			drawTileOverlay(x1, y1, x2, y2, x3, y3, x4, y4, true, 0xE8E8E8);
+		if(client.trueTile && client.myPlayer != null && tileX == client.myPlayer.smallX[0] && tileY == client.myPlayer.smallY[0])
+			drawTileOverlay(x1, y1, x2, y2, x3, y3, x4, y4, false, 0x40C8FF);
 		if(GroundMarkers.enabled) {
 			int color = GroundMarkers.colorLocal(tileX, tileY, client.scenePlane);
 			if(color != 0)

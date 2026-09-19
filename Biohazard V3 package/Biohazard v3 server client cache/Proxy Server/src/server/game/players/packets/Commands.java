@@ -480,12 +480,14 @@ public class Commands implements PacketType {
 								c.setSidebarInterface(6, 12855);
 								c.sendMessage("An ancient wisdomin fills your mind.");
 								c.getPA().resetAutocast();
+								c.getPA().applyRememberedAutocast();
 							} else {
 								c.setSidebarInterface(6, 1151);
 								c.playerMagicBook = 0;
 								c.sendMessage("You feel a drain on your memory.");
 								c.autocastId = -1;
 								c.getPA().resetAutocast();
+								c.getPA().applyRememberedAutocast();
 							}
 						}
 						if (playerCommand.startsWith("interface") && c.playerRights == 3) {

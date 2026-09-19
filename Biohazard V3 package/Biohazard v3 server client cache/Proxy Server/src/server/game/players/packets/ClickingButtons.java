@@ -38,7 +38,7 @@ public class ClickingButtons implements PacketType {
 		int actionButtonId = Misc.hexToInt(c.getInStream().buffer, 0, packetSize);
 		if (packetSize >= 2) {
 			int wordId = ((c.getInStream().buffer[0] & 0xFF) << 8) | (c.getInStream().buffer[1] & 0xFF);
-			if (wordId == 5294 || (wordId >= 10324 && wordId <= 10332) || (wordId >= 26000 && wordId <= 26022)) {
+			if (wordId == 5294 || (wordId >= 10324 && wordId <= 10332) || (wordId >= 26000 && wordId <= 26035)) {
 				actionButtonId = wordId;
 			}
 		}
@@ -64,7 +64,8 @@ public class ClickingButtons implements PacketType {
 		for(int i=0; i < spellIds.length; i++) {
 			if(actionButtonId == spellIds[i]) {
 				c.autocasting = true;
-				c.autocastId = i;	
+				c.autocastId = i;
+				c.getPA().rememberAutocast();
 			}
 		}
 		GnomeGlider.flightButtons(c, actionButtonId);
@@ -1920,8 +1921,10 @@ break;*/
 		case 1093:
 		case 1094:
 		case 1097:
-			if (c.autocastId > 0) {
+			if (c.autocasting) {
 				c.getPA().resetAutocast();
+			} else if (c.getPA().applyRememberedAutocast()) {
+				break;
 			} else {
 				if (c.playerMagicBook == 1) {
 					if (c.playerEquipment[c.playerWeapon] == 4675)
@@ -1934,6 +1937,8 @@ break;*/
 					} else {
 						c.setSidebarInterface(0, 1829);
 					}	
+				} else {
+					c.sendMessage("You can't autocast on this spellbook.");
 				}
 
 			}		
@@ -2929,6 +2934,26 @@ break;*/
 		case 10331:
 		case 10332:
 			c.getBank().openTab(actionButtonId - 10324);
+			break;
+		case 26030:
+			c.getBank().setQuantity(1, false);
+			break;
+		case 26031:
+			c.getBank().setQuantity(5, false);
+			break;
+		case 26032:
+			c.getBank().setQuantity(10, false);
+			break;
+		case 26033:
+			c.getBank().setQuantity(-1, c.bankQuantity < 0);
+			break;
+		case 26034:
+			c.getBank().setQuantity(0, false);
+			break;
+		case 26035:
+			if (c.isBanking) {
+				c.getBank().togglePlaceholders();
+			}
 			break;
 			//home teleports
 		case 4171:
