@@ -768,7 +768,13 @@ public class MainView extends BorderPane {
         try {
             logDebug("ACTION: Loading interface from Java source");
             if (interfacesFilePath.isEmpty()) {
-                detectClientWorkspace();
+                ClientWorkspace workspace = ClientWorkspace.detect();
+                if (workspace.getInterfacesJava() != null) {
+                    interfacesFilePath = workspace.getInterfacesJava().getAbsolutePath();
+                    for (File root : workspace.getSpriteRoots()) {
+                        SpriteLoader.addSearchRoot(root);
+                    }
+                }
             }
             if (interfacesFilePath.isEmpty()) {
                 setInterfacesPath();

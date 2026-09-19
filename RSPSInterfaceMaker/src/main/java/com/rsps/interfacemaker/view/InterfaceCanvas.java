@@ -95,15 +95,17 @@ public class InterfaceCanvas extends Canvas {
                     }
                     selectedComponent = comp; // Last clicked becomes primary selection
                 } else {
-                    // Single select
                     selectedComponents.clear();
                     selectedComponents.add(comp);
                     selectedComponent = comp;
                     draggingComponent = comp;
                     dragOffsetX = x - comp.getX();
                     dragOffsetY = y - comp.getY();
-                    
-                    // Calculate drag offsets for all selected components
+                    for (InterfaceComponent other : project.getComponents()) {
+                        if (other != comp && other.getX() == comp.getX() && other.getY() == comp.getY()) {
+                            selectedComponents.add(other);
+                        }
+                    }
                     dragOffsets.clear();
                     for (InterfaceComponent selectedComp : selectedComponents) {
                         dragOffsets.put(selectedComp, new double[]{

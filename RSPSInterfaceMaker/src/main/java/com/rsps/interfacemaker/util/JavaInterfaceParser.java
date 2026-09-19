@@ -12,6 +12,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -1012,6 +1013,26 @@ public class JavaInterfaceParser {
             System.out.println(component.getChildIndex() + "\t" + component.getId() + "\t"
                 + component.getX() + "," + component.getY() + "\t" + component.getType()
                 + "\t" + component.getName() + (component.isFromLoop() ? " [loop]" : ""));
+        }
+        if (args.length > 1 && "roundtrip".equals(args[1])) {
+            File tmp = new File("target/Interfaces.roundtrip.java");
+            Files.copy(workspace.getInterfacesJava().toPath(), tmp.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            InterfaceProject copy = parseInterfaceMethod(tmp.getAbsolutePath(), method);
+            for (InterfaceComponent component : copy.getComponents()) {
+                if (component.getId() == 10325) {
+                    component.setX(component.getX() + 1);
+                    component.setY(component.getY() + 1);
+                }
+                if (component.getId() == 5294) {
+                    component.setY(component.getY() - 2);
+                }
+            }
+            JavaInterfaceWriter.saveToClient(copy);
+            String out = Files.readString(tmp.toPath(), StandardCharsets.UTF_8);
+            System.out.println(out.contains("setBounds(10325, 71, 37, 20, bank)") ? "LOOP EXPAND OK" : "LOOP FAIL");
+            System.out.println(out.contains("setBounds(5294, 110, 283, 5, bank)") ? "LITERAL OK" : "LITERAL FAIL");
+            System.out.println(out.contains("setBounds(10335 + i") ? "UNTOUCHED LOOP KEPT" : "UNTOUCHED LOOP LOST");
+            tmp.delete();
         }
     }
 }
