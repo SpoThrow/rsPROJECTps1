@@ -21,6 +21,7 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.net.URL;
 import java.util.Date;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Properties;
 import java.util.zip.GZIPOutputStream;
@@ -61,6 +62,7 @@ public class client extends RSApplet {
 	public static boolean spaceContinue = true;
 	public static boolean chatTypeFocused = true;
 	public static int xpDropSpeed = 1;
+	public static boolean xpDropGrouped = false;
 	public static boolean performanceStats = false;
 	public static boolean showPing = false;
 	public static boolean openGlEnabled = false;
@@ -108,6 +110,7 @@ public class client extends RSApplet {
 	private float[] xpDropY = new float[24];
 	private int xpDropCount;
 	private long lastXpDropMs;
+	private long lastXpDropSpawnMs;
 	private long pingSentAt;
 	private int pingMs = -1;
 	private int pingMin = 9999;
@@ -122,6 +125,7 @@ public class client extends RSApplet {
 	private static int optionSplitChat = 0;
 	private static int optionAcceptAid = 0;
 	private static boolean applyingClientSettings;
+	private final ArrayList pendingClientSettings = new ArrayList();
 	private Sprite loginMusicSprite;
 	private Sprite loginMuteSprite;
 	private Sprite[] quickPraySprites = new Sprite[6];
@@ -913,6 +917,7 @@ public class client extends RSApplet {
 			props.setProperty("boostedStatOverlay", Boolean.toString(boostedStatOverlay));
 			props.setProperty("xpDrops", Boolean.toString(xpDrops));
 			props.setProperty("xpDropSpeed", Integer.toString(xpDropSpeed));
+			props.setProperty("xpDropGrouped", Boolean.toString(xpDropGrouped));
 			props.setProperty("boostedPlusDisplay", Boolean.toString(boostedPlusDisplay));
 			props.setProperty("attackStyleOverlay", Boolean.toString(attackStyleOverlay));
 			props.setProperty("npcAttackOption", Integer.toString(npcAttackOption));
@@ -931,6 +936,7 @@ public class client extends RSApplet {
 			props.setProperty("specOrb", Boolean.toString(specOrb));
 			props.setProperty("groundHideValue", Integer.toString(groundHideValue));
 			props.setProperty("lootBeamValue", Integer.toString(lootBeamValue));
+			LootBeams.save(props);
 			props.setProperty("destTile", Boolean.toString(destTile));
 			props.setProperty("trueTile", Boolean.toString(trueTile));
 			props.setProperty("chatTimestamps", Boolean.toString(chatTimestamps));
@@ -980,6 +986,10 @@ public class client extends RSApplet {
 			StatusBars.save(props);
 			BarrowsPlugin.save(props);
 			OverlayManager.save(props);
+			LootTracker.save(props);
+			props.setProperty("pluginSidebar", Boolean.toString(PluginSidebar.open));
+			props.setProperty("pluginSidebarBar", Boolean.toString(PluginSidebar.sidebarOut));
+			props.setProperty("pluginSidebarTab", Integer.toString(PluginSidebar.selectedTab));
 			int quickBits = 0;
 			for (int i = 0; i < quickPrayers.length; i++) {
 				if (quickPrayers[i]) {
@@ -1050,6 +1060,7 @@ public class client extends RSApplet {
 
 	public void refreshClientSettingsInterface() {
 		if (RSInterface.interfaceCache == null) {
+			PluginSidebar.refresh();
 			return;
 		}
 		rebuildSettingsList();
@@ -1118,6 +1129,7 @@ public class client extends RSApplet {
 		setSettingLine(24244, "Silent screenshots: " + (silentScreenshots ? "On" : "Off"));
 		setSettingLine(24222, "XP drops: " + (xpDrops ? "On" : "Off"));
 		setSettingLine(24235, "XP drop speed: " + xpDropSpeedLabel(xpDropSpeed));
+		setSettingLine(24422, "Group XP drops: " + (xpDropGrouped ? "On" : "Off"));
 		setSettingLine(24228, "Key remapping: " + (keyRemapping ? "On" : "Off") + " (setup)");
 		setSettingLine(24264, "Anti-drag: " + (AntiDrag.enabled ? "On" : "Off"));
 		setSettingLine(24265, "Anti-drag shift only: " + (AntiDrag.shiftOnly ? "On" : "Off"));
@@ -1143,7 +1155,526 @@ public class client extends RSApplet {
 		setSettingLine(24418, "Status bar numbers: " + (StatusBars.numbers ? "On" : "Off"));
 		setSettingLine(24419, "Status bar heal preview: " + (StatusBars.healPreview ? "On" : "Off"));
 		setSettingLine(24214, "Right-click a skill on the Skills tab to start or stop XP tracking.");
+		PluginSidebar.refresh();
 	}
+	public void queueClientSetting(int id) {
+		synchronized (pendingClientSettings) {
+			pendingClientSettings.add(Integer.valueOf(id));
+		}
+	}
+
+	private void drainPendingClientSettings() {
+		int[] ids;
+		synchronized (pendingClientSettings) {
+			if (pendingClientSettings.isEmpty()) {
+				return;
+			}
+			ids = new int[pendingClientSettings.size()];
+			for (int i = 0; i < ids.length; i++) {
+				ids[i] = ((Integer) pendingClientSettings.get(i)).intValue();
+			}
+			pendingClientSettings.clear();
+		}
+		for (int i = 0; i < ids.length; i++) {
+			applyClientSetting(ids[i]);
+		}
+		PluginSidebar.refresh();
+	}
+
+	public boolean applyClientSetting(int k) {
+		switch (k) {
+				case 24210:
+					if (isFixed()) {
+						setScreenMode(ScreenMode.RESIZABLE);
+						pushMessage("Resizable mode on. Drag the window to resize.", 0, "");
+					} else {
+						setScreenMode(ScreenMode.FIXED);
+						pushMessage("Fixed 765x503 mode restored.", 0, "");
+					}
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24248:
+					resizableInvTransparent = !resizableInvTransparent;
+					needDrawTabArea = true;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					if (isFixed()) {
+						pushMessage("Inventory tab skins apply in resizable mode.", 0, "");
+					} else {
+						pushMessage(resizableInvTransparent
+								? "Inventory tab is now transparent."
+								: "Inventory tab is now the solid board.", 0, "");
+					}
+					break;
+				case 24211:
+					fogStrength = (fogStrength + 1) % 4;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24212:
+					aaStrength = (aaStrength + 1) % 4;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					pushMessage("Anti-aliasing: " + strengthLabel(aaStrength)
+							+ (aaStrength >= 2 ? " (edge-only, not blur)." : "."), 0, "");
+					break;
+				case 24213:
+					tweeningEnabled = !tweeningEnabled;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24215:
+					if (drawDistance <= 25) {
+						drawDistance = 50;
+					} else if (drawDistance <= 50) {
+						drawDistance = 75;
+					} else {
+						drawDistance = 25;
+					}
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24216:
+					tileBlending = !tileBlending;
+					rebuildLoadedScene();
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					pushMessage("Ground blending " + (tileBlending ? "on" : "off") + ".", 0, "");
+					break;
+				case 24217:
+					hideRoofs = !hideRoofs;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					pushMessage("Roofs " + (hideRoofs ? "hidden" : "shown") + ".", 0, "");
+					break;
+				case 24218:
+					tileMarkers = !tileMarkers;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24219:
+					groundItemNames = !groundItemNames;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24220:
+					npcHealthOverlay = !npcHealthOverlay;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24221:
+					boostedStatOverlay = !boostedStatOverlay;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24222:
+					xpDrops = !xpDrops;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24235:
+					xpDropSpeed = (xpDropSpeed + 1) % 5;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24422:
+					xpDropGrouped = !xpDropGrouped;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					pushMessage("Group XP drops " + (xpDropGrouped ? "on" : "off") + ".", 0, "");
+					break;
+				case 24223:
+					boostedPlusDisplay = !boostedPlusDisplay;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24224:
+					attackStyleOverlay = !attackStyleOverlay;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24225:
+					npcAttackOption = (npcAttackOption + 1) % 3;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24226:
+					playerAttackOption = (playerAttackOption + 1) % 3;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24227:
+					menuEntrySwapper = !menuEntrySwapper;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					pushMessage("Menu entry swapper " + (menuEntrySwapper ? "on" : "off") + ". Shift-right-click an option to set left-click.", 0, "");
+					break;
+				case 24228:
+					openInterfaceID = KeyRemapper.INTERFACE_ID;
+					KeyRemapper.refreshInterface();
+					break;
+				case 24229:
+					GroundMarkers.enabled = !GroundMarkers.enabled;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					pushMessage("Ground markers " + (GroundMarkers.enabled ? "on. Shift-right-click a tile to mark it" : "off") + ".", 0, "");
+					break;
+				case 24253:
+					NpcIndicators.cycleMode();
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					pushMessage(NpcIndicators.mode == 1
+							? "NPC indicators on tagged NPCs. Hold Ctrl and right-click to Tag hull or Tag tile."
+							: NpcIndicators.mode == 2 ? "NPC indicators on all NPCs." : "NPC indicators off.", 0, "");
+					break;
+				case 24254:
+					NpcIndicators.hull = !NpcIndicators.hull;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24255:
+					NpcIndicators.tile = !NpcIndicators.tile;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24256:
+					NpcIndicators.trueTile = !NpcIndicators.trueTile;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24257:
+					NpcIndicators.southWestTile = !NpcIndicators.southWestTile;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24258:
+					NpcIndicators.cycleColor();
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24259:
+					NpcIndicators.names = !NpcIndicators.names;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24260:
+					NpcIndicators.minimapNames = !NpcIndicators.minimapNames;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24261:
+					SlayerTracker.enabled = !SlayerTracker.enabled;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24262:
+					SlayerTracker.highlight = !SlayerTracker.highlight;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24281:
+					SlayerTracker.countOnItems = !SlayerTracker.countOnItems;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24276:
+					BossTimers.enabled = !BossTimers.enabled;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24270:
+					ObjectMarkers.enabled = !ObjectMarkers.enabled;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					pushMessage("Object markers " + (ObjectMarkers.enabled ? "on. Alt-right-click an object to mark it" : "off") + ".", 0, "");
+					break;
+				case 24268:
+					InventoryTags.enabled = !InventoryTags.enabled;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					pushMessage("Inventory tags " + (InventoryTags.enabled ? "on. Shift-right-click an item to tag it" : "off") + ".", 0, "");
+					break;
+				case 24271:
+					PlayerIndicators.enabled = !PlayerIndicators.enabled;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24272:
+					PlayerIndicators.names = !PlayerIndicators.names;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24273:
+					PlayerIndicators.tiles = !PlayerIndicators.tiles;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24274:
+					PlayerIndicators.minimapNames = !PlayerIndicators.minimapNames;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24277:
+					PlayerIndicators.friends = !PlayerIndicators.friends;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24278:
+					PlayerIndicators.team = !PlayerIndicators.team;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24279:
+					PlayerIndicators.others = !PlayerIndicators.others;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24280:
+					PlayerIndicators.ownPlayer = !PlayerIndicators.ownPlayer;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24263:
+					AmmoOverlay.enabled = !AmmoOverlay.enabled;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24275:
+					ItemStats.enabled = !ItemStats.enabled;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24269:
+					MouseTooltips.enabled = !MouseTooltips.enabled;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24267:
+					AttackStyleWarn.cycle();
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24264:
+					AntiDrag.enabled = !AntiDrag.enabled;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					pushMessage("Anti-drag " + (AntiDrag.enabled ? "on" : "off") + ".", 0, "");
+					break;
+				case 24265:
+					AntiDrag.shiftOnly = !AntiDrag.shiftOnly;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24266:
+					AntiDrag.cycleDelay();
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24400:
+					CannonOverlay.enabled = !CannonOverlay.enabled;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24401:
+					CannonOverlay.infobox = !CannonOverlay.infobox;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24402:
+					CannonOverlay.cycleWarning();
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24403:
+					CannonOverlay.doubleHit = !CannonOverlay.doubleHit;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24404:
+					CannonOverlay.spots = !CannonOverlay.spots;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24405:
+					ImplingsPlugin.enabled = !ImplingsPlugin.enabled;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24406:
+					ImplingsPlugin.names = !ImplingsPlugin.names;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24407:
+					ImplingsPlugin.notify = !ImplingsPlugin.notify;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24408:
+					BarrowsPlugin.enabled = !BarrowsPlugin.enabled;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24409:
+					CombatLevelPlugin.enabled = !CombatLevelPlugin.enabled;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24410:
+					ChatHistory.enabled = !ChatHistory.enabled;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24411:
+					ChatChannels.enabled = !ChatChannels.enabled;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24412:
+					ChatChannels.joinLeave = !ChatChannels.joinLeave;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24413:
+					FriendListPlugin.enabled = !FriendListPlugin.enabled;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24414:
+					FriendNotes.enabled = !FriendNotes.enabled;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24415:
+					PoisonPlugin.enabled = !PoisonPlugin.enabled;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24416:
+					RegenMeter.enabled = !RegenMeter.enabled;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24417:
+					StatusBars.enabled = !StatusBars.enabled;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24418:
+					StatusBars.numbers = !StatusBars.numbers;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24419:
+					StatusBars.healPreview = !StatusBars.healPreview;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24231:
+					performanceStats = !performanceStats;
+					fpsOn = performanceStats;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24232:
+					showPing = !showPing;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24233:
+					openGlEnabled = !openGlEnabled;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					if (openGlEnabled) {
+						pushMessage("OpenGL on. Restart the client so the GPU presents frames.", 0, "");
+						pushMessage("If the game looks blurry, turn NVIDIA FXAA off and set AA to Application-controlled.", 0, "");
+					} else {
+						pushMessage("OpenGL off. Restart the client to fully disable it.", 0, "");
+					}
+					break;
+				case 24234:
+					fpsUnlocked = !fpsUnlocked;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					pushMessage(fpsUnlocked ? "FPS cap unlocked. Game logic still runs at 50 ticks." : "FPS capped at 50.", 0, "");
+					break;
+				case 24236:
+					shiftClickDrop = !shiftClickDrop;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					pushMessage("Shift-click drop " + (shiftClickDrop ? "on" : "off") + ".", 0, "");
+					break;
+				case 24237:
+					middleClickWear = !middleClickWear;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					pushMessage("Middle-click wear " + (middleClickWear ? "on" : "off") + ".", 0, "");
+					break;
+				case 24238:
+					specOrb = !specOrb;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24239:
+					groundHideValue = nextValueThreshold(groundHideValue);
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24240:
+					lootBeamValue = nextValueThreshold(lootBeamValue);
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24420:
+					LootBeams.cycleStyle();
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					pushMessage("Loot beam style: " + LootBeams.styleName() + ".", 0, "");
+					break;
+				case 24421:
+					LootBeams.cycleFanfare();
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					pushMessage("Loot beam fanfare: " + LootBeams.fanfareName() + ".", 0, "");
+					break;
+				case 24241:
+					destTile = !destTile;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24242:
+					trueTile = !trueTile;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24243:
+					chatTimestamps = !chatTimestamps;
+					inputTaken = true;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24244:
+					silentScreenshots = !silentScreenshots;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24246:
+					statusTimers = !statusTimers;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24247:
+					orbFlash = !orbFlash;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+		default:
+			return KeyRemapper.handleClick(k);
+		}
+		return true;
+	}
+
 
 	private void setCategoryTab(int id, String name, int category) {
 		boolean selected = settingsCategory == category;
@@ -1172,7 +1703,7 @@ public class client extends RSApplet {
 			ids = new int[] {
 				24220, 24221, 24223, 24224, 24267, 24238, 24247, 24246, 24263, 24275, 24269,
 				24410, 24411, 24412, 24413, 24414, 24415, 24416, 24417, 24418, 24419,
-				24243, 24244, 24222, 24235, 24214
+				24243, 24244, 24222, 24235, 24422, 24214
 			};
 			break;
 		case 3:
@@ -1349,6 +1880,7 @@ public class client extends RSApplet {
 				boostedStatOverlay = readBoolProp(props, "boostedStatOverlay", false);
 				xpDrops = readBoolProp(props, "xpDrops", false);
 				xpDropSpeed = clamp(readIntProp(props, "xpDropSpeed", 1), 0, 4);
+				xpDropGrouped = readBoolProp(props, "xpDropGrouped", false);
 				boostedPlusDisplay = readBoolProp(props, "boostedPlusDisplay", false);
 				attackStyleOverlay = readBoolProp(props, "attackStyleOverlay", false);
 				npcAttackOption = clamp(readIntProp(props, "npcAttackOption", 0), 0, 2);
@@ -1368,6 +1900,7 @@ public class client extends RSApplet {
 				specOrb = readBoolProp(props, "specOrb", true);
 				groundHideValue = readIntProp(props, "groundHideValue", 0);
 				lootBeamValue = readIntProp(props, "lootBeamValue", 0);
+				LootBeams.load(props);
 				destTile = readBoolProp(props, "destTile", true);
 				trueTile = readBoolProp(props, "trueTile", false);
 				chatTimestamps = readBoolProp(props, "chatTimestamps", true);
@@ -1423,6 +1956,13 @@ public class client extends RSApplet {
 				StatusBars.load(props);
 				BarrowsPlugin.load(props);
 				OverlayManager.load(props);
+				LootTracker.load(props);
+				PluginSidebar.open = readBoolProp(props, "pluginSidebar", false);
+				PluginSidebar.sidebarOut = readBoolProp(props, "pluginSidebarBar", true);
+				PluginSidebar.selectedTab = readIntProp(props, "pluginSidebarTab", PluginSidebar.TAB_CONFIG);
+				if (PluginSidebar.selectedTab != PluginSidebar.TAB_LOOT) {
+					PluginSidebar.selectedTab = PluginSidebar.TAB_CONFIG;
+				}
 				GroundMarkers.enabled = readBoolProp(props, "groundMarkers", false);
 				GroundMarkers.minimap = readBoolProp(props, "groundMarkersMinimap", true);
 				int quickBits = readIntProp(props, "quickPrayers", 0);
@@ -4149,6 +4689,8 @@ public class client extends RSApplet {
 		if (rsAlreadyLoaded || loadingError || genericLoadingError)
 			return;
 		loopCycle++;
+		drainPendingClientSettings();
+		LootTracker.tick();
 		if (!loggedIn)
 			processLoginScreenInput();
 		else
@@ -4639,26 +5181,7 @@ public class client extends RSApplet {
 	}
 
 	static void preloadOpenGlProperty() {
-		try {
-			File propsFile = new File(signlink.findcachedir() + "client_settings.properties");
-			if (!propsFile.exists()) {
-				return;
-			}
-			Properties props = new Properties();
-			FileInputStream in = new FileInputStream(propsFile);
-			props.load(in);
-			in.close();
-			if (readBoolProp(props, "openGl", false)) {
-				openGlEnabled = true;
-				System.setProperty("sun.java2d.opengl", "True");
-				System.setProperty("sun.java2d.accthreshold", "0");
-				try {
-					System.setProperty("sun.java2d.d3d", "false");
-				} catch (Exception e) {
-				}
-			}
-		} catch (Exception e) {
-		}
+		GlPresent.applyPipeline();
 	}
 
 	public static int getBaseX() {
@@ -5982,10 +6505,8 @@ public class client extends RSApplet {
 				case 24150:
 					if (openInterfaceID == 24200) {
 						openInterfaceID = -1;
-					} else {
-						openInterfaceID = 24200;
-						refreshClientSettingsInterface();
 					}
+					PluginSidebar.toggle();
 					break;
 				case 24204:
 					openInterfaceID = -1;
@@ -6006,474 +6527,11 @@ public class client extends RSApplet {
 					settingsCategory = 3;
 					refreshClientSettingsInterface();
 					break;
-				case 24210:
-					if (isFixed()) {
-						setScreenMode(ScreenMode.RESIZABLE);
-						pushMessage("Resizable mode on. Drag the window to resize.", 0, "");
-					} else {
-						setScreenMode(ScreenMode.FIXED);
-						pushMessage("Fixed 765x503 mode restored.", 0, "");
-					}
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24248:
-					resizableInvTransparent = !resizableInvTransparent;
-					needDrawTabArea = true;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					if (isFixed()) {
-						pushMessage("Inventory tab skins apply in resizable mode.", 0, "");
-					} else {
-						pushMessage(resizableInvTransparent
-								? "Inventory tab is now transparent."
-								: "Inventory tab is now the solid board.", 0, "");
-					}
-					break;
-				case 24211:
-					fogStrength = (fogStrength + 1) % 4;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24212:
-					aaStrength = (aaStrength + 1) % 4;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24213:
-					tweeningEnabled = !tweeningEnabled;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24215:
-					if (drawDistance <= 25) {
-						drawDistance = 50;
-					} else if (drawDistance <= 50) {
-						drawDistance = 75;
-					} else {
-						drawDistance = 25;
-					}
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24216:
-					tileBlending = !tileBlending;
-					rebuildLoadedScene();
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					pushMessage("Ground blending " + (tileBlending ? "on" : "off") + ".", 0, "");
-					break;
-				case 24217:
-					hideRoofs = !hideRoofs;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					pushMessage("Roofs " + (hideRoofs ? "hidden" : "shown") + ".", 0, "");
-					break;
-				case 24218:
-					tileMarkers = !tileMarkers;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24219:
-					groundItemNames = !groundItemNames;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24220:
-					npcHealthOverlay = !npcHealthOverlay;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24221:
-					boostedStatOverlay = !boostedStatOverlay;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24222:
-					xpDrops = !xpDrops;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24235:
-					xpDropSpeed = (xpDropSpeed + 1) % 5;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24223:
-					boostedPlusDisplay = !boostedPlusDisplay;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24224:
-					attackStyleOverlay = !attackStyleOverlay;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24225:
-					npcAttackOption = (npcAttackOption + 1) % 3;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24226:
-					playerAttackOption = (playerAttackOption + 1) % 3;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24227:
-					menuEntrySwapper = !menuEntrySwapper;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					pushMessage("Menu entry swapper " + (menuEntrySwapper ? "on" : "off") + ". Shift-right-click an option to set left-click.", 0, "");
-					break;
-				case 24228:
-					openInterfaceID = KeyRemapper.INTERFACE_ID;
-					KeyRemapper.refreshInterface();
-					break;
-				case 24229:
-					GroundMarkers.enabled = !GroundMarkers.enabled;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					pushMessage("Ground markers " + (GroundMarkers.enabled ? "on. Shift-right-click a tile to mark it" : "off") + ".", 0, "");
-					break;
-				case 24253:
-					NpcIndicators.cycleMode();
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					pushMessage(NpcIndicators.mode == 1
-							? "NPC indicators on tagged NPCs. Hold Ctrl and right-click to Tag hull or Tag tile."
-							: NpcIndicators.mode == 2 ? "NPC indicators on all NPCs." : "NPC indicators off.", 0, "");
-					break;
-				case 24254:
-					NpcIndicators.hull = !NpcIndicators.hull;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24255:
-					NpcIndicators.tile = !NpcIndicators.tile;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24256:
-					NpcIndicators.trueTile = !NpcIndicators.trueTile;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24257:
-					NpcIndicators.southWestTile = !NpcIndicators.southWestTile;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24258:
-					NpcIndicators.cycleColor();
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24259:
-					NpcIndicators.names = !NpcIndicators.names;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24260:
-					NpcIndicators.minimapNames = !NpcIndicators.minimapNames;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24261:
-					SlayerTracker.enabled = !SlayerTracker.enabled;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24262:
-					SlayerTracker.highlight = !SlayerTracker.highlight;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24281:
-					SlayerTracker.countOnItems = !SlayerTracker.countOnItems;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24276:
-					BossTimers.enabled = !BossTimers.enabled;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24270:
-					ObjectMarkers.enabled = !ObjectMarkers.enabled;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					pushMessage("Object markers " + (ObjectMarkers.enabled ? "on. Alt-right-click an object to mark it" : "off") + ".", 0, "");
-					break;
-				case 24268:
-					InventoryTags.enabled = !InventoryTags.enabled;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					pushMessage("Inventory tags " + (InventoryTags.enabled ? "on. Shift-right-click an item to tag it" : "off") + ".", 0, "");
-					break;
-				case 24271:
-					PlayerIndicators.enabled = !PlayerIndicators.enabled;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24272:
-					PlayerIndicators.names = !PlayerIndicators.names;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24273:
-					PlayerIndicators.tiles = !PlayerIndicators.tiles;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24274:
-					PlayerIndicators.minimapNames = !PlayerIndicators.minimapNames;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24277:
-					PlayerIndicators.friends = !PlayerIndicators.friends;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24278:
-					PlayerIndicators.team = !PlayerIndicators.team;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24279:
-					PlayerIndicators.others = !PlayerIndicators.others;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24280:
-					PlayerIndicators.ownPlayer = !PlayerIndicators.ownPlayer;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24263:
-					AmmoOverlay.enabled = !AmmoOverlay.enabled;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24275:
-					ItemStats.enabled = !ItemStats.enabled;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24269:
-					MouseTooltips.enabled = !MouseTooltips.enabled;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24267:
-					AttackStyleWarn.cycle();
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24264:
-					AntiDrag.enabled = !AntiDrag.enabled;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					pushMessage("Anti-drag " + (AntiDrag.enabled ? "on" : "off") + ".", 0, "");
-					break;
-				case 24265:
-					AntiDrag.shiftOnly = !AntiDrag.shiftOnly;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24266:
-					AntiDrag.cycleDelay();
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24400:
-					CannonOverlay.enabled = !CannonOverlay.enabled;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24401:
-					CannonOverlay.infobox = !CannonOverlay.infobox;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24402:
-					CannonOverlay.cycleWarning();
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24403:
-					CannonOverlay.doubleHit = !CannonOverlay.doubleHit;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24404:
-					CannonOverlay.spots = !CannonOverlay.spots;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24405:
-					ImplingsPlugin.enabled = !ImplingsPlugin.enabled;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24406:
-					ImplingsPlugin.names = !ImplingsPlugin.names;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24407:
-					ImplingsPlugin.notify = !ImplingsPlugin.notify;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24408:
-					BarrowsPlugin.enabled = !BarrowsPlugin.enabled;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24409:
-					CombatLevelPlugin.enabled = !CombatLevelPlugin.enabled;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24410:
-					ChatHistory.enabled = !ChatHistory.enabled;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24411:
-					ChatChannels.enabled = !ChatChannels.enabled;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24412:
-					ChatChannels.joinLeave = !ChatChannels.joinLeave;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24413:
-					FriendListPlugin.enabled = !FriendListPlugin.enabled;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24414:
-					FriendNotes.enabled = !FriendNotes.enabled;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24415:
-					PoisonPlugin.enabled = !PoisonPlugin.enabled;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24416:
-					RegenMeter.enabled = !RegenMeter.enabled;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24417:
-					StatusBars.enabled = !StatusBars.enabled;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24418:
-					StatusBars.numbers = !StatusBars.numbers;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24419:
-					StatusBars.healPreview = !StatusBars.healPreview;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24231:
-					performanceStats = !performanceStats;
-					fpsOn = performanceStats;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24232:
-					showPing = !showPing;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24233:
-					openGlEnabled = !openGlEnabled;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					pushMessage(openGlEnabled
-							? "OpenGL on. Restart the client to enable the Java2D OpenGL pipeline."
-							: "OpenGL off. Restart the client to fully disable it.", 0, "");
-					break;
-				case 24234:
-					fpsUnlocked = !fpsUnlocked;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					pushMessage(fpsUnlocked ? "FPS cap unlocked. Game logic still runs at 50 ticks." : "FPS capped at 50.", 0, "");
-					break;
-				case 24236:
-					shiftClickDrop = !shiftClickDrop;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					pushMessage("Shift-click drop " + (shiftClickDrop ? "on" : "off") + ".", 0, "");
-					break;
-				case 24237:
-					middleClickWear = !middleClickWear;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					pushMessage("Middle-click wear " + (middleClickWear ? "on" : "off") + ".", 0, "");
-					break;
-				case 24238:
-					specOrb = !specOrb;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24239:
-					groundHideValue = nextValueThreshold(groundHideValue);
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24240:
-					lootBeamValue = nextValueThreshold(lootBeamValue);
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24241:
-					destTile = !destTile;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24242:
-					trueTile = !trueTile;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24243:
-					chatTimestamps = !chatTimestamps;
-					inputTaken = true;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24244:
-					silentScreenshots = !silentScreenshots;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24246:
-					statusTimers = !statusTimers;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24247:
-					orbFlash = !orbFlash;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
 				case 18110:
 					finishQuickPrayerSetup();
 					break;
 				default:
-					if (KeyRemapper.handleClick(k)) {
+					if (applyClientSetting(k)) {
 						break;
 					}
 					stream.createFrame(185);
@@ -14099,6 +14157,18 @@ public class client extends RSApplet {
 	}
 
 	private void queueXpDrop(int skill, int amount) {
+		if (amount <= 0) {
+			return;
+		}
+		long now = System.currentTimeMillis();
+		if (xpDropGrouped && xpDropCount > 0 && now - lastXpDropSpawnMs < 500L) {
+			int last = xpDropCount - 1;
+			xpDropAmount[last] += amount;
+			if (xpDropSkill[last] != skill) {
+				xpDropSkill[last] = -1;
+			}
+			return;
+		}
 		if (xpDropCount >= xpDropSkill.length) {
 			for (int i = 1; i < xpDropCount; i++) {
 				xpDropSkill[i - 1] = xpDropSkill[i];
@@ -14117,6 +14187,7 @@ public class client extends RSApplet {
 		xpDropAmount[xpDropCount] = amount;
 		xpDropY[xpDropCount] = startY;
 		xpDropCount++;
+		lastXpDropSpawnMs = now;
 	}
 
 	private int xpOrbW() {
@@ -14336,7 +14407,8 @@ public class client extends RSApplet {
 		for (int i = 0; i < xpDropCount; i++) {
 			xpDropY[i] += step;
 			int y = yBase + (int) xpDropY[i];
-			String text = skillDisplayName(xpDropSkill[i]) + " +" + formatNumber(xpDropAmount[i]);
+			String label = xpDropSkill[i] < 0 ? "XP" : skillDisplayName(xpDropSkill[i]);
+			String text = label + " +" + formatNumber(xpDropAmount[i]);
 			int tx = x - font.getTextWidth(text) / 2;
 			drawOutlinedText(font, text, tx, y, 0xFFE14A);
 			if (xpDropIcon != null) {
@@ -14834,8 +14906,12 @@ public class client extends RSApplet {
 				if (list == null) {
 					continue;
 				}
-				int stack = 0;
-				for (Item item = (Item) list.reverseGetFirst(); item != null; item = (Item) list.reverseGetNext()) {
+					int stack = 0;
+					int bestValue = 0;
+					long newestBeam = 0L;
+					int beamX = -1;
+					int beamY = -1;
+					for (Item item = (Item) list.reverseGetFirst(); item != null; item = (Item) list.reverseGetNext()) {
 					int value = groundItemValue(item);
 					if (groundHideValue > 0 && value < groundHideValue) {
 						continue;
@@ -14861,7 +14937,16 @@ public class client extends RSApplet {
 						groundItemTimes.put(new Long(key), spawn);
 					}
 					if (lootBeamValue > 0 && value >= lootBeamValue) {
-						drawLootBeam(spriteDrawX, spriteDrawY, groundItemColor(value));
+						if (value > bestValue) {
+							bestValue = value;
+						}
+						if (spawn.longValue() > newestBeam) {
+							newestBeam = spawn.longValue();
+						}
+						if (beamX == -1) {
+							beamX = spriteDrawX;
+							beamY = spriteDrawY;
+						}
 					}
 					if (groundItemNames) {
 						int tx = spriteDrawX - smallText.getTextWidth(name) / 2;
@@ -14870,7 +14955,14 @@ public class client extends RSApplet {
 						smallText.method385(groundItemColor(value), name, ty, tx);
 						stack++;
 					}
-				}
+					}
+					if (lootBeamValue > 0 && bestValue >= lootBeamValue && beamX != -1) {
+						calcEntityScreenPos(x * 128 + 64, 4, y * 128 + 64);
+						int gx = spriteDrawX;
+						int gy = spriteDrawY;
+						calcEntityScreenPos(x * 128 + 64, 280, y * 128 + 64);
+						LootBeams.draw(gx, gy, spriteDrawX, spriteDrawY, bestValue, newestBeam);
+					}
 			}
 		}
 		Object[] keys = groundItemTimes.keySet().toArray();
@@ -14967,32 +15059,6 @@ public class client extends RSApplet {
 			return 0xFFFFFF;
 		}
 		return 0xff981f;
-	}
-
-	private void drawLootBeam(int x, int y, int color) {
-		int[] pixels = DrawingArea.pixels;
-		if (pixels == null) {
-			return;
-		}
-		int width = DrawingArea.width;
-		int left = DrawingArea.topX;
-		int right = DrawingArea.bottomX;
-		int top = DrawingArea.topY;
-		int bottom = DrawingArea.bottomY;
-		for (int i = 0; i < 48; i++) {
-			int py = y - i;
-			int span = 1 + (48 - i) / 16;
-			for (int dx = -span; dx <= span; dx++) {
-				int px = x + dx;
-				if (px < left || px >= right || py < top || py >= bottom) {
-					continue;
-				}
-				int pixel = py * width + px;
-				if (pixel >= 0 && pixel < pixels.length) {
-					pixels[pixel] = color;
-				}
-			}
-		}
 	}
 
 	private void drawItemTimerPie(int cx, int cy, long spawnTime) {
@@ -15137,6 +15203,26 @@ public class client extends RSApplet {
 			}
 		}
 		return best;
+	}
+
+	void captureLootCombat() {
+		NPC npc = combatNpc();
+		if (npc != null && npc.desc != null && npc.desc.name != null && npc.desc.name.length() > 0) {
+			LootTracker.noteCombat(npc.desc.name, baseX + (npc.x >> 7), baseY + (npc.y >> 7));
+			return;
+		}
+		Player player = combatPlayer();
+		if (player != null && player.name != null && player.name.length() > 0) {
+			LootTracker.noteCombat(player.name, baseX + (player.x >> 7), baseY + (player.y >> 7));
+		}
+	}
+
+	static int mapBaseX() {
+		return baseX;
+	}
+
+	static int mapBaseY() {
+		return baseY;
 	}
 
 	private void drawBoostedStatOverlay() {
@@ -16482,6 +16568,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 				groundArray[plane][l10][i13]
 						.insertHead(class30_sub2_sub4_sub2_1);
 				spawnGroundItem(l10, i13);
+				LootTracker.onGroundItem(k2, j5, l10, i13);
 			}
 			return;
 		}
@@ -18409,7 +18496,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 				zCameraPos, j, yCameraCurve);
 		worldController.clearObj5Cache();
 		drawNpcIndicatorHulls();
-		if (aaStrength >= 2 && aRSImageProducer_1165 != null) {
+		if (aaStrength >= 1 && aRSImageProducer_1165 != null) {
 			Fog.antiAliasEdges(aRSImageProducer_1165.anIntArray315, aRSImageProducer_1165.anInt316,
 					aRSImageProducer_1165.anInt317);
 		}

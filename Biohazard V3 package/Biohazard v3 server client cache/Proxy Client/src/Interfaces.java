@@ -1097,7 +1097,7 @@ public static int boxIds[] = { 4041, 4077, 4113, 4047, 4083, 4119, 4053, 4089, 4
 		addHoverText(24249, "Display", "Display settings", tda, 1, 0xffff00, false, true, 70);
 		addHoverText(24248, "Inventory tab (resizable): Solid", "Solid board or transparent tab. Resizable only.", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24211, "Distance fog: High", "Change fog strength", tda, 1, 0xff981f, false, true, 300);
-		addHoverText(24212, "Anti-aliasing: Low", "Change anti-aliasing strength", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24212, "Anti-aliasing: Low", "Change anti-aliasing (edge-only, not blur)", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24213, "Animation smoothing: On", "Toggle animation smoothing", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24215, "Draw distance: 75 tiles", "Change draw distance", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24216, "Ground blending: On", "Toggle ground tile blending", tda, 1, 0xff981f, false, true, 300);
@@ -1108,6 +1108,7 @@ public static int boxIds[] = { 4041, 4077, 4113, 4047, 4083, 4119, 4053, 4089, 4
 		addHoverText(24221, "Boosted stat overlay: Off", "Toggle boosted stat overlay", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24222, "XP drops: Off", "Toggle XP drops", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24235, "XP drop speed: Slow", "Very slow, slow, normal, fast, very fast", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24422, "Group XP drops: Off", "Combine XP gained at the same time into one drop", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24223, "Boosted stats as +N: Off", "Toggle +15 instead of 114/99", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24224, "Attack style box: Off", "Toggle attack style next to chat", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24225, "NPC attack: Left click", "Left click, right click, or hide Attack on NPCs", tda, 1, 0xff981f, false, true, 300);
@@ -1117,7 +1118,7 @@ public static int boxIds[] = { 4041, 4077, 4113, 4047, 4083, 4119, 4053, 4089, 4
 		addHoverText(24229, "Ground markers: Off", "Shift-right-click tiles to mark them", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24231, "Performance stats: Off", "Toggle FPS, memory, and frame timing", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24232, "Show ping: Off", "Toggle connection latency to the server", tda, 1, 0xff981f, false, true, 300);
-		addHoverText(24233, "OpenGL acceleration: Off", "Java2D OpenGL pipeline (restart to fully apply)", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24233, "OpenGL acceleration: Off", "GPU present path (restart). Turn driver FXAA off if blurry", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24234, "FPS cap: 50", "Unlock the 50 FPS draw cap", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24236, "Shift-click drop: On", "Shift-left-click drops inventory items", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24237, "Middle-click wear: On", "Middle-click wears or wields inventory items", tda, 1, 0xff981f, false, true, 300);

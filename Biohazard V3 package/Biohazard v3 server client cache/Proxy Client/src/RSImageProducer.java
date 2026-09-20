@@ -29,17 +29,11 @@ final class RSImageProducer
 
 	private Image createImageBuffer(Component component)
 	{
-		if (client.openGlEnabled) {
-			try {
-				DataBufferInt db = new DataBufferInt(anIntArray315, anInt316 * anInt317);
-				WritableRaster raster = Raster.createPackedRaster(db, anInt316, anInt317, anInt316,
-						new int[] { 0xff0000, 0xff00, 0xff }, null);
-				return new BufferedImage(aColorModel318, raster, false, null);
-			} catch (Exception e) {
-			}
+		try {
+			return GlPresent.wrapPixels(anIntArray315, anInt316, anInt317, (DirectColorModel) aColorModel318);
+		} catch (Exception e) {
 		}
-		Image image = component.createImage(this);
-		return image;
+		return component.createImage(this);
 	}
 
 	public void initDrawingArea()
@@ -52,7 +46,7 @@ final class RSImageProducer
 		if (!(anImage320 instanceof BufferedImage)) {
 			method239();
 		}
-		g.drawImage(anImage320, k, i, this);
+		GlPresent.blit(g, anImage320, k, i);
 	}
 
 	public synchronized void addConsumer(ImageConsumer imageconsumer)

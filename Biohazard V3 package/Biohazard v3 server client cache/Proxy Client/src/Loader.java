@@ -25,6 +25,7 @@ public class Loader extends JFrame {
 	 * Launch the application.
 	 */
 	public static void main(String[] args) {
+		GlPresent.applyPipeline();
 		EventQueue.invokeLater(new Runnable() {
 			public void run() {
 				try {

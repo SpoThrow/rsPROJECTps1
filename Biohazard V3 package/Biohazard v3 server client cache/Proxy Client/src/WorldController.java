@@ -961,6 +961,7 @@ label0:
 		anInt447 = i1;
 		hoverTileX = -1;
 		hoverTileY = -1;
+		overlayCount = 0;
 		int radius = client.drawDistance;
 		if(radius < 25)
 			radius = 25;
@@ -1053,7 +1054,7 @@ label0:
 						}
 						if(anInt446 == 0)
 						{
-							aBoolean467 = false;
+							finishScene();
 							return;
 						}
 					}
@@ -1108,7 +1109,7 @@ label0:
 						}
 						if(anInt446 == 0)
 						{
-							aBoolean467 = false;
+							finishScene();
 							return;
 						}
 					}
@@ -1118,7 +1119,7 @@ label0:
 
 		}
 
-		aBoolean467 = false;
+		finishScene();
 	}
 
 	private void method314(Ground class30_sub3, boolean flag)
@@ -1186,7 +1187,7 @@ label0:
 							method315(class30_sub3_7.aClass43_1311, 0, anInt458, anInt459, anInt460, anInt461, i, j);
 					} else
 					if(class30_sub3_7.aClass40_1312 != null && !method320(0, i, j))
-						method316(i, anInt458, anInt460, class30_sub3_7.aClass40_1312, anInt459, j, anInt461);
+						method316(i, anInt458, anInt460, class30_sub3_7.aClass40_1312, anInt459, j, anInt461, 0);
 					Object1 class10 = class30_sub3_7.obj1;
 					if(class10 != null)
 						class10.aClass30_Sub2_Sub4_278.method443(0, anInt458, anInt459, anInt460, anInt461, class10.anInt274 - anInt455, class10.anInt273 - anInt456, class10.anInt275 - anInt457, class10.uid);
@@ -1210,7 +1211,7 @@ label0:
 				if(class30_sub3_1.aClass40_1312 != null && !method320(l, i, j))
 				{
 					flag1 = true;
-					method316(i, anInt458, anInt460, class30_sub3_1.aClass40_1312, anInt459, j, anInt461);
+					method316(i, anInt458, anInt460, class30_sub3_1.aClass40_1312, anInt459, j, anInt461, l);
 				}
 				int j1 = 0;
 				int j2 = 0;
@@ -1709,33 +1710,127 @@ label0:
 	}
 
 	private void drawTileOverlays(int tileX, int tileY, int x1, int y1, int x2, int y2, int x3, int y3, int x4, int y4) {
-		if(client.tileMarkers && tileX == hoverTileX && tileY == hoverTileY)
-			drawTileOverlay(x1, y1, x2, y2, x3, y3, x4, y4, false, 0xC4C4C4);
-		if(client.destTile && client.walkTileX != 0 && tileX == client.walkTileX && tileY == client.walkTileY)
-			drawTileOverlay(x1, y1, x2, y2, x3, y3, x4, y4, true, 0xE8E8E8);
-		if(client.trueTile && client.myPlayer != null && tileX == client.myPlayer.smallX[0] && tileY == client.myPlayer.smallY[0])
-			drawTileOverlay(x1, y1, x2, y2, x3, y3, x4, y4, false, 0x40C8FF);
-		if(GroundMarkers.enabled) {
-			int color = GroundMarkers.colorLocal(tileX, tileY, client.scenePlane);
-			if(color != 0)
-				drawTileOverlay(x1, y1, x2, y2, x3, y3, x4, y4, true, color);
+		if(!tileNeedsOverlay(tileX, tileY))
+			return;
+		if(overlayCount >= OVERLAY_MAX)
+			return;
+		if(overlayCount > 0) {
+			int last = (overlayCount - 1) * 10;
+			if(overlayBuf[last] == tileX && overlayBuf[last + 1] == tileY)
+				return;
 		}
-		int npcCol = NpcIndicators.tileColor(tileX, tileY);
-		if(npcCol != 0)
-			drawTileOverlay(x1, y1, x2, y2, x3, y3, x4, y4, true, npcCol);
-		int objCol = ObjectMarkers.colorLocal(tileX, tileY, client.scenePlane);
-		if(objCol != 0)
-			drawTileOverlay(x1, y1, x2, y2, x3, y3, x4, y4, true, objCol);
-		int plyCol = PlayerIndicators.tileColor(tileX, tileY);
-		if(plyCol != 0)
-			drawTileOverlay(x1, y1, x2, y2, x3, y3, x4, y4, false, plyCol);
-		int cannonCol = CannonOverlay.tileColor(tileX, tileY, client.scenePlane);
-		if(cannonCol != 0)
-			drawTileOverlay(x1, y1, x2, y2, x3, y3, x4, y4, true, cannonCol);
+		int o = overlayCount * 10;
+		overlayBuf[o] = tileX;
+		overlayBuf[o + 1] = tileY;
+		overlayBuf[o + 2] = x1;
+		overlayBuf[o + 3] = y1;
+		overlayBuf[o + 4] = x2;
+		overlayBuf[o + 5] = y2;
+		overlayBuf[o + 6] = x3;
+		overlayBuf[o + 7] = y3;
+		overlayBuf[o + 8] = x4;
+		overlayBuf[o + 9] = y4;
+		overlayCount++;
+	}
+
+	private boolean tileNeedsOverlay(int tileX, int tileY) {
+		if(client.tileMarkers && tileX == hoverTileX && tileY == hoverTileY)
+			return true;
+		if(client.destTile && client.walkTileX != 0 && tileX == client.walkTileX && tileY == client.walkTileY)
+			return true;
+		if(client.trueTile && client.myPlayer != null && tileX == client.myPlayer.smallX[0] && tileY == client.myPlayer.smallY[0])
+			return true;
+		if(GroundMarkers.enabled && GroundMarkers.colorLocal(tileX, tileY, client.scenePlane) != 0)
+			return true;
+		if(NpcIndicators.tileColor(tileX, tileY) != 0)
+			return true;
+		if(ObjectMarkers.colorLocal(tileX, tileY, client.scenePlane) != 0)
+			return true;
+		if(PlayerIndicators.tileColor(tileX, tileY) != 0)
+			return true;
+		return CannonOverlay.tileColor(tileX, tileY, client.scenePlane) != 0;
+	}
+
+	private void finishScene() {
+		aBoolean467 = false;
+		flushTileOverlays();
+	}
+
+	private void flushTileOverlays() {
+		int count = overlayCount;
+		overlayCount = 0;
+		int i;
+		int o;
+		for(i = 0; i < count; i++) {
+			o = i * 10;
+			paintTileOverlays(overlayBuf[o], overlayBuf[o + 1], overlayBuf[o + 2], overlayBuf[o + 3], overlayBuf[o + 4], overlayBuf[o + 5], overlayBuf[o + 6], overlayBuf[o + 7], overlayBuf[o + 8], overlayBuf[o + 9]);
+		}
+	}
+
+	private void paintTileOverlays(int tileX, int tileY, int x1, int y1, int x2, int y2, int x3, int y3, int x4, int y4) {
+		int color;
+		if(client.tileMarkers && tileX == hoverTileX && tileY == hoverTileY)
+			drawTileOverlay(x1, y1, x2, y2, x3, y3, x4, y4, 0xD0D0D0, 90);
+		if(client.destTile && client.walkTileX != 0 && tileX == client.walkTileX && tileY == client.walkTileY)
+			drawTileOverlay(x1, y1, x2, y2, x3, y3, x4, y4, 0xE8E8E8, 80);
+		if(client.trueTile && client.myPlayer != null && tileX == client.myPlayer.smallX[0] && tileY == client.myPlayer.smallY[0])
+			drawTileOverlay(x1, y1, x2, y2, x3, y3, x4, y4, 0x40C8FF, 80);
+		if(GroundMarkers.enabled) {
+			color = GroundMarkers.colorLocal(tileX, tileY, client.scenePlane);
+			if(color != 0)
+				drawTileOverlay(x1, y1, x2, y2, x3, y3, x4, y4, color, 70);
+		}
+		color = NpcIndicators.tileColor(tileX, tileY);
+		if(color != 0)
+			drawTileOverlay(x1, y1, x2, y2, x3, y3, x4, y4, color, 70);
+		color = ObjectMarkers.colorLocal(tileX, tileY, client.scenePlane);
+		if(color != 0)
+			drawTileOverlay(x1, y1, x2, y2, x3, y3, x4, y4, color, 70);
+		color = PlayerIndicators.tileColor(tileX, tileY);
+		if(color != 0)
+			drawTileOverlay(x1, y1, x2, y2, x3, y3, x4, y4, color, 80);
+		color = CannonOverlay.tileColor(tileX, tileY, client.scenePlane);
+		if(color != 0)
+			drawTileOverlay(x1, y1, x2, y2, x3, y3, x4, y4, color, 70);
+	}
+
+	private boolean projectTileCorners(int plane, int tileX, int tileY, int[] out) {
+		if(plane < 0 || plane >= anIntArrayArrayArray440.length)
+			return false;
+		if(tileX < 0 || tileY < 0 || tileX + 1 >= anIntArrayArrayArray440[plane].length || tileY + 1 >= anIntArrayArrayArray440[plane][tileX].length)
+			return false;
+		int lift = 16;
+		int swX = (tileX << 7) - anInt455;
+		int swZ = (tileY << 7) - anInt457;
+		int seX = swX + 128;
+		int nwZ = swZ + 128;
+		int swY = anIntArrayArrayArray440[plane][tileX][tileY] - anInt456 + lift;
+		int seY = anIntArrayArrayArray440[plane][tileX + 1][tileY] - anInt456 + lift;
+		int neY = anIntArrayArrayArray440[plane][tileX + 1][tileY + 1] - anInt456 + lift;
+		int nwY = anIntArrayArrayArray440[plane][tileX][tileY + 1] - anInt456 + lift;
+		if(!projectCorner(swX, swY, swZ, out, 0))
+			return false;
+		if(!projectCorner(seX, seY, swZ, out, 2))
+			return false;
+		if(!projectCorner(seX, neY, nwZ, out, 4))
+			return false;
+		return projectCorner(swX, nwY, nwZ, out, 6);
+	}
+
+	private boolean projectCorner(int x, int y, int z, int[] out, int index) {
+		int camX = z * anInt460 + x * anInt461 >> 16;
+		int camZ = z * anInt461 - x * anInt460 >> 16;
+		int camY = y * anInt459 - camZ * anInt458 >> 16;
+		camZ = y * anInt458 + camZ * anInt459 >> 16;
+		if(camZ < 50)
+			return false;
+		out[index] = Texture.textureInt1 + (camX << 9) / camZ;
+		out[index + 1] = Texture.textureInt2 + (camY << 9) / camZ;
+		return true;
 	}
 
 	private void method316(int i, int j, int k, Class40 class40, int l, int i1,
-						   int j1)
+						   int j1, int plane)
 	{
 		int k1 = class40.anIntArray673.length;
 		for(int l1 = 0; l1 < k1; l1++)
@@ -1812,7 +1907,8 @@ label0:
 				}
 			}
 		}
-
+		if(projectTileCorners(plane, i, i1, overlayTmp))
+			drawTileOverlays(i, i1, overlayTmp[0], overlayTmp[1], overlayTmp[2], overlayTmp[3], overlayTmp[4], overlayTmp[5], overlayTmp[6], overlayTmp[7]);
 	}
 
 	private int method317(int j, int k)
@@ -1834,35 +1930,128 @@ label0:
 		return type >= 12 && type <= 21;
 	}
 
-	private void drawTileOverlay(int x1, int y1, int x2, int y2, int x3, int y3, int x4, int y4, boolean outline, int color) {
-		int save = Texture.anInt1465;
-		int saveZ = Fog.sceneDepth;
-		boolean saveClip = Texture.aBoolean1462;
-		Fog.sceneDepth = 0;
-		Texture.aBoolean1462 = true;
-		if(outline) {
-			Texture.anInt1465 = 0;
-			drawOverlayQuad(x1, y1, x2, y2, x3, y3, x4, y4, color);
-		} else {
-			Texture.anInt1465 = 170;
-			if(x3 != x4 || y3 != y4)
-				Texture.method376(y3, y4, y2, x3, x4, x2, color);
-			Texture.method376(y1, y2, y4, x1, x2, x4, color);
-		}
-		Texture.anInt1465 = save;
-		Texture.aBoolean1462 = saveClip;
-		Fog.sceneDepth = saveZ;
-	}
-
-	private void drawOverlayQuad(int x1, int y1, int x2, int y2, int x3, int y3, int x4, int y4, int color) {
+	private void drawTileOverlay(int x1, int y1, int x2, int y2, int x3, int y3, int x4, int y4, int color, int fillAlpha) {
+		fillTileQuad(x1, y1, x2, y2, x3, y3, x4, y4, color, fillAlpha);
 		drawOverlayLine(x1, y1, x2, y2, color);
 		drawOverlayLine(x2, y2, x3, y3, color);
 		drawOverlayLine(x3, y3, x4, y4, color);
 		drawOverlayLine(x4, y4, x1, y1, color);
-		drawOverlayLine(x1 + 1, y1, x2 + 1, y2, color);
-		drawOverlayLine(x2, y2 + 1, x3, y3 + 1, color);
-		drawOverlayLine(x3 - 1, y3, x4 - 1, y4, color);
-		drawOverlayLine(x4, y4 - 1, x1, y1 - 1, color);
+	}
+
+	private void fillTileQuad(int x1, int y1, int x2, int y2, int x3, int y3, int x4, int y4, int color, int alpha) {
+		int minY = y1;
+		if(y2 < minY)
+			minY = y2;
+		if(y3 < minY)
+			minY = y3;
+		if(y4 < minY)
+			minY = y4;
+		int maxY = y1;
+		if(y2 > maxY)
+			maxY = y2;
+		if(y3 > maxY)
+			maxY = y3;
+		if(y4 > maxY)
+			maxY = y4;
+		int top = DrawingArea.topY;
+		int bottom = DrawingArea.bottomY;
+		if(minY < top)
+			minY = top;
+		if(maxY >= bottom)
+			maxY = bottom - 1;
+		if(minY > maxY)
+			return;
+		ensureSpans(maxY + 1);
+		int y;
+		for(y = minY; y <= maxY; y++) {
+			spanMin[y] = 0x0fffffff;
+			spanMax[y] = -0x0fffffff;
+		}
+		scanEdge(x1, y1, x2, y2, minY, maxY);
+		scanEdge(x2, y2, x3, y3, minY, maxY);
+		scanEdge(x3, y3, x4, y4, minY, maxY);
+		scanEdge(x4, y4, x1, y1, minY, maxY);
+		int[] pixels = DrawingArea.pixels;
+		if(pixels == null)
+			return;
+		int width = DrawingArea.width;
+		int left = DrawingArea.topX;
+		int right = DrawingArea.bottomX;
+		int ia = 256 - alpha;
+		int sr = color >> 16 & 0xff;
+		int sg = color >> 8 & 0xff;
+		int sb = color & 0xff;
+		int xStart;
+		int xEnd;
+		int i;
+		int dst;
+		int r;
+		int g;
+		int b;
+		int x;
+		for(y = minY; y <= maxY; y++) {
+			xStart = spanMin[y];
+			xEnd = spanMax[y];
+			if(xStart > xEnd)
+				continue;
+			if(xStart < left)
+				xStart = left;
+			if(xEnd >= right)
+				xEnd = right - 1;
+			i = y * width + xStart;
+			for(x = xStart; x <= xEnd; x++) {
+				if(i >= 0 && i < pixels.length) {
+					dst = pixels[i];
+					r = (sr * alpha + (dst >> 16 & 0xff) * ia) >> 8;
+					g = (sg * alpha + (dst >> 8 & 0xff) * ia) >> 8;
+					b = (sb * alpha + (dst & 0xff) * ia) >> 8;
+					pixels[i] = r << 16 | g << 8 | b;
+				}
+				i++;
+			}
+		}
+	}
+
+	private void scanEdge(int x0, int y0, int x1, int y1, int minY, int maxY) {
+		if(y0 == y1) {
+			if(y0 >= minY && y0 <= maxY) {
+				spanPoint(y0, x0);
+				spanPoint(y0, x1);
+			}
+			return;
+		}
+		int tx;
+		int ty;
+		if(y0 > y1) {
+			tx = x0;
+			x0 = x1;
+			x1 = tx;
+			ty = y0;
+			y0 = y1;
+			y1 = ty;
+		}
+		int dx = x1 - x0;
+		int dy = y1 - y0;
+		int start = y0 < minY ? minY : y0;
+		int end = y1 > maxY ? maxY : y1;
+		int y;
+		for(y = start; y <= end; y++)
+			spanPoint(y, x0 + dx * (y - y0) / dy);
+	}
+
+	private void spanPoint(int y, int x) {
+		if(x < spanMin[y])
+			spanMin[y] = x;
+		if(x > spanMax[y])
+			spanMax[y] = x;
+	}
+
+	private void ensureSpans(int height) {
+		if(spanMin != null && spanMin.length >= height)
+			return;
+		int size = height < 512 ? 512 : height + 64;
+		spanMin = new int[size];
+		spanMax = new int[size];
 	}
 
 	private void drawOverlayLine(int x0, int y0, int x1, int y1, int color) {
@@ -1877,23 +2066,12 @@ label0:
 		int err = dx - dy;
 		int x = x0;
 		int y = y0;
-		int[] pixels = DrawingArea.pixels;
-		if(pixels == null)
-			return;
-		int width = DrawingArea.width;
-		int left = DrawingArea.topX;
-		int right = DrawingArea.bottomX;
-		int top = DrawingArea.topY;
-		int bottom = DrawingArea.bottomY;
+		int e2;
 		while(true) {
-			if(x >= left && x < right && y >= top && y < bottom) {
-				int i = y * width + x;
-				if(i >= 0 && i < pixels.length)
-					pixels[i] = color;
-			}
+			plotThick(x, y, color);
 			if(x == x1 && y == y1)
 				break;
-			int e2 = err << 1;
+			e2 = err << 1;
 			if(e2 > -dy) {
 				err -= dy;
 				x += sx;
@@ -1903,6 +2081,25 @@ label0:
 				y += sy;
 			}
 		}
+	}
+
+	private void plotThick(int x, int y, int color) {
+		plotPixel(x, y, color);
+		plotPixel(x + 1, y, color);
+		plotPixel(x - 1, y, color);
+		plotPixel(x, y + 1, color);
+		plotPixel(x, y - 1, color);
+	}
+
+	private void plotPixel(int x, int y, int color) {
+		if(x < DrawingArea.topX || x >= DrawingArea.bottomX || y < DrawingArea.topY || y >= DrawingArea.bottomY)
+			return;
+		int[] pixels = DrawingArea.pixels;
+		if(pixels == null)
+			return;
+		int i = y * DrawingArea.width + x;
+		if(i >= 0 && i < pixels.length)
+			pixels[i] = color;
 	}
 
 	private boolean method318(int i, int j, int k, int l, int i1, int j1, int k1,
@@ -2340,6 +2537,12 @@ label0:
 	public static int hoverMouseY;
 	public static int hoverTileX = -1;
 	public static int hoverTileY = -1;
+	private static final int OVERLAY_MAX = 256;
+	private int overlayCount;
+	private final int[] overlayBuf = new int[OVERLAY_MAX * 10];
+	private final int[] overlayTmp = new int[8];
+	private int[] spanMin;
+	private int[] spanMax;
 	private static final int anInt472;
 	private static int[] anIntArray473;
 	private static Class47[][] aClass47ArrayArray474;

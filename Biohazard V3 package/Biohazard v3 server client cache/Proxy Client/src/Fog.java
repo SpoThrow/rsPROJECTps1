@@ -110,55 +110,113 @@ final class Fog {
 
 	static void antiAliasEdges(int[] pixels, int width, int height) {
 		int strength = client.aaStrength;
-		if (pixels == null || width < 3 || height < 3 || strength < 2) {
+		if (pixels == null || width < 3 || height < 3 || strength < 1) {
 			return;
 		}
-		if (!client.isFixed() && strength < 3) {
-			return;
-		}
-		int threshold = strength >= 3 ? 160 : 260;
-		int selfWeight = strength >= 3 ? 2 : 5;
-		int denom = selfWeight + 4;
+		int contrastMin = strength >= 3 ? 180 : (strength >= 2 ? 260 : 340);
+		int maxBlend = strength >= 3 ? 96 : (strength >= 2 ? 64 : 40);
 		if (aaScratch == null || aaScratch.length < pixels.length) {
 			aaScratch = new int[pixels.length];
 		}
 		System.arraycopy(pixels, 0, aaScratch, 0, pixels.length);
-		int[] copy = aaScratch;
-		int yStep = !client.isFixed() && width * height > 700000 ? 2 : 1;
-		for (int y = 1; y < height - 1; y += yStep) {
-			int row = y * width;
+		int[] src = aaScratch;
+		int stride = width;
+		for (int y = 1; y < height - 1; y++) {
+			int row = y * stride;
 			for (int x = 1; x < width - 1; x++) {
 				int i = row + x;
-				int c = copy[i];
-				int l = copy[i - 1];
-				int r = copy[i + 1];
-				int u = copy[i - width];
-				int d = copy[i + width];
-				int contrast = diff(c, l) + diff(c, r) + diff(c, u) + diff(c, d);
-				if (contrast > threshold) {
-					int rr = ((c >> 16 & 0xff) * selfWeight + (l >> 16 & 0xff) + (r >> 16 & 0xff) + (u >> 16 & 0xff) + (d >> 16 & 0xff)) / denom;
-					int gg = ((c >> 8 & 0xff) * selfWeight + (l >> 8 & 0xff) + (r >> 8 & 0xff) + (u >> 8 & 0xff) + (d >> 8 & 0xff)) / denom;
-					int bb = ((c & 0xff) * selfWeight + (l & 0xff) + (r & 0xff) + (u & 0xff) + (d & 0xff)) / denom;
-					pixels[i] = (rr << 16) + (gg << 8) + bb;
+				int c = src[i];
+				int left = src[i - 1];
+				int right = src[i + 1];
+				int up = src[i - stride];
+				int down = src[i + stride];
+				if ((c | left | right | up | down) == 0) {
+					continue;
 				}
+				int lc = luma(c);
+				int lL = luma(left);
+				int lR = luma(right);
+				int lU = luma(up);
+				int lD = luma(down);
+				int lMin = lc;
+				if (lL < lMin) {
+					lMin = lL;
+				}
+				if (lR < lMin) {
+					lMin = lR;
+				}
+				if (lU < lMin) {
+					lMin = lU;
+				}
+				if (lD < lMin) {
+					lMin = lD;
+				}
+				int lMax = lc;
+				if (lL > lMax) {
+					lMax = lL;
+				}
+				if (lR > lMax) {
+					lMax = lR;
+				}
+				if (lU > lMax) {
+					lMax = lU;
+				}
+				if (lD > lMax) {
+					lMax = lD;
+				}
+				int range = lMax - lMin;
+				if (range < contrastMin) {
+					continue;
+				}
+				int horz = lL - lR;
+				if (horz < 0) {
+					horz = -horz;
+				}
+				int vert = lU - lD;
+				if (vert < 0) {
+					vert = -vert;
+				}
+				int n;
+				int nLuma;
+				if (horz >= vert) {
+					if (lL >= lR) {
+						n = left;
+						nLuma = lL;
+					} else {
+						n = right;
+						nLuma = lR;
+					}
+				} else {
+					if (lU >= lD) {
+						n = up;
+						nLuma = lU;
+					} else {
+						n = down;
+						nLuma = lD;
+					}
+				}
+				if (lc + 24 >= nLuma) {
+					continue;
+				}
+				int blend = (range * maxBlend) / 900;
+				if (blend > maxBlend) {
+					blend = maxBlend;
+				}
+				if (blend < 12) {
+					continue;
+				}
+				pixels[i] = mixWeight(c, n, 256 - blend, blend);
 			}
 		}
 	}
 
-	private static int diff(int a, int b) {
-		int dr = (a >> 16 & 0xff) - (b >> 16 & 0xff);
-		int dg = (a >> 8 & 0xff) - (b >> 8 & 0xff);
-		int db = (a & 0xff) - (b & 0xff);
-		if (dr < 0) {
-			dr = -dr;
-		}
-		if (dg < 0) {
-			dg = -dg;
-		}
-		if (db < 0) {
-			db = -db;
-		}
-		return dr + dg + db;
+	private static int luma(int c) {
+		return ((c >> 16 & 0xff) * 3) + ((c >> 8 & 0xff) * 6) + (c & 0xff);
+	}
+
+	private static int mixWeight(int a, int b, int wa, int wb) {
+		return (((a & 0xff00ff) * wa + (b & 0xff00ff) * wb) >> 8 & 0xff00ff)
+				+ (((a & 0xff00) * wa + (b & 0xff00) * wb) >> 8 & 0xff00);
 	}
 
 	private static int[] aaScratch;

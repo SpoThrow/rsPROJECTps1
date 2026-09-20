@@ -28,16 +28,24 @@ public class Jframe extends client implements ActionListener {
 		if (frame == null || gamePanel == null || client.instance == null) {
 			return;
 		}
+		int extra = PluginSidebar.eastWidth();
+		int titleH = TitleBar.barHeight();
 		Dimension canvas = new Dimension(width, height);
 		gamePanel.setPreferredSize(canvas);
 		instance.setPreferredSize(canvas);
 		instance.setSize(canvas);
 		frame.setResizable(resizable);
+		Insets insets = frame.getInsets();
+		int borderW = insets.left + insets.right;
+		int borderH = insets.top + insets.bottom;
+		if (frame.getRootPane() != null) {
+			Insets rp = frame.getRootPane().getInsets();
+			borderW += rp.left + rp.right;
+			borderH += rp.top + rp.bottom;
+		}
 		if (resizable) {
-			frame.setMinimumSize(new Dimension(773, 531));
-			frame.pack();
-			Insets insets = frame.getInsets();
-			frame.setSize(width + insets.left + insets.right, height + insets.top + insets.bottom);
+			frame.setMinimumSize(new Dimension(765 + extra + borderW, 503 + titleH + borderH));
+			frame.setSize(width + extra + borderW, height + titleH + borderH);
 		} else {
 			frame.setMinimumSize(new Dimension(0, 0));
 			frame.pack();
@@ -74,6 +82,7 @@ public class Jframe extends client implements ActionListener {
 			boolean resizable = frameMode == ScreenMode.RESIZABLE;
 			frame.setResizable(resizable);
 			frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+			TitleBar.install(frame);
 			gamePanel = new JPanel();
 
 			gamePanel.setLayout(new BorderLayout());
@@ -84,9 +93,12 @@ public class Jframe extends client implements ActionListener {
 			gamePanel.setPreferredSize(new Dimension(canvasW, canvasH));
 			setPreferredSize(new Dimension(canvasW, canvasH));
 			frame.getContentPane().add(gamePanel, BorderLayout.CENTER);
+			PluginSidebar.install(frame);
+			TitleBar.raise(frame);
+			TitleBar.sync();
 			frame.pack();
 			if (resizable) {
-				frame.setMinimumSize(new Dimension(773, 531));
+				frame.setMinimumSize(new Dimension(765 + PluginSidebar.eastWidth() + 2, 503 + TitleBar.HEIGHT + 2));
 			} else {
 				frame.setMinimumSize(frame.getSize());
 			}
