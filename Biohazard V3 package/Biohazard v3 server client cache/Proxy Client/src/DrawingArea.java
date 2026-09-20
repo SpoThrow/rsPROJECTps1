@@ -45,10 +45,15 @@ public class DrawingArea extends NodeSub {
 
 	public static void setAllPixelsToZero()
 	{
+		setAllPixels(0);
+	}
+
+	public static void setAllPixels(int color)
+	{
 		if (pixels == null) {
 			return;
 		}
-		Arrays.fill(pixels, 0, width * height, 0);
+		Arrays.fill(pixels, 0, width * height, color);
 	}
 	
 	public static void drawHorizontalLine(int yPos, int lineColor, int lineWidth, int xPos) {//method339
@@ -261,6 +266,113 @@ public class DrawingArea extends NodeSub {
 	        }
 
 	    }
+
+	public static void drawLine(int x1, int y1, int x2, int y2, int color) {
+		int dx = x2 - x1;
+		if (dx < 0) {
+			dx = -dx;
+		}
+		int dy = y2 - y1;
+		if (dy < 0) {
+			dy = -dy;
+		}
+		if (dx > dy) {
+			if (x1 > x2) {
+				int t = x1;
+				x1 = x2;
+				x2 = t;
+				t = y1;
+				y1 = y2;
+				y2 = t;
+			}
+			int y = y1;
+			int err = 0;
+			int step = y2 >= y1 ? 1 : -1;
+			int span = x2 - x1;
+			if (span == 0) {
+				plot(x1, y1, color);
+				return;
+			}
+			for (int x = x1; x <= x2; x++) {
+				plot(x, y, color);
+				err += dy;
+				if (err + err >= span) {
+					y += step;
+					err -= span;
+				}
+			}
+		} else {
+			if (y1 > y2) {
+				int t = x1;
+				x1 = x2;
+				x2 = t;
+				t = y1;
+				y1 = y2;
+				y2 = t;
+			}
+			int x = x1;
+			int err = 0;
+			int step = x2 >= x1 ? 1 : -1;
+			int span = y2 - y1;
+			if (span == 0) {
+				plot(x1, y1, color);
+				return;
+			}
+			for (int y = y1; y <= y2; y++) {
+				plot(x, y, color);
+				err += dx;
+				if (err + err >= span) {
+					x += step;
+					err -= span;
+				}
+			}
+		}
+	}
+
+	public static void blendHLine(int y, int x1, int x2, int color, int alpha) {
+		if (y < topY || y >= bottomY || pixels == null) {
+			return;
+		}
+		if (x1 > x2) {
+			int t = x1;
+			x1 = x2;
+			x2 = t;
+		}
+		if (x1 < topX) {
+			x1 = topX;
+		}
+		if (x2 >= bottomX) {
+			x2 = bottomX - 1;
+		}
+		if (x1 > x2) {
+			return;
+		}
+		int inv = 256 - alpha;
+		int sr = (color >> 16 & 0xff) * alpha;
+		int sg = (color >> 8 & 0xff) * alpha;
+		int sb = (color & 0xff) * alpha;
+		int index = x1 + y * width;
+		for (int x = x1; x <= x2; x++) {
+			if (index >= 0 && index < pixels.length) {
+				int dest = pixels[index];
+				int r = (sr + (dest >> 16 & 0xff) * inv) >> 8;
+				int g = (sg + (dest >> 8 & 0xff) * inv) >> 8;
+				int b = (sb + (dest & 0xff) * inv) >> 8;
+				pixels[index] = (r << 16) + (g << 8) + b;
+			}
+			index++;
+		}
+	}
+
+	private static void plot(int x, int y, int color) {
+		if (x < topX || x >= bottomX || y < topY || y >= bottomY || pixels == null) {
+			return;
+		}
+		int i = x + y * width;
+		if (i >= 0 && i < pixels.length) {
+			pixels[i] = color;
+		}
+	}
 
 	DrawingArea() {}
 

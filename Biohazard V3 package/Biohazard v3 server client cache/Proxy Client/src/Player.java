@@ -147,24 +147,27 @@ public final class Player extends Entity {
 		combatLevel = stream.readUnsignedByte();
 		skill = stream.readUnsignedWord();
 		visible = true;
-		aLong1718 = 0L;
-		for(int k1 = 0; k1 < 12; k1++)
-		{
-			aLong1718 <<= 4;
-			if(equipment[k1] >= 256)
-				aLong1718 += equipment[k1] - 256;
-		}
+		hashAppearance();
+	}
 
-		if(equipment[0] >= 256)
+	void hashAppearance() {
+		aLong1718 = 0L;
+		for (int k1 = 0; k1 < 12; k1++) {
+			aLong1718 <<= 4;
+			if (equipment[k1] >= 256) {
+				aLong1718 += equipment[k1] - 256;
+			}
+		}
+		if (equipment[0] >= 256) {
 			aLong1718 += equipment[0] - 256 >> 4;
-		if(equipment[1] >= 256)
+		}
+		if (equipment[1] >= 256) {
 			aLong1718 += equipment[1] - 256 >> 8;
-		for(int i2 = 0; i2 < 5; i2++)
-		{
+		}
+		for (int i2 = 0; i2 < 5; i2++) {
 			aLong1718 <<= 3;
 			aLong1718 += anIntArray1700[i2];
 		}
-
 		aLong1718 <<= 1;
 		aLong1718 += anInt1702;
 	}
@@ -372,6 +375,14 @@ public final class Player extends Entity {
 	boolean aBoolean1699;
 	final int[] anIntArray1700;
 	public int team;
+	int getGender() {
+		return anInt1702;
+	}
+
+	void setGender(int gender) {
+		anInt1702 = gender;
+	}
+
 	private int anInt1702;
 	public String name;
 	static MRUNodes mruNodes = new MRUNodes(260);

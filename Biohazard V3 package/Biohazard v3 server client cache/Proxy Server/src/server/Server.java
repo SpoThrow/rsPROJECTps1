@@ -22,6 +22,7 @@ import server.game.minigames.trawler.Trawler;
 import server.game.minigames.tzhaar.FightCaves;
 import server.game.minigames.tzhaar.FightPits;
 import server.game.npcs.NPCHandler;
+import server.game.npcs.WorldAdventurer;
 import server.game.objects.doors.Doors;
 import server.game.objects.doors.DoubleDoors;
 import server.game.players.Client;
@@ -153,6 +154,7 @@ public class Server {
 		Doors.getSingleton().load();
 		DoubleDoors.getSingleton().load();
 		Connection.initialize();
+		WorldAdventurer.spawn();
 		
 		/**
 		 * Server Successfully Loaded 
@@ -173,6 +175,7 @@ public class Server {
 	            npcHandler.process();
 				shopHandler.process();
 				CycleEventHandler.process();
+				server.game.content.DwarfCannon.process();
 				objectManager.process();
 				//castlewars
 				CastleWars.process();

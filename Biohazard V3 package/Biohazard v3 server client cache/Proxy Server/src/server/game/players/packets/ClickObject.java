@@ -60,6 +60,14 @@ public class ClickObject implements PacketType {
 				}
 			}
 			switch(c.objectId) {
+			case 6:
+			case 7:
+			case 8:
+			case 9:
+				c.objectDistance = 3;
+				c.objectXOffset = 1;
+				c.objectYOffset = 1;
+				break;
 			/**
 			 * Bounty Hunter
 			 */
@@ -376,6 +384,14 @@ public class ClickObject implements PacketType {
 			}
 			
 			switch(c.objectId) {
+			case 6:
+			case 7:
+			case 8:
+			case 9:
+				c.objectDistance = 3;
+				c.objectXOffset = 1;
+				c.objectYOffset = 1;
+				break;
 			case 6163:
 			case 6165:
 			case 6166:
@@ -423,6 +439,14 @@ public class ClickObject implements PacketType {
 			}
 			
 			switch(c.objectId) {
+			case 6:
+			case 7:
+			case 8:
+			case 9:
+				c.objectDistance = 3;
+				c.objectXOffset = 1;
+				c.objectYOffset = 1;
+				break;
 				default:
 				c.objectDistance = 1;
 				c.objectXOffset = 0;

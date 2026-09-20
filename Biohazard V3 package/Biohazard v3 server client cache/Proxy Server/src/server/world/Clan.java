@@ -41,7 +41,7 @@ public class Clan {
 		this.activeMembers.add(paramClient.playerName);
 		paramClient.getPA().sendFrame126("Leave chat", 50135);
 		paramClient.getPA().sendFrame126(
-				"Talking in: <col=FFFF64>" + getTitle() + "</col>", 50139);
+				"Talking in: <col=FFFF64>" + getTitle() + "</col> (" + this.activeMembers.size() + ")", 50139);
 		paramClient.getPA().sendFrame126(
 				"Owner: <col=FFFFFF>" + Misc.formatPlayerName(getFounder())
 				+ "</col>", 50140);
@@ -61,6 +61,7 @@ public class Clan {
 	}
 
 	public void removeMember(Client paramClient) {
+		String left = paramClient.playerName;
 		for (int i = 0; i < this.activeMembers.size(); i++) {
 			if (this.activeMembers.get(i).equalsIgnoreCase(
 					paramClient.playerName)) {
@@ -70,6 +71,7 @@ public class Clan {
 			}
 		}
 		updateMembers();
+		sendMessage("@red@[@cr1@" + getTitle() + "]@bla@" + Misc.optimizeText(left) + " has left the clan.");
 	}
 
 	public void removeMember(String paramString) {
@@ -88,7 +90,7 @@ public class Clan {
 
 	public void updateInterface(Client paramClient) {
 		paramClient.getPA().sendFrame126(
-				"Talking in: <col=FFFF64>" + getTitle() + "</col>", 50139);
+				"Talking in: <col=FFFF64>" + getTitle() + "</col> (" + this.activeMembers.size() + ")", 50139);
 		paramClient.getPA().sendFrame126(
 				"Owner: <col=FFFFFF>" + Misc.formatPlayerName(getFounder())
 				+ "</col>", 50140);

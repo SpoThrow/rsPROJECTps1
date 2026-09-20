@@ -94,6 +94,12 @@ public class Jframe extends client implements ActionListener {
 			frame.setVisible(true);
 			frame.addKeyListener(this);
 			frame.addFocusListener(this);
+			frame.addWindowFocusListener(new WindowAdapter() {
+				public void windowGainedFocus(WindowEvent e) {
+					requestFocus();
+					requestFocusInWindow();
+				}
+			});
 			frame.addWindowListener(new WindowAdapter() {
 				public void windowClosing(WindowEvent e) {
 					saveClientSettings();

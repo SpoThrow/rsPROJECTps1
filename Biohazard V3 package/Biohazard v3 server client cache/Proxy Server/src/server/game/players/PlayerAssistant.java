@@ -22,6 +22,7 @@ import server.event.CycleEventContainer;
 import server.event.CycleEventHandler;
 import server.game.items.GameItem;
 import server.game.items.ItemAssistant;
+import server.game.content.AchievementBroadcast;
 import server.game.minigames.bountyhunter.BountyHunter;
 import server.game.minigames.castlewars.CastleWars;
 import server.game.npcs.NPCHandler;
@@ -1418,6 +1419,29 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 				}
 
 			}
+		}
+	}
+
+	/**
+	 * Loc animation. Packet 160 is 4 bytes: tile offset, packed type/orient, anim.
+	 **/
+	public void objectAnim(int objectX, int objectY, int animationID, int objectType, int orientation) {
+		for (int i = 0; i < Config.MAX_PLAYERS; i++) {
+			Client person = (Client) PlayerHandler.players[i];
+			if (person == null || person.getOutStream() == null) {
+				continue;
+			}
+			if (person.heightLevel != c.heightLevel || person.distanceToPoint(objectX, objectY) > 25) {
+				continue;
+			}
+			person.getOutStream().createFrame(85);
+			person.getOutStream().writeByteC(objectY - (person.getMapRegionY() * 8));
+			person.getOutStream().writeByteC(objectX - (person.getMapRegionX() * 8));
+			person.getOutStream().createFrame(160);
+			person.getOutStream().writeByteS(0);
+			person.getOutStream().writeByteS((objectType << 2) + (orientation & 3));
+			person.getOutStream().writeWordA(animationID);
+			person.flushOutStream();
 		}
 	}
 
@@ -3371,14 +3395,7 @@ public void underWaterTele() {
 			sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+"!", 4269);
 			c.sendMessage("Congratulations! You've just advanced a attack level.");	
 			sendFrame164(6247);
-			if(getLevelForXP(c.playerXP[skill]) == 99) {
-				for (int j = 0; j < PlayerHandler.players.length; j++) {
-					if (PlayerHandler.players[j] != null) {
-						Client c2 = (Client)PlayerHandler.players[j];
-						c2.sendMessage("@cr2@@red@[99] @dre@"+c.playerName+" just advanced to 99 in Attack! Congratulations!");
-					}
-				}
-			}
+
 			break;
 			
 			case 1:
@@ -3386,14 +3403,7 @@ public void underWaterTele() {
             		sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+".", 4269);
             		c.sendMessage("Congratulations! You've just advanced a Defence level.");
 			sendFrame164(6253);
-			if(getLevelForXP(c.playerXP[skill]) == 99) {
-				for (int j = 0; j < PlayerHandler.players.length; j++) {
-					if (PlayerHandler.players[j] != null) {
-						Client c2 = (Client)PlayerHandler.players[j];
-						c2.sendMessage("@cr2@@red@[99] @dre@"+c.playerName+" just advanced to 99 in Defence! Congratulations!");
-					}
-				}
-			}
+
 			break;
 			
 			case 2:
@@ -3401,14 +3411,7 @@ public void underWaterTele() {
             		sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+".", 4269);
             		c.sendMessage("Congratulations! You've just advanced a Strength level.");
 			sendFrame164(6206);
-			if(getLevelForXP(c.playerXP[skill]) == 99) {
-				for (int j = 0; j < PlayerHandler.players.length; j++) {
-					if (PlayerHandler.players[j] != null) {
-						Client c2 = (Client)PlayerHandler.players[j];
-						c2.sendMessage("@cr2@@red@[99] @dre@"+c.playerName+" just advanced to 99 in Strength! Congratulations!");
-					}
-				}
-			}
+
 			break;
 			
 			case 3:
@@ -3416,14 +3419,7 @@ public void underWaterTele() {
             		sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+".", 4269);
             		c.sendMessage("Congratulations! You've just advanced a Hitpoints level.");
 			sendFrame164(6216);
-			if(getLevelForXP(c.playerXP[skill]) == 99) {
-				for (int j = 0; j < PlayerHandler.players.length; j++) {
-					if (PlayerHandler.players[j] != null) {
-						Client c2 = (Client)PlayerHandler.players[j];
-						c2.sendMessage("@cr2@@red@[99] @dre@"+c.playerName+" just advanced to 99 in Hitpoints! Congratulations!");
-					}
-				}
-			}
+
 			break;
 			
 			case 4:
@@ -3431,14 +3427,7 @@ public void underWaterTele() {
             		sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+".", 4269);
             		c.sendMessage("Congratulations! You've just advanced a Ranging level.");
 			sendFrame164(4443);
-			if(getLevelForXP(c.playerXP[skill]) == 99) {
-				for (int j = 0; j < PlayerHandler.players.length; j++) {
-					if (PlayerHandler.players[j] != null) {
-						Client c2 = (Client)PlayerHandler.players[j];
-						c2.sendMessage("@cr2@@red@[99] @dre@"+c.playerName+" just advanced to 99 in Ranging! Congratulations!");
-					}
-				}
-			}
+
 			break;
 			
 			case 5:
@@ -3446,14 +3435,7 @@ public void underWaterTele() {
             		sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+".", 4269);
             		c.sendMessage("Congratulations! You've just advanced a Prayer level.");
 			sendFrame164(6242);
-			if(getLevelForXP(c.playerXP[skill]) == 99) {
-				for (int j = 0; j < PlayerHandler.players.length; j++) {
-					if (PlayerHandler.players[j] != null) {
-						Client c2 = (Client)PlayerHandler.players[j];
-						c2.sendMessage("@cr2@@red@[99] @dre@"+c.playerName+" just advanced to 99 in Prayer! Congratulations!");
-					}
-				}
-			}
+
 			break;
 			
 			case 6:
@@ -3461,14 +3443,7 @@ public void underWaterTele() {
             		sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+".", 4269);
             		c.sendMessage("Congratulations! You've just advanced a Magic level.");
 			sendFrame164(6211);
-			if(getLevelForXP(c.playerXP[skill]) == 99) {
-				for (int j = 0; j < PlayerHandler.players.length; j++) {
-					if (PlayerHandler.players[j] != null) {
-						Client c2 = (Client)PlayerHandler.players[j];
-						c2.sendMessage("@cr2@@red@[99] @dre@"+c.playerName+" just advanced to 99 in Magic! Congratulations!");
-					}
-				}
-			}
+
 			break;
 			
 			case 7:
@@ -3476,14 +3451,7 @@ public void underWaterTele() {
             		sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+".", 4269);
             		c.sendMessage("Congratulations! You've just advanced a Cooking level.");
 			sendFrame164(6226);
-			if(getLevelForXP(c.playerXP[skill]) == 99) {
-				for (int j = 0; j < PlayerHandler.players.length; j++) {
-					if (PlayerHandler.players[j] != null) {
-						Client c2 = (Client)PlayerHandler.players[j];
-						c2.sendMessage("@cr2@@red@[99] @dre@"+c.playerName+" just advanced to 99 in Cooking! Congratulations!");
-					}
-				}
-			}
+
 			break;
 			
 			case 8:
@@ -3491,14 +3459,7 @@ public void underWaterTele() {
 			sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+".", 4269);
 			c.sendMessage("Congratulations! You've just advanced a Woodcutting level.");
 			sendFrame164(4272);
-			if(getLevelForXP(c.playerXP[skill]) == 99) {
-				for (int j = 0; j < PlayerHandler.players.length; j++) {
-					if (PlayerHandler.players[j] != null) {
-						Client c2 = (Client)PlayerHandler.players[j];
-						c2.sendMessage("@cr2@@red@[99] @dre@"+c.playerName+" just advanced to 99 in Woodcutting! Congratulations!");
-					}
-				}
-			}
+
             		break;
 			
             		case 9:
@@ -3506,14 +3467,7 @@ public void underWaterTele() {
             		sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+".", 4269);
             		c.sendMessage("Congratulations! You've just advanced a Fletching level.");
 			sendFrame164(6231);
-			if(getLevelForXP(c.playerXP[skill]) == 99) {
-				for (int j = 0; j < PlayerHandler.players.length; j++) {
-					if (PlayerHandler.players[j] != null) {
-						Client c2 = (Client)PlayerHandler.players[j];
-						c2.sendMessage("@cr2@@red@[99] @dre@"+c.playerName+" just advanced to 99 in Fletching! Congratulations!");
-					}
-				}
-			}
+
            		break;
 			
 			case 10:
@@ -3521,14 +3475,7 @@ public void underWaterTele() {
             		sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+".", 4269);
             		c.sendMessage("Congratulations! You've just advanced a Fishing level.");
 			sendFrame164(6258);
-			if(getLevelForXP(c.playerXP[skill]) == 99) {
-				for (int j = 0; j < PlayerHandler.players.length; j++) {
-					if (PlayerHandler.players[j] != null) {
-						Client c2 = (Client)PlayerHandler.players[j];
-						c2.sendMessage("@cr2@@red@[99] @dre@"+c.playerName+" just advanced to 99 in Fishing! Congratulations!");
-					}
-				}
-			}
+
 			break;
 			
 			case 11:
@@ -3536,14 +3483,7 @@ public void underWaterTele() {
 			sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+".", 4269);
 			c.sendMessage("Congratulations! You've just advanced a Fire making level.");
 			sendFrame164(4282);
-			if(getLevelForXP(c.playerXP[skill]) == 99) {
-				for (int j = 0; j < PlayerHandler.players.length; j++) {
-					if (PlayerHandler.players[j] != null) {
-						Client c2 = (Client)PlayerHandler.players[j];
-						c2.sendMessage("@cr2@@red@[99] @dre@"+c.playerName+" just advanced to 99 in Firemaking! Congratulations!");
-					}
-				}
-			}
+
             		break;
 			
             		case 12:
@@ -3551,14 +3491,7 @@ public void underWaterTele() {
 			sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+".", 4269);
 			c.sendMessage("Congratulations! You've just advanced a Crafting level.");
 			sendFrame164(6263);
-			if(getLevelForXP(c.playerXP[skill]) == 99) {
-				for (int j = 0; j < PlayerHandler.players.length; j++) {
-					if (PlayerHandler.players[j] != null) {
-						Client c2 = (Client)PlayerHandler.players[j];
-						c2.sendMessage("@cr2@@red@[99] @dre@"+c.playerName+" just advanced to 99 in Crafting! Congratulations!");
-					}
-				}
-			}
+
             		break;
 			
 			case 13:
@@ -3566,14 +3499,7 @@ public void underWaterTele() {
 			sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+".", 4269);
 			c.sendMessage("Congratulations! You've just advanced a Smithing level.");
 			sendFrame164(6221);
-			if(getLevelForXP(c.playerXP[skill]) == 99) {
-				for (int j = 0; j < PlayerHandler.players.length; j++) {
-					if (PlayerHandler.players[j] != null) {
-						Client c2 = (Client)PlayerHandler.players[j];
-						c2.sendMessage("@cr2@@red@[99] @dre@"+c.playerName+" just advanced to 99 in Smithing! Congratulations!");
-					}
-				}
-			}
+
 			break;
 			
 			case 14:
@@ -3581,14 +3507,7 @@ public void underWaterTele() {
 			sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+".", 4269);
 			c.sendMessage("Congratulations! You've just advanced a Mining level.");
 			sendFrame164(4416);
-			if(getLevelForXP(c.playerXP[skill]) == 99) {
-				for (int j = 0; j < PlayerHandler.players.length; j++) {
-					if (PlayerHandler.players[j] != null) {
-						Client c2 = (Client)PlayerHandler.players[j];
-						c2.sendMessage("@cr2@@red@[99] @dre@"+c.playerName+" just advanced to 99 in Mining! Congratulations!");
-					}
-				}
-			}
+
             		break;
 			
 			case 15:
@@ -3596,14 +3515,7 @@ public void underWaterTele() {
             		sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+".", 4269);
             		c.sendMessage("Congratulations! You've just advanced a Herblore level.");
 			sendFrame164(6237);
-			if(getLevelForXP(c.playerXP[skill]) == 99) {
-				for (int j = 0; j < PlayerHandler.players.length; j++) {
-					if (PlayerHandler.players[j] != null) {
-						Client c2 = (Client)PlayerHandler.players[j];
-						c2.sendMessage("@cr2@@red@[99] @dre@"+c.playerName+" just advanced to 99 in Herblore! Congratulations!");
-					}
-				}
-			}
+
             		break;
 			
 			case 16:
@@ -3611,14 +3523,7 @@ public void underWaterTele() {
 			sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+".", 4269);
 			c.sendMessage("Congratulations! You've just advanced a Agility level.");
 			sendFrame164(4277);
-			if(getLevelForXP(c.playerXP[skill]) == 99) {
-				for (int j = 0; j < PlayerHandler.players.length; j++) {
-					if (PlayerHandler.players[j] != null) {
-						Client c2 = (Client)PlayerHandler.players[j];
-						c2.sendMessage("@cr2@@red@[99] @dre@"+c.playerName+" just advanced to 99 in Agility! Congratulations!");
-					}
-				}
-			}
+
            		break;
 			
 			case 17:
@@ -3626,14 +3531,7 @@ public void underWaterTele() {
 			sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+".", 4269);
             		c.sendMessage("Congratulations! You've just advanced a Thieving level.");
 			sendFrame164(4261);
-			if(getLevelForXP(c.playerXP[skill]) == 99) {
-				for (int j = 0; j < PlayerHandler.players.length; j++) {
-					if (PlayerHandler.players[j] != null) {
-						Client c2 = (Client)PlayerHandler.players[j];
-						c2.sendMessage("@cr2@@red@[99] @dre@"+c.playerName+" just advanced to 99 in Thieving! Congratulations!");
-					}
-				}
-			}
+
 			break;
 			
 			case 18:
@@ -3641,14 +3539,7 @@ public void underWaterTele() {
 			sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+".", 4269);
 			c.sendMessage("Congratulations! You've just advanced a Slayer level.");
 			sendFrame164(12122);
-			if(getLevelForXP(c.playerXP[skill]) == 99) {
-				for (int j = 0; j < PlayerHandler.players.length; j++) {
-					if (PlayerHandler.players[j] != null) {
-						Client c2 = (Client)PlayerHandler.players[j];
-						c2.sendMessage("@cr2@@red@[99] @dre@"+c.playerName+" just advanced to 99 in Slayer! Congratulations!");
-					}
-				}
-			}
+
             		break;
 
             		case 19:
@@ -3656,14 +3547,7 @@ public void underWaterTele() {
 			sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+".", 4269);
 			c.sendMessage("Congratulations! You've just advanced a Farming level.");
 			sendFrame164(5267);
-			if(getLevelForXP(c.playerXP[skill]) == 99) {
-				for (int j = 0; j < PlayerHandler.players.length; j++) {
-					if (PlayerHandler.players[j] != null) {
-						Client c2 = (Client)PlayerHandler.players[j];
-						c2.sendMessage("@cr2@@red@[99] @dre@"+c.playerName+" just advanced to 99 in Farming! Congratulations!");
-					}
-				}
-			}
+
            	 	break;
             
             		case 20:
@@ -3671,14 +3555,7 @@ public void underWaterTele() {
 			sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+".", 4269);
 			c.sendMessage("Congratulations! You've just advanced a Runecrafting level.");
 			sendFrame164(4267);
-			if(getLevelForXP(c.playerXP[skill]) == 99) {
-				for (int j = 0; j < PlayerHandler.players.length; j++) {
-					if (PlayerHandler.players[j] != null) {
-						Client c2 = (Client)PlayerHandler.players[j];
-						c2.sendMessage("@cr2@@red@[99] @dre@"+c.playerName+" just advanced to 99 in Runecrafting! Congratulations!");
-					}
-				}
-			}
+
            	 	break;
             		
 			case 21:
@@ -3686,14 +3563,7 @@ public void underWaterTele() {
 			sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+".", 4269);
 			c.sendMessage("Congratulations! You've just advanced a Construction level.");
 			sendFrame164(7267);
-			if(getLevelForXP(c.playerXP[skill]) == 99) {
-				for (int j = 0; j < PlayerHandler.players.length; j++) {
-					if (PlayerHandler.players[j] != null) {
-						Client c2 = (Client)PlayerHandler.players[j];
-						c2.sendMessage("@cr2@@red@[99] @dre@"+c.playerName+" just advanced to 99 in Construction! Congratulations!");
-					}
-				}
-			}
+
             		break;
             
 			case 22:
@@ -3701,14 +3571,7 @@ public void underWaterTele() {
 			sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+".", 4269);
 			c.sendMessage("Congratulations! You've just advanced a Hunter level.");
 			sendFrame164(8267);
-			if(getLevelForXP(c.playerXP[skill]) == 99) {
-				for (int j = 0; j < PlayerHandler.players.length; j++) {
-					if (PlayerHandler.players[j] != null) {
-						Client c2 = (Client)PlayerHandler.players[j];
-						c2.sendMessage("@cr2@@red@[99] @dre@"+c.playerName+" just advanced to 99 in Hunter! Congratulations!");
-					}
-				}
-			}
+
             		break;
 
             		case 23:
@@ -3725,22 +3588,7 @@ public void underWaterTele() {
 			sendFrame164(10267);
             	break;
 		}
-		if(totalLevel() >= 2277) {
-			for (int j = 0; j < PlayerHandler.players.length; j++) {
-				if (PlayerHandler.players[j] != null) {
-					Client c2 = (Client)PlayerHandler.players[j];
-					c2.sendMessage("@cr7@@red@[Mastered] @dre@"+c.playerName+" just mastered all the skills! Congratulations!");
-					c.getItems().addItemToBank(9813, 1);
-					c.getItems().addItemToBank(9814, 1);
-					c.sendMessage("A quest cape and hood has been added to your bank.");
-					if(c.playerRights == 0) {
-						c.playerRights = 8;
-						c.veteran = 1;
-						c.sendMessage("Please re-login for your new Veteran rank.");
-					}
-				}
-			}
-		}
+		AchievementBroadcast.onLevelUp(c, skill, getLevelForXP(c.playerXP[skill]), totalLevel());
 		c.dialogueAction = 0;
 		c.nextChat = 0;
         sendFrame126("Click here to continue", 358);
@@ -4706,6 +4554,7 @@ public void underWaterTele() {
 			c.sendMessage("You have been poisoned.");
 			c.poisonDamage = damage;
 			c.lastPoison = 36;
+			sendFrame126("poison:" + c.poisonDamage, 24491);
 			CycleEventHandler.addEvent(c, new CycleEvent() {
 				@Override
 				public void execute(CycleEventContainer container) {
@@ -4719,6 +4568,7 @@ public void underWaterTele() {
 						c.getPA().refreshSkill(3);
 						c.poisonDamage--;
 						c.lastPoison = 36;
+						sendFrame126("poison:" + Math.max(0, c.poisonDamage), 24491);
 					}
 					if (c.poisonDamage == 0 && c.isDead == false) {
 						c.sendMessage("The poison has worn off.");
@@ -4733,6 +4583,7 @@ public void underWaterTele() {
 				public void stop() {
 					c.lastPoison = 0;
 					c.poisonDamage = 0;
+					c.getPA().sendFrame126("poison:0", 24491);
 				}
 			}, 1);
 		}

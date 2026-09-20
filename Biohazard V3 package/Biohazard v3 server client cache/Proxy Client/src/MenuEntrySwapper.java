@@ -89,7 +89,8 @@ final class MenuEntrySwapper {
 			return false;
 		}
 		int id = ids[index];
-		if (id == 1107 || id == ACTION_SWAP || id == ACTION_RESET || id == ACTION_MARK || id == ACTION_UNMARK) {
+		if (id == 1107 || id == ACTION_SWAP || id == ACTION_RESET || id == ACTION_MARK || id == ACTION_UNMARK
+				|| NpcIndicators.isTagAction(id) || InventoryTags.isAction(id) || ObjectMarkers.isAction(id)) {
 			return false;
 		}
 		if (isExamine(id)) {
@@ -240,6 +241,9 @@ final class MenuEntrySwapper {
 				continue;
 			}
 			if (ids[i] >= ACTION_SWAP && ids[i] <= ACTION_UNMARK) {
+				continue;
+			}
+			if (NpcIndicators.isTagAction(ids[i]) || InventoryTags.isAction(ids[i]) || ObjectMarkers.isAction(ids[i])) {
 				continue;
 			}
 			String verb = actionVerb(names[i]);

@@ -2,6 +2,7 @@ package server.game.players;
 
 import server.Server;
 import server.game.npcs.NPCHandler;
+import server.game.npcs.WorldAdventurer;
 import core.util.Misc;
 
 public class DialogueHandler {
@@ -28,6 +29,42 @@ public class DialogueHandler {
 			sendNpcChat2("Hello. I am able to switch your rank.",
 					"Which rank do you want to display?", c.talkingNpc, "Rank Switcher");
 			c.nextChat = 751;	
+			break;
+		case 8800:
+			c.npcType = WorldAdventurer.NPC_ID;
+			sendNpcChat2(WorldAdventurer.greetingLine(c),
+					"Need something, or just watching?", WorldAdventurer.NPC_ID, WorldAdventurer.NAME);
+			c.nextChat = 8801;
+			break;
+		case 8801:
+			sendOption4("What are you doing?", "Where are you headed?", "Any advice?", "See you around.");
+			c.dialogueAction = 8801;
+			c.nextChat = 0;
+			break;
+		case 8802:
+			c.npcType = WorldAdventurer.NPC_ID;
+			sendNpcChat2(WorldAdventurer.doingLine(c),
+					"Talk if you want. I don't mind the company.", WorldAdventurer.NPC_ID, WorldAdventurer.NAME);
+			c.nextChat = 8801;
+			break;
+		case 8803:
+			c.npcType = WorldAdventurer.NPC_ID;
+			sendNpcChat2(WorldAdventurer.headingLine(),
+					"I don't sit still for long.", WorldAdventurer.NPC_ID, WorldAdventurer.NAME);
+			c.nextChat = 8801;
+			break;
+		case 8804:
+			c.npcType = WorldAdventurer.NPC_ID;
+			sendNpcChat2(WorldAdventurer.tipLine(c),
+					"That's free. The rest you earn.", WorldAdventurer.NPC_ID, WorldAdventurer.NAME);
+			c.nextChat = 8801;
+			break;
+		case 8805:
+			c.npcType = WorldAdventurer.NPC_ID;
+			sendNpcChat2("Yeah. I'll be around.",
+					"Try not to die somewhere stupid.", WorldAdventurer.NPC_ID, WorldAdventurer.NAME);
+			c.nextChat = 0;
+			c.dialogueAction = -1;
 			break;
 		case 751:
 			sendOption5("@cr3@<col=ff0000>Donator</col>","@cr4@<col=0101DF>Super Donator</col>","@cr5@<col=088A08>Extreme Donator</col>",
@@ -1408,7 +1445,7 @@ public class DialogueHandler {
 			c.dialogueId = 85;
 			break;
 		case 86:
-			sendNpcChat1("Do you want to take a look at my pickaxes?", c.talkingNpc, "Nulodion");
+			sendNpcChat2("I've got dwarf multicannon parts and ammo.", "Want to take a look?", c.talkingNpc, "Nulodion");
 			c.nextChat = 87;
 			break;
 		case 87:

@@ -75,8 +75,10 @@ public class client extends RSApplet {
 	public static boolean chatTimestamps = true;
 	public static boolean silentScreenshots = true;
 	public static boolean xpTracker = false;
+	public static boolean xpCounterOpen = true;
 	public static boolean statusTimers = false;
 	public static boolean orbFlash = true;
+	public static boolean resizableInvTransparent = false;
 	public static int walkTileX;
 	public static int walkTileY;
 	public static int scenePlane;
@@ -87,6 +89,18 @@ public class client extends RSApplet {
 	private HashMap groundItemTimes = new HashMap();
 	private int[] lastExp;
 	private int[] sessionXp;
+	private boolean[] trackingSkill;
+	private int settingsCategory;
+	private int lastSettingsCategory = -1;
+	private int lastXpTrackerHeight;
+	private int lastXpTrackerWidth;
+	private boolean draggingXpTracker;
+	private int xpTrackerGrabX;
+	private int xpTrackerGrabY;
+	public static int xpTrackerFixedX = -1;
+	public static int xpTrackerFixedY = -1;
+	public static int xpTrackerResizeX = -1;
+	public static int xpTrackerResizeY = -1;
 	private int sessionTotalXp;
 	private long xpSessionStart;
 	private int[] xpDropSkill = new int[24];
@@ -108,6 +122,10 @@ public class client extends RSApplet {
 	private static int optionSplitChat = 0;
 	private static int optionAcceptAid = 0;
 	private static boolean applyingClientSettings;
+	private Sprite loginMusicSprite;
+	private Sprite loginMuteSprite;
+	private Sprite[] quickPraySprites = new Sprite[6];
+	private int loginMusicRestore;
 	public static int frameWidth = 765;
 	public static int frameHeight = 503;
 	public static int screenAreaWidth = 512;
@@ -123,7 +141,13 @@ public class client extends RSApplet {
 	}
 
 	private Sprite currentTabArea() {
-		return !isFixed() && tabAreaResizable != null ? tabAreaResizable : tabArea;
+		if (isFixed()) {
+			return tabArea;
+		}
+		if (resizableInvTransparent && tabAreaResizableClear != null) {
+			return tabAreaResizableClear;
+		}
+		return tabAreaResizable != null ? tabAreaResizable : tabArea;
 	}
 
 	private Sprite currentMapArea() {
@@ -135,19 +159,38 @@ public class client extends RSApplet {
 	}
 
 	private Sprite loadSpriteOrFallback(String path, Sprite fallback) {
+		Sprite sprite = loadHudSprite(path, true);
+		return sprite != null ? sprite : fallback;
+	}
+
+	private Sprite loadHudSprite(String path, boolean punchMagenta) {
 		try {
 			File png = new File(signlink.findcachedir() + "Sprites/" + path + ".png");
 			File pngUpper = new File(signlink.findcachedir() + "Sprites/" + path + ".PNG");
 			if (!png.exists() && !pngUpper.exists()) {
-				return fallback;
+				return null;
 			}
 			Sprite sprite = new Sprite(path);
 			if (sprite.myWidth > 0) {
+				if (punchMagenta) {
+					knockoutMagenta(sprite);
+				}
 				return sprite;
 			}
 		} catch (Exception ignored) {
 		}
-		return fallback;
+		return null;
+	}
+
+	private void knockoutMagenta(Sprite sprite) {
+		if (sprite == null || sprite.myPixels == null) {
+			return;
+		}
+		for (int i = 0; i < sprite.myPixels.length; i++) {
+			if ((sprite.myPixels[i] & 0xffffff) == 0xff00ff) {
+				sprite.myPixels[i] = 0;
+			}
+		}
 	}
 
 	public int gameDrawX() {
@@ -671,10 +714,14 @@ public class client extends RSApplet {
 	}
 
 	private void copyProducer(RSImageProducer src, int destX, int destY) {
-		copyProducer(src, destX, destY, false);
+		copyProducer(src, destX, destY, false, false);
 	}
 
 	private void copyProducer(RSImageProducer src, int destX, int destY, boolean skipTransparent) {
+		copyProducer(src, destX, destY, skipTransparent, skipTransparent);
+	}
+
+	private void copyProducer(RSImageProducer src, int destX, int destY, boolean skipTransparent, boolean skipBlack) {
 		if (src == null || aRSImageProducer_1165 == null) {
 			return;
 		}
@@ -711,11 +758,48 @@ public class client extends RSApplet {
 			}
 			for (int i = 0; i < copy; i++) {
 				int pixel = source[srcOff + i];
-				if (pixel == 0 || (pixel & 0xffffff) == 0xff00ff) {
+				int rgb = pixel & 0xffffff;
+				if (rgb == 0xff00ff) {
+					continue;
+				}
+				if (skipBlack && rgb == 0) {
 					continue;
 				}
 				dest[dstOff + i] = pixel;
 			}
+		}
+	}
+
+	private void copyWorldUnderHud(RSImageProducer dest, int srcX, int srcY) {
+		if (dest == null || aRSImageProducer_1165 == null) {
+			return;
+		}
+		int[] source = aRSImageProducer_1165.anIntArray315;
+		int sw = aRSImageProducer_1165.anInt316;
+		int sh = aRSImageProducer_1165.anInt317;
+		int[] destPix = dest.anIntArray315;
+		int dw = dest.anInt316;
+		int dh = dest.anInt317;
+		for (int y = 0; y < dh; y++) {
+			int sy = srcY + y;
+			if (sy < 0 || sy >= sh) {
+				continue;
+			}
+			int sx = srcX;
+			int dx = 0;
+			int copy = dw;
+			if (sx < 0) {
+				dx -= sx;
+				copy += sx;
+				sx = 0;
+			}
+			if (sx + copy > sw) {
+				copy = sw - sx;
+			}
+			if (copy <= 0 || dx >= dw) {
+				continue;
+			}
+			System.arraycopy(source, sy * sw + sx, destPix, y * dw + dx, copy);
 		}
 	}
 
@@ -728,9 +812,15 @@ public class client extends RSApplet {
 		}
 		copyProducer(aRSImageProducer_1163, tabDrawX(), tabDrawY());
 		copyProducer(aRSImageProducer_1166, 0, chatDrawY(), chatBoxHidden && !isFixed());
-		if (menuOpen && aRSImageProducer_1165 != null) {
+		if (aRSImageProducer_1165 != null) {
 			aRSImageProducer_1165.initDrawingArea();
-			drawMenu();
+			if (!isFixed()) {
+				drawXpHud();
+				drawHudOverlays();
+			}
+			if (menuOpen) {
+				drawMenu();
+			}
 		}
 		drawGameBuffer();
 	}
@@ -845,9 +935,16 @@ public class client extends RSApplet {
 			props.setProperty("trueTile", Boolean.toString(trueTile));
 			props.setProperty("chatTimestamps", Boolean.toString(chatTimestamps));
 			props.setProperty("silentScreenshots", Boolean.toString(silentScreenshots));
-			props.setProperty("xpTracker", Boolean.toString(xpTracker));
+			props.setProperty("xpTracker", Boolean.toString(hasTrackedSkill()));
+			props.setProperty("xpTrackSkills", Integer.toString(trackedSkillBits()));
+			props.setProperty("xpCounterOpen", Boolean.toString(xpCounterOpen));
+			props.setProperty("xpTrackerFixedX", Integer.toString(xpTrackerFixedX));
+			props.setProperty("xpTrackerFixedY", Integer.toString(xpTrackerFixedY));
+			props.setProperty("xpTrackerResizeX", Integer.toString(xpTrackerResizeX));
+			props.setProperty("xpTrackerResizeY", Integer.toString(xpTrackerResizeY));
 			props.setProperty("statusTimers", Boolean.toString(statusTimers));
 			props.setProperty("orbFlash", Boolean.toString(orbFlash));
+			props.setProperty("resizableInvTransparent", Boolean.toString(resizableInvTransparent));
 			props.setProperty("rememberMe", Boolean.toString(rememberMe == 1));
 			if (rememberMe == 1) {
 				props.setProperty("rememberUser", myUsername == null ? "" : myUsername);
@@ -856,9 +953,33 @@ public class client extends RSApplet {
 				props.setProperty("rememberUser", "");
 				props.setProperty("rememberPass", "");
 			}
+			SavedCharacters.save(props);
 			MenuEntrySwapper.save(props);
 			GroundMarkers.save(props);
+			NpcIndicators.save(props);
+			SlayerTracker.save(props);
+			AmmoOverlay.save(props);
+			AntiDrag.save(props);
+			AttackStyleWarn.save(props);
+			InventoryTags.save(props);
+			MouseTooltips.save(props);
+			ObjectMarkers.save(props);
+			PlayerIndicators.save(props);
+			ItemStats.save(props);
+			BossTimers.save(props);
 			KeyRemapper.save(props);
+			CannonOverlay.save(props);
+			ChatChannels.save(props);
+			ChatHistory.save(props);
+			CombatLevelPlugin.save(props);
+			FriendListPlugin.save(props);
+			FriendNotes.save(props);
+			ImplingsPlugin.save(props);
+			PoisonPlugin.save(props);
+			RegenMeter.save(props);
+			StatusBars.save(props);
+			BarrowsPlugin.save(props);
+			OverlayManager.save(props);
 			int quickBits = 0;
 			for (int i = 0; i < quickPrayers.length; i++) {
 				if (quickPrayers[i]) {
@@ -931,42 +1052,162 @@ public class client extends RSApplet {
 		if (RSInterface.interfaceCache == null) {
 			return;
 		}
+		rebuildSettingsList();
+		setCategoryTab(24249, "Display", 0);
+		setCategoryTab(24250, "Gameplay", 1);
+		setCategoryTab(24251, "Interface", 2);
+		setCategoryTab(24252, "Controls", 3);
 		setSettingLine(24210, "Resizable client: " + (isFixed() ? "Off" : "On"));
+		setSettingLine(24248, "Inventory tab (resizable): " + (resizableInvTransparent ? "Transparent" : "Solid"));
 		setSettingLine(24211, "Distance fog: " + strengthLabel(fogStrength));
 		setSettingLine(24212, "Anti-aliasing: " + strengthLabel(aaStrength));
 		setSettingLine(24213, "Animation smoothing: " + (tweeningEnabled ? "On" : "Off"));
 		setSettingLine(24215, "Draw distance: " + drawDistance + " tiles");
 		setSettingLine(24216, "Ground blending: " + (tileBlending ? "On" : "Off"));
 		setSettingLine(24217, "Hide roofs: " + (hideRoofs ? "On" : "Off"));
-		setSettingLine(24218, "Tile markers: " + (tileMarkers ? "On" : "Off"));
-		setSettingLine(24219, "Ground item names: " + (groundItemNames ? "On" : "Off"));
-		setSettingLine(24220, "NPC health overlay: " + (npcHealthOverlay ? "On" : "Off"));
-		setSettingLine(24221, "Boosted stat overlay: " + (boostedStatOverlay ? "On" : "Off"));
-		setSettingLine(24222, "XP drops: " + (xpDrops ? "On" : "Off"));
-		setSettingLine(24235, "XP drop speed: " + xpDropSpeedLabel(xpDropSpeed));
-		setSettingLine(24223, "Boosted stats as +N: " + (boostedPlusDisplay ? "On" : "Off"));
-		setSettingLine(24224, "Attack style box: " + (attackStyleOverlay ? "On" : "Off"));
+		setSettingLine(24233, "OpenGL acceleration: " + (openGlEnabled ? "On" : "Off"));
+		setSettingLine(24234, "FPS cap: " + (fpsUnlocked ? "Unlocked" : "50"));
+		setSettingLine(24231, "Performance stats: " + (performanceStats ? "On" : "Off"));
+		setSettingLine(24232, "Show ping: " + (showPing ? "On" : "Off"));
 		setSettingLine(24225, "NPC attack: " + attackOptionLabel(npcAttackOption));
 		setSettingLine(24226, "Player attack: " + attackOptionLabel(playerAttackOption));
 		setSettingLine(24227, "Menu entry swapper: " + (menuEntrySwapper ? "On" : "Off"));
-		setSettingLine(24228, "Key remapping: " + (keyRemapping ? "On" : "Off") + " (setup)");
-		setSettingLine(24229, "Ground markers: " + (GroundMarkers.enabled ? "On" : "Off"));
-		setSettingLine(24231, "Performance stats: " + (performanceStats ? "On" : "Off"));
-		setSettingLine(24232, "Show ping: " + (showPing ? "On" : "Off"));
-		setSettingLine(24233, "OpenGL acceleration: " + (openGlEnabled ? "On" : "Off"));
-		setSettingLine(24234, "FPS cap: " + (fpsUnlocked ? "Unlocked" : "50"));
 		setSettingLine(24236, "Shift-click drop: " + (shiftClickDrop ? "On" : "Off"));
 		setSettingLine(24237, "Middle-click wear: " + (middleClickWear ? "On" : "Off"));
-		setSettingLine(24238, "Special attack orb: " + (specOrb ? "On" : "Off"));
 		setSettingLine(24239, "Hide loot below: " + valueThresholdLabel(groundHideValue));
 		setSettingLine(24240, "Loot beams: " + valueThresholdLabel(lootBeamValue));
 		setSettingLine(24241, "Destination tile: " + (destTile ? "On" : "Off"));
 		setSettingLine(24242, "True tile: " + (trueTile ? "On" : "Off"));
+		setSettingLine(24218, "Tile markers: " + (tileMarkers ? "On" : "Off"));
+		setSettingLine(24229, "Ground markers: " + (GroundMarkers.enabled ? "On" : "Off"));
+		setSettingLine(24219, "Ground item names: " + (groundItemNames ? "On" : "Off"));
+		setSettingLine(24253, "NPC indicators: " + NpcIndicators.modeLabel());
+		setSettingLine(24254, "NPC hull: " + (NpcIndicators.hull ? "On" : "Off"));
+		setSettingLine(24255, "NPC tile: " + (NpcIndicators.tile ? "On" : "Off"));
+		setSettingLine(24256, "NPC true tile: " + (NpcIndicators.trueTile ? "On" : "Off"));
+		setSettingLine(24257, "NPC south-west tile: " + (NpcIndicators.southWestTile ? "On" : "Off"));
+		setSettingLine(24258, "NPC highlight colour: " + NpcIndicators.colorLabel());
+		setSettingLine(24259, "NPC names: " + (NpcIndicators.names ? "On" : "Off"));
+		setSettingLine(24260, "NPC minimap names: " + (NpcIndicators.minimapNames ? "On" : "Off"));
+		setSettingLine(24261, "Slayer overlay: " + (SlayerTracker.enabled ? "On" : "Off"));
+		setSettingLine(24262, "Slayer highlight: " + (SlayerTracker.highlight ? "On" : "Off"));
+		setSettingLine(24281, "Slayer count on gem: " + (SlayerTracker.countOnItems ? "On" : "Off"));
+		setSettingLine(24276, "Boss timers: " + (BossTimers.enabled ? "On" : "Off"));
+		setSettingLine(24270, "Object markers: " + (ObjectMarkers.enabled ? "On" : "Off"));
+		setSettingLine(24268, "Inventory tags: " + (InventoryTags.enabled ? "On" : "Off"));
+		setSettingLine(24271, "Player indicators: " + (PlayerIndicators.enabled ? "On" : "Off"));
+		setSettingLine(24272, "Player names: " + (PlayerIndicators.names ? "On" : "Off"));
+		setSettingLine(24273, "Player tiles: " + (PlayerIndicators.tiles ? "On" : "Off"));
+		setSettingLine(24274, "Player minimap names: " + (PlayerIndicators.minimapNames ? "On" : "Off"));
+		setSettingLine(24277, "Highlight friends: " + (PlayerIndicators.friends ? "On" : "Off"));
+		setSettingLine(24278, "Highlight team: " + (PlayerIndicators.team ? "On" : "Off"));
+		setSettingLine(24279, "Highlight others: " + (PlayerIndicators.others ? "On" : "Off"));
+		setSettingLine(24280, "Highlight self: " + (PlayerIndicators.ownPlayer ? "On" : "Off"));
+		setSettingLine(24220, "NPC health overlay: " + (npcHealthOverlay ? "On" : "Off"));
+		setSettingLine(24221, "Boosted stat overlay: " + (boostedStatOverlay ? "On" : "Off"));
+		setSettingLine(24223, "Boosted stats as +N: " + (boostedPlusDisplay ? "On" : "Off"));
+		setSettingLine(24224, "Attack style box: " + (attackStyleOverlay ? "On" : "Off"));
+		setSettingLine(24267, "Attack style warn: " + AttackStyleWarn.label());
+		setSettingLine(24238, "Special attack orb: " + (specOrb ? "On" : "Off"));
+		setSettingLine(24247, "Low HP/prayer flash: " + (orbFlash ? "On" : "Off"));
+		setSettingLine(24246, "Status timers: " + (statusTimers ? "On" : "Off"));
+		setSettingLine(24263, "Ammo overlay: " + (AmmoOverlay.enabled ? "On" : "Off"));
+		setSettingLine(24275, "Item stats: " + (ItemStats.enabled ? "On" : "Off"));
+		setSettingLine(24269, "Mouse tooltips: " + (MouseTooltips.enabled ? "On" : "Off"));
 		setSettingLine(24243, "Chat timestamps: " + (chatTimestamps ? "On" : "Off"));
 		setSettingLine(24244, "Silent screenshots: " + (silentScreenshots ? "On" : "Off"));
-		setSettingLine(24245, "XP tracker: " + (xpTracker ? "On" : "Off"));
-		setSettingLine(24246, "Status timers: " + (statusTimers ? "On" : "Off"));
-		setSettingLine(24247, "Low HP/prayer flash: " + (orbFlash ? "On" : "Off"));
+		setSettingLine(24222, "XP drops: " + (xpDrops ? "On" : "Off"));
+		setSettingLine(24235, "XP drop speed: " + xpDropSpeedLabel(xpDropSpeed));
+		setSettingLine(24228, "Key remapping: " + (keyRemapping ? "On" : "Off") + " (setup)");
+		setSettingLine(24264, "Anti-drag: " + (AntiDrag.enabled ? "On" : "Off"));
+		setSettingLine(24265, "Anti-drag shift only: " + (AntiDrag.shiftOnly ? "On" : "Off"));
+		setSettingLine(24266, "Anti-drag delay: " + AntiDrag.delay);
+		setSettingLine(24400, "Cannon plugin: " + (CannonOverlay.enabled ? "On" : "Off"));
+		setSettingLine(24401, "Cannon infobox: " + (CannonOverlay.infobox ? "On" : "Off"));
+		setSettingLine(24402, "Cannon warning: " + CannonOverlay.warningLabel());
+		setSettingLine(24403, "Cannon double-hit tiles: " + (CannonOverlay.doubleHit ? "On" : "Off"));
+		setSettingLine(24404, "Cannon spots: " + (CannonOverlay.spots ? "On" : "Off"));
+		setSettingLine(24405, "Implings: " + (ImplingsPlugin.enabled ? "On" : "Off"));
+		setSettingLine(24406, "Impling names: " + (ImplingsPlugin.names ? "On" : "Off"));
+		setSettingLine(24407, "Impling notify: " + (ImplingsPlugin.notify ? "On" : "Off"));
+		setSettingLine(24408, "Barrows brothers: " + (BarrowsPlugin.enabled ? "On" : "Off"));
+		setSettingLine(24409, "Combat level decimal: " + (CombatLevelPlugin.enabled ? "On" : "Off"));
+		setSettingLine(24410, "Chat history: " + (ChatHistory.enabled ? "On" : "Off"));
+		setSettingLine(24411, "Chat channels: " + (ChatChannels.enabled ? "On" : "Off"));
+		setSettingLine(24412, "Clan join/leave: " + (ChatChannels.joinLeave ? "On" : "Off"));
+		setSettingLine(24413, "Friend list counts: " + (FriendListPlugin.enabled ? "On" : "Off"));
+		setSettingLine(24414, "Friend notes: " + (FriendNotes.enabled ? "On" : "Off"));
+		setSettingLine(24415, "Poison: " + (PoisonPlugin.enabled ? "On" : "Off"));
+		setSettingLine(24416, "Regeneration meter: " + (RegenMeter.enabled ? "On" : "Off"));
+		setSettingLine(24417, "Status bars: " + (StatusBars.enabled ? "On" : "Off"));
+		setSettingLine(24418, "Status bar numbers: " + (StatusBars.numbers ? "On" : "Off"));
+		setSettingLine(24419, "Status bar heal preview: " + (StatusBars.healPreview ? "On" : "Off"));
+		setSettingLine(24214, "Right-click a skill on the Skills tab to start or stop XP tracking.");
+	}
+
+	private void setCategoryTab(int id, String name, int category) {
+		boolean selected = settingsCategory == category;
+		setSettingLine(id, selected ? "> " + name : name);
+		if (RSInterface.interfaceCache[id] != null) {
+			RSInterface.interfaceCache[id].textColor = selected ? 0xffff00 : 0xff981f;
+		}
+	}
+
+	private void rebuildSettingsList() {
+		RSInterface list = RSInterface.interfaceCache[24230];
+		if (list == null) {
+			return;
+		}
+		int[] ids;
+		switch (settingsCategory) {
+		case 1:
+			ids = new int[] {
+				24253, 24254, 24255, 24256, 24257, 24258, 24259, 24260,
+				24261, 24262, 24281, 24276, 24270, 24268, 24271, 24272, 24273, 24274, 24277, 24278, 24279, 24280,
+				24400, 24401, 24402, 24403, 24404, 24405, 24406, 24407, 24408, 24409,
+				24225, 24226, 24227, 24236, 24237, 24239, 24240, 24241, 24242, 24218, 24229, 24219
+			};
+			break;
+		case 2:
+			ids = new int[] {
+				24220, 24221, 24223, 24224, 24267, 24238, 24247, 24246, 24263, 24275, 24269,
+				24410, 24411, 24412, 24413, 24414, 24415, 24416, 24417, 24418, 24419,
+				24243, 24244, 24222, 24235, 24214
+			};
+			break;
+		case 3:
+			ids = new int[] { 24228, 24264, 24265, 24266 };
+			break;
+		default:
+			ids = new int[] {
+				24210, 24248, 24211, 24212, 24213, 24215, 24216, 24217, 24233, 24234, 24231, 24232
+			};
+			break;
+		}
+		RSInterface.setChildren(ids.length, list);
+		for (int i = 0; i < ids.length; i++) {
+			RSInterface.setBounds(ids[i], 4, i * 20, i, list);
+			if (RSInterface.interfaceCache[ids[i]] != null) {
+				RSInterface.interfaceCache[ids[i]].height = 16;
+			}
+		}
+		list.scrollMax = Math.max(list.height + 1, ids.length * 20 + 4);
+		boolean categoryChanged = lastSettingsCategory != settingsCategory;
+		lastSettingsCategory = settingsCategory;
+		if (categoryChanged) {
+			list.scrollPosition = 0;
+		} else {
+			int maxScroll = list.scrollMax - list.height;
+			if (maxScroll < 0) {
+				maxScroll = 0;
+			}
+			if (list.scrollPosition > maxScroll) {
+				list.scrollPosition = maxScroll;
+			}
+			if (list.scrollPosition < 0) {
+				list.scrollPosition = 0;
+			}
+		}
 	}
 
 	private static String valueThresholdLabel(int value) {
@@ -1132,8 +1373,15 @@ public class client extends RSApplet {
 				chatTimestamps = readBoolProp(props, "chatTimestamps", true);
 				silentScreenshots = readBoolProp(props, "silentScreenshots", true);
 				xpTracker = readBoolProp(props, "xpTracker", false);
+				loadTrackedSkills(readIntProp(props, "xpTrackSkills", 0));
+				xpCounterOpen = readBoolProp(props, "xpCounterOpen", true);
+				xpTrackerFixedX = readIntProp(props, "xpTrackerFixedX", -1);
+				xpTrackerFixedY = readIntProp(props, "xpTrackerFixedY", -1);
+				xpTrackerResizeX = readIntProp(props, "xpTrackerResizeX", -1);
+				xpTrackerResizeY = readIntProp(props, "xpTrackerResizeY", -1);
 				statusTimers = readBoolProp(props, "statusTimers", false);
 				orbFlash = readBoolProp(props, "orbFlash", true);
+				resizableInvTransparent = readBoolProp(props, "resizableInvTransparent", false);
 				rememberMe = readBoolProp(props, "rememberMe", false) ? 1 : 0;
 				if (rememberMe == 1) {
 					String savedUser = props.getProperty("rememberUser", "");
@@ -1147,10 +1395,34 @@ public class client extends RSApplet {
 					loginScreenState = 2;
 					loginMessage2 = "Enter your username & password.";
 				}
+				SavedCharacters.load(props);
 				fpsOn = performanceStats;
 				MenuEntrySwapper.load(props);
 				GroundMarkers.load(props);
+				NpcIndicators.load(props);
+				SlayerTracker.load(props);
+				AmmoOverlay.load(props);
+				AntiDrag.load(props);
+				AttackStyleWarn.load(props);
+				InventoryTags.load(props);
+				MouseTooltips.load(props);
+				ObjectMarkers.load(props);
+				PlayerIndicators.load(props);
+				ItemStats.load(props);
+				BossTimers.load(props);
 				KeyRemapper.load(props);
+				CannonOverlay.load(props);
+				ChatChannels.load(props);
+				ChatHistory.load(props);
+				CombatLevelPlugin.load(props);
+				FriendListPlugin.load(props);
+				FriendNotes.load(props);
+				ImplingsPlugin.load(props);
+				PoisonPlugin.load(props);
+				RegenMeter.load(props);
+				StatusBars.load(props);
+				BarrowsPlugin.load(props);
+				OverlayManager.load(props);
 				GroundMarkers.enabled = readBoolProp(props, "groundMarkers", false);
 				GroundMarkers.minimap = readBoolProp(props, "groundMarkersMinimap", true);
 				int quickBits = readIntProp(props, "quickPrayers", 0);
@@ -1182,6 +1454,14 @@ public class client extends RSApplet {
 			}
 			if (midiPlayer != null && midiPlayer.playing()) {
 				midiPlayer.setVolume(0, midiVolume);
+			}
+			if (!musicEnabled) {
+				optionMusic = 4;
+			}
+			if (optionMusic == 4) {
+				loginMusicRestore = 0;
+			} else {
+				loginMusicRestore = optionMusic;
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -1489,10 +1769,8 @@ public class client extends RSApplet {
 					if (chatType == 0) {
 						if (chatTypeView == 5 || chatTypeView == 0) {
 							if (yPos > 0 && yPos < 210)
-								// textDrawingArea.method389(false, 11, 0,
-								// chatMessages[k], yPos);//chat color enabled
 								newRegularFont.drawBasicString(stampedChat(k),
-										11, yPos, 0, -1);
+										11, yPos, ChatChannels.gameColor(this, stampedChat(k)), -1);
 							j++;
 							j77++;
 						}
@@ -2508,7 +2786,8 @@ public class client extends RSApplet {
 			j2 += class9_1.anInt265;
 			if ((class9_1.mOverInterToTrigger >= 0 || class9_1.anInt216 != 0)
 					&& k >= i2 && i1 >= j2 && k < i2 + class9_1.width
-					&& i1 < j2 + class9_1.height)
+					&& i1 < j2 + class9_1.height
+					&& tabInterfaceIDs[tabID] != 3917)
 				if (class9_1.mOverInterToTrigger >= 0)
 					anInt886 = class9_1.mOverInterToTrigger;
 				else
@@ -2957,6 +3236,11 @@ public class client extends RSApplet {
 			inputTaken = true;
 		}
 		if (super.clickMode3 == 1) {
+			if (super.saveClickY >= chatDrawY() + 122 && super.saveClickY < chatDrawY() + 144
+					&& super.saveClickX >= 7 && super.saveClickX < 506) {
+				chatTypeFocused = true;
+				inputTaken = true;
+			}
 			if (super.saveClickX >= 5 && super.saveClickX <= 61
 					&& super.saveClickY >= chatDrawY() + 144 && super.saveClickY <= chatDrawY() + 167) {
 				cButtonCPos = 0;
@@ -3468,6 +3752,9 @@ public class client extends RSApplet {
 	private void drawTabArea() {
 		aRSImageProducer_1163.initDrawingArea();
 		Texture.anIntArray1472 = anIntArray1181;
+		if (!isFixed()) {
+			copyWorldUnderHud(aRSImageProducer_1163, tabDrawX(), tabDrawY());
+		}
 		currentTabArea().drawSprite(0, 0);
 		if (invOverlayInterfaceID == -1) {
 			drawRedStones();
@@ -3480,6 +3767,14 @@ public class client extends RSApplet {
 			drawInterface(0, 28,
 					RSInterface.interfaceCache[tabInterfaceIDs[tabID]], 37);
 		drawSkillTooltip();
+		CombatLevelPlugin.draw(this, smallText, maxStats);
+		FriendListPlugin.updateTitle(friendsCount, anInt1046 == 1 ? 200 : 100);
+		int hpNow = currentStats != null && currentStats.length > 3 ? currentStats[3] : 0;
+		int hpMax = maxStats != null && maxStats.length > 3 ? maxStats[3] : 1;
+		int prayNow = currentStats != null && currentStats.length > 5 ? currentStats[5] : 0;
+		int prayMax = maxStats != null && maxStats.length > 5 ? maxStats[5] : 1;
+		StatusBars.draw(smallText, hpNow, hpMax, prayNow, prayMax);
+		StatusBars.hoverHeal = 0;
 		if (selectingQuickPrayers && tabID == 5) {
 			drawQuickPrayerSelection();
 		}
@@ -3779,6 +4074,7 @@ public class client extends RSApplet {
 	}
 
 	public void resetLogout() {
+		snapshotSavedCharacter();
 		saveClientSettings();
 		try {
 			if (socketStream != null)
@@ -5053,7 +5349,7 @@ public class client extends RSApplet {
 				if (activeInterfaceType == 3)
 					inputTaken = true;
 				activeInterfaceType = 0;
-				if (aBoolean1242 && anInt989 >= 10) {
+				if (aBoolean1242 && anInt989 >= AntiDrag.threshold()) {
 					lastActiveInvInterface = -1;
 					processRightClick();
 					if (anInt1084 == 5382 && lastActiveInvInterface >= 10335
@@ -5109,6 +5405,9 @@ public class client extends RSApplet {
 			}
 		}
 		if (WorldController.anInt470 != -1) {
+			if (RSApplet.altIsDown) {
+				WorldController.anInt470 = -1;
+			} else {
 			int k = WorldController.anInt470;
 			int k1 = WorldController.anInt471;
 			boolean flag = doWalkTo(0, 0, 0, 0, myPlayer.smallY[0], 0, 0, k1,
@@ -5120,6 +5419,7 @@ public class client extends RSApplet {
 				crossType = 1;
 				crossIndex = 0;
 			}
+			}
 		}
 		if (super.clickMode3 == 1 && aString844 != null) {
 			aString844 = null;
@@ -5128,8 +5428,20 @@ public class client extends RSApplet {
 		}
 		if (!super.mouseWheelDown) {
 			if (!processMenuClick()) {
-				processHudClicks();
-				processMainScreenClick();
+				boolean overlayDrag = OverlayManager.processDrag(this);
+				if (!overlayDrag) {
+					overlayDrag = StatusBars.processDrag(super.mouseX - tabDrawX(), super.mouseY - tabDrawY(),
+							super.clickMode2, super.clickMode3, super.saveClickX - tabDrawX(),
+							super.saveClickY - tabDrawY(), 246, 335);
+				}
+				if (overlayDrag) {
+					super.clickMode3 = 0;
+				} else {
+					processHudClicks();
+				}
+				if (!RSApplet.altIsDown && !OverlayManager.dragging() && !StatusBars.dragging()) {
+					processMainScreenClick();
+				}
 				processTabClick();
 				processChatModeClick();
 			}
@@ -5518,13 +5830,52 @@ public class client extends RSApplet {
 		if (i < 0)
 			return;
 		int actionId = menuActionID[i];
-		if (menuEntrySwapper && RSApplet.shiftIsDown && menuOpen
+		if (menuEntrySwapper && RSApplet.shiftIsDown && !RSApplet.ctrlIsDown && menuOpen
 				&& MenuEntrySwapper.captureFromMenu(menuActionName, menuActionID, i, menuActionRow)) {
 			pushMessage("Left-click is now " + MenuEntrySwapper.actionVerb(menuActionName[i]) + ".", 0, "");
 			saveClientSettings();
 			return;
 		}
 		if (MenuEntrySwapper.handleAction(this, actionId >= 2000 ? actionId - 2000 : actionId, i)) {
+			return;
+		}
+		int rawAction = actionId >= 2000 ? actionId - 2000 : actionId;
+		if (NpcIndicators.isTagAction(rawAction)) {
+			int idx = menuActionCmd1[i];
+			NPC tagged = idx >= 0 && npcArray != null && idx < npcArray.length ? npcArray[idx] : null;
+			int style = (rawAction == NpcIndicators.ACTION_TAG_TILE || rawAction == NpcIndicators.ACTION_UNTAG_TILE)
+					? NpcIndicators.STYLE_TILE : NpcIndicators.STYLE_HULL;
+			String message = NpcIndicators.toggleStyle(tagged, style);
+			saveClientSettings();
+			refreshClientSettingsInterface();
+			if (message != null) {
+				pushMessage(message, 0, "");
+			}
+			return;
+		}
+		if (InventoryTags.isAction(rawAction)) {
+			InventoryTags.handle(rawAction, menuActionCmd1[i], this);
+			saveClientSettings();
+			needDrawTabArea = true;
+			return;
+		}
+		if (rawAction == FriendNotes.ACTION_NOTE) {
+			String s = menuActionName[i];
+			int at = s.indexOf("@whi@");
+			if (at != -1) {
+				FriendNotes.pendingName = s.substring(at + 5).trim();
+				inputTaken = true;
+				inputDialogState = 0;
+				messagePromptRaised = true;
+				promptInput = FriendNotes.get(FriendNotes.pendingName);
+				friendsListAction = 11;
+				aString1121 = "Enter a note for " + FriendNotes.pendingName + " (128 chars)";
+			}
+			return;
+		}
+		if (ObjectMarkers.isAction(rawAction)) {
+			ObjectMarkers.handle(this, rawAction, menuActionCmd1[i], menuActionCmd2[i], menuActionCmd3[i]);
+			saveClientSettings();
 			return;
 		}
 		if (inputDialogState != 0) {
@@ -5639,6 +5990,22 @@ public class client extends RSApplet {
 				case 24204:
 					openInterfaceID = -1;
 					break;
+				case 24249:
+					settingsCategory = 0;
+					refreshClientSettingsInterface();
+					break;
+				case 24250:
+					settingsCategory = 1;
+					refreshClientSettingsInterface();
+					break;
+				case 24251:
+					settingsCategory = 2;
+					refreshClientSettingsInterface();
+					break;
+				case 24252:
+					settingsCategory = 3;
+					refreshClientSettingsInterface();
+					break;
 				case 24210:
 					if (isFixed()) {
 						setScreenMode(ScreenMode.RESIZABLE);
@@ -5649,6 +6016,19 @@ public class client extends RSApplet {
 					}
 					refreshClientSettingsInterface();
 					saveClientSettings();
+					break;
+				case 24248:
+					resizableInvTransparent = !resizableInvTransparent;
+					needDrawTabArea = true;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					if (isFixed()) {
+						pushMessage("Inventory tab skins apply in resizable mode.", 0, "");
+					} else {
+						pushMessage(resizableInvTransparent
+								? "Inventory tab is now transparent."
+								: "Inventory tab is now the solid board.", 0, "");
+					}
 					break;
 				case 24211:
 					fogStrength = (fogStrength + 1) % 4;
@@ -5755,6 +6135,257 @@ public class client extends RSApplet {
 					saveClientSettings();
 					pushMessage("Ground markers " + (GroundMarkers.enabled ? "on. Shift-right-click a tile to mark it" : "off") + ".", 0, "");
 					break;
+				case 24253:
+					NpcIndicators.cycleMode();
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					pushMessage(NpcIndicators.mode == 1
+							? "NPC indicators on tagged NPCs. Hold Ctrl and right-click to Tag hull or Tag tile."
+							: NpcIndicators.mode == 2 ? "NPC indicators on all NPCs." : "NPC indicators off.", 0, "");
+					break;
+				case 24254:
+					NpcIndicators.hull = !NpcIndicators.hull;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24255:
+					NpcIndicators.tile = !NpcIndicators.tile;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24256:
+					NpcIndicators.trueTile = !NpcIndicators.trueTile;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24257:
+					NpcIndicators.southWestTile = !NpcIndicators.southWestTile;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24258:
+					NpcIndicators.cycleColor();
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24259:
+					NpcIndicators.names = !NpcIndicators.names;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24260:
+					NpcIndicators.minimapNames = !NpcIndicators.minimapNames;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24261:
+					SlayerTracker.enabled = !SlayerTracker.enabled;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24262:
+					SlayerTracker.highlight = !SlayerTracker.highlight;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24281:
+					SlayerTracker.countOnItems = !SlayerTracker.countOnItems;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24276:
+					BossTimers.enabled = !BossTimers.enabled;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24270:
+					ObjectMarkers.enabled = !ObjectMarkers.enabled;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					pushMessage("Object markers " + (ObjectMarkers.enabled ? "on. Alt-right-click an object to mark it" : "off") + ".", 0, "");
+					break;
+				case 24268:
+					InventoryTags.enabled = !InventoryTags.enabled;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					pushMessage("Inventory tags " + (InventoryTags.enabled ? "on. Shift-right-click an item to tag it" : "off") + ".", 0, "");
+					break;
+				case 24271:
+					PlayerIndicators.enabled = !PlayerIndicators.enabled;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24272:
+					PlayerIndicators.names = !PlayerIndicators.names;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24273:
+					PlayerIndicators.tiles = !PlayerIndicators.tiles;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24274:
+					PlayerIndicators.minimapNames = !PlayerIndicators.minimapNames;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24277:
+					PlayerIndicators.friends = !PlayerIndicators.friends;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24278:
+					PlayerIndicators.team = !PlayerIndicators.team;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24279:
+					PlayerIndicators.others = !PlayerIndicators.others;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24280:
+					PlayerIndicators.ownPlayer = !PlayerIndicators.ownPlayer;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24263:
+					AmmoOverlay.enabled = !AmmoOverlay.enabled;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24275:
+					ItemStats.enabled = !ItemStats.enabled;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24269:
+					MouseTooltips.enabled = !MouseTooltips.enabled;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24267:
+					AttackStyleWarn.cycle();
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24264:
+					AntiDrag.enabled = !AntiDrag.enabled;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					pushMessage("Anti-drag " + (AntiDrag.enabled ? "on" : "off") + ".", 0, "");
+					break;
+				case 24265:
+					AntiDrag.shiftOnly = !AntiDrag.shiftOnly;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24266:
+					AntiDrag.cycleDelay();
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24400:
+					CannonOverlay.enabled = !CannonOverlay.enabled;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24401:
+					CannonOverlay.infobox = !CannonOverlay.infobox;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24402:
+					CannonOverlay.cycleWarning();
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24403:
+					CannonOverlay.doubleHit = !CannonOverlay.doubleHit;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24404:
+					CannonOverlay.spots = !CannonOverlay.spots;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24405:
+					ImplingsPlugin.enabled = !ImplingsPlugin.enabled;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24406:
+					ImplingsPlugin.names = !ImplingsPlugin.names;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24407:
+					ImplingsPlugin.notify = !ImplingsPlugin.notify;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24408:
+					BarrowsPlugin.enabled = !BarrowsPlugin.enabled;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24409:
+					CombatLevelPlugin.enabled = !CombatLevelPlugin.enabled;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24410:
+					ChatHistory.enabled = !ChatHistory.enabled;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24411:
+					ChatChannels.enabled = !ChatChannels.enabled;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24412:
+					ChatChannels.joinLeave = !ChatChannels.joinLeave;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24413:
+					FriendListPlugin.enabled = !FriendListPlugin.enabled;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24414:
+					FriendNotes.enabled = !FriendNotes.enabled;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24415:
+					PoisonPlugin.enabled = !PoisonPlugin.enabled;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24416:
+					RegenMeter.enabled = !RegenMeter.enabled;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24417:
+					StatusBars.enabled = !StatusBars.enabled;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24418:
+					StatusBars.numbers = !StatusBars.numbers;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24419:
+					StatusBars.healPreview = !StatusBars.healPreview;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
 				case 24231:
 					performanceStats = !performanceStats;
 					fpsOn = performanceStats;
@@ -5825,11 +6456,6 @@ public class client extends RSApplet {
 					break;
 				case 24244:
 					silentScreenshots = !silentScreenshots;
-					refreshClientSettingsInterface();
-					saveClientSettings();
-					break;
-				case 24245:
-					xpTracker = !xpTracker;
 					refreshClientSettingsInterface();
 					saveClientSettings();
 					break;
@@ -6207,6 +6833,22 @@ public class client extends RSApplet {
 				stream.createFrame(185);
 				stream.writeWord(button);
 			}
+		}
+		if (l == 1510) {
+			resetXpTracker();
+			pushMessage("XP tracker reset.", 0, "");
+		}
+		if (l == 1512) {
+			xpDrops = !xpDrops;
+			refreshClientSettingsInterface();
+			saveClientSettings();
+			pushMessage("XP drops " + (xpDrops ? "on" : "off") + ".", 0, "");
+		}
+		if (l == 1514) {
+			startXpTracking(i1);
+		}
+		if (l == 1515) {
+			stopXpTracking(i1);
 		}
 		if (l == 1004) {
 			if (tabInterfaceIDs[10] != -1) {
@@ -7120,6 +7762,11 @@ public class client extends RSApplet {
 	logIconC = null;
 		tabArea = null;
 		tabAreaResizable = null;
+		tabAreaResizableClear = null;
+		xpOrb = null;
+		xpOrbOn = null;
+		xpBar = null;
+		xpDropIcon = null;
 		/**/
 		mapBack = null;
 		sideIcons = null;
@@ -7297,7 +7944,7 @@ public class client extends RSApplet {
 						&& reportAbuseInput.length() < 12)
 					reportAbuseInput += (char) j;
 			} else if (messagePromptRaised) {
-				if (j >= 32 && j <= 122 && promptInput.length() < 80) {
+				if (j >= 32 && j <= 122 && promptInput.length() < (friendsListAction == 11 ? 128 : 80)) {
 					promptInput += (char) j;
 					inputTaken = true;
 				}
@@ -7353,6 +8000,10 @@ public class client extends RSApplet {
 						sendString(2, promptInput);
 					} else if (friendsListAction == 10) {
 						sendString(3, promptInput);
+					} else if (friendsListAction == 11) {
+						FriendNotes.set(FriendNotes.pendingName, promptInput);
+						saveClientSettings();
+						needDrawTabArea = true;
 					}
 				}
 			} else if (inputDialogState == 1) {
@@ -7439,6 +8090,10 @@ public class client extends RSApplet {
 					inputTaken = true;
 				}
 				if ((j == 13 || j == 10) && inputString.length() > 0) {
+					if (ChatChannels.shouldStripClanSlash(chatTypeView)
+							&& !inputString.startsWith("::") && !inputString.startsWith("/")) {
+						inputString = "/" + inputString;
+					}
 					if (myPrivilege == 3) {
 						if (inputString.equals("clientdrop"))
 							dropClient();
@@ -7915,7 +8570,7 @@ public class client extends RSApplet {
 				class9.atActionType = 0;
 				return;
 			} else {
-				class9.message = friendsList[j];
+				class9.message = FriendNotes.enabled ? FriendNotes.displayName(friendsList[j]) : friendsList[j];
 				class9.atActionType = 1;
 				return;
 			}
@@ -8173,6 +8828,10 @@ public class client extends RSApplet {
 		}
 	}
 
+	private int splitPrivateMessageY(int line) {
+		return chatDrawY() - gameDrawY() - 5 - line * 13;
+	}
+
 	private void drawSplitPrivateChat() {
 		if (splitPrivateChat == 0)
 			return;
@@ -8225,7 +8884,7 @@ public class client extends RSApplet {
 				if ((k == 3 || k == 7)
 						&& (k == 7 || privateChatMode == 0 || privateChatMode == 1
 								&& isFriendOrSelf(s))) {
-					int l = 329 - i * 13;
+					int l = splitPrivateMessageY(i);
 					int k1 = 4;
 					textDrawingArea.method385(0, "From", l, k1);
 					textDrawingArea.method385(65535, "From", l - 1, k1);
@@ -8278,7 +8937,7 @@ public class client extends RSApplet {
 						return;
 				}
 				if (k == 5 && privateChatMode < 2) {
-					int i1 = 329 - i * 13;
+					int i1 = splitPrivateMessageY(i);
 					textDrawingArea.method385(0, stampedChat(j), i1, 4);
 					textDrawingArea
 							.method385(65535, stampedChat(j), i1 - 1, 4);
@@ -8286,7 +8945,7 @@ public class client extends RSApplet {
 						return;
 				}
 				if (k == 6 && privateChatMode < 2) {
-					int j1 = 329 - i * 13;
+					int j1 = splitPrivateMessageY(i);
 					textDrawingArea.method385(0, "To " + s + ": "
 							+ stampedChat(j), j1, 4);
 					textDrawingArea.method385(65535, "To " + s + ": "
@@ -8299,6 +8958,9 @@ public class client extends RSApplet {
 	}
 
 	public void pushMessage(String s, int i, String s1) {
+		if (ChatChannels.hideJoinLeave(s)) {
+			return;
+		}
 		if (i == 0 && dialogID != -1) {
 			aString844 = s;
 			super.clickMode3 = 0;
@@ -8320,6 +8982,14 @@ public class client extends RSApplet {
 		clanTitles[0] = clanTitle;
 		chatTimes[0] = System.currentTimeMillis();
 		StatusTimers.onMessage(s);
+		int oldSlayer = SlayerTracker.remaining;
+		String oldTask = SlayerTracker.task;
+		SlayerTracker.onMessage(s);
+		if (oldSlayer != SlayerTracker.remaining
+				|| oldTask == null && SlayerTracker.task != null
+				|| oldTask != null && !oldTask.equals(SlayerTracker.task)) {
+			saveClientSettings();
+		}
 	}
 
 	private String stampedChat(int index) {
@@ -8681,6 +9351,21 @@ public class client extends RSApplet {
 			tabAreaAltered = true;
 			anInt1044 = anInt1315;
 		}
+		if (tabInterfaceIDs[tabID] == 3917) {
+			int skill = hoveredSkill(super.mouseX - skillTabOriginX(), super.mouseY - skillTabOriginY());
+			if (skill >= 0 && skill < Skills.skillsCount && Skills.skillEnabled[skill]) {
+				ensureTrackingArray();
+				if (trackingSkill[skill]) {
+					menuActionName[menuActionRow] = "Stop XP tracking @or1@" + skillDisplayName(skill);
+					menuActionID[menuActionRow] = 1515;
+				} else {
+					menuActionName[menuActionRow] = "Start XP tracking @or1@" + skillDisplayName(skill);
+					menuActionID[menuActionRow] = 1514;
+				}
+				menuActionCmd1[menuActionRow] = skill;
+				menuActionRow++;
+			}
+		}
 		anInt886 = 0;
 		anInt1315 = 0;
 		if (super.mouseX > 0 && super.mouseY > chatDrawY() && super.mouseX < 490
@@ -8732,7 +9417,17 @@ public class client extends RSApplet {
 			}
 		}
 		if (menuEntrySwapper) {
-			menuActionRow = MenuEntrySwapper.apply(menuActionName, menuActionID, menuActionCmd1, menuActionCmd2, menuActionCmd3, menuActionRow, RSApplet.shiftIsDown);
+			menuActionRow = MenuEntrySwapper.apply(menuActionName, menuActionID, menuActionCmd1, menuActionCmd2, menuActionCmd3, menuActionRow,
+					RSApplet.shiftIsDown && !RSApplet.ctrlIsDown);
+		}
+		if (RSApplet.ctrlIsDown && !RSApplet.altIsDown) {
+			menuActionRow = NpcIndicators.addCtrlEntries(this, menuActionName, menuActionID, menuActionCmd1, menuActionCmd2, menuActionCmd3, menuActionRow);
+		}
+		if (InventoryTags.enabled && RSApplet.shiftIsDown && !RSApplet.ctrlIsDown && !RSApplet.altIsDown) {
+			menuActionRow = InventoryTags.addShiftEntries(menuActionName, menuActionID, menuActionCmd1, menuActionCmd2, menuActionCmd3, menuActionRow);
+		}
+		if (ObjectMarkers.enabled && RSApplet.altIsDown && !RSApplet.shiftIsDown && !RSApplet.ctrlIsDown) {
+			menuActionRow = ObjectMarkers.addAltEntries(this, menuActionName, menuActionID, menuActionCmd1, menuActionCmd2, menuActionCmd3, menuActionRow);
 		}
 		if (shiftClickDrop && RSApplet.shiftIsDown && !menuOpen) {
 			MenuEntrySwapper.promoteVerb(menuActionName, menuActionID, menuActionCmd1, menuActionCmd2, menuActionCmd3, menuActionRow, "Drop");
@@ -8825,6 +9520,7 @@ public class client extends RSApplet {
 				super.awtFocus = true;
 				aBoolean954 = true;
 				loggedIn = true;
+				snapshotSavedCharacter();
 				saveClientSettings();
 				stream.currentOffset = 0;
 				inStream.currentOffset = 0;
@@ -8840,8 +9536,10 @@ public class client extends RSApplet {
 				menuActionRow = 0;
 				menuOpen = false;
 				super.idleTime = 0;
-				for (int j1 = 0; j1 < 500; j1++)
-					chatMessages[j1] = null;
+				if (!ChatHistory.enabled) {
+					for (int j1 = 0; j1 < 500; j1++)
+						chatMessages[j1] = null;
+				}
 
 				itemSelected = 0;
 				spellSelected = 0;
@@ -9469,6 +10167,7 @@ public class client extends RSApplet {
 		if (playerAttackOption == 2) {
 			return;
 		}
+		String col = PlayerIndicators.menuPrefix(this, player);
 		for (int l = 4; l >= 0; l--) {
 			if (atPlayerActions[l] == null || !atPlayerActions[l].equalsIgnoreCase("attack")) {
 				continue;
@@ -9481,7 +10180,7 @@ public class client extends RSApplet {
 					c = '\u07D0';
 				else
 					c = '\0';
-			menuActionName[menuActionRow] = atPlayerActions[l] + " @whi@" + s;
+			menuActionName[menuActionRow] = atPlayerActions[l] + " " + col + s;
 			if (l == 0)
 				menuActionID[menuActionRow] = 561 + c;
 			if (l == 1)
@@ -9511,9 +10210,10 @@ public class client extends RSApplet {
 					+ " (level-" + player.combatLevel + ")";
 		else
 			s = player.name + " (skill-" + player.skill + ")";
+		String col = PlayerIndicators.menuPrefix(this, player);
 		if (itemSelected == 1) {
 			menuActionName[menuActionRow] = "Use " + selectedItemName
-					+ " with @whi@" + s;
+					+ " with " + col + s;
 			menuActionID[menuActionRow] = 491;
 			menuActionCmd1[menuActionRow] = j;
 			menuActionCmd2[menuActionRow] = i;
@@ -9521,7 +10221,7 @@ public class client extends RSApplet {
 			menuActionRow++;
 		} else if (spellSelected == 1) {
 			if ((spellUsableOn & 8) == 8) {
-				menuActionName[menuActionRow] = spellTooltip + " @whi@" + s;
+				menuActionName[menuActionRow] = spellTooltip + " " + col + s;
 				menuActionID[menuActionRow] = 365;
 				menuActionCmd1[menuActionRow] = j;
 				menuActionCmd2[menuActionRow] = i;
@@ -9539,7 +10239,7 @@ public class client extends RSApplet {
 						continue;
 					}
 					menuActionName[menuActionRow] = atPlayerActions[l]
-							+ " @whi@" + s;
+							+ " " + col + s;
 					char c = '\0';
 					if (atPlayerArray[l])
 						c = '\u07D0';
@@ -9565,7 +10265,7 @@ public class client extends RSApplet {
 		}
 		for (int i1 = 0; i1 < menuActionRow; i1++)
 			if (menuActionID[i1] == 516) {
-				menuActionName[i1] = "Walk here @whi@" + s;
+				menuActionName[i1] = "Walk here " + col + s;
 				return;
 			}
 
@@ -9741,9 +10441,17 @@ public class client extends RSApplet {
 			multiOverlay = new Sprite(streamLoader_2, "overlay_multiway", 0);
 			// mapIcon = new Sprite(streamLoader_2, "mapfunction", 70);
 			chatArea = new Sprite("Gameframe/chatarea");
-			tabArea = new Sprite("Gameframe/tabarea");
+			tabArea = loadHudSprite("Gameframe/tabarea", false);
+			if (tabArea == null) {
+				tabArea = new Sprite("Gameframe/tabarea");
+			}
 			chatAreaResizable = loadSpriteOrFallback("Gameframe/resizable/chatarea", chatArea);
 			tabAreaResizable = loadSpriteOrFallback("Gameframe/resizable/tabarea", tabArea);
+			tabAreaResizableClear = loadSpriteOrFallback("Gameframe/resizable/tabarea2", tabAreaResizable);
+			xpOrb = loadHudSprite("Gameframe/XP/orb", true);
+			xpOrbOn = loadHudSprite("Gameframe/XP/orb_on", true);
+			xpBar = loadHudSprite("Gameframe/XP/bar", true);
+			xpDropIcon = loadHudSprite("Gameframe/XP/drop", true);
 			mapAreaResizable = loadSpriteOrFallback("Gameframe/resizable/maparea", mapArea);
 			/**/
 			mapBack = new Background(streamLoader_2, "mapback", 0);
@@ -10592,6 +11300,11 @@ public class client extends RSApplet {
 			menuActionName[menuActionRow] = "Remove @whi@" + friendsList[i];
 			menuActionID[menuActionRow] = 792;
 			menuActionRow++;
+			if (FriendNotes.enabled) {
+				menuActionName[menuActionRow] = FriendNotes.menuLabel(friendsList[i]) + " @whi@" + friendsList[i];
+				menuActionID[menuActionRow] = FriendNotes.ACTION_NOTE;
+				menuActionRow++;
+			}
 			menuActionName[menuActionRow] = "Message @whi@" + friendsList[i];
 			menuActionID[menuActionRow] = 639;
 			menuActionRow++;
@@ -10629,11 +11342,27 @@ public class client extends RSApplet {
 
 	}
 
+	private boolean mouseOverLocal(int x, int y, int w, int h) {
+		if (pointerInside(super.mouseX, super.mouseY, x, y, w, h)) {
+			return true;
+		}
+		if (pointerInside(super.mouseX - tabDrawX(), super.mouseY - tabDrawY(), x, y, w, h)) {
+			return true;
+		}
+		return pointerInside(super.mouseX - gameDrawX(), super.mouseY - gameDrawY(), x, y, w, h);
+	}
+
+	private boolean pointerInside(int mx, int my, int x, int y, int w, int h) {
+		return mx >= x && my >= y && mx < x + w && my < y + h;
+	}
+
 	private void drawInterface(int j, int k, RSInterface class9, int l) {
 		if (class9.type != 0 || class9.children == null)
 			return;
 		if (class9.isMouseoverTriggered && anInt1026 != class9.id
 				&& anInt1048 != class9.id && anInt1039 != class9.id)
+			return;
+		if (class9.isMouseoverTriggered && tabInterfaceIDs[tabID] == 3917)
 			return;
 		int i1 = DrawingArea.topX;
 		int j1 = DrawingArea.topY;
@@ -10645,6 +11374,13 @@ public class client extends RSApplet {
 			int k2 = class9.childX[j2] + k;
 			int l2 = (class9.childY[j2] + l) - j;
 			RSInterface class9_1 = RSInterface.interfaceCache[class9.children[j2]];
+			if (class9_1 == null) {
+				continue;
+			}
+			if (isSkillTabLayer(class9.id)
+					&& (class9_1.type == 3 || class9_1.type == 8 || class9_1.isMouseoverTriggered)) {
+				continue;
+			}
 			k2 += class9_1.anInt263;
 			l2 += class9_1.anInt265;
 			if (class9_1.contentType > 0)
@@ -10766,7 +11502,7 @@ public class client extends RSApplet {
 												k6 = 0;
 											if (j7 < 5 && j7 > -5)
 												j7 = 0;
-											if (anInt989 < 10) {
+											if (anInt989 < AntiDrag.threshold()) {
 												k6 = 0;
 												j7 = 0;
 											}
@@ -10834,6 +11570,20 @@ public class client extends RSApplet {
 											 * intToKOrMil(k10), j6 + 9 + j7, k5
 											 * + k6);
 											 */
+										}
+										if (InventoryTags.enabled) {
+											InventoryTags.drawSlot(j9, k5, j6);
+										}
+										if (SlayerTracker.isSlayerItem(j9)) {
+											smallText.method385(0x33CC66, String.valueOf(SlayerTracker.remaining),
+													j6 + 30, k5 + 2);
+										}
+										if (ItemStats.enabled && activeInterfaceType == 0
+												&& mouseOverLocal(k5, j6, 32, 32)) {
+											int hp = currentStats != null && currentStats.length > 3 ? currentStats[3] : 0;
+											int prayer = currentStats != null && currentStats.length > 5 ? currentStats[5] : 0;
+											ItemStats.drawAt(smallText, j9, hp, prayer, energy, k5, j6);
+											StatusBars.hoverHeal = ItemStats.healAmount(j9);
 										}
 									}
 								}
@@ -11454,6 +12204,9 @@ public class client extends RSApplet {
 			stream.readBytes(j1, 0, abyte0);
 			aStreamArray895s[j] = stream_1;
 			player.updatePlayer(stream_1);
+			if (player == myPlayer) {
+				snapshotSavedCharacter();
+			}
 		}
 		if ((i & 2) != 0) {
 			player.anInt1538 = stream.method436();
@@ -11598,6 +12351,18 @@ public class client extends RSApplet {
 			if (s.equalsIgnoreCase(friendsList[i]))
 				return true;
 		return s.equalsIgnoreCase(myPlayer.name);
+	}
+
+	boolean isFriendName(String s) {
+		if (s == null) {
+			return false;
+		}
+		for (int i = 0; i < friendsCount; i++) {
+			if (s.equalsIgnoreCase(friendsList[i])) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private static String combatDiffColor(int i, int j) {
@@ -11816,6 +12581,7 @@ public class client extends RSApplet {
 
 		i += 8;
 		int l = 15 * menuActionRow + 21;
+		int clickMx = super.saveClickX - minimapDrawX();
 		if (!isFixed()) {
 			int i1 = super.saveClickX - i / 2;
 			if (i1 + i > frameWidth)
@@ -11825,6 +12591,25 @@ public class client extends RSApplet {
 			int l1 = super.saveClickY;
 			if (l1 + l > frameHeight)
 				l1 = frameHeight - l;
+			if (l1 < 0)
+				l1 = 0;
+			menuOpen = true;
+			menuScreenArea = 0;
+			menuOffsetX = i1;
+			menuOffsetY = l1;
+			menuWidth = i;
+			menuHeight = 15 * menuActionRow + 22;
+			return;
+		}
+		if (overXpCounter(clickMx, super.saveClickY)) {
+			int i1 = super.saveClickX - gameDrawX() - i / 2;
+			if (i1 + i > screenAreaWidth)
+				i1 = screenAreaWidth - i;
+			if (i1 < 0)
+				i1 = 0;
+			int l1 = super.saveClickY - gameDrawY();
+			if (l1 + l > screenAreaHeight)
+				l1 = screenAreaHeight - l;
 			if (l1 < 0)
 				l1 = 0;
 			menuOpen = true;
@@ -12090,6 +12875,20 @@ public class client extends RSApplet {
 			return 3;
 	}
 
+	boolean messageMentionsIgnored(String message) {
+		if (message == null || ignoreCount <= 0) {
+			return false;
+		}
+		String lower = message.toLowerCase();
+		for (int i = 0; i < ignoreCount; i++) {
+			String name = TextClass.fixName(TextClass.nameForLong(ignoreListAsLongs[i]));
+			if (name != null && name.length() > 0 && lower.indexOf(name.toLowerCase()) >= 0) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	public void delIgnore(long l) {
 		try {
 			if (l == 0L)
@@ -12259,6 +13058,9 @@ public class client extends RSApplet {
 		if (menuActionRow > 2)
 			s = s + "@whi@ / " + (menuActionRow - 2) + " more options";
 		chatTextDrawingArea.method390(4, 0xffffff, s, loopCycle / 1000, 15);
+		if (MouseTooltips.enabled) {
+			MouseTooltips.drawAtMouse(this, s, super.mouseX - gameDrawX(), super.mouseY - gameDrawY());
+		}
 	}
 
 	/*public void drawMinimap() {
@@ -12500,6 +13302,16 @@ public class client extends RSApplet {
 					int k3 = npc.y / 32 - myPlayer.y / 32;
 					markMinimap(mapDotNPC, i1, k3);
 				}
+				if (NpcIndicators.minimapNames && NpcIndicators.matches(npc) && npc.desc.name != null) {
+					int i1 = npc.x / 32 - myPlayer.x / 32;
+					int k3 = npc.y / 32 - myPlayer.y / 32;
+					drawNpcMinimapName(npc.desc.name, i1, k3);
+				}
+				if (ImplingsPlugin.enabled && ImplingsPlugin.minimapNames && ImplingsPlugin.isImpling(npc)) {
+					int i1 = npc.x / 32 - myPlayer.x / 32;
+					int k3 = npc.y / 32 - myPlayer.y / 32;
+					drawMinimapName(ImplingsPlugin.typeName(npc), i1, k3, ImplingsPlugin.color(npc));
+				}
 			}
 		}
 
@@ -12524,6 +13336,12 @@ public class client extends RSApplet {
 					markMinimap(mapDotFriend, j1, l3);
 				else
 					markMinimap(mapDotPlayer, j1, l3);
+				if (PlayerIndicators.enabled && PlayerIndicators.minimapNames && player.name != null) {
+					int pcol = PlayerIndicators.colorFor(this, player);
+					if (pcol != 0) {
+						drawMinimapName(player.name, j1, l3, pcol);
+					}
+				}
 			}
 		}
 
@@ -12567,6 +13385,11 @@ public class client extends RSApplet {
 				int my = ((marker[1] - baseY) * 4 + 2) - myPlayer.y / 32;
 				drawMinimapMarker(mx, my, marker[3]);
 			}
+		}
+		if (myPlayer != null) {
+			int worldX = client.getBaseX() + myPlayer.smallX[0];
+			int worldY = client.getBaseY() + myPlayer.smallY[0];
+			BarrowsPlugin.drawMinimap(this, worldX, worldY, plane);
 		}
 		DrawingArea.drawPixels(3, minimapTerrainY() + 73, minimapTerrainX() + 72, 0xffffff, 3);
 		HudLayout hud = HudLayout.get();
@@ -12801,6 +13624,7 @@ public class client extends RSApplet {
 		drawHudPart(ORBS[4], ox + scaleHudOffset(3, ow, srcW), oy + scaleHudOffset(3, oh, srcH), ow, oh, srcW, srcH);
 		drawHudPart(ORBS[0], ox + scaleHudOffset(4, ow, srcW), oy + scaleHudOffset(3, oh, srcH), ow, oh, srcW, srcH);
 		smallText.method382(getOrbTextColor(spec), ox + scaleHudOffset(44, ow, srcW), Integer.toString(spec), oy + scaleHudOffset(26, oh, srcH), true);
+		RegenMeter.drawSpec(ox, oy, ow, oh, spec);
 	}
 
 	private void processMiddleClickWear() {
@@ -12858,6 +13682,10 @@ public class client extends RSApplet {
 		if (hud.specOrbX < min) {
 			min = hud.specOrbX;
 		}
+		int xpLeft = xpHudOffX();
+		if (xpLeft < min) {
+			min = xpLeft;
+		}
 		return min - 8;
 	}
 
@@ -12882,7 +13710,10 @@ public class client extends RSApplet {
 		if (specOrb && hudHit(mx, my, hud.specOrbX, hud.specOrbY, hud.specOrbW, hud.specOrbH)) {
 			return true;
 		}
-		int overlayLeft = minimapDrawX() + Math.min(0, hud.compassX);
+		if (overXpCounter(mx, my)) {
+			return true;
+		}
+		int overlayLeft = minimapDrawX() + Math.min(xpHudOffX(), Math.min(0, hud.compassX));
 		return sx >= overlayLeft && sx < frameWidth && sy >= 0 && sy < 168;
 	}
 
@@ -12913,21 +13744,18 @@ public class client extends RSApplet {
 			super.clickMode3 = 0;
 			return true;
 		}
-		if (hudHit(mx, my, hud.prayerOrbX, hud.prayerOrbY, hud.prayerOrbW, hud.prayerOrbH)) {
-			if (selectingQuickPrayers) {
-				finishQuickPrayerSetup();
-			} else {
-				toggleQuickPrayers();
-			}
-			super.clickMode3 = 0;
-			return true;
-		}
 		if (specOrb && hudHit(mx, my, hud.specOrbX, hud.specOrbY, hud.specOrbW, hud.specOrbH)) {
 			int button = currentSpecButton();
 			if (button != -1) {
 				stream.createFrame(185);
 				stream.writeWord(button);
 			}
+			super.clickMode3 = 0;
+			return true;
+		}
+		if (overXpCounter(mx, my)) {
+			xpCounterOpen = !xpCounterOpen;
+			saveClientSettings();
 			super.clickMode3 = 0;
 			return true;
 		}
@@ -12969,6 +13797,24 @@ public class client extends RSApplet {
 			menuActionName[menuActionRow] = "Use Special Attack";
 			menuActionID[menuActionRow] = 1509;
 			menuActionRow++;
+			return;
+		}
+		if (hudHit(mx, my, hud.hpOrbX, hud.hpOrbY, hud.hpOrbW, hud.hpOrbH)) {
+			String poisonTip = PoisonPlugin.orbTooltip();
+			if (poisonTip != null) {
+				menuActionName[menuActionRow] = poisonTip;
+				menuActionID[menuActionRow] = 1515;
+				menuActionRow++;
+			}
+			return;
+		}
+		if (overXpCounter(mx, my)) {
+			menuActionName[menuActionRow] = "Reset XP tracker";
+			menuActionID[menuActionRow] = 1510;
+			menuActionRow++;
+			menuActionName[menuActionRow] = (xpDrops ? "Turn XP drops off" : "Turn XP drops on");
+			menuActionID[menuActionRow] = 1512;
+			menuActionRow++;
 		}
 	}
 
@@ -12978,7 +13824,7 @@ public class client extends RSApplet {
 		needDrawTabArea = true;
 		tabAreaAltered = true;
 		setQuickPrayerConfirmVisible(true);
-		pushMessage("Select prayers, then click Confirm at the bottom of the Prayer tab.", 0, "");
+		pushMessage("Select your quick prayers, then click Confirm.", 0, "");
 	}
 
 	private void clearChatHistory() {
@@ -12993,29 +13839,22 @@ public class client extends RSApplet {
 	}
 
 	private void drawAttackStyleBox() {
-		if (!attackStyleOverlay) {
+		String style = currentAttackStyle();
+		boolean warn = AttackStyleWarn.warned(style);
+		if (!attackStyleOverlay && !warn) {
 			return;
 		}
-		String style = currentAttackStyle();
 		int width = smallText.getTextWidth(style) + 10;
 		int height = 16;
-		int x = 519 - width - 8;
-		if (x + width > screenAreaWidth) {
-			x = screenAreaWidth - width - 4;
-		}
-		if (x < 4) {
-			x = 4;
-		}
-		int y = chatDrawY() - gameDrawY() - height - 4;
-		if (!isFixed() && chatBoxHidden) {
-			y = chatTop() - gameDrawY() - height - 4;
-		}
-		if (y < 4) {
-			y = 4;
-		}
+		OverlayManager.Panel p = OverlayManager.place("attackStyle", OverlayManager.ABOVE_CHATBOX, width, height);
+		int x = p.x;
+		int y = p.y;
+		int border = warn ? 0xFF3030 : 0x5A4933;
+		int text = warn ? 0xFF6666 : 0xff981f;
 		DrawingArea.method335(0x000000, y, width, height, 140, x);
-		DrawingArea.fillPixels(x, width, height, 0x5A4933, y);
-		smallText.method385(0xff981f, style, y + 12, x + 5);
+		boolean hi = RSApplet.altIsDown || OverlayManager.dragging();
+		DrawingArea.fillPixels(x, width, height, hi ? 0xFFE14A : border, y);
+		smallText.method385(text, style, y + 12, x + 5);
 	}
 
 	private String currentAttackStyle() {
@@ -13035,17 +13874,58 @@ public class client extends RSApplet {
 		return "Defensive";
 	}
 
-	private void drawQuickPrayerSelection() {
-		int[] xs = { 8, 44, 80, 114, 150, 8, 44, 80, 116, 152, 8, 42, 78, 116, 152, 8, 44, 80, 116, 150, 6, 44, 80, 116, 150, 6 };
-		int[] ys = { 6, 6, 6, 4, 4, 42, 42, 42, 42, 42, 79, 76, 76, 78, 78, 114, 114, 114, 114, 112, 148, 150, 150, 150, 148, 184 };
-		for (int i = 0; i < quickPrayers.length && i < xs.length; i++) {
-			if (!quickPrayers[i]) {
-				continue;
+	private void ensureQuickPraySprites() {
+		if (quickPraySprites[0] != null) {
+			return;
+		}
+		for (int i = 0; i < quickPraySprites.length; i++) {
+			try {
+				Sprite sprite = new Sprite("Prayer/Quick/" + i);
+				if (sprite.myWidth > 0 && sprite.myHeight > 0) {
+					if (i == 1 || i == 2) {
+						sprite.setTransparency(0, 0, 0);
+					}
+					quickPraySprites[i] = sprite;
+				}
+			} catch (Exception ignored) {
 			}
-			int x = 28 + xs[i];
-			int y = 37 + ys[i];
-			DrawingArea.method335(0xE2C04A, y, 34, 34, 90, x);
-			DrawingArea.fillPixels(x, 34, 34, 0xE2C04A, y);
+		}
+	}
+
+	private static final int[] QUICK_PRAY_X = { 6, 42, 78, 114, 150, 6, 42, 78, 116, 152, 6, 42, 78, 116, 152, 6, 42, 78, 116, 150, 6, 44, 80, 116, 150, 6 };
+	private static final int[] QUICK_PRAY_Y = { 4, 4, 4, 4, 4, 40, 40, 40, 40, 40, 76, 76, 76, 76, 76, 112, 112, 112, 112, 112, 148, 148, 148, 148, 148, 184 };
+
+	private void drawQuickPrayerSelection() {
+		ensureQuickPraySprites();
+		int ox = 28;
+		int oy = 37;
+		if (quickPraySprites[0] != null) {
+			quickPraySprites[0].drawSprite1(ox, oy + 22);
+		} else {
+			DrawingArea.method335(0x3a3a3a, oy + 22, 190, 212, 90, ox);
+		}
+		if (quickPraySprites[3] != null) {
+			quickPraySprites[3].drawSprite(ox, oy + 20);
+			quickPraySprites[3].drawSprite(ox, oy + 232);
+		}
+		for (int i = 0; i < quickPrayers.length && i < QUICK_PRAY_X.length; i++) {
+			Sprite tick = quickPrayers[i] ? quickPraySprites[2] : quickPraySprites[1];
+			if (tick != null) {
+				tick.drawSprite(ox + QUICK_PRAY_X[i] - 2, oy + QUICK_PRAY_Y[i] - 2);
+			} else if (quickPrayers[i]) {
+				DrawingArea.fillPixels(ox + QUICK_PRAY_X[i], 34, 34, 0xE2C04A, oy + QUICK_PRAY_Y[i]);
+			}
+		}
+		int cx = ox;
+		int cy = oy + 224;
+		boolean hover = super.mouseX >= tabDrawX() + cx && super.mouseX < tabDrawX() + cx + 190
+				&& super.mouseY >= tabDrawY() + cy && super.mouseY < tabDrawY() + cy + 24;
+		Sprite confirm = hover && quickPraySprites[4] != null ? quickPraySprites[4] : quickPraySprites[5];
+		if (confirm == null) {
+			confirm = quickPraySprites[4];
+		}
+		if (confirm != null) {
+			confirm.drawSprite(cx, cy);
 		}
 	}
 
@@ -13065,8 +13945,10 @@ public class client extends RSApplet {
 		if (confirm == null) {
 			return;
 		}
-		confirm.message = show ? "Confirm Quick Prayers" : "";
+		confirm.message = "";
 		confirm.atActionType = show ? 1 : 0;
+		confirm.width = 190;
+		confirm.height = 24;
 	}
 
 	private int prayerIndexForButton(int button) {
@@ -13092,10 +13974,79 @@ public class client extends RSApplet {
 		if (index == -1) {
 			return false;
 		}
-		quickPrayers[index] = !quickPrayers[index];
-		pushMessage((quickPrayers[index] ? "Added to" : "Removed from") + " quick prayers.", 0, "");
+		toggleQuickPrayerSlot(index);
 		needDrawTabArea = true;
 		return true;
+	}
+
+	private void toggleQuickPrayerSlot(int index) {
+		if (quickPrayers[index]) {
+			quickPrayers[index] = false;
+			return;
+		}
+		clearQuickPrayerConflicts(index);
+		quickPrayers[index] = true;
+	}
+
+	private void clearGroup(int[] group, int keep) {
+		for (int i = 0; i < group.length; i++) {
+			if (group[i] != keep && group[i] >= 0 && group[i] < quickPrayers.length) {
+				quickPrayers[group[i]] = false;
+			}
+		}
+	}
+
+	private boolean inGroup(int[] group, int index) {
+		for (int i = 0; i < group.length; i++) {
+			if (group[i] == index) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private void clearQuickPrayerConflicts(int index) {
+		int[] defPray = { 0, 5, 13, 24, 25 };
+		int[] strPray = { 1, 6, 14, 24, 25 };
+		int[] atkPray = { 2, 7, 15, 24, 25 };
+		int[] rangePray = { 3, 11, 19 };
+		int[] magePray = { 4, 12, 20 };
+		int[] overhead = { 16, 17, 18, 21, 22, 23 };
+		if (inGroup(defPray, index)) {
+			clearGroup(defPray, index);
+		}
+		if (inGroup(strPray, index) && index != 24 && index != 25) {
+			clearGroup(strPray, index);
+			clearGroup(rangePray, index);
+			clearGroup(magePray, index);
+		}
+		if (inGroup(atkPray, index) && index != 24 && index != 25) {
+			clearGroup(atkPray, index);
+			clearGroup(rangePray, index);
+			clearGroup(magePray, index);
+		}
+		if (inGroup(rangePray, index)) {
+			clearGroup(atkPray, index);
+			clearGroup(strPray, index);
+			clearGroup(rangePray, index);
+			clearGroup(magePray, index);
+		}
+		if (inGroup(magePray, index)) {
+			clearGroup(atkPray, index);
+			clearGroup(strPray, index);
+			clearGroup(rangePray, index);
+			clearGroup(magePray, index);
+		}
+		if (inGroup(overhead, index)) {
+			clearGroup(overhead, index);
+		}
+		if (index == 24 || index == 25) {
+			clearGroup(defPray, index);
+			clearGroup(strPray, index);
+			clearGroup(atkPray, index);
+			clearGroup(rangePray, index);
+			clearGroup(magePray, index);
+		}
 	}
 
 	private void toggleQuickPrayers() {
@@ -13111,7 +14062,7 @@ public class client extends RSApplet {
 			}
 		}
 		if (!any) {
-			pushMessage("Right-click the prayer orb to set quick prayers first.", 0, "");
+			pushMessage("Right-click the prayer orb and choose Setup Quick Prayers first.", 0, "");
 			return;
 		}
 		quickPrayersOn = !quickPrayersOn;
@@ -13122,12 +14073,32 @@ public class client extends RSApplet {
 			boolean on = i < PRAYER_GLOW.length && PRAYER_GLOW[i] < anIntArray1045.length && anIntArray1045[PRAYER_GLOW[i]] == 1;
 			if (quickPrayersOn && !on || !quickPrayersOn && on) {
 				stream.createFrame(185);
-				stream.writeWord(PRAYER_BUTTONS[i]);
+				stream.writeWord(PRAYER_WIDGETS[i]);
 			}
 		}
 	}
 
 	private void addXpDrop(int skill, int amount) {
+		addSessionXp(skill, amount);
+		queueXpDrop(skill, amount);
+	}
+
+	private void addSessionXp(int skill, int amount) {
+		ensureTrackingArray();
+		if (sessionXp == null || skill < 0 || skill >= sessionXp.length || amount <= 0) {
+			return;
+		}
+		if (!trackingSkill[skill]) {
+			return;
+		}
+		if (xpSessionStart == 0L) {
+			xpSessionStart = System.currentTimeMillis();
+		}
+		sessionXp[skill] += amount;
+		sessionTotalXp += amount;
+	}
+
+	private void queueXpDrop(int skill, int amount) {
 		if (xpDropCount >= xpDropSkill.length) {
 			for (int i = 1; i < xpDropCount; i++) {
 				xpDropSkill[i - 1] = xpDropSkill[i];
@@ -13146,12 +14117,195 @@ public class client extends RSApplet {
 		xpDropAmount[xpDropCount] = amount;
 		xpDropY[xpDropCount] = startY;
 		xpDropCount++;
-		if (sessionXp != null && skill >= 0 && skill < sessionXp.length) {
-			if (xpSessionStart == 0L) {
-				xpSessionStart = System.currentTimeMillis();
+	}
+
+	private int xpOrbW() {
+		return xpOrb != null && xpOrb.myWidth > 0 ? xpOrb.myWidth : 25;
+	}
+
+	private int xpOrbH() {
+		return xpOrb != null && xpOrb.myHeight > 0 ? xpOrb.myHeight : 25;
+	}
+
+	private int xpBarW() {
+		return xpBar != null && xpBar.myWidth > 0 ? xpBar.myWidth : 119;
+	}
+
+	private int xpBarH() {
+		return xpBar != null && xpBar.myHeight > 0 ? xpBar.myHeight : 23;
+	}
+
+	private int xpHudOffX() {
+		int orb = isFixed() ? -xpOrbW() - 4 : -xpOrbW() - 6;
+		if (xpCounterOpen) {
+			int bar = orb - xpBarW() + 8;
+			if (bar < orb) {
+				return bar;
 			}
-			sessionXp[skill] += amount;
-			sessionTotalXp += amount;
+		}
+		return orb;
+	}
+
+	private int xpOrbOffX() {
+		return isFixed() ? -xpOrbW() - 4 : -xpOrbW() - 6;
+	}
+
+	private int xpOrbOffY() {
+		return isFixed() ? 4 : 6;
+	}
+
+	private int xpBarOffX() {
+		return xpOrbOffX() - xpBarW() + 8;
+	}
+
+	private int xpBarOffY() {
+		return xpOrbOffY() + (xpOrbH() - xpBarH()) / 2;
+	}
+
+	private int xpOrbDrawX() {
+		int screenX = minimapDrawX() + xpOrbOffX();
+		return isFixed() ? screenX - gameDrawX() : screenX;
+	}
+
+	private int xpOrbDrawY() {
+		int screenY = xpOrbOffY();
+		return isFixed() ? screenY - gameDrawY() : screenY;
+	}
+
+	private int xpBarDrawX() {
+		int screenX = minimapDrawX() + xpBarOffX();
+		return isFixed() ? screenX - gameDrawX() : screenX;
+	}
+
+	private int xpBarDrawY() {
+		int screenY = xpBarOffY();
+		return isFixed() ? screenY - gameDrawY() : screenY;
+	}
+
+	private boolean overXpCounter(int mx, int my) {
+		if (hudHit(mx, my, xpOrbOffX(), xpOrbOffY(), xpOrbW(), xpOrbH())) {
+			return true;
+		}
+		return xpCounterOpen && hudHit(mx, my, xpBarOffX(), xpBarOffY(), xpBarW(), xpBarH());
+	}
+
+	private void resetXpTracker() {
+		if (sessionXp != null) {
+			for (int i = 0; i < sessionXp.length; i++) {
+				sessionXp[i] = 0;
+			}
+		}
+		sessionTotalXp = 0;
+		xpSessionStart = System.currentTimeMillis();
+	}
+
+	private void ensureTrackingArray() {
+		if (trackingSkill == null || trackingSkill.length != Skills.skillsCount) {
+			trackingSkill = new boolean[Skills.skillsCount];
+		}
+		if (sessionXp == null || sessionXp.length != Skills.skillsCount) {
+			sessionXp = new int[Skills.skillsCount];
+		}
+	}
+
+	private int trackedSkillBits() {
+		ensureTrackingArray();
+		int bits = 0;
+		for (int i = 0; i < trackingSkill.length && i < 31; i++) {
+			if (trackingSkill[i]) {
+				bits |= 1 << i;
+			}
+		}
+		return bits;
+	}
+
+	private void loadTrackedSkills(int bits) {
+		ensureTrackingArray();
+		for (int i = 0; i < trackingSkill.length && i < 31; i++) {
+			trackingSkill[i] = (bits & (1 << i)) != 0;
+		}
+	}
+
+	private boolean hasTrackedSkill() {
+		ensureTrackingArray();
+		for (int i = 0; i < trackingSkill.length; i++) {
+			if (trackingSkill[i]) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private void recountSessionTotal() {
+		sessionTotalXp = 0;
+		if (sessionXp == null) {
+			return;
+		}
+		for (int i = 0; i < sessionXp.length; i++) {
+			if (trackingSkill != null && i < trackingSkill.length && trackingSkill[i] && sessionXp[i] > 0) {
+				sessionTotalXp += sessionXp[i];
+			}
+		}
+	}
+
+	private void startXpTracking(int skill) {
+		ensureTrackingArray();
+		if (skill < 0 || skill >= trackingSkill.length) {
+			return;
+		}
+		trackingSkill[skill] = true;
+		sessionXp[skill] = 0;
+		recountSessionTotal();
+		if (xpSessionStart == 0L) {
+			xpSessionStart = System.currentTimeMillis();
+		}
+		xpTracker = true;
+		saveClientSettings();
+		pushMessage("Started XP tracking for " + skillDisplayName(skill) + ".", 0, "");
+	}
+
+	private void stopXpTracking(int skill) {
+		ensureTrackingArray();
+		if (skill < 0 || skill >= trackingSkill.length) {
+			return;
+		}
+		trackingSkill[skill] = false;
+		sessionXp[skill] = 0;
+		recountSessionTotal();
+		xpTracker = hasTrackedSkill();
+		saveClientSettings();
+		pushMessage("Stopped XP tracking for " + skillDisplayName(skill) + ".", 0, "");
+	}
+
+	private void drawXpHud() {
+		drawXpCounter();
+		if (xpDrops) {
+			drawXpDrops();
+		}
+	}
+
+	private void drawXpCounter() {
+		if (xpOrb == null) {
+			return;
+		}
+		if (xpCounterOpen && xpBar != null) {
+			xpBar.drawSprite(xpBarDrawX(), xpBarDrawY());
+			String text = formatNumber(sessionTotalXp);
+			TextDrawingArea font = smallText != null ? smallText : aTextDrawingArea_1271;
+			if (font != null) {
+				int tx = xpBarDrawX() + (xpBarW() - font.getTextWidth(text)) / 2;
+				int ty = xpBarDrawY() + xpBarH() / 2 + 4;
+				drawOutlinedText(font, text, tx, ty, 0xFFE14A);
+			}
+		}
+		Sprite orb = xpOrb;
+		int mx = super.mouseX - minimapDrawX();
+		int my = super.mouseY;
+		if (xpOrbOn != null && (xpCounterOpen || overXpCounter(mx, my))) {
+			orb = xpOrbOn;
+		}
+		if (orb != null) {
+			orb.drawSprite(xpOrbDrawX(), xpOrbDrawY());
 		}
 	}
 
@@ -13159,30 +14313,14 @@ public class client extends RSApplet {
 		if (!xpDrops || xpDropCount <= 0) {
 			return;
 		}
-		HudLayout hud = HudLayout.get();
 		int x;
-		int yBase = 22;
-		if (isFixed()) {
-			x = screenAreaWidth - 10;
+		int yBase;
+		if (xpCounterOpen && xpBar != null) {
+			x = xpBarDrawX() + xpBarW() / 2;
+			yBase = xpBarDrawY() + xpBarH() + 16;
 		} else {
-			int clusterLeft = hud.hpOrbX;
-			if (hud.prayerOrbX < clusterLeft) {
-				clusterLeft = hud.prayerOrbX;
-			}
-			if (hud.runOrbX < clusterLeft) {
-				clusterLeft = hud.runOrbX;
-			}
-			if (hud.mapFrameX > 0 && hud.mapFrameX < clusterLeft) {
-				clusterLeft = hud.mapFrameX;
-			}
-			x = minimapDrawX() + clusterLeft - 8;
-			if (x > frameWidth - 8) {
-				x = frameWidth - 8;
-			}
-			if (x < 120) {
-				x = 120;
-			}
-			yBase = 18;
+			x = xpOrbDrawX() + xpOrbW() / 2;
+			yBase = xpOrbDrawY() + xpOrbH() + 16;
 		}
 		long now = System.currentTimeMillis();
 		int dt = lastXpDropMs == 0L ? 20 : (int) (now - lastXpDropMs);
@@ -13199,8 +14337,13 @@ public class client extends RSApplet {
 			xpDropY[i] += step;
 			int y = yBase + (int) xpDropY[i];
 			String text = skillDisplayName(xpDropSkill[i]) + " +" + formatNumber(xpDropAmount[i]);
-			int tx = x - font.getTextWidth(text);
+			int tx = x - font.getTextWidth(text) / 2;
 			drawOutlinedText(font, text, tx, y, 0xFFE14A);
+			if (xpDropIcon != null) {
+				int ix = tx + font.getTextWidth(text) + 6;
+				int iy = y - xpDropIcon.myHeight + 4;
+				xpDropIcon.drawSprite(ix, iy);
+			}
 		}
 		int keep = 0;
 		for (int i = 0; i < xpDropCount; i++) {
@@ -13218,40 +14361,31 @@ public class client extends RSApplet {
 	}
 
 	private void drawXpTracker() {
-		if (sessionXp == null || sessionTotalXp <= 0 || smallText == null) {
+		ensureTrackingArray();
+		if (sessionXp == null || smallText == null) {
+			lastXpTrackerHeight = 0;
 			return;
 		}
 		long elapsed = System.currentTimeMillis() - xpSessionStart;
-		if (elapsed < 1000L) {
+		if (elapsed < 1000L || xpSessionStart == 0L) {
 			elapsed = 1000L;
 		}
-		int xpHour = (int) ((sessionTotalXp * 3600000L) / elapsed);
-		String[] lines = new String[6];
+		int trackedTotal = 0;
+		for (int i = 0; i < sessionXp.length; i++) {
+			if (trackingSkill[i]) {
+				trackedTotal += sessionXp[i];
+			}
+		}
+		int xpHour = (int) ((trackedTotal * 3600000L) / elapsed);
+		String[] lines = new String[Skills.skillsCount + 1];
 		int count = 0;
-		lines[count++] = "Session " + formatNumber(sessionTotalXp) + "  " + formatNumber(xpHour) + "/hr";
-		for (int n = 0; n < 4; n++) {
-			int best = -1;
-			int bestXp = 0;
-			for (int i = 0; i < sessionXp.length; i++) {
-				if (sessionXp[i] > bestXp) {
-					boolean used = false;
-					for (int p = 1; p < count; p++) {
-						if (lines[p] != null && lines[p].startsWith(skillDisplayName(i) + " ")) {
-							used = true;
-							break;
-						}
-					}
-					if (!used) {
-						best = i;
-						bestXp = sessionXp[i];
-					}
-				}
+		lines[count++] = "Session " + formatNumber(trackedTotal) + "  " + formatNumber(xpHour) + "/hr";
+		for (int i = 0; i < sessionXp.length; i++) {
+			if (!trackingSkill[i]) {
+				continue;
 			}
-			if (best < 0) {
-				break;
-			}
-			int skillHour = (int) ((bestXp * 3600000L) / elapsed);
-			lines[count++] = skillDisplayName(best) + " " + formatNumber(bestXp) + "  " + formatNumber(skillHour) + "/hr";
+			int skillHour = (int) ((sessionXp[i] * 3600000L) / elapsed);
+			lines[count++] = skillDisplayName(i) + " " + formatNumber(sessionXp[i]) + "  " + formatNumber(skillHour) + "/hr";
 		}
 		int width = 10;
 		for (int i = 0; i < count; i++) {
@@ -13261,13 +14395,12 @@ public class client extends RSApplet {
 			}
 		}
 		int height = 6 + count * 12;
-		int x = 8;
-		int y = screenAreaHeight - height - 8;
-		if (y < 40) {
-			y = 40;
-		}
-		DrawingArea.method335(0x000000, y, width, height, 150, x);
-		DrawingArea.fillPixels(x, width, height, 0x5A4933, y);
+		lastXpTrackerHeight = height;
+		lastXpTrackerWidth = width;
+		OverlayManager.Panel p = OverlayManager.place("xpTracker", OverlayManager.TOP_LEFT, width, height);
+		OverlayManager.paint(p, OverlayManager.dragging() ? 200 : 150);
+		int x = p.x;
+		int y = p.y;
 		for (int i = 0; i < count; i++) {
 			smallText.method385(0xff981f, lines[i], y + 12 + i * 12, x + 4);
 		}
@@ -13435,8 +14568,8 @@ public class client extends RSApplet {
 		if (tabInterfaceIDs[tabID] != 3917) {
 			return;
 		}
-		int mx = super.mouseX - tabDrawX() - 28;
-		int my = super.mouseY - tabDrawY() - 37;
+		int mx = super.mouseX - skillTabOriginX();
+		int my = super.mouseY - skillTabOriginY();
 		int skill = hoveredSkill(mx, my);
 		if (skill == -2) {
 			return;
@@ -13490,36 +14623,83 @@ public class client extends RSApplet {
 			boxY = 0;
 		}
 		DrawingArea.method335(0x000000, boxY, width, height, 180, boxX);
-		DrawingArea.fillPixels(boxX, height, 0x5A4933, boxY, width);
+		DrawingArea.fillPixels(boxX, width, height, 0x5A4933, boxY);
 		for (int i = 0; i < lines.length; i++) {
 			smallText.method385(0xff981f, lines[i], boxY + 12 + i * 12, boxX + 4);
 		}
 	}
 
+	private int skillTabOriginX() {
+		return tabDrawX() + 28;
+	}
+
+	private int skillTabOriginY() {
+		return tabDrawY() + 37;
+	}
+
+	private boolean isSkillTabLayer(int id) {
+		return id == 3917 || id == 3918 || id == 3925 || id == 3932 || id == 3939
+				|| id == 3946 || id == 3953 || id == 4148;
+	}
+
 	private int hoveredSkill(int mx, int my) {
-		int[][] boxes = {
-			{ 0, 2, 0 }, { 64, 2, 2 }, { 128, 2, 1 },
-			{ 0, 33, 4 }, { 64, 33, 5 }, { 128, 33, 6 },
-			{ 0, 70, 20 }, { 65, 70, 22 }, { 130, 70, 3 },
-			{ 0, 100, 16 }, { 65, 100, 15 }, { 130, 100, 17 },
-			{ 0, 130, 12 }, { 65, 130, 9 }, { 130, 130, 18 },
-			{ 0, 160, 14 }, { 65, 160, 13 }, { 130, 160, 10 },
-			{ 0, 190, 7 }, { 65, 190, 11 }, { 130, 190, 8 },
-			{ 1, 219, 19 }, { 64, 219, 21 }, { 128, 219, -1 }
-		};
-		for (int i = 0; i < boxes.length; i++) {
-			int x = boxes[i][0];
-			int y = boxes[i][1];
-			if (mx >= x && my >= y && mx < x + 62 && my < y + 32) {
-				return boxes[i][2];
-			}
+		if (mx < 0 || mx >= 192 || my < 0) {
+			return -2;
 		}
-		return -2;
+		int col = mx / 64;
+		if (col > 2) {
+			col = 2;
+		}
+		int row;
+		if (my >= 219 && my < 251) {
+			row = 7;
+		} else if (my < 217) {
+			row = my / 31;
+			if (row > 6) {
+				row = 6;
+			}
+		} else {
+			return -2;
+		}
+		int[][] skills = {
+			{ 0, 3, 14 },
+			{ 2, 16, 13 },
+			{ 1, 15, 10 },
+			{ 4, 17, 7 },
+			{ 5, 12, 11 },
+			{ 6, 9, 8 },
+			{ 20, 18, 19 },
+			{ 22, 21, -1 }
+		};
+		return skills[row][col];
 	}
 
 	private void drawGameOverlays() {
-		if (xpDrops) {
-			drawXpDrops();
+		if (isFixed()) {
+			drawXpHud();
+		}
+		int viewW = isFixed() ? screenAreaWidth : Math.min(screenAreaWidth, Math.max(200, tabDrawX() - 4));
+		int viewH = overlayViewBottom();
+		if (viewH > screenAreaHeight) {
+			viewH = screenAreaHeight;
+		}
+		OverlayManager.begin(viewW, viewH, gameDrawX(), gameDrawY(), overlayTopY(), screenAreaWidth, 519, chatBoxHidden && !isFixed());
+		if ((NpcIndicators.active() && NpcIndicators.names) || (ImplingsPlugin.enabled && ImplingsPlugin.names)) {
+			drawNpcIndicatorNames();
+		}
+		CannonOverlay.draw(this, smallText, plane);
+		if (PlayerIndicators.enabled && PlayerIndicators.names) {
+			drawPlayerIndicatorNames();
+		}
+		drawHudOverlays();
+	}
+
+	private void drawHudOverlays() {
+		OverlayManager.startHud();
+		if (hasTrackedSkill()) {
+			drawXpTracker();
+		} else {
+			lastXpTrackerHeight = 0;
 		}
 		if (npcHealthOverlay) {
 			drawNpcHealthOverlay();
@@ -13527,23 +14707,109 @@ public class client extends RSApplet {
 		if (boostedStatOverlay) {
 			drawBoostedStatOverlay();
 		}
-		if (attackStyleOverlay) {
-			drawAttackStyleBox();
-		}
-		if (xpTracker) {
-			drawXpTracker();
-		}
 		if (statusTimers) {
-			StatusTimers.draw(smallText, 8, overlayTopY() + (npcHealthOverlay ? 50 : 8));
+			StatusTimers.draw(smallText);
 		}
+		CannonOverlay.drawInfo(smallText);
+		PoisonPlugin.drawInfo(smallText);
+		int worldX = myPlayer != null ? client.getBaseX() + myPlayer.smallX[0] : 0;
+		int worldY = myPlayer != null ? client.getBaseY() + myPlayer.smallY[0] : 0;
+		BarrowsPlugin.drawInfo(smallText, worldX, worldY);
+		SlayerTracker.draw(smallText);
+		AmmoOverlay.draw(smallText);
+		BossTimers.draw(smallText);
+		drawAttackStyleBox();
 		drawPerformanceOverlay();
 		if (selectingQuickPrayers) {
-			smallText.method385(0x00FF00, "Quick prayer setup - click Confirm in the Prayer tab.", overlayTopY() + 12, 8);
+			InfoBoxes.draw("quickPray", smallText, "Quick prayer setup - click Confirm in the Prayer tab.", 0x00FF00);
 		}
+		InfoBoxes.flush();
+		OverlayManager.drawAnchors();
 	}
 
 	private int overlayTopY() {
 		return 28;
+	}
+
+	private int xpTrackerDefaultX() {
+		return isFixed() ? gameDrawX() + 8 : 8;
+	}
+
+	private int xpTrackerDefaultY() {
+		return isFixed() ? gameDrawY() + overlayTopY() : overlayTopY();
+	}
+
+	private int xpTrackerScreenX() {
+		int x = isFixed() ? xpTrackerFixedX : xpTrackerResizeX;
+		return x >= 0 ? x : xpTrackerDefaultX();
+	}
+
+	private int xpTrackerScreenY() {
+		int y = isFixed() ? xpTrackerFixedY : xpTrackerResizeY;
+		return y >= 0 ? y : xpTrackerDefaultY();
+	}
+
+	private void setXpTrackerScreenPos(int x, int y) {
+		int w = lastXpTrackerWidth > 0 ? lastXpTrackerWidth : 120;
+		int h = lastXpTrackerHeight > 0 ? lastXpTrackerHeight : 20;
+		if (x < 0) {
+			x = 0;
+		}
+		if (y < 0) {
+			y = 0;
+		}
+		if (x + w > frameWidth) {
+			x = Math.max(0, frameWidth - w);
+		}
+		if (y + h > frameHeight) {
+			y = Math.max(0, frameHeight - h);
+		}
+		if (isFixed()) {
+			xpTrackerFixedX = x;
+			xpTrackerFixedY = y;
+		} else {
+			xpTrackerResizeX = x;
+			xpTrackerResizeY = y;
+		}
+	}
+
+	private boolean overXpTracker(int sx, int sy) {
+		if (!hasTrackedSkill() || lastXpTrackerWidth <= 0 || lastXpTrackerHeight <= 0) {
+			return false;
+		}
+		int x = xpTrackerScreenX();
+		int y = xpTrackerScreenY();
+		return sx >= x && sy >= y && sx < x + lastXpTrackerWidth && sy < y + lastXpTrackerHeight;
+	}
+
+	private boolean processXpTrackerDrag() {
+		if (draggingXpTracker) {
+			if (super.clickMode2 != 1 || !RSApplet.altIsDown) {
+				draggingXpTracker = false;
+				saveClientSettings();
+				return false;
+			}
+			setXpTrackerScreenPos(super.mouseX - xpTrackerGrabX, super.mouseY - xpTrackerGrabY);
+			super.clickMode3 = 0;
+			return true;
+		}
+		if (!RSApplet.altIsDown || !hasTrackedSkill()) {
+			return false;
+		}
+		if (super.clickMode2 != 1 && super.clickMode3 != 1) {
+			return false;
+		}
+		int sx = super.clickMode3 == 1 ? super.saveClickX : super.mouseX;
+		int sy = super.clickMode3 == 1 ? super.saveClickY : super.mouseY;
+		if (!overXpTracker(sx, sy)) {
+			return false;
+		}
+		draggingXpTracker = true;
+		xpTrackerGrabX = sx - xpTrackerScreenX();
+		xpTrackerGrabY = sy - xpTrackerScreenY();
+		setXpTrackerScreenPos(super.mouseX - xpTrackerGrabX, super.mouseY - xpTrackerGrabY);
+		super.clickMode3 = 0;
+		return true;
 	}
 
 	private void drawGroundItemNames() {
@@ -13803,14 +15069,16 @@ public class client extends RSApplet {
 		if (filled < 0) {
 			filled = 0;
 		}
-		int y = overlayTopY();
-		DrawingArea.method335(0x000000, y, width + 12, 44, 190, 4);
-		aTextDrawingArea_1271.method385(0xff981f, name, y + 14, 10);
-		DrawingArea.drawPixels(8, y + 18, 10, 0x330000, width);
+		OverlayManager.Panel p = OverlayManager.place("npcHealth", OverlayManager.TOP_LEFT, width + 12, 44);
+		int y = p.y;
+		int x = p.x;
+		OverlayManager.paint(p, 190);
+		aTextDrawingArea_1271.method385(0xff981f, name, y + 14, x + 6);
+		DrawingArea.drawPixels(8, y + 18, x + 6, 0x330000, width);
 		if (filled > 0) {
-			DrawingArea.drawPixels(8, y + 18, 10, 0x00C000, filled);
+			DrawingArea.drawPixels(8, y + 18, x + 6, 0x00C000, filled);
 		}
-		smallText.method385(0xffffff, hp + " / " + max, y + 38, 10);
+		smallText.method385(0xffffff, hp + " / " + max, y + 38, x + 6);
 	}
 
 	private Player combatPlayer() {
@@ -13873,12 +15141,10 @@ public class client extends RSApplet {
 
 	private void drawBoostedStatOverlay() {
 		syncBoostedStatsFromWidgets();
-		int y = overlayTopY();
-		if (npcHealthOverlay && (combatNpc() != null || combatPlayer() != null)) {
-			y += 50;
-		}
-		int shown = 0;
 		int[] skills = { 0, 2, 1, 4, 6 };
+		String[] lines = new String[skills.length];
+		int shown = 0;
+		int width = 90;
 		for (int s = 0; s < skills.length; s++) {
 			int id = skills[s];
 			if (id >= currentStats.length || currentStats[id] <= maxStats[id]) {
@@ -13890,9 +15156,19 @@ public class client extends RSApplet {
 			} else {
 				line = skillDisplayName(id) + " " + currentStats[id] + "/" + maxStats[id];
 			}
-			DrawingArea.method335(0x000000, y + shown * 16, 90, 15, 150, 4);
-			smallText.method385(0x00FF00, line, y + 12 + shown * 16, 8);
-			shown++;
+			lines[shown++] = line;
+			int tw = smallText.getTextWidth(line) + 8;
+			if (tw > width) {
+				width = tw;
+			}
+		}
+		if (shown <= 0) {
+			return;
+		}
+		OverlayManager.Panel p = OverlayManager.place("boosted", OverlayManager.TOP_LEFT, width, shown * 16);
+		OverlayManager.paint(p, 150);
+		for (int i = 0; i < shown; i++) {
+			smallText.method385(0x00FF00, lines[i], p.y + 12 + i * 16, p.x + 4);
 		}
 	}
 
@@ -13935,41 +15211,39 @@ public class client extends RSApplet {
 		if (!performanceStats && !showPing) {
 			return;
 		}
-		int x = 4;
-		int y = chatDrawY() - gameDrawY() - 8;
-		if (y > screenAreaHeight - 8) {
-			y = screenAreaHeight - 8;
-		}
-		int lines = 0;
-		if (performanceStats) {
-			lines += 4;
-		}
-		if (showPing) {
-			lines += 1;
-		}
-		y -= lines * 14;
-		if (y < overlayTopY()) {
-			y = overlayTopY();
-		}
+		String[] texts = new String[5];
+		int[] cols = new int[5];
+		int n = 0;
+		int width = 80;
 		if (performanceStats) {
 			Runtime rt = Runtime.getRuntime();
 			long used = (rt.totalMemory() - rt.freeMemory()) / 1024L / 1024L;
 			long total = rt.totalMemory() / 1024L / 1024L;
 			long max = rt.maxMemory() / 1024L / 1024L;
 			int fpsColor = super.fps < 15 ? 0xff0000 : super.fps < 30 ? 0xffff00 : 0x00FF00;
-			smallText.method385(fpsColor, "FPS: " + super.fps + "  min " + super.fpsMin + "  max " + super.fpsMax, y, x);
-			y += 14;
-			smallText.method385(0xDDDDDD, "Frame: " + super.lastFrameMs + "ms", y, x);
-			y += 14;
-			smallText.method385(0xDDDDDD, "Mem: " + used + "/" + total + "MB  max " + max + "MB", y, x);
-			y += 14;
-			smallText.method385(0xAAAAAA, "GL: " + (openGlEnabled ? "on" : "off") + "  AA: " + strengthLabel(aaStrength), y, x);
-			y += 14;
+			texts[n] = "FPS: " + super.fps + "  min " + super.fpsMin + "  max " + super.fpsMax;
+			cols[n++] = fpsColor;
+			texts[n] = "Frame: " + super.lastFrameMs + "ms";
+			cols[n++] = 0xDDDDDD;
+			texts[n] = "Mem: " + used + "/" + total + "MB  max " + max + "MB";
+			cols[n++] = 0xDDDDDD;
+			texts[n] = "GL: " + (openGlEnabled ? "on" : "off") + "  AA: " + strengthLabel(aaStrength);
+			cols[n++] = 0xAAAAAA;
 		}
 		if (showPing) {
-			String ping = pingMs < 0 ? "Ping: --" : "Ping: " + pingMs + "ms  min " + pingMin + "  max " + pingMax;
-			int color = pingMs < 0 ? 0xAAAAAA : pingMs < 80 ? 0x00FF00 : pingMs < 150 ? 0xffff00 : 0xff0000;
-			smallText.method385(color, ping, y, x);
+			texts[n] = pingMs < 0 ? "Ping: --" : "Ping: " + pingMs + "ms  min " + pingMin + "  max " + pingMax;
+			cols[n++] = pingMs < 0 ? 0xAAAAAA : pingMs < 80 ? 0x00FF00 : pingMs < 150 ? 0xffff00 : 0xff0000;
+		}
+		for (int i = 0; i < n; i++) {
+			int tw = smallText.getTextWidth(texts[i]) + 8;
+			if (tw > width) {
+				width = tw;
+			}
+		}
+		OverlayManager.Panel p = OverlayManager.place("performance", OverlayManager.BOTTOM_LEFT, width, n * 14 + 4);
+		OverlayManager.paint(p, 140);
+		for (int i = 0; i < n; i++) {
+			smallText.method385(cols[i], texts[i], p.y + 12 + i * 14, p.x + 4);
 		}
 	}
 
@@ -14002,6 +15276,9 @@ public class client extends RSApplet {
 	            drawHudPart(ORBS[3], ox + scaleHudOffset(9, ow, srcW), oy + scaleHudOffset(11, oh, srcH), ow, oh, srcW, srcH);
 	        }
 	         smallText.method382(getOrbTextColor(health), ox + scaleHudOffset(44, ow, srcW), currentHP + "", oy + scaleHudOffset(26, oh, srcH), true);
+		PoisonPlugin.tintHpOrb(ox, oy, ow, oh);
+		RegenMeter.track(currentHP, maxHP2, currentSpecPercent());
+		RegenMeter.drawHp(ox, oy, ow, oh, currentHP, maxHP2);
 		if (orbFlash && health <= 25 && loopCycle % 20 < 10) {
 			DrawingArea.method335(0xff0000, oy, ow > 0 ? ow : 57, oh > 0 ? oh : 34, 90, ox);
 		}
@@ -14031,6 +15308,118 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 
 	public void npcScreenPos(Entity entity, int i) {
 		calcEntityScreenPos(entity.x, i, entity.y);
+	}
+
+	int getSpriteDrawX() {
+		return spriteDrawX;
+	}
+
+	int getSpriteDrawY() {
+		return spriteDrawY;
+	}
+
+	private void prepareNpcIndicators() {
+		NpcIndicators.beginFrame();
+		PlayerIndicators.beginFrame();
+		boolean slayerDirty = false;
+		for (int i = 0; i < npcCount; i++) {
+			NPC npc = npcArray[npcIndices[i]];
+			if (npc == null) {
+				continue;
+			}
+			BossTimers.observe(npc, npcIndices[i]);
+			if (SlayerTracker.observe(npc, npcIndices[i])) {
+				slayerDirty = true;
+			}
+			if (npc.isVisible() && NpcIndicators.active() && NpcIndicators.matches(npc)) {
+				NpcIndicators.markTiles(npc);
+			}
+		}
+		if (slayerDirty) {
+			saveClientSettings();
+		}
+		if (PlayerIndicators.enabled && PlayerIndicators.tiles) {
+			if (myPlayer != null) {
+				PlayerIndicators.mark(this, myPlayer);
+			}
+			for (int i = 0; i < playerCount; i++) {
+				Player player = playerArray[playerIndices[i]];
+				if (player != null && player.isVisible()) {
+					PlayerIndicators.mark(this, player);
+				}
+			}
+		}
+	}
+
+	private void drawNpcIndicatorHulls() {
+		for (int i = 0; i < npcCount; i++) {
+			NPC npc = npcArray[npcIndices[i]];
+			if (npc == null || !npc.isVisible()) {
+				continue;
+			}
+			if (NpcIndicators.active() && NpcIndicators.matches(npc) && NpcIndicators.showHull(npc)) {
+				NpcIndicators.drawHull(this, npc);
+			}
+			if (SlayerTracker.matches(npc)) {
+				NpcIndicators.drawHull(this, npc, 0xFF40FF);
+			}
+			ImplingsPlugin.drawHull(this, npc);
+			ImplingsPlugin.onNpc(this, npc);
+			int bcol = npc.desc != null ? BarrowsPlugin.brotherColor((int) npc.desc.interfaceType) : 0;
+			if (bcol != 0) {
+				NpcIndicators.drawHull(this, npc, bcol);
+			}
+		}
+	}
+
+	private void drawPlayerIndicatorNames() {
+		if (myPlayer != null) {
+			PlayerIndicators.drawName(this, myPlayer, smallText);
+		}
+		for (int i = 0; i < playerCount; i++) {
+			Player player = playerArray[playerIndices[i]];
+			if (player != null && player.isVisible() && player != myPlayer) {
+				PlayerIndicators.drawName(this, player, smallText);
+			}
+		}
+	}
+
+	private void drawNpcIndicatorNames() {
+		for (int i = 0; i < npcCount; i++) {
+			NPC npc = npcArray[npcIndices[i]];
+			if (npc == null || !npc.isVisible()) {
+				continue;
+			}
+			if (NpcIndicators.active() && NpcIndicators.names && NpcIndicators.matches(npc)) {
+				NpcIndicators.drawName(this, npc, smallText);
+			}
+			ImplingsPlugin.drawName(this, npc, smallText);
+		}
+	}
+
+	private void drawNpcMinimapName(String name, int i, int j) {
+		drawMinimapName(name, i, j, NpcIndicators.color());
+	}
+
+	void drawBarrowsMinimapLetter(String letter, int i, int j, int color) {
+		drawMinimapName(letter, i, j, color);
+	}
+
+	private void drawMinimapName(String name, int i, int j, int color) {
+		int k = viewRotation + minimapRotation & 0x7ff;
+		int l = i * i + j * j;
+		if (l > 6400) {
+			return;
+		}
+		int i1 = Model.modelIntArray1[k];
+		int j1 = Model.modelIntArray2[k];
+		i1 = (i1 * 256) / (minimapZoom + 256);
+		j1 = (j1 * 256) / (minimapZoom + 256);
+		int k1 = j * i1 + i * j1 >> 16;
+		int l1 = j * j1 - i * i1 >> 16;
+		int x = minimapTerrainX() + 77 + k1;
+		int y = minimapTerrainY() + 80 - l1;
+		smallText.drawText(color, name, y, x);
 	}
 
 	public void calcEntityScreenPos(int i, int j, int l) {
@@ -14102,14 +15491,15 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 				if ((k == 3 || k == 7)
 						&& (k == 7 || privateChatMode == 0 || privateChatMode == 1
 								&& isFriendOrSelf(s))) {
-					int l = 329 - i * 13;
-					if (super.mouseX > 4 && super.mouseY - 4 > l - 10
-							&& super.mouseY - 4 <= l + 3) {
+					int l = splitPrivateMessageY(i);
+					int my = super.mouseY - gameDrawY();
+					if (super.mouseX > gameDrawX() + 4 && my > l - 10
+							&& my <= l + 3) {
 						int i1 = aTextDrawingArea_1271.getTextWidth("From:  "
 								+ s + stampedChat(j)) + 25;
 						if (i1 > 450)
 							i1 = 450;
-						if (super.mouseX < 4 + i1) {
+						if (super.mouseX < gameDrawX() + 4 + i1) {
 							if (myPrivilege >= 1) {
 								menuActionName[menuActionRow] = "Report abuse @whi@"
 										+ s;
@@ -14453,10 +15843,12 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 			aBackground_967.drawBackground(j1 - 73, i2 - 20);
 			chatTextDrawingArea.method382(0xffffff, j1, "Cancel", i2 + 5, true);
 		}
-		fillLoginBackdrop();
-		blitLoginScene();
-		blitTitle(aRSImageProducer_1109, 171, 202);
-		welcomeScreenRaised = false;
+			fillLoginBackdrop();
+			blitLoginScene();
+			blitTitle(aRSImageProducer_1109, 171, 202);
+			drawSavedCharacters();
+			drawLoginVolume();
+			welcomeScreenRaised = false;
 		} else if(normalLogin == false) {
 		//worldLoginScreen();
 			resetImageProducers();
@@ -14505,8 +15897,304 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 			fillLoginBackdrop();
 			blitLoginScene();
 			blitTitle(aRSImageProducer_1109, 171, 133);
+			drawSavedCharacters();
+			drawLoginVolume();
 			welcomeScreenRaised = false;
 		}
+	}
+
+	private void snapshotSavedCharacter() {
+		if (myUsername == null || myUsername.trim().length() == 0) {
+			return;
+		}
+		if (rememberMe != 1 && SavedCharacters.indexOf(myUsername) < 0) {
+			return;
+		}
+		int total = 0;
+		int xp = 0;
+		if (maxStats != null) {
+			for (int i = 0; i < maxStats.length; i++) {
+				if (i >= Skills.skillEnabled.length || Skills.skillEnabled[i]) {
+					total += maxStats[i];
+				}
+			}
+		}
+		if (currentExp != null) {
+			for (int i = 0; i < currentExp.length; i++) {
+				if (i >= Skills.skillEnabled.length || Skills.skillEnabled[i]) {
+					xp += currentExp[i];
+				}
+			}
+		}
+		int combat = myPlayer != null ? myPlayer.combatLevel : 0;
+		int gender = myPlayer != null ? myPlayer.getGender() : 0;
+		int[] eq = null;
+		int[] col = null;
+		if (myPlayer != null && myPlayer.visible) {
+			eq = myPlayer.equipment;
+			col = myPlayer.anIntArray1700;
+		}
+		SavedCharacters.upsert(myUsername, rememberMe == 1 ? myPassword : null, combat, total, xp, gender, eq, col);
+	}
+
+	private String compactXp(int xp) {
+		if (xp >= 10000000) {
+			return (xp / 1000000) + "m";
+		}
+		if (xp >= 100000) {
+			return (xp / 1000) + "k";
+		}
+		return formatNumber(xp);
+	}
+
+	private void drawSavedCharacters() {
+		if (aRSImageProducer_1108 == null || smallText == null) {
+			return;
+		}
+		int n = SavedCharacters.count();
+		if (n <= 0) {
+			return;
+		}
+		int[] oldScan = Texture.anIntArray1472;
+		int oldTx = Texture.textureInt1;
+		int oldTy = Texture.textureInt2;
+		aRSImageProducer_1108.initDrawingArea();
+		Texture.method364();
+		int mx = super.mouseX - loginOffsetX() - SavedCharacters.PANEL_X;
+		int my = super.mouseY - loginOffsetY() - SavedCharacters.PANEL_Y;
+		int cardW = SavedCharacters.cardWidth(n);
+		int startX = (SavedCharacters.PANEL_W - n * cardW) / 2;
+		smallText.method382(0, SavedCharacters.PANEL_W / 2 + 1, "Saved characters", 13, true);
+		smallText.method382(0xff981f, SavedCharacters.PANEL_W / 2, "Saved characters", 12, true);
+		for (int i = 0; i < n; i++) {
+			SavedCharacters slot = SavedCharacters.get(i);
+			if (slot == null) {
+				continue;
+			}
+			int x = startX + i * cardW + 3;
+			int y = 18;
+			int w = cardW - 6;
+			int h = 110;
+			boolean hover = mx >= x && mx < x + w && my >= y && my < y + h;
+			DrawingArea.drawPixels(h, y, x, 0x0d0d0d, w);
+			DrawingArea.drawPixels(h - 2, y + 1, x + 1, hover ? 0xff981f : 0x6a6a6a, w - 2);
+			DrawingArea.drawPixels(h - 4, y + 2, x + 2, 0x2a2218, w - 2);
+			int well = 56;
+			int wx = x + (w - well) / 2;
+			int wy = y + 6;
+			DrawingArea.drawPixels(well + 2, wy - 1, wx - 1, 0x111111, well + 2);
+			slot.drawPortrait(wx, wy, well, well);
+			DrawingArea.fillPixels(wx - 1, well + 2, well + 2, hover ? 0xff981f : 0x4a4a4a, wy - 1);
+			String name = slot.name;
+			if (name.length() > 11) {
+				name = name.substring(0, 11);
+			}
+			smallText.method382(0, x + w / 2 + 1, name, wy + well + 14, true);
+			smallText.method382(0xffffff, x + w / 2, name, wy + well + 13, true);
+			smallText.method382(0xff981f, x + w / 2, "Lvl " + slot.combat, wy + well + 25, true);
+			smallText.method382(0xc6b895, x + w / 2, slot.totalLevel + " tot  " + compactXp(slot.totalXp) + " xp", wy + well + 37, true);
+			int rx = x + w - 8;
+			int ry = y + 12;
+			boolean overX = mx >= rx - 6 && mx <= rx + 6 && my >= ry - 8 && my <= ry + 4;
+			smallText.method382(overX ? 0xff3030 : 0xa07850, rx, "x", ry, true);
+		}
+		Texture.anIntArray1472 = oldScan;
+		Texture.textureInt1 = oldTx;
+		Texture.textureInt2 = oldTy;
+		blitTitle(aRSImageProducer_1108, SavedCharacters.PANEL_Y, SavedCharacters.PANEL_X);
+	}
+
+	private static final int LOGIN_VOL_X = 108;
+	private static final int LOGIN_VOL_Y = 196;
+	private static final int LOGIN_VOL_W = 90;
+	private static final int LOGIN_VOL_H = 38;
+
+	private void ensureLoginVolumeSprites() {
+		if (loginMusicSprite == null) {
+			try {
+				Sprite sprite = new Sprite("Login/music");
+				if (sprite.myWidth > 0 && sprite.myHeight > 0) {
+					loginMusicSprite = sprite;
+				}
+			} catch (Exception ignored) {
+			}
+		}
+		if (loginMuteSprite == null) {
+			try {
+				Sprite sprite = new Sprite("Login/mute");
+				if (sprite.myWidth > 0 && sprite.myHeight > 0) {
+					loginMuteSprite = sprite;
+				}
+			} catch (Exception ignored) {
+			}
+		}
+	}
+
+	private int loginMusicLevel() {
+		if (!musicEnabled) {
+			return 4;
+		}
+		return optionMusic;
+	}
+
+	private void playTitleMusic() {
+		if (!musicEnabled || lowMem || onDemandFetcher == null) {
+			return;
+		}
+		if (date.getMonth() == 10 && date.getDate() >= 28) {
+			playSong(HWEEN_THEME);
+		} else if (date.getMonth() == 11 || date.getMonth() == 0 && date.getDate() <= 27) {
+			playSong(XMAS_THEME);
+		} else {
+			playSong(OLD_THEME);
+		}
+	}
+
+	private void applyLoginMusicLevel(int level) {
+		if (level < 0) {
+			level = 0;
+		}
+		if (level > 4) {
+			level = 4;
+		}
+		int previous = loginMusicLevel();
+		boolean wasOn = musicEnabled;
+		optionMusic = level;
+		if (level >= 4) {
+			if (previous < 4) {
+				loginMusicRestore = previous;
+			}
+			musicEnabled = false;
+			stopMidi();
+		} else {
+			loginMusicRestore = level;
+			int[] volumes = { 256, 192, 128, 64 };
+			musicEnabled = true;
+			setMidiVolume(volumes[level]);
+			if (!wasOn || midiPlayer == null || !midiPlayer.playing()) {
+				currentSong = -1;
+				prevSong = 0;
+				playTitleMusic();
+			}
+		}
+		if (variousSettings != null) {
+			variousSettings[168] = optionMusic;
+		}
+		saveClientSettings();
+	}
+
+	private void drawLoginVolume() {
+		if (aRSImageProducer_1113 == null) {
+			return;
+		}
+		ensureLoginVolumeSprites();
+		int muted = loginMusicLevel() >= 4 ? 1 : 0;
+		int bars = muted == 1 ? 0 : 4 - loginMusicLevel();
+		int mx = super.mouseX - loginOffsetX() - 562;
+		int my = super.mouseY - loginOffsetY() - 265;
+		boolean hover = mx >= LOGIN_VOL_X && mx < LOGIN_VOL_X + LOGIN_VOL_W && my >= LOGIN_VOL_Y && my < LOGIN_VOL_Y + LOGIN_VOL_H;
+		aRSImageProducer_1113.initDrawingArea();
+		int x = LOGIN_VOL_X;
+		int y = LOGIN_VOL_Y;
+		DrawingArea.drawPixels(LOGIN_VOL_H, y, x, 0x120e0a, LOGIN_VOL_W);
+		DrawingArea.fillPixels(x, LOGIN_VOL_W, LOGIN_VOL_H, hover ? 0xff981f : 0x5A4933, y);
+		int iconX = x + 1;
+		int iconY = y + 1;
+		Sprite icon = muted == 1 ? loginMuteSprite : loginMusicSprite;
+		if (icon != null) {
+			icon.drawSprite(iconX, iconY);
+		} else {
+			drawLoginVolumeFallback(iconX + 6, iconY + 6, muted == 1);
+		}
+		int barX = x + 40;
+		int barY = y + 14;
+		int barW = 44;
+		int barH = 10;
+		DrawingArea.drawPixels(barH, barY, barX, 0x1a1610, barW);
+		DrawingArea.fillPixels(barX, barW, barH, 0x6a5a40, barY);
+		if (bars > 0) {
+			int fill = bars * barW / 4;
+			DrawingArea.drawPixels(barH - 2, barY + 1, barX + 1, 0xff981f, fill - 2 > 0 ? fill - 2 : fill);
+		}
+		if (smallText != null) {
+			smallText.method382(0xc6b895, barX + barW / 2, muted == 1 ? "Muted" : "Music", y + 11, true);
+		}
+		blitTitle(aRSImageProducer_1113, 265, 562);
+	}
+
+	private void drawLoginVolumeFallback(int x, int y, boolean muted) {
+		DrawingArea.drawPixels(16, y + 6, x + 2, 0xffd37a, 6);
+		DrawingArea.drawPixels(10, y + 2, x + 8, 0xffd37a, 4);
+		DrawingArea.drawPixels(6, y + 14, x + 12, 0xffd37a, 6);
+		if (muted) {
+			DrawingArea.method339(y + 4, 0xff3030, 18, x);
+			DrawingArea.method339(y + 20, 0xff3030, 18, x);
+		}
+	}
+
+	private boolean processLoginVolumeClicks(int ox, int oy) {
+		if (super.clickMode3 != 1) {
+			return false;
+		}
+		int mx = super.saveClickX - ox - 562;
+		int my = super.saveClickY - oy - 265;
+		if (mx < LOGIN_VOL_X || mx >= LOGIN_VOL_X + LOGIN_VOL_W || my < LOGIN_VOL_Y || my >= LOGIN_VOL_Y + LOGIN_VOL_H) {
+			return false;
+		}
+		int barX = LOGIN_VOL_X + 40;
+		if (mx < barX) {
+			if (loginMusicLevel() >= 4) {
+				applyLoginMusicLevel(loginMusicRestore);
+			} else {
+				applyLoginMusicLevel(4);
+			}
+		} else {
+			int barW = 44;
+			int rel = mx - barX;
+			if (rel < 0) {
+				rel = 0;
+			}
+			if (rel >= barW) {
+				rel = barW - 1;
+			}
+			int bars = 1 + (rel * 4) / barW;
+			if (bars > 4) {
+				bars = 4;
+			}
+			applyLoginMusicLevel(4 - bars);
+		}
+		return true;
+	}
+
+	private boolean processSavedCharacterClicks(int ox, int oy) {
+		if (super.clickMode3 != 1 || SavedCharacters.count() <= 0) {
+			return false;
+		}
+		int mx = super.saveClickX - ox - SavedCharacters.PANEL_X;
+		int my = super.saveClickY - oy - SavedCharacters.PANEL_Y;
+		int n = SavedCharacters.count();
+		int slot = SavedCharacters.hoveredSlot(mx, my);
+		if (slot < 0) {
+			return false;
+		}
+		if (SavedCharacters.hitRemove(mx, my, slot, n)) {
+			SavedCharacters.remove(slot);
+			saveClientSettings();
+			return true;
+		}
+		SavedCharacters chosen = SavedCharacters.get(slot);
+		if (chosen == null) {
+			return false;
+		}
+		myUsername = chosen.name;
+		if (chosen.password != null) {
+			myPassword = chosen.password;
+		}
+		rememberMe = 1;
+		loginScreenState = 2;
+		loginFailures = 0;
+		login(chosen.name, chosen.password == null ? "" : chosen.password, false);
+		return true;
 	}
 
 	public void drawFlames() {
@@ -14900,8 +16588,20 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	}
 
 	public void processLoginScreenInput() {
+		if (myUsername == null) {
+			myUsername = "";
+		}
+		if (myPassword == null) {
+			myPassword = "";
+		}
 		int ox = loginOffsetX();
 		int oy = loginOffsetY();
+		if (processLoginVolumeClicks(ox, oy)) {
+			return;
+		}
+		if (processSavedCharacterClicks(ox, oy)) {
+			return;
+		}
 		if (normalLogin == true) {
 		if (loginScreenState == 0) {
 			int i = ox + 765 / 2 - 80;
@@ -15570,8 +17270,12 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 				int i10 = inStream.method439();
 				int l15 = inStream.readUnsignedByte();
 				if (k1 >= 0 && k1 < currentExp.length) {
-					if (xpDrops && lastExp[k1] > 0 && i10 > lastExp[k1]) {
-						addXpDrop(k1, i10 - lastExp[k1]);
+					if (lastExp[k1] > 0 && i10 > lastExp[k1]) {
+						int gained = i10 - lastExp[k1];
+						addSessionXp(k1, gained);
+						if (xpDrops) {
+							queueXpDrop(k1, gained);
+						}
 					}
 					lastExp[k1] = i10;
 					currentExp[k1] = i10;
@@ -16298,6 +18002,10 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 				try {
 					String text = inStream.readString();
 					int frame = inStream.method435();
+					if (CannonOverlay.apply(text) || PoisonPlugin.apply(text) || BarrowsPlugin.apply(text)) {
+						pktType = -1;
+						return true;
+					}
 					if (text.startsWith("www.")) {
 						launchURL(text);
 						pktType = -1;
@@ -16691,6 +18399,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 		bindGameRaster();
 		walkTileX = destX;
 		walkTileY = destY;
+		prepareNpcIndicators();
 		if (fogStrength > 0) {
 			Fog.fillBackground();
 		} else {
@@ -16699,6 +18408,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 		worldController.method313(xCameraPos, yCameraPos, xCameraCurve,
 				zCameraPos, j, yCameraCurve);
 		worldController.clearObj5Cache();
+		drawNpcIndicatorHulls();
 		if (aaStrength >= 2 && aRSImageProducer_1165 != null) {
 			Fog.antiAliasEdges(aRSImageProducer_1165.anIntArray315, aRSImageProducer_1165.anInt316,
 					aRSImageProducer_1165.anInt317);
@@ -16778,6 +18488,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 		currentExp = new int[Skills.skillsCount];
 		lastExp = new int[Skills.skillsCount];
 		sessionXp = new int[Skills.skillsCount];
+		trackingSkill = new boolean[Skills.skillsCount];
 		aBoolean872 = false;
 		anIntArray873 = new int[5];
 		anInt874 = -1;
@@ -16878,8 +18589,12 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 		canMute = false;
 		aBoolean1159 = false;
 		aBoolean1160 = false;
-		myUsername = "";
-		myPassword = "";
+		if (myUsername == null) {
+			myUsername = "";
+		}
+		if (myPassword == null) {
+			myPassword = "";
+		}
 		genericLoadingError = false;
 		reportAbuseInterfaceID = -1;
 		aClass19_1179 = new NodeList();
@@ -16931,6 +18646,11 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	private Background mapBack;
 	private Sprite tabArea;
 	private Sprite tabAreaResizable;
+	private Sprite tabAreaResizableClear;
+	private Sprite xpOrb;
+	private Sprite xpOrbOn;
+	private Sprite xpBar;
+	private Sprite xpDropIcon;
 	private Sprite mapArea;
 	private Sprite mapAreaResizable;
 	private Sprite[] redStonesResizable;
@@ -16950,7 +18670,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	private Socket aSocket832;
 	private int loginScreenState;
 	private Stream aStream_834;
-	private NPC[] npcArray;
+	NPC[] npcArray;
 	private int npcCount;
 	private int[] npcIndices;
 	private int anInt839;

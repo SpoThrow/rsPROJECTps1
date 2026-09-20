@@ -1092,8 +1092,10 @@ public static int boxIds[] = { 4041, 4077, 4113, 4047, 4083, 4119, 4053, 4089, 4
 		addRectangle(24202, 360, 268, 0x5A4933, 0, false);
 		addText(24203, "Client Settings", tda, 2, 0xff981f, true, true);
 		addHoverText(24204, "Close", "Close", tda, 1, 0xff981f, true, true, 40);
-		addText(24205, "Click a setting to change it. Saved on this computer.", tda, 0, 0xc6b895, true, true);
+		addText(24205, "Choose a category, then click a setting. Saved on this computer.", tda, 0, 0xc6b895, true, true);
 		addHoverText(24210, "Resizable client: On", "Toggle resizable", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24249, "Display", "Display settings", tda, 1, 0xffff00, false, true, 70);
+		addHoverText(24248, "Inventory tab (resizable): Solid", "Solid board or transparent tab. Resizable only.", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24211, "Distance fog: High", "Change fog strength", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24212, "Anti-aliasing: Low", "Change anti-aliasing strength", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24213, "Animation smoothing: On", "Toggle animation smoothing", tda, 1, 0xff981f, false, true, 300);
@@ -1126,28 +1128,89 @@ public static int boxIds[] = { 4041, 4077, 4113, 4047, 4083, 4119, 4053, 4089, 4
 		addHoverText(24242, "True tile: Off", "Highlight the tile you are actually standing on", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24243, "Chat timestamps: On", "Prefix chat lines with the time", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24244, "Silent screenshots: On", "Print Screen saves without a name prompt", tda, 1, 0xff981f, false, true, 300);
-		addHoverText(24245, "XP tracker: Off", "Session XP and XP per hour", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24246, "Status timers: Off", "Freeze, Vengeance, teleblock, antifire, energy", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24247, "Low HP/prayer flash: On", "Flash the HP and prayer orbs when low", tda, 1, 0xff981f, false, true, 300);
-		addText(24214, "Shift-right-click to swap menu entries and mark tiles. OpenGL needs a restart.", tda, 0, 0x8f7d5f, false, true);
+		addHoverText(24253, "NPC indicators: Off", "Off, tagged NPCs, or all NPCs. Ctrl-right-click to tag hull or tile", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24254, "NPC hull: On", "Outline around the NPC model", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24255, "NPC tile: Off", "Highlight the NPC's displayed tiles", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24256, "NPC true tile: Off", "Highlight the tile the NPC is standing on", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24257, "NPC south-west tile: Off", "Highlight the south-west tile of the NPC", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24258, "NPC highlight colour: Cyan", "Colour used for tagged NPCs", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24259, "NPC names: Off", "Draw names above highlighted NPCs", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24260, "NPC minimap names: Off", "Draw names on the minimap", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24261, "Slayer overlay: On", "Task remaining infobox", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24262, "Slayer highlight: On", "Highlight assigned slayer NPCs", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24281, "Slayer count on gem: On", "Draw remaining kills on slayer gem/helm", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24276, "Boss timers: On", "Respawn countdown after a boss dies", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24270, "Object markers: Off", "Alt-right-click an object to mark it", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24268, "Inventory tags: Off", "Shift-right-click an item to colour-tag it", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24271, "Player indicators: Off", "Highlight players on screen and minimap", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24272, "Player names: On", "Draw names above highlighted players", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24273, "Player tiles: Off", "Draw tiles under highlighted players", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24274, "Player minimap names: Off", "Draw names on the minimap", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24277, "Highlight friends: On", "Green highlight for friends", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24278, "Highlight team: On", "Highlight matching team capes", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24279, "Highlight others: Off", "Highlight non-friend players", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24280, "Highlight self: Off", "Highlight your own player", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24263, "Ammo overlay: On", "Show equipped arrows/bolts", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24275, "Item stats: On", "Food and potion info while hovering", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24269, "Mouse tooltips: Off", "Show the left-click action at the cursor", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24267, "Attack style warn: Off", "Turn the attack-style box red for a skill", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24264, "Anti-drag: Off", "Delay inventory dragging", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24265, "Anti-drag shift only: On", "Only delay drags while Shift is held", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24266, "Anti-drag delay: 30", "How long before an item follows the mouse", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24400, "Cannon plugin: On", "Infobox, low-ball warning, spots, double-hit tiles", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24401, "Cannon infobox: On", "Show cannonball count as an infobox", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24402, "Cannon warning: 15", "Chat warning when balls drop to this amount", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24403, "Cannon double-hit tiles: Off", "Highlight tiles the cannon can hit twice", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24404, "Cannon spots: On", "Highlight common cannon spots", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24405, "Implings: Off", "Highlight implings on screen and minimap", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24406, "Impling names: On", "Draw impling type names", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24407, "Impling notify: On", "Chat when an impling appears nearby", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24408, "Barrows brothers: On", "Minimap initials, dead colour, prayer drain, chest value", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24409, "Combat level decimal: On", "Show combat level to one decimal on Combat Options", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24410, "Chat history: On", "Keep chat after logout in this client session", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24411, "Chat channels: On", "Clan join/leave, ignored recolour, slash in clan tab", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24412, "Clan join/leave: On", "Show clan join and leave messages", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24413, "Friend list counts: On", "Show Friends current/max in the title", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24414, "Friend notes: On", "Right-click a friend to add a note", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24415, "Poison: On", "Infobox, HP orb colour, and next-hit timer", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24416, "Regeneration meter: On", "HP and spec regen rings on the orbs", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24417, "Status bars: On", "HP and prayer bars beside the inventory", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24418, "Status bar numbers: On", "Show current HP and prayer on the bars", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24419, "Status bar heal preview: On", "Preview food heal on the HP bar", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24250, "Gameplay", "Gameplay settings", tda, 1, 0xff981f, false, true, 80);
+		addHoverText(24251, "Interface", "Interface settings", tda, 1, 0xff981f, false, true, 80);
+		addHoverText(24252, "Controls", "Control settings", tda, 1, 0xff981f, false, true, 80);
+		addText(24214, "Right-click a skill on the Skills tab to start or stop XP tracking.", tda, 0, 0x8f7d5f, false, true);
 		RSInterface list = addInterface(24230);
 		list.width = 317;
-		list.height = 208;
-		list.scrollMax = 800;
-		setChildren(37, list);
-		int[] ids = { 24210, 24211, 24212, 24213, 24215, 24216, 24217, 24218, 24219, 24220, 24221, 24222, 24235, 24223, 24224, 24225, 24226, 24227, 24228, 24229, 24231, 24232, 24233, 24234, 24236, 24237, 24238, 24239, 24240, 24241, 24242, 24243, 24244, 24245, 24246, 24247, 24214 };
+		list.height = 186;
+		list.scrollMax = 260;
+		int[] ids = {
+			24210, 24248, 24211, 24212, 24213, 24215, 24216, 24217, 24233, 24234, 24231, 24232
+		};
+		setChildren(ids.length, list);
 		for (int i = 0; i < ids.length; i++) {
 			setBounds(ids[i], 4, i * 20, i, list);
 			RSInterface.interfaceCache[ids[i]].height = 16;
 		}
-		tab.totalChildren(6);
+		tab.totalChildren(10);
 		tab.child(0, 24201, 76, 28);
 		tab.child(1, 24202, 76, 28);
 		tab.child(2, 24203, 97, 33);
 		tab.child(3, 24204, 392, 32);
-		tab.child(4, 24205, 97, 56);
-		tab.child(5, 24230, 90, 78);
+		tab.child(4, 24205, 97, 50);
+		tab.child(5, 24249, 90, 64);
+		tab.child(6, 24250, 160, 64);
+		tab.child(7, 24251, 245, 64);
+		tab.child(8, 24252, 325, 64);
+		tab.child(9, 24230, 90, 86);
 		RSInterface.interfaceCache[24204].height = 16;
+		RSInterface.interfaceCache[24249].height = 16;
+		RSInterface.interfaceCache[24250].height = 16;
+		RSInterface.interfaceCache[24251].height = 16;
+		RSInterface.interfaceCache[24252].height = 16;
 	}
 
 	public static void keyRemappingPanel(TextDrawingArea[] tda) {
@@ -1928,8 +1991,8 @@ public static int boxIds[] = { 4041, 4077, 4113, 4047, 4083, 4119, 4053, 4089, 4
 			frame++;
 			frame3++;
 		}
-		addHoverText(18110, "", "Confirm quick prayers", tda, 1, 0x00FF00, true, true, 160);
-		tab.child(106, 18110, 25, 224);
+		addHoverText(18110, "", "Confirm", tda, 1, 0x00FF00, true, true, 190);
+		tab.child(106, 18110, 0, 224);
 	}
 
 	public static void slayerRewardsBuy(TextDrawingArea[] tda) {

@@ -7,6 +7,7 @@ import server.event.CycleEventHandler;
 import server.game.items.ItemAssistant;
 import server.game.items.UseItem;
 import server.game.npcs.NPCHandler;
+import server.game.npcs.WorldAdventurer;
 import server.game.players.Client;
 import server.game.players.PacketType;
 
@@ -39,7 +40,12 @@ public class ClickNPC implements PacketType {
 			if (NPCHandler.npcs[c.npcIndex] == null) {
 				c.npcIndex = 0;
 				break;
-			}	
+			}
+			if (WorldAdventurer.isAdventurer(c.npcIndex)) {
+				c.sendMessage("Max is too busy training.");
+				c.npcIndex = 0;
+				break;
+			}
 			if (NPCHandler.npcs[c.npcIndex].MaxHP == 0) {
 				c.npcIndex = 0;
 				break;
@@ -130,6 +136,11 @@ public class ClickNPC implements PacketType {
 			if(NPCHandler.npcs[c.npcIndex] == null ){
 				break;
 			}
+			if (WorldAdventurer.isAdventurer(c.npcIndex)) {
+				c.sendMessage("Max is too busy training.");
+				c.npcIndex = 0;
+				break;
+			}
 			
 			if(NPCHandler.npcs[c.npcIndex].MaxHP == 0 || NPCHandler.npcs[c.npcIndex].npcType == 944){
 				c.sendMessage("Nothing interesting happens.");
@@ -175,6 +186,9 @@ public class ClickNPC implements PacketType {
 			
 			case FIRST_CLICK:
 				c.npcClickIndex = c.inStream.readSignedWordBigEndian();
+				if (c.npcClickIndex <= 0 || NPCHandler.npcs[c.npcClickIndex] == null) {
+					break;
+				}
 				c.npcType = NPCHandler.npcs[c.npcClickIndex].npcType;
 				if(c.goodDistance(NPCHandler.npcs[c.npcClickIndex].getX(), NPCHandler.npcs[c.npcClickIndex].getY(), c.getX(), c.getY(), 1)) {
 					c.turnPlayerTo(NPCHandler.npcs[c.npcClickIndex].getX(), NPCHandler.npcs[c.npcClickIndex].getY());

@@ -10,6 +10,7 @@ import server.content.skills.JewelryMaking;
 import server.content.skills.LeatherMaking;
 import server.content.skills.Prayer;
 import server.content.skills.misc.SmithingInterface;
+import server.game.content.DwarfCannon;
 import server.game.minigames.crystalchest.CrystalChest;
 import server.game.npcs.NPC;
 import server.game.npcs.NPCHandler;
@@ -27,6 +28,10 @@ public class UseItem {
 		}
 		if(c.getTT().itemOnObject(objectID))
 			return;
+		if (DwarfCannon.isCannonObject(objectID)) {
+			DwarfCannon.itemOnCannon(c, itemId, objectID, objectX, objectY);
+			return;
+		}
 		switch(objectID) {
 		case 172:
 			if(itemId == CrystalChest.KEY)

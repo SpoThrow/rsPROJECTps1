@@ -11,6 +11,7 @@ import server.content.skills.Runecrafting;
 import server.content.skills.Smelting;
 import server.content.skills.Tanning;
 import server.content.skills.Woodcutting;
+import server.game.content.DwarfCannon;
 import server.game.minigames.barrows.Barrows;
 import server.game.minigames.barrows.BarrowsData;
 import server.game.minigames.bountyhunter.BountyHunter;
@@ -18,6 +19,7 @@ import server.game.minigames.castlewars.CastleWarObjects;
 import server.game.minigames.castlewars.CastleWars;
 import server.game.minigames.pestcontrol.PestControlRewards;
 import server.game.minigames.roguesden.WallSafes;
+import server.game.npcs.WorldAdventurer;
 import server.game.objects.Object;
 import core.util.Misc;
 import core.util.ScriptManager;
@@ -105,6 +107,12 @@ public class ActionHandler {
 				}
 			}*/
 		switch(objectType) {
+		case 6:
+		case 7:
+		case 8:
+		case 9:
+			DwarfCannon.firstClick(c, objectType, obX, obY);
+			break;
 		case 11214:
 			if(c.absX != obX && c.absY != obY) {
 				c.sendMessage("You need to stand on the platform in order to build.");
@@ -1467,6 +1475,12 @@ public class ActionHandler {
 					}
 				}*/
 		switch(objectType) {
+		case 6:
+		case 7:
+		case 8:
+		case 9:
+			DwarfCannon.pickup(c, obX, obY);
+			break;
 		//castlewars
 		case 4423:
 		case 4424:
@@ -1619,6 +1633,10 @@ public class ActionHandler {
 				}
 			}
 		}*/
+		if (DwarfCannon.isCannonObject(objectType)) {
+			DwarfCannon.pickup(c, obX, obY);
+			return;
+		}
 		c.sendMessage("Object type: " + objectType);
 		switch(objectType) {
 		case 10177: // Dagganoth ladder 1st level
@@ -1638,6 +1656,11 @@ public class ActionHandler {
 			return;
 		if(Implings.Imps.implings.containsKey(npcType)) {
 			Imps.catchImp(c, npcType, c.npcClickIndex);
+			return;
+		}
+		if (WorldAdventurer.isAdventurer(c.npcClickIndex)) {
+			WorldAdventurer.talk(c);
+			c.npcClickIndex = 0;
 			return;
 		}
 		c.npcClickIndex = 0;

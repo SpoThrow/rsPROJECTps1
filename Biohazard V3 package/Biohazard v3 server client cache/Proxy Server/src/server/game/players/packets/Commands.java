@@ -5,6 +5,7 @@ import org.Vote.MainLoader;
 import server.Config;
 import server.Connection;
 import server.Server;
+import server.game.npcs.WorldAdventurer;
 import server.game.content.PlayerOwnedShop;
 import server.game.items.ItemAssistant;
 import server.game.players.Client;
@@ -148,9 +149,12 @@ public class Commands implements PacketType {
 			if (playerCommand.startsWith("train")) {
 				c.getPA().spellTeleport(2670, 3712, 0);
 			}
+			if (playerCommand.equalsIgnoreCase("max") || playerCommand.equalsIgnoreCase("adventurer")) {
+				WorldAdventurer.teleportTo(c);
+			}
 			
 			if (playerCommand.startsWith("commands")) {
-				c.sendMessage("::train ::players ::help ::reward/::check/::voted ::forums ::vote ::donate");
+				c.sendMessage("::train ::max/::adventurer ::players ::help ::reward/::check/::voted ::forums ::vote ::donate");
 				c.sendMessage("::changepass *pass here* ::yell ::banki ::banke ::donated/::claimweb");
 				c.sendMessage("--- Player Owned Shop ---");
 				c.sendMessage("::pos - Opens your player owned shop");

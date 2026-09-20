@@ -15,6 +15,7 @@ import server.event.CycleEvent;
 import server.event.CycleEventContainer;
 import server.event.CycleEventHandler;
 import server.game.minigames.castlewars.CastleWars;
+import server.game.content.AchievementBroadcast;
 import server.game.minigames.randomevents.RiverTroll;
 import server.game.minigames.randomevents.RockGolem;
 import server.game.minigames.randomevents.SpiritTree;
@@ -606,7 +607,7 @@ public class NPCHandler {
 		}
 	}
 
-	public void spawnNpc2(int npcType, int x, int y, int heightLevel,
+	public NPC spawnNpc2(int npcType, int x, int y, int heightLevel,
 			int WalkingType, int HP, int maxHit, int attack, int defence) {
 		// first, search for a free slot
 		int slot = -1;
@@ -618,7 +619,7 @@ public class NPCHandler {
 		}
 		if (slot == -1) {
 			// Misc.println("No Free Slot");
-			return; // no free slot found
+			return null; // no free slot found
 		}
 		NPC newNPC = new NPC(slot, npcType);
 		newNPC.absX = x;
@@ -633,6 +634,7 @@ public class NPCHandler {
 		newNPC.attack = attack;
 		newNPC.defence = defence;
 		npcs[slot] = newNPC;
+		return newNPC;
 	}
 
 	/**
@@ -2719,6 +2721,18 @@ public class NPCHandler {
 					npcs[i].freezeTimer--;
 				}
 
+				if (npcs[i].worldAdventurer) {
+					npcs[i].HP = npcs[i].MaxHP;
+					npcs[i].isDead = false;
+					npcs[i].applyDead = false;
+					npcs[i].killerId = 0;
+					npcs[i].underAttack = false;
+					npcs[i].randomWalk = false;
+					npcs[i].walkingHome = false;
+					WorldAdventurer.tick(npcs[i]);
+					continue;
+				}
+
 				if (npcs[i].hitDelayTimer > 0) {
 					npcs[i].hitDelayTimer--;
 				}
@@ -3175,11 +3189,13 @@ public class NPCHandler {
 										drop.itemId, NPCHandler.npcs[i].absX,
 										NPCHandler.npcs[i].absY, amount,
 										c.playerId);
+								AchievementBroadcast.rareDrop(c, drop.itemId, NPCHandler.npcs[i].npcType);
 							} else {
 								Server.itemHandler.createGroundItem(c,
 										drop.itemId, NPCHandler.npcs[i].absX,
 										NPCHandler.npcs[i].absY,
 										drop.itemAmount, c.playerId);
+								AchievementBroadcast.rareDrop(c, drop.itemId, NPCHandler.npcs[i].npcType);
 							}
 						}
 					}

@@ -2840,6 +2840,9 @@ public class CombatAssistant{
 		if (toRemove > 0) {
 			toRemove /= (1 + (0.035 * c.playerBonus[11]));		
 		}
+		if (c.inBarrows()) {
+			toRemove += 0.4 + (c.barrowsKill * 0.15);
+		}
 		c.prayerPoint -= toRemove;
 		if (c.prayerPoint <= 0) {
 			c.prayerPoint = 1.0 + c.prayerPoint;

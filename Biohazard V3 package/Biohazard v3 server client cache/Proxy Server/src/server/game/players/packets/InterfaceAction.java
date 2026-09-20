@@ -109,7 +109,17 @@ public class InterfaceAction implements PacketType {
 							player.sendMessage("You can't kick yourself!");
 						} else {
 							if (player.clan.canKick(player.playerName)) {
-								player.clan.kickMember(member);
+								long now = System.currentTimeMillis();
+								if (player.pendingClanKick != null
+										&& player.pendingClanKick.equalsIgnoreCase(member)
+										&& now - player.pendingClanKickAt < 8000L) {
+									player.pendingClanKick = "";
+									player.clan.kickMember(member);
+								} else {
+									player.pendingClanKick = member;
+									player.pendingClanKickAt = now;
+									player.sendMessage("Click Kick again within 8 seconds to confirm kicking " + member + ".");
+								}
 							} else {
 								player.sendMessage("You do not have sufficient privileges to do this.");
 							}

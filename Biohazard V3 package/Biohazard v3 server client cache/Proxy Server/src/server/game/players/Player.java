@@ -66,6 +66,9 @@ public abstract class Player {
 	public boolean rubbedLamp = false;
 	public boolean isResetting = false;
 	public String lastClanChat = "";
+	public String pendingClanKick = "";
+	public long pendingClanKickAt;
+	public boolean maxTotalBroadcast;
 	public boolean isWc;
 	public boolean wcing;
 	public int treeX, treeY;

@@ -394,9 +394,16 @@ public class RSApplet extends Applet implements Runnable, MouseListener, MouseMo
 
 	public final void mousePressed(MouseEvent mouseevent)
 	{
+		try {
+			requestFocus();
+			requestFocusInWindow();
+		} catch (Exception ignored) {
+		}
 		int i = mouseevent.getX();
 		int j = mouseevent.getY();
 		shiftIsDown = mouseevent.isShiftDown();
+		altIsDown = mouseevent.isAltDown();
+		ctrlIsDown = mouseevent.isControlDown();
 		if(gameFrame != null)
 		{
 			i -= 4;//4
@@ -476,6 +483,9 @@ public class RSApplet extends Applet implements Runnable, MouseListener, MouseMo
     {
         int i = mouseevent.getX();
         int j = mouseevent.getY();
+		shiftIsDown = mouseevent.isShiftDown();
+		altIsDown = mouseevent.isAltDown();
+		ctrlIsDown = mouseevent.isControlDown();
         if(gameFrame != null)
         {
             i -= 4;
@@ -506,6 +516,9 @@ public class RSApplet extends Applet implements Runnable, MouseListener, MouseMo
     {
         int i = mouseevent.getX();
         int j = mouseevent.getY();
+		shiftIsDown = mouseevent.isShiftDown();
+		altIsDown = mouseevent.isAltDown();
+		ctrlIsDown = mouseevent.isControlDown();
         if(gameFrame != null)
         {
             i -= 4;
@@ -527,15 +540,26 @@ public class RSApplet extends Applet implements Runnable, MouseListener, MouseMo
 		if (i == KeyEvent.VK_SHIFT) {
 			shiftIsDown = true;
 		}
+		if (i == KeyEvent.VK_CONTROL) {
+			ctrlIsDown = true;
+		}
+		if (i == KeyEvent.VK_ALT) {
+			altIsDown = true;
+		}
 		if (i == KeyEvent.VK_PRINTSCREEN) {
 			Jframe.takeScreenshot(client.silentScreenshots);
 			return;
 		}
+		boolean loggedIn = client.instance != null && client.instance.loggedIn;
 		if (KeyRemapper.isCapturing()) {
-			KeyRemapper.captureKey(i);
-			return;
+			if (!loggedIn || client.instance.openInterfaceID != KeyRemapper.INTERFACE_ID) {
+				KeyRemapper.cancelCapture();
+			} else {
+				KeyRemapper.captureKey(i);
+				return;
+			}
 		}
-		boolean remap = client.keyRemapping;
+		boolean remap = loggedIn && client.keyRemapping;
 		boolean typing = client.chatTypeFocused || (client.instance != null && client.instance.isTypingOverlay());
 		if (remap && !typing) {
 			int tab = KeyRemapper.tabForKey(i);
@@ -641,6 +665,12 @@ public class RSApplet extends Applet implements Runnable, MouseListener, MouseMo
 		char c = keyevent.getKeyChar();
 		if (i == KeyEvent.VK_SHIFT) {
 			shiftIsDown = false;
+		}
+		if (i == KeyEvent.VK_CONTROL) {
+			ctrlIsDown = false;
+		}
+		if (i == KeyEvent.VK_ALT) {
+			altIsDown = false;
 		}
 		if(c < '\036')
 			c = '\0';
@@ -836,6 +866,8 @@ public class RSApplet extends Applet implements Runnable, MouseListener, MouseMo
 	int lastFrameMs;
 	long fpsWindowAt;
 	static boolean shiftIsDown;
+	static boolean altIsDown;
+	static boolean ctrlIsDown;
 	boolean shouldDebug;
 	int myWidth;
 	int myHeight;

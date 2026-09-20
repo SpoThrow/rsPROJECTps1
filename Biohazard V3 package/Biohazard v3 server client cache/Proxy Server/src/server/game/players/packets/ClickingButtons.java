@@ -21,6 +21,7 @@ import server.game.minigames.bountyhunter.BountyHunter;
 import server.game.minigames.gliding.GnomeGlider;
 import server.game.minigames.pestcontrol.PestControlRewards;
 import server.game.minigames.sailing.Sailing;
+import server.game.npcs.WorldAdventurer;
 import server.game.players.Client;
 import server.game.players.PacketType;
 import server.game.players.Player;
@@ -1433,6 +1434,10 @@ break;*/
 			break;*/
 
 		case 9178:
+			if (c.dialogueAction == 8801) {
+				WorldAdventurer.handleMenu(c, 1);
+				return;
+			}
 			switch(c.dialogueAction) {
 			case 752: //display
 				if(c.playerRights == 1 || c.playerRights == 2 || c.playerRights == 3) {
@@ -1568,6 +1573,10 @@ break;*/
 			break;
 
 		case 9179:
+			if (c.dialogueAction == 8801) {
+				WorldAdventurer.handleMenu(c, 2);
+				return;
+			}
 			switch(c.dialogueAction) {
 			case 752: //display
 				if(c.playerRights == 1 || c.playerRights == 2 || c.playerRights == 3) {
@@ -1702,6 +1711,10 @@ break;*/
 			break;
 
 		case 9180:
+			if (c.dialogueAction == 8801) {
+				WorldAdventurer.handleMenu(c, 3);
+				return;
+			}
 			switch(c.dialogueAction) {
 			case 752: //display
 				if(c.playerRights == 1 || c.playerRights == 2 || c.playerRights == 3) {
@@ -1816,6 +1829,10 @@ break;*/
 			break;
 
 		case 9181:
+			if (c.dialogueAction == 8801) {
+				WorldAdventurer.handleMenu(c, 4);
+				return;
+			}
 			switch(c.dialogueAction) {
 			case 752: //display
 				c.getDH().sendDialogues(751, -1);

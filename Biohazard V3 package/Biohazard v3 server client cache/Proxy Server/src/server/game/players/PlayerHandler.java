@@ -336,6 +336,9 @@ public class PlayerHandler{
     }
 
 	private void removePlayer(Player plr) {
+		if (plr instanceof Client) {
+			server.game.content.DwarfCannon.logout((Client) plr);
+		}
 		if(plr.privateChat != 2) { 
 			for(int i = 1; i < Config.MAX_PLAYERS; i++) {
 				if (players[i] == null || players[i].isActive == false) continue;

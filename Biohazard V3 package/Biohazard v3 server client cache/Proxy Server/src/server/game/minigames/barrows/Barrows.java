@@ -82,6 +82,18 @@ public class Barrows {
 		return c.barrowsKill;
 	}
 
+	public static void syncOverlay(Client c) {
+		int mask = 0;
+		if (c.killedBrother != null) {
+			for (int i = 0; i < 6 && i < c.killedBrother.length; i++) {
+				if (c.killedBrother[i]) {
+					mask |= 1 << i;
+				}
+			}
+		}
+		c.getPA().sendFrame126("barrows:" + mask + ":" + c.barrowsKill, 24491);
+	}
+
 	public static void refreshBrothers(Client c) {
 		for(int i = 0; i < c.killedBrother.length; i++) {
 				c.spawnedBrother[i] = false;

@@ -1086,6 +1086,7 @@ public class Client extends Player {
 			getPA().sendFrame99(2);
 			getPA().sendFrame126("Kill Count: "+Barrows.getKillcount(this), 4536);
 			getPA().walkableInterface(4535);
+			Barrows.syncOverlay(this);
 		} else if (gwdCoords()) {
 			getPA().walkableInterface(16210);
 			getPA(). sendFrame126("@cya@" + bandosKills, 16217);

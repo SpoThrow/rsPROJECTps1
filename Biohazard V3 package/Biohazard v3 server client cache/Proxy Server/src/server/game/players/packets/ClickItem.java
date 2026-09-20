@@ -4,6 +4,7 @@ import server.Server;
 import server.content.skills.Herblore;
 import server.content.skills.Pouches;
 import server.content.skills.Prayer;
+import server.game.content.DwarfCannon;
 import server.game.minigames.barrows.Barrows;
 import server.game.minigames.castlewars.CastleWars;
 import server.game.players.Client;
@@ -85,6 +86,9 @@ public class ClickItem implements PacketType {
 				Player.zammyBarricades++;
 		}
 		switch (itemId) {
+		case 6:
+			DwarfCannon.setup(c);
+			break;
 		case 6865:
 			c.startAnimation(3003);
 			c.gfx0(511);

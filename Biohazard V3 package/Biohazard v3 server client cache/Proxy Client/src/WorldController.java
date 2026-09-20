@@ -1720,6 +1720,18 @@ label0:
 			if(color != 0)
 				drawTileOverlay(x1, y1, x2, y2, x3, y3, x4, y4, true, color);
 		}
+		int npcCol = NpcIndicators.tileColor(tileX, tileY);
+		if(npcCol != 0)
+			drawTileOverlay(x1, y1, x2, y2, x3, y3, x4, y4, true, npcCol);
+		int objCol = ObjectMarkers.colorLocal(tileX, tileY, client.scenePlane);
+		if(objCol != 0)
+			drawTileOverlay(x1, y1, x2, y2, x3, y3, x4, y4, true, objCol);
+		int plyCol = PlayerIndicators.tileColor(tileX, tileY);
+		if(plyCol != 0)
+			drawTileOverlay(x1, y1, x2, y2, x3, y3, x4, y4, false, plyCol);
+		int cannonCol = CannonOverlay.tileColor(tileX, tileY, client.scenePlane);
+		if(cannonCol != 0)
+			drawTileOverlay(x1, y1, x2, y2, x3, y3, x4, y4, true, cannonCol);
 	}
 
 	private void method316(int i, int j, int k, Class40 class40, int l, int i1,

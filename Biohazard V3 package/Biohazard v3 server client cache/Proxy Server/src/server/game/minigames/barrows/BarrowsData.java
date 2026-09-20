@@ -129,11 +129,16 @@ public class BarrowsData {
 			loot[1] = BARROW_LOOT[Misc.random(BARROW_LOOT.length-1)]; 
 			lootN[1] = 1;
 		}
+		int chestValue = 0;
 		if(loot[0] > 0) {
 			c.getItems().addItem(loot[0], lootN[0]);
+			chestValue += c.getShops().getItemShopValue(loot[0]) * Math.max(1, lootN[0]);
 		}
 		if(loot[1] > 0) {
 			c.getItems().addItem(loot[1], lootN[1]);
+			chestValue += c.getShops().getItemShopValue(loot[1]) * Math.max(1, lootN[1]);
 		}
+		c.getPA().sendFrame126("barrowschest:" + chestValue, 24491);
+		c.sendMessage("The chest is worth about " + chestValue + " coins.");
 	}
 }

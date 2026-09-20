@@ -5,6 +5,10 @@ final class StatusTimers {
 	static long teleblockUntil;
 	static long antifireUntil;
 	static long energyUntil;
+	static long poisonUntil;
+	static long antipoisonUntil;
+	static long specUntil;
+	static long chargeUntil;
 
 	static void onMessage(String text) {
 		if (text == null) {
@@ -24,6 +28,20 @@ final class StatusTimers {
 			vengUntil = 0L;
 		} else if (s.indexOf("energy potion") >= 0 || s.indexOf("super energy") >= 0) {
 			energyUntil = now + 180000L;
+		} else if (s.indexOf("you have been poisoned") >= 0 || s.indexOf("you start to poison") >= 0) {
+			poisonUntil = now + 90000L;
+		} else if (s.indexOf("poison has worn off") >= 0 || s.indexOf("cured") >= 0 && s.indexOf("poison") >= 0) {
+			poisonUntil = 0L;
+			if (s.indexOf("superantipoison") >= 0 || s.indexOf("anti-poison") >= 0 || s.indexOf("antipoison") >= 0) {
+				antipoisonUntil = now + 360000L;
+			}
+		} else if (s.indexOf("antipoison") >= 0 || s.indexOf("anti-poison") >= 0) {
+			antipoisonUntil = now + 360000L;
+			poisonUntil = 0L;
+		} else if (s.indexOf("special attack") >= 0 && (s.indexOf("restored") >= 0 || s.indexOf("recharged") >= 0)) {
+			specUntil = now + 30000L;
+		} else if (s.indexOf("charge") >= 0 && s.indexOf("spell") >= 0) {
+			chargeUntil = now + 420000L;
 		}
 	}
 
@@ -33,27 +51,30 @@ final class StatusTimers {
 		}
 	}
 
-	static void draw(TextDrawingArea font, int x, int y) {
+	static void draw(TextDrawingArea font) {
 		if (font == null) {
 			return;
 		}
 		long now = System.currentTimeMillis();
-		y = drawOne(font, "Freeze", freezeUntil, now, 0x66CCFF, x, y);
-		y = drawOne(font, "Vengeance", vengUntil, now, 0x33CC33, x, y);
-		y = drawOne(font, "Teleblock", teleblockUntil, now, 0xCC66FF, x, y);
-		y = drawOne(font, "Antifire", antifireUntil, now, 0xFF981F, x, y);
-		drawOne(font, "Energy", energyUntil, now, 0xE6C832, x, y);
+		InfoBoxes.start("statusTimers", font);
+		add(font, "Freeze", freezeUntil, now, 0x66CCFF);
+		add(font, "Vengeance", vengUntil, now, 0x33CC33);
+		add(font, "Teleblock", teleblockUntil, now, 0xCC66FF);
+		add(font, "Antifire", antifireUntil, now, 0xFF981F);
+		add(font, "Energy", energyUntil, now, 0xE6C832);
+		add(font, "Poison", poisonUntil, now, 0x66FF33);
+		add(font, "Antipoison", antipoisonUntil, now, 0x99FF66);
+		add(font, "Spec restore", specUntil, now, 0xFFFF66);
+		add(font, "Charge", chargeUntil, now, 0x66CCFF);
+		InfoBoxes.flush();
 	}
 
-	private static int drawOne(TextDrawingArea font, String name, long until, long now, int color, int x, int y) {
+	private static void add(TextDrawingArea font, String name, long until, long now, int color) {
 		if (until <= now) {
-			return y;
+			return;
 		}
 		int sec = (int) ((until - now) / 1000L);
-		String text = name + " " + formatTime(sec);
-		DrawingArea.method335(0x000000, y, font.getTextWidth(text) + 8, 14, 140, x);
-		font.method385(color, text, y + 11, x + 4);
-		return y + 15;
+		InfoBoxes.line(name + " " + formatTime(sec), color);
 	}
 
 	private static String formatTime(int sec) {

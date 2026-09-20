@@ -2184,45 +2184,42 @@ public class ItemAssistant {
 	**/
 	
 	public void moveItems(int from, int to, int moveWindow) {
+		if (from < 0 || to < 0 || from == to) {
+			return;
+		}
 		if (moveWindow >= 10335 && moveWindow <= 10342) {
 			int destTab = moveWindow - 10335 + 1;
 			c.getBank().moveToTab(c.getBank().toAbsolute(from), destTab);
 			return;
 		}
-		if (moveWindow == 3724) {
-			int tempI;
-			int tempN;
-			tempI = c.playerItems[from];
-			tempN = c.playerItemsN[from];
-
-			c.playerItems[from] = c.playerItems[to];
-			c.playerItemsN[from] = c.playerItemsN[to];
-			c.playerItems[to] = tempI;
-			c.playerItemsN[to] = tempN;
-		}
-
 		if (moveWindow == 5382 || moveWindow == 34453) {
 			c.getBank().swapOrInsert(from, to, c.insertMode);
 			return;
 		}
-
-		if (moveWindow == 18579) {
-			int tempI;
-			int tempN;
-			tempI = c.playerItems[from];
-			tempN = c.playerItemsN[from];
-
+		if (isPlayerInventoryWindow(moveWindow)) {
+			if (from >= c.playerItems.length || to >= c.playerItems.length) {
+				return;
+			}
+			int tempI = c.playerItems[from];
+			int tempN = c.playerItemsN[from];
 			c.playerItems[from] = c.playerItems[to];
 			c.playerItemsN[from] = c.playerItemsN[to];
 			c.playerItems[to] = tempI;
 			c.playerItemsN[to] = tempN;
 			resetItems(3214);
-		}
+			if (c.isBanking) {
+				resetItems(5064);
+			}
+			if (c.isShopping) {
+				resetItems(3823);
+			}
 			resetTempItems();
-		if (moveWindow == 3724) {
-			resetItems(3214);
 		}
+	}
 
+	private boolean isPlayerInventoryWindow(int moveWindow) {
+		return moveWindow == 3214 || moveWindow == 5064 || moveWindow == 3321
+				|| moveWindow == 3823 || moveWindow == 3724 || moveWindow == 18579;
 	}
 	
 	/**
