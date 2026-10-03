@@ -61,7 +61,7 @@ public class Agility {
 			return;
 		}
 			c.stopMovement();
-			c.freezeTimer = 16;
+			c.timers.freezeTimer = 16;
 			c.playerWalkIndex = 762;
 			c.updateRequired = true;
 			c.appearance.appearanceUpdateRequired = true;
@@ -200,7 +200,7 @@ public class Agility {
 				return;
 			}
 				c.stopMovement();
-				c.freezeTimer = 8;
+				c.timers.freezeTimer = 8;
 				c.playerWalkIndex = 762;
 				c.updateRequired = true;
 				c.appearance.appearanceUpdateRequired = true;
@@ -292,7 +292,7 @@ public class Agility {
 					return;
 					}
 				c.stopMovement();
-				c.freezeTimer = 8;
+				c.timers.freezeTimer = 8;
 				c.playerWalkIndex = 762;
 				c.updateRequired = true;
 				c.appearance.appearanceUpdateRequired = true;
@@ -324,7 +324,7 @@ public class Agility {
 				return;
 			}
 			c.stopMovement();
-			c.freezeTimer = 8;
+			c.timers.freezeTimer = 8;
 			c.playerWalkIndex = 746;
 			c.updateRequired = true;
 			c.appearance.appearanceUpdateRequired = true;
@@ -356,7 +356,7 @@ public class Agility {
 			return;
 		}
 		c.stopMovement();
-		c.freezeTimer = 8;
+		c.timers.freezeTimer = 8;
 		c.playerWalkIndex = 746;
 		c.updateRequired = true;
 		c.appearance.appearanceUpdateRequired = true;

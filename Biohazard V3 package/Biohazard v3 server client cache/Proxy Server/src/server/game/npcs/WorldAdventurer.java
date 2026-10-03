@@ -256,7 +256,7 @@ public class WorldAdventurer {
 		if (c == null) {
 			return;
 		}
-		c.npcType = NPC_ID;
+		c.npcInteraction.npcType = NPC_ID;
 		c.talkingNpc = NPC_ID;
 		c.getDH().sendDialogues(8800, NPC_ID);
 	}
@@ -265,7 +265,7 @@ public class WorldAdventurer {
 		if (c == null) {
 			return;
 		}
-		c.npcType = NPC_ID;
+		c.npcInteraction.npcType = NPC_ID;
 		c.talkingNpc = NPC_ID;
 		if (option == 1) {
 			c.getDH().sendDialogues(8802, NPC_ID);

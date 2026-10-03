@@ -135,7 +135,7 @@ public class SkillMasters {
 	public static void masterDialogue(Client c) {
 		for(MasterData m : MasterData.values()) {
 			if (c.talkingNpc == m.getMaster()) {
-				c.npcType = c.talkingNpc;
+				c.npcInteraction.npcType = c.talkingNpc;
 				c.getDH().sendNpcChat2("Hello I'm the "+getSkillName(c)+" master, would you like to", 
 					"buy a skillcape?", c.getDH().CALM);
 				c.nextChat = 441;

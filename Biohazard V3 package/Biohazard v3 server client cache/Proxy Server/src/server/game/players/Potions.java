@@ -25,7 +25,7 @@ public class Potions {
 			c.timers.potDelay = System.currentTimeMillis();
 			c.timers.foodDelay = c.timers.potDelay;
 			c.getCombat().resetPlayerAttack();
-			c.attackTimer++;
+			c.timers.attackTimer++;
             c.sendMessage("You drink some of your "+ server.game.items.Item.getItemName(itemId) +".");
             String item =  server.game.items.Item.getItemName(itemId);
             if(item.endsWith("glory(4)")

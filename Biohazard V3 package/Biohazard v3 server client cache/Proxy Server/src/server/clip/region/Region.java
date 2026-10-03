@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.zip.GZIPInputStream;
 
+import server.Config;
 import server.game.items.GroundItem;
 import server.game.objects.Objects;
 
@@ -129,13 +130,6 @@ public class Region {
 		return canProjectileStep(fromX, fromY, dx, dy, height, false);
 	}
 
-	/**
-	 * Legacy name: returns true when the shot is NOT blocked (passable).
-	 * Prefer {@link #canProjectileStep(int, int, int, int, int)}.
-	 */
-	public static boolean blockedShot(int x, int y, int height, int moveTypeX, int moveTypeY) {
-		return canProjectileStep(x, y, moveTypeX, moveTypeY, height, false);
-	}
 
 	public static void addClippingForVariableObject(int x, int y, int height, int type, int direction, boolean flag) {
 
@@ -273,24 +267,24 @@ public class Region {
 		}
 		if(type < 4)
 			def.setSolid(objectId);
-		int xLength;
-		int yLength;
-		if (direction != 1 && direction != 3) {
-			xLength = def.xLength();
-			yLength = def.yLength();
-		} else {
-			xLength = def.yLength();
-			yLength = def.xLength();
+		// loc.dat has no size for most scenery — thousands of blocking objects read
+		// back as 1x1, which is why walking through trees and statues looks wrong.
+		// Prefer the authoritative footprints in Data/objectSize.cfg and fall back to
+		// the cache only where the table has no entry. The rotation swap is applied
+		// to the resolved pair so it still turns a 2x3 into a 3x2.
+		int xLength = def.xLength();
+		int yLength = def.yLength();
+		if (Config.USE_OBJECT_SIZE_TABLE) {
+			ObjectSizes sizes = ObjectSizes.get();
+			xLength = sizes.width(objectId, xLength);
+			yLength = sizes.height(objectId, yLength);
 		}
-		// Chaos, Guthix, and ancient altars are 2x2. A missing size leaves three tiles open.
-		if (objectId == 409 || objectId == 410 || objectId == 6552) {
-			if (xLength < 2)
-				xLength = 2;
-			if (yLength < 2)
-				yLength = 2;
+		if (direction == 1 || direction == 3) {
+			int swap = xLength;
+			xLength = yLength;
+			yLength = swap;
 		}
-		boolean blocksWalk = def.aBoolean767()
-				|| objectId == 409 || objectId == 410 || objectId == 6552;
+		boolean blocksWalk = def.aBoolean767();
 		// Projectile solid from ObjectDef.solid(); short-object overrides strip 0x20000 only.
 		boolean blocksProjectiles = def.solid() && !projectileSolidOverride(objectId);
 		if (type == 22) {
@@ -424,8 +418,8 @@ public class Region {
 
 	/**
 	 * Ownership: Region holds the clip matrix; SmartPathFinder.canStep is the
-	 * sole step API used by player/NPC movement. WalkingCheck/ClipMap.bin is
-	 * intentionally unused (would duplicate this source of truth).
+	 * sole step API used by player/NPC movement, and Movement is the
+	 * direction-addressed view over it. There is no second clipping source.
 	 * Samples a few known solid tiles and checks Region.getClipping vs
 	 * SmartPathFinder.canStep agreement for cardinal steps.
 	 */
@@ -551,28 +545,6 @@ public class Region {
 		return buffer;
 	}
 
-	public static int[] getNextStep(int baseX, int baseY, int toX, int toY, int height, int xLength, int yLength) {
-		int moveX = 0;
-		int moveY = 0;
-		if (baseX - toX > 0) {
-			moveX--;
-		} else if (baseX - toX < 0) {
-			moveX++;
-		}
-		if (baseY - toY > 0) {
-			moveY--;
-		} else if (baseY - toY < 0) {
-			moveY++;
-		}
-		if (canMove(baseX, baseY, baseX + moveX, baseY + moveY, height, xLength, yLength)) {
-			return new int[] { baseX + moveX, baseY + moveY };
-		} else if (moveX != 0 && canMove(baseX, baseY, baseX + moveX, baseY, height, xLength, yLength)) {
-			return new int[] { baseX + moveX, baseY };
-		} else if (moveY != 0 && canMove(baseX, baseY, baseX, baseY + moveY, height, xLength, yLength)) {
-			return new int[] { baseX, baseY + moveY };
-		}
-		return new int[] { baseX, baseY };
-	}
 
 	public static boolean canMove(int startX, int startY, int endX, int endY, int height, int xLength, int yLength) {
 		int diffX = endX - startX;

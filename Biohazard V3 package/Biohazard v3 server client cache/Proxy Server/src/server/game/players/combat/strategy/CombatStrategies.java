@@ -16,7 +16,7 @@ public final class CombatStrategies {
 		if (c == null) {
 			return MeleeStrategy.INSTANCE;
 		}
-		if (c.autocasting || c.spellId > 0 || c.usingMagic) {
+		if (c.attackMode.autocasting || c.magic.spellId > 0 || c.attackMode.usingMagic) {
 			return MagicStrategy.INSTANCE;
 		}
 		if (isUsingRanged(c)) {

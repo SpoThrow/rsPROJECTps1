@@ -406,11 +406,11 @@ public class PlayerAssistant {
 			c.setSidebarInterface(3, 3213);
 			c.setSidebarInterface(4, 1644);
 			c.getPA().setPrayerBook();
-			if(c.playerMagicBook == 0)
+			if(c.magic.playerMagicBook == 0)
 				c.setSidebarInterface(6, 1151); //modern
-			else if (c.playerMagicBook == 1)
+			else if (c.magic.playerMagicBook == 1)
 				c.setSidebarInterface(6, 12855); // ancient
-			else if (c.playerMagicBook == 2)
+			else if (c.magic.playerMagicBook == 2)
 				c.setSidebarInterface(6, 29999);
 			c.setSidebarInterface(7, 50128);
 			c.setSidebarInterface(8, 5065);
@@ -427,7 +427,7 @@ public class PlayerAssistant {
 			c.setSidebarInterface(3, 6014);//
 			c.setSidebarInterface(4, -1);
 			c.setSidebarInterface(5, -1);
-			if (c.playerMagicBook == 0) {
+			if (c.magic.playerMagicBook == 0) {
 				c.setSidebarInterface(6, -1); // modern
 			} else {
 				c.setSidebarInterface(6, -1); // ancient
@@ -451,7 +451,7 @@ public class PlayerAssistant {
 		c.setSidebarInterface(3, -1);//
 		c.setSidebarInterface(4, -1);
 		c.setSidebarInterface(5, -1);
-		if (c.playerMagicBook == 0) {
+		if (c.magic.playerMagicBook == 0) {
 			c.setSidebarInterface(6, -1); // modern
 		} else {
 			c.setSidebarInterface(6, -1); // ancient
@@ -525,9 +525,9 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 			c.setSidebarInterface(i, inter[i]);
 		}
 		setPrayerBook();
-		if (c.playerMagicBook == 1) {
+		if (c.magic.playerMagicBook == 1) {
 			c.setSidebarInterface(6, 12855);
-		} else if (c.playerMagicBook == 2) {
+		} else if (c.magic.playerMagicBook == 2) {
 			c.setSidebarInterface(6, 16640);
 		} else {
 			c.setSidebarInterface(6, 1151);
@@ -616,8 +616,8 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 	 */
 
 	public void resetAutocast() {
-		c.autocastId = -1;
-		c.autocasting = false;
+		c.magic.autocastId = -1;
+		c.attackMode.autocasting = false;
 		c.setSidebarInterface(0, 328);
 		c.getPA().sendFrame36(108, 0);
 		c.getItems().sendWeapon(c.playerEquipment[c.playerWeapon],
@@ -658,40 +658,40 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 
 	public void rememberAutocast() {
 		int weapon = c.playerEquipment[c.playerWeapon];
-		if (!isAutocastWeapon(weapon) || c.autocastId < 0) {
+		if (!isAutocastWeapon(weapon) || c.magic.autocastId < 0) {
 			return;
 		}
-		int book = bookForAutocastSpell(c.autocastId);
-		if (book < 0 || book != c.playerMagicBook) {
+		int book = bookForAutocastSpell(c.magic.autocastId);
+		if (book < 0 || book != c.magic.playerMagicBook) {
 			return;
 		}
 		if (!weaponMatchesAutocastBook(weapon, book)) {
 			return;
 		}
 		int empty = -1;
-		for (int i = 0; i < c.autocastMemWeapon.length; i++) {
-			if (c.autocastMemWeapon[i] == weapon) {
-				c.autocastMemSpell[i] = c.autocastId;
-				c.autocastMemBook[i] = book;
+		for (int i = 0; i < c.magic.autocastMemWeapon.length; i++) {
+			if (c.magic.autocastMemWeapon[i] == weapon) {
+				c.magic.autocastMemSpell[i] = c.magic.autocastId;
+				c.magic.autocastMemBook[i] = book;
 				return;
 			}
-			if (empty < 0 && c.autocastMemWeapon[i] <= 0) {
+			if (empty < 0 && c.magic.autocastMemWeapon[i] <= 0) {
 				empty = i;
 			}
 		}
-		int slot = empty >= 0 ? empty : (c.autocastMemWeapon.length - 1);
-		c.autocastMemWeapon[slot] = weapon;
-		c.autocastMemSpell[slot] = c.autocastId;
-		c.autocastMemBook[slot] = book;
+		int slot = empty >= 0 ? empty : (c.magic.autocastMemWeapon.length - 1);
+		c.magic.autocastMemWeapon[slot] = weapon;
+		c.magic.autocastMemSpell[slot] = c.magic.autocastId;
+		c.magic.autocastMemBook[slot] = book;
 	}
 
 	public int rememberedAutocastSpell(int weapon) {
 		if (weapon <= 0) {
 			return -1;
 		}
-		for (int i = 0; i < c.autocastMemWeapon.length; i++) {
-			if (c.autocastMemWeapon[i] == weapon) {
-				return c.autocastMemSpell[i];
+		for (int i = 0; i < c.magic.autocastMemWeapon.length; i++) {
+			if (c.magic.autocastMemWeapon[i] == weapon) {
+				return c.magic.autocastMemSpell[i];
 			}
 		}
 		return -1;
@@ -701,9 +701,9 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 		if (weapon <= 0) {
 			return -1;
 		}
-		for (int i = 0; i < c.autocastMemWeapon.length; i++) {
-			if (c.autocastMemWeapon[i] == weapon) {
-				return c.autocastMemBook[i];
+		for (int i = 0; i < c.magic.autocastMemWeapon.length; i++) {
+			if (c.magic.autocastMemWeapon[i] == weapon) {
+				return c.magic.autocastMemBook[i];
 			}
 		}
 		return -1;
@@ -712,7 +712,7 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 	public boolean applyRememberedAutocast() {
 		int weapon = c.playerEquipment[c.playerWeapon];
 		if (!isAutocastWeapon(weapon)) {
-			if (c.autocasting || c.autocastId >= 0) {
+			if (c.attackMode.autocasting || c.magic.autocastId >= 0) {
 				resetAutocast();
 			}
 			return false;
@@ -720,18 +720,18 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 		int spell = rememberedAutocastSpell(weapon);
 		int book = rememberedAutocastBook(weapon);
 		if (spell < 0 || book < 0) {
-			if (c.autocasting) {
+			if (c.attackMode.autocasting) {
 				resetAutocast();
 			}
 			return false;
 		}
-		if (book != c.playerMagicBook || bookForAutocastSpell(spell) != c.playerMagicBook
-				|| !weaponMatchesAutocastBook(weapon, c.playerMagicBook)) {
+		if (book != c.magic.playerMagicBook || bookForAutocastSpell(spell) != c.magic.playerMagicBook
+				|| !weaponMatchesAutocastBook(weapon, c.magic.playerMagicBook)) {
 			resetAutocast();
 			return false;
 		}
-		c.autocastId = spell;
-		c.autocasting = true;
+		c.magic.autocastId = spell;
+		c.attackMode.autocasting = true;
 		c.setSidebarInterface(0, 328);
 		sendFrame36(108, 1);
 		c.getItems().sendWeapon(weapon, ItemAssistant.getItemName(weapon));
@@ -739,7 +739,7 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 	}
 
 	public void refreshAutocastMemory() {
-		if (!applyRememberedAutocast() && (c.autocasting || c.autocastId >= 0)) {
+		if (!applyRememberedAutocast() && (c.attackMode.autocasting || c.magic.autocastId >= 0)) {
 			resetAutocast();
 		}
 	}
@@ -1887,7 +1887,7 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 	 */
 	public void potionPoisonHeal(int itemId, int itemSlot, int newItemId,
 			int healType) {
-		c.attackTimer = c.getCombat().getAttackDelay(
+		c.timers.attackTimer = c.getCombat().getAttackDelay(
 				ItemAssistant.getItemName(c.playerEquipment[c.playerWeapon])
 						.toLowerCase());
 		if (c.duelRule[5]) {
@@ -2002,7 +2002,7 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 	public String killMessage() {
 		int a = Misc.random(15);
 		@SuppressWarnings("unused")
-		Client o = (Client) PlayerHandler.players[c.killerId];
+		Client o = (Client) PlayerHandler.players[c.killCredit.killerId];
 		switch (a) {
 		case 0:
 			return "With a crushing blow, you defeat "
@@ -2087,13 +2087,13 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 	public void applyDead() { 
 		int weapon = c.playerEquipment[c.playerWeapon];
 		c.getTradeAndDuel().stakedItems.clear();
-		c.respawnTimer = 15;
+		c.timers.respawnTimer = 15;
 		c.isDead = false;
     
 	    if(c.duelStatus != 6) {
 	        //c.killerId = c.getCombat().getKillerId(c.playerId);
-	        c.killerId = findKiller();
-	        Client o = (Client) PlayerHandler.players[c.killerId];
+	        c.killCredit.killerId = findKiller();
+	        Client o = (Client) PlayerHandler.players[c.killCredit.killerId];
 	        Random generator = new Random();
 			// int randomIndex = generator.nextInt(5);
 			@SuppressWarnings("unused")
@@ -2102,7 +2102,7 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 	        	if (c.getItems().playerHasItem(6570,1) || c.playerEquipment[c.playerCape] == 6570) {
 	        	     c.hasFCape = true;
 	        	}
-	            if(!(c.npcIndex > 0) && c.inPits == false){
+	            if(!(c.targeting.npcIndex > 0) && c.inPits == false){
 	            }
 	            //castlewars
                 if (weapon == CastleWars.SARA_BANNER || weapon == CastleWars.ZAMMY_BANNER) {
@@ -2110,7 +2110,7 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
                     c.getItems().deleteItem2(weapon, 1);
                     CastleWars.dropFlag(c, weapon);
                 }
-	            if (c.killerId != c.playerId)
+	            if (c.killCredit.killerId != c.playerId)
 	                o.sendMessage("You have defeated "+Misc.optimizeText(c.playerName)+"!");
 	            c.playerKilled = c.playerId;
 	            if(o.duelStatus == 5) {
@@ -2129,15 +2129,15 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 			}
 			@Override
 			public void stop() {
-				c.npcIndex = 0;
-				c.playerIndex = 0;
+				c.targeting.npcIndex = 0;
+				c.targeting.playerIndex = 0;
 			}
 		}, 4);
 		c.stopMovement();
 		if(c.duelStatus <= 4) {
 			//castlewars
             if (CastleWars.isInCw(c)) {
-            	Client o = (Client) PlayerHandler.players[c.killerId];
+            	Client o = (Client) PlayerHandler.players[c.killCredit.killerId];
                 c.cwDeaths += 1;
                 o.cwKills += 1;
             }
@@ -2148,18 +2148,18 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 			c.sendMessage("You have lost the duel!");
 		}
 	    resetDamageDone();
-	    c.specAmount = 100;
+	    c.specialAttack.specAmount = 100;
 	    c.getItems().addSpecialBar(c.playerEquipment[c.playerWeapon]);
 	    c.lastVeng = 0;
 	    c.vengOn = false;
 	    resetFollowers();
-	    c.attackTimer = 10;
+	    c.timers.attackTimer = 10;
 	}
 	
 	public void resetDamageDone() {
 		for (int i = 0; i < PlayerHandler.players.length; i++) {
 			if (PlayerHandler.players[i] != null) {
-				PlayerHandler.players[i].damageTaken[c.playerId] = 0;
+				PlayerHandler.players[i].killCredit.damageTaken[c.playerId] = 0;
 			}
 		}
 	}
@@ -2197,14 +2197,14 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 	}
 
 	public void resetTb() {
-		c.teleBlockLength = 0;
+		c.timers.teleBlockLength = 0;
 		c.timers.teleBlockDelay = 0;
 	}
 
 	public void giveLife() {
 		c.isDead = false;
 		c.faceUpdate(-1);
-		c.freezeTimer = 0;
+		c.timers.freezeTimer = 0;
 		if (c.duelStatus <= 4 && !c.getPA().inPitsWait()) { // if we are not in
 															// a duel we must be
 															// in wildy so
@@ -2223,7 +2223,7 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 						c.getItems().addItem(6570,1);
 						c.hasFCape = false;
 						}
-					if (c.prayerActive[10]
+					if (c.prayers.prayerActive[10]
 							&& System.currentTimeMillis() - c.lastProtItem > 700) {
 						c.getItems().keepItem(3, true);
 					}
@@ -2238,7 +2238,7 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 							}
 						}
 					}
-					if (c.prayerActive[10]) { // if we have protect items
+					if (c.prayers.prayerActive[10]) { // if we have protect items
 						if (c.itemKeptId[3] > 0) {
 							c.getItems().addItem(c.itemKeptId[3], 1);
 						}
@@ -2273,8 +2273,8 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 										// wildy
 			movePlayer(Config.RESPAWN_X, Config.RESPAWN_Y, 0);
 			c.isSkulled = false;
-			c.skullTimer = 0;
-			c.attackedPlayers.clear();
+			c.timers.skullTimer = 0;
+			c.killCredit.attackedPlayers.clear();
 		} else if (c.inFightCaves()) {
 			c.getPA().resetTzhaar();
 		} else { // we are in a duel, respawn outside of arena
@@ -2308,10 +2308,10 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 		frame1();
 		resetTb();
 		c.isSkulled = false;
-		c.attackedPlayers.clear();
+		c.killCredit.attackedPlayers.clear();
 		c.appearance.headIconPk = -1;
-		c.skullTimer = -1;
-		c.damageTaken = new int[Config.MAX_PLAYERS];
+		c.timers.skullTimer = -1;
+		c.killCredit.damageTaken = new int[Config.MAX_PLAYERS];
 		c.getPA().requestUpdates();
 	}
 
@@ -2382,7 +2382,7 @@ public void underWaterTele() {
 	 **/
 	public void spellTeleport(int x, int y, int height) {
 		c.getPA().startTeleport(x, y, height,
-				c.playerMagicBook == 1 ? "ancient" : "modern");
+				c.magic.playerMagicBook == 1 ? "ancient" : "modern");
 	}
 
 	public void startTeleport(int x, int y, int height, String teleportType) {
@@ -2437,16 +2437,16 @@ public void underWaterTele() {
 					+ Config.NO_TELEPORT_WILD_LEVEL + " in the wilderness.");
 			return;
 		}
-		if (System.currentTimeMillis() - c.timers.teleBlockDelay < c.teleBlockLength) {
+		if (System.currentTimeMillis() - c.timers.teleBlockDelay < c.timers.teleBlockLength) {
 			c.getPA().closeAllWindows();
 			c.sendMessage("You are teleblocked and can't teleport.");
 			return;
 		}
-		if(c.teleTimer != 0) {
+		if(c.timers.teleTimer != 0) {
 			c.getPA().closeAllWindows();
 		}
-		if (!c.isDead && c.teleTimer == 0 && c.respawnTimer == -6) {
-			if (c.playerIndex > 0 || c.npcIndex > 0)
+		if (!c.isDead && c.timers.teleTimer == 0 && c.timers.respawnTimer == -6) {
+			if (c.targeting.playerIndex > 0 || c.targeting.npcIndex > 0)
 				c.getCombat().resetPlayerAttack();
 			c.stopMovement();
 			removeAllWindows();
@@ -2454,14 +2454,14 @@ public void underWaterTele() {
 			resetFollow();
 			c.teleX = x;
 			c.teleY = y;
-			c.npcIndex = 0;
-			c.playerIndex = 0;
+			c.targeting.npcIndex = 0;
+			c.targeting.playerIndex = 0;
 			c.faceUpdate(0);
 			c.teleHeight = height;
 			if (teleportType.equalsIgnoreCase("modern")) {
 				c.startAnimation(714);
 				c.teleEndGfx = 0;
-				c.teleTimer = 10;
+				c.timers.teleTimer = 10;
 				c.gfx100(111);
 				c.teleEndAnimation = 715;
 			}
@@ -2469,7 +2469,7 @@ public void underWaterTele() {
 				c.startAnimation(1979);
 				c.teleGfx = 0;
 				c.teleEndGfx = 455;
-				c.teleTimer = 9;
+				c.timers.teleTimer = 9;
 				c.teleEndAnimation = 0;
 				c.gfx0(392);
 			}
@@ -2495,21 +2495,21 @@ public void underWaterTele() {
 			c.sendMessage("You can't teleport during a duel!");
 			return;
 		}
-		if (System.currentTimeMillis() - c.timers.teleBlockDelay < c.teleBlockLength) {
+		if (System.currentTimeMillis() - c.timers.teleBlockDelay < c.timers.teleBlockLength) {
 			c.sendMessage("You are teleblocked and can't teleport.");
 			return;
 		}
-		if (!c.isDead && c.teleTimer == 0) {
+		if (!c.isDead && c.timers.teleTimer == 0) {
 			c.stopMovement();
 			removeAllWindows();
 			c.teleX = x;
 			c.teleY = y;
-			c.npcIndex = 0;
-			c.playerIndex = 0;
+			c.targeting.npcIndex = 0;
+			c.targeting.playerIndex = 0;
 			c.faceUpdate(0);
 			c.teleHeight = height;
 			c.startAnimation(714);
-			c.teleTimer = 11;
+			c.timers.teleTimer = 11;
 			c.gfx100(111);
 			c.teleEndAnimation = 715;
 
@@ -2527,7 +2527,7 @@ public void underWaterTele() {
 			c.gfx0(c.teleEndGfx);
 			c.canWalk = false;
 			@SuppressWarnings("unused")
-			int timer = c.playerMagicBook == 1 ? 6 : 5;
+			int timer = c.magic.playerMagicBook == 1 ? 6 : 5;
 			CycleEventHandler.addEvent(c, new CycleEvent() {
 				int timer;
 				@Override
@@ -2558,7 +2558,7 @@ public void underWaterTele() {
 			c.followId = 0;
                 return;
         }
-        if (c.freezeTimer > 0) {
+        if (c.timers.freezeTimer > 0) {
                 return;
         }
         
@@ -2569,130 +2569,52 @@ public void underWaterTele() {
         if (c.isDead || c.skills.playerLevel[3] <= 0)
                 return;
 
-        int otherX = PlayerHandler.players[c.followId].getX();
-        int otherY = PlayerHandler.players[c.followId].getY();
+		int otherX = PlayerHandler.players[c.followId].getX();
+		int otherY = PlayerHandler.players[c.followId].getY();
 
-        boolean sameSpot = (c.position.absX == otherX && c.position.absY == otherY);
-
-        boolean hallyDistance = c.goodDistance(otherX, otherY, c.getX(),
-                        c.getY(), 2);
-		boolean withinDistance = c.goodDistance(otherX, otherY, c.getX(), c.getY(), 2);
-        boolean rangeWeaponDistance = c.goodDistance(otherX, otherY, c.getX(),
-                        c.getY(), 4);
-        boolean bowDistance = c.goodDistance(otherX, otherY, c.getX(),
-                        c.getY(), 6);
-        boolean mageDistance = c.goodDistance(otherX, otherY, c.getX(),
-                        c.getY(), 7);
-
-        boolean castingMagic = (c.usingMagic || c.mageFollow || c.autocasting || c.spellId > 0)
-                        && mageDistance;
-        boolean playerRanging = (c.usingRangeWeapon)
-                        && rangeWeaponDistance;
-        boolean playerBowOrCross = (c.usingBow) && bowDistance;
-
-		if(!c.goodDistance(otherX, otherY, c.getX(), c.getY(), 25)) {
+		if (!c.goodDistance(otherX, otherY, c.getX(), c.getY(), 25)) {
 			c.followId = 0;
 			return;
 		}
-		if(c.goodDistance(otherX, otherY, c.getX(), c.getY(), 1)) {
-			if (otherX != c.getX() && otherY != c.getY()) {
-				stopDiagonal(otherX, otherY);
+		boolean sameSpot = (c.position.absX == otherX && c.position.absY == otherY);
+		if (sameSpot) {
+			walkClipped(c);
+			return;
+		}
+
+		c.faceUpdate(c.followId + 32768);
+
+		// Hold at the current weapon's range, but only with a clear line of sight.
+		// Same shape as followNpc: the path finder owns the route and the clipping,
+		// and this method only decides when to stop walking.
+		int hold = c.getCombat().attackRange();
+		boolean inHold = c.getCombat().withinNpcDistance(c.getX(), c.getY(), otherX, otherY, 1, hold);
+		boolean clearShot = PathFinder.hasLineOfSight(c.position.absX, c.position.absY, 1, otherX, otherY, 1,
+				c.position.heightLevel);
+		if (inHold && clearShot) {
+			c.stopMovement();
+			return;
+		}
+
+		// Behind a wall with a ranged weapon: walk to the nearest tile that can see
+		// the target rather than pressing against the wall.
+		if (hold > 1 && !clearShot) {
+			int[] fire = PathFinder.getPathFinder().findShootingTile(c, otherX, otherY, 1, hold);
+			if (fire != null) {
+				if (fire[0] == c.position.absX && fire[1] == c.position.absY) {
+					c.stopMovement();
+				} else {
+					playerWalk(fire[0], fire[1]);
+				}
 				return;
 			}
 		}
-		
-		if((c.usingBow || c.mageFollow || (c.playerIndex > 0 && c.autocastId > 0)) && bowDistance && !sameSpot) {
-			return;
+
+		// Otherwise let the path finder route around walls to the target's tile.
+		PathFinder.getPathFinder().findRoute(c, otherX, otherY, true, 1, 1);
+		c.faceUpdate(c.followId + 32768);
 		}
 
-		if(c.getCombat().usingHally() && hallyDistance && !sameSpot) {
-			return;
-		}
-
-		if(c.usingRangeWeapon && rangeWeaponDistance && !sameSpot) {
-			return;
-		}
-		
-		c.faceUpdate(c.followId+32768);
-        switch (c.otherDirection) {
-        case 0:
-            playerWalk(otherX + 0, otherY-1);
-            break;
-	    case 1:
-	    case 2:
-	    case 3:
-	    	playerWalk(otherX - 1, otherY - 1);
-	        break;
-	    case 4:
-	    	playerWalk(otherX-1,otherY + 0);
-	        break;
-	    case 6:
-	    case 5:
-	    case 7:
-	    	playerWalk(otherX-1,otherY + 1);
-	        break;
-	    case 8:
-	    	playerWalk(otherX+0, otherY+1);
-	        break;
-	        
-	    case 10:
-	    case 11:
-	    case 9:
-	    	playerWalk(otherX+1, otherY+1);
-	        break;
-	        
-	    case 12:
-	    	playerWalk(otherX+1, otherY +0);
-	        break;
-	        
-	    case 14:
-	    case 15:
-	    case 13:
-	    	playerWalk(otherX+1, otherY-1);
-	        break;
-        }
-        if (otherX == c.position.absX && otherY == c.position.absY) {
-        	walkClipped(c);
-        } else if (c.isRunning2 && !withinDistance) {
-                if (otherY > c.getY() && otherX == c.getX()) {
-                        playerWalk(otherX, otherY - 1);
-                } else if (otherY < c.getY() && otherX == c.getX()) {
-                        playerWalk(otherX, otherY + 1);
-                } else if (otherX > c.getX() && otherY == c.getY()) {
-                        playerWalk(otherX - 1, otherY);
-                } else if (otherX < c.getX() && otherY == c.getY()) {
-                        playerWalk(otherX + 1, otherY);
-                } else if (otherX < c.getX() && otherY < c.getY()) {
-                        playerWalk(otherX + 1, otherY + 1);
-                } else if (otherX > c.getX() && otherY > c.getY()) {
-                        playerWalk(otherX - 1, otherY - 1);
-                } else if (otherX < c.getX() && otherY > c.getY()) {
-                        playerWalk(otherX + 1, otherY - 1);
-                } else if (otherX > c.getX() && otherY < c.getY()) {
-                        playerWalk(otherX + 1, otherY - 1);
-                }
-        } else {
-                if (otherY > c.getY() && otherX == c.getX()) {
-                        playerWalk(otherX, otherY - 1);
-                } else if (otherY < c.getY() && otherX == c.getX()) {
-                        playerWalk(otherX, otherY + 1);
-                } else if (otherX > c.getX() && otherY == c.getY()) {
-                        playerWalk(otherX - 1, otherY);
-                } else if (otherX < c.getX() && otherY == c.getY()) {
-                        playerWalk(otherX + 1, otherY);
-                } else if (otherX < c.getX() && otherY < c.getY()) {
-                        playerWalk(otherX + 1, otherY + 1);
-                } else if (otherX > c.getX() && otherY > c.getY()) {
-                        playerWalk(otherX - 1, otherY - 1);
-                } else if (otherX < c.getX() && otherY > c.getY()) {
-                        playerWalk(otherX + 1, otherY - 1);
-                } else if (otherX > c.getX() && otherY < c.getY()) {
-                        playerWalk(otherX - 1, otherY + 1);
-                }
-        }
-        c.faceUpdate(c.followId+32768);
-}
-	
 	private static void walkClipped(Client c) {
 		if (Region.getClipping(c.getX() - 1, c.getY(), c.position.heightLevel, -1, 0)) {
 			c.getPA().walkTo(-1, 0);
@@ -2716,7 +2638,7 @@ public void underWaterTele() {
 			c.followId2 = 0;
 			return;
 		}
-		if(c.freezeTimer > 0) {
+		if(c.timers.freezeTimer > 0) {
 			return;
 		}
 		if (c.isDead || c.skills.playerLevel[3] <= 0)
@@ -2739,10 +2661,10 @@ public void underWaterTele() {
 		}
 		// Talking or shopping walks up next to the NPC. Combat holds at weapon
 		// range, and only once the target is not behind a wall.
-		boolean talking = c.clickNpcType > 0;
+		boolean talking = c.npcInteraction.clickNpcType > 0;
 		int hold = talking ? 1 : c.getCombat().attackRange();
 		boolean inHold = c.getCombat().withinNpcDistance(c.getX(), c.getY(), otherX, otherY, nSize, hold);
-		boolean clearShot = talking || c.npcIndex <= 0
+		boolean clearShot = talking || c.targeting.npcIndex <= 0
 				|| PathFinder.hasLineOfSight(c.position.absX, c.position.absY, 1, otherX, otherY, nSize, c.position.heightLevel);
 		if (inHold && clearShot) {
 			c.stopMovement();
@@ -2798,28 +2720,6 @@ public void underWaterTele() {
 	}
 	
 
-	public void stopDiagonal(int otherX, int otherY) {
-		if (c.freezeDelay > 0)
-			return;
-		c.newWalkCmdSteps = 1;
-		int xMove = otherX - c.getX();
-		int yMove = 0;
-		if (xMove == 0)
-			yMove = otherY - c.getY();
-
-		int k = c.getX() + xMove;
-		k -= c.position.mapRegionX * 8;
-		c.getNewWalkCmdX()[0] = c.getNewWalkCmdY()[0] = 0;
-		int l = c.getY() + yMove;
-		l -= c.position.mapRegionY * 8;
-
-		for (int n = 0; n < c.newWalkCmdSteps; n++) {
-			c.getNewWalkCmdX()[n] += k;
-			c.getNewWalkCmdY()[n] += l;
-		}
-		c.getPA().walkTo(-1, 0);
-
-	}
 
 	public void walkToCheck(int i, int j) {
 		WalkAdapter.walkRelativeFrozenCheck(c, i, j);
@@ -3518,7 +3418,7 @@ public void underWaterTele() {
 		int toReturn = 0;
 		if (c.antiFirePot)
 			toReturn++;
-		if (c.playerEquipment[c.playerShield] == 1540 || c.prayerActive[12]
+		if (c.playerEquipment[c.playerShield] == 1540 || c.prayers.prayerActive[12]
 				|| c.playerEquipment[c.playerShield] == 11284)
 			toReturn++;
 		return toReturn;
@@ -3760,9 +3660,9 @@ public void underWaterTele() {
 			break;
 		case 11283:
 		case 11284:
-			if (c.playerIndex > 0) {
+			if (c.targeting.playerIndex > 0) {
 				c.getCombat().handleDfs();
-			} else if (c.npcIndex > 0) {
+			} else if (c.targeting.npcIndex > 0) {
 				c.getCombat().handleDfsNPC();
 			}
 			break;
@@ -3804,8 +3704,8 @@ public void underWaterTele() {
 					|| c.goodDistance(c.position.absX, c.position.absY,
 							PlayerHandler.players[j].position.absX,
 							PlayerHandler.players[j].position.absY + 9400, 40))
-				if (c.damageTaken[j] > damage) {
-					damage = c.damageTaken[j];
+				if (c.killCredit.damageTaken[j] > damage) {
+					damage = c.killCredit.damageTaken[j];
 					killer = j;
 				}
 		}
@@ -3977,13 +3877,13 @@ public void underWaterTele() {
 	}
 	
 	public void handleWeaponStyle() {
-		if (c.fightMode == 0) {
-			sendFrame36(43, c.fightMode);
-		} else if (c.fightMode == 1) {
+		if (c.combatStyle.fightMode == 0) {
+			sendFrame36(43, c.combatStyle.fightMode);
+		} else if (c.combatStyle.fightMode == 1) {
 			sendFrame36(43, 3);
-		} else if (c.fightMode == 2) {
+		} else if (c.combatStyle.fightMode == 2) {
 			sendFrame36(43, 1);
-		} else if (c.fightMode == 3) {
+		} else if (c.combatStyle.fightMode == 3) {
 			sendFrame36(43, 2);
 		}
 	}

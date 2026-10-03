@@ -8,21 +8,25 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 /**
- * Pins the timers sub-slice after Phase 4.10 moved it off {@link Player} into {@link Timers}.
+ * Pins the timer bag after §4.10 (the availability clocks) and §4.11 (the duration/scheduling
+ * group) moved it off {@link Player} into {@link Timers}.
  *
- * <p>The whole cluster rests on one invariant — <em>every default is the {@code 0}
- * sentinel</em> — because fifteen of these fields are "last used" timestamps read as
- * {@code System.currentTimeMillis() - X > threshold}, so {@code 0} means "never used" and
- * the action is available immediately. {@code 0} is also the reset sentinel for
- * {@code teleBlockDelay} ("not teleblocked") and for the two counters, {@code clawDelay}
- * ("no claws active") and {@code ssDelay} ("Soul Split idle").
- * Rather than assert eighteen fields by name, the first test reflects over the class, so a
- * field added later with a non-zero default fails here.
+ * <p>The bag rests on one invariant — <em>every default is the {@code 0} sentinel</em> —
+ * because most of these fields are either "last used" stamps read as
+ * {@code System.currentTimeMillis() - X > threshold} ({@code 0} = "never used", so the action
+ * is available immediately) or countdowns read as {@code > 0} ({@code 0} = "inactive").
+ * {@code 0} is also the reset sentinel for {@code teleBlockDelay} ("not teleblocked").
+ * ⚠️ There is exactly one deliberate exception, {@code freezeTimer = -6}: the freeze code tells
+ * thawed states apart by exact negative value, so {@code -6} is a re-freeze immunity window
+ * rather than a stand-in for zero. The first test reflects over the class, pins {@code 0} for
+ * everything and pins that exception by name and value — so a field added later with an
+ * unintended default fails there.
  *
- * <p>The counters are then checked against the comparisons the real code uses, so that the
+ * <p>The countdowns are then checked against the comparisons the real code uses, so that the
  * sentinel is tested by its <em>meaning</em> and not just its value.
  */
 class TimersTest {
@@ -30,6 +34,13 @@ class TimersTest {
 	private static Client client() {
 		return new Client(null, 1);
 	}
+
+	/**
+	 * The only fields whose default is not the {@code 0} sentinel, with why.
+	 * {@code freezeTimer}'s {@code -6} is a re-freeze immunity value the freeze code tests for
+	 * exactly ({@code > -6}, {@code <= -3}, {@code < -4}), so it must not be "tidied" to 0.
+	 */
+	private static final Map<String, Object> NON_ZERO_DEFAULTS = Map.of("freezeTimer", -6);
 
 	@Test
 	void everyTimerDefaultIsTheZeroSentinel() throws Exception {
@@ -44,7 +55,10 @@ class TimersTest {
 			f.setAccessible(true);
 			Object v = f.get(timers);
 			String where = "Timers." + f.getName();
-			if (v instanceof Long) {
+			if (NON_ZERO_DEFAULTS.containsKey(f.getName())) {
+				assertEquals(NON_ZERO_DEFAULTS.get(f.getName()), v,
+						where + " has a load-bearing non-zero default — see the class note");
+			} else if (v instanceof Long) {
 				assertEquals(0L, v, where + " must default to the 0 sentinel");
 			} else if (v instanceof Integer) {
 				assertEquals(0, v, where + " must default to the 0 sentinel");
@@ -59,8 +73,11 @@ class TimersTest {
 			}
 		}
 
-		// Guard against the loop passing vacuously if the cluster is ever emptied.
-		assertEquals(18, counted, "the timers cluster should hold 18 fields");
+		// Guard against the loop passing vacuously if the bag is ever emptied.
+		assertEquals(30, counted, "the timer bag should hold 30 fields");
+
+		// The exception is pinned by value, not merely excused.
+		assertEquals(-6, timers.freezeTimer, "freezeTimer's -6 is a re-freeze immunity window");
 	}
 
 	@Test
@@ -79,7 +96,7 @@ class TimersTest {
 		assertTrue(now - t.singleCombatDelay > 3300, "a new player must not be in single combat");
 		assertTrue(now - t.singleCombatDelay2 > 3300, "a new player must not be in single combat");
 		// Not teleblocked: now - teleBlockDelay must NOT be under teleBlockLength.
-		assertFalse(now - t.teleBlockDelay < c.teleBlockLength, "a new player must not be teleblocked");
+		assertFalse(now - t.teleBlockDelay < t.teleBlockLength, "a new player must not be teleblocked");
 		// teleGrabDelay is deliberately not asserted: it is written in MagicOnFloorItems and read
 		// nowhere, so the tele-grab cooldown is unimplemented and there is no comparison to make.
 	}
@@ -90,6 +107,31 @@ class TimersTest {
 		// ssDelay is Soul Split: set to 4 per hit, decremented in Curse.handleProcess().
 		assertFalse(client().timers.clawDelay > 0, "claws must be off for a new player");
 		assertFalse(client().timers.ssDelay > 0, "Soul Split must be idle for a new player");
+	}
+
+	@Test
+	void theDurationGroupIsInertForANewPlayer() {
+		final Timers t = client().timers;
+
+		// freezeTimer carries the bag's one non-zero default, and its *meaning* is "not frozen".
+		assertFalse(t.freezeTimer > 0, "a new player must not be frozen");
+		// The countdowns that gate actions are all inactive, and attackTimer means "ready".
+		assertFalse(t.teleTimer > 0, "no teleport should be running");
+		assertFalse(t.hitDelay > 0, "no hit should be queued");
+		assertEquals(0, t.attackTimer, "a new player may attack immediately");
+		assertEquals(0, t.delayedDamage, "no damage should be queued");
+		assertEquals(0, t.delayedDamage2, "no second hit should be queued");
+		assertFalse(t.freezeDelay > 0, "no ice spell should be in flight");
+		assertEquals(0, t.teleBlockLength, "a new player has no teleblock duration");
+		// restoreStatsDelay is an availability stamp after all (now - it > 60000 in Client).
+		assertTrue(System.currentTimeMillis() - t.restoreStatsDelay > 60000,
+				"a new player should be due a stat restore");
+		// respawnTimer's *idle* sentinel is -6, but its declared default is 0, so a fresh player
+		// walks 0 -> -6 over his first ticks. That transient is pinned as documented behaviour.
+		assertEquals(0, t.respawnTimer, "respawnTimer's declared default is 0, not the -6 idle value");
+		assertTrue(t.respawnTimer > -6, "so a fresh player is still counting down toward -6");
+		// saveTimer is deliberately absent from this list: it is written once in Client and read
+		// nowhere, so there is no behaviour of its own to assert.
 	}
 
 	@Test
@@ -116,9 +158,15 @@ class TimersTest {
 		a.timers.foodDelay = System.currentTimeMillis();
 		a.timers.clawDelay = 2;
 		a.timers.reduceSpellDelay[0] = 12345L;
+		a.timers.hitDelay = 3;
+		a.timers.freezeTimer = 30;
+		a.timers.skullTimer = 100;
 
 		assertEquals(0L, b.timers.foodDelay, "delays leaked between players");
 		assertEquals(0, b.timers.clawDelay, "the claw countdown leaked between players");
 		assertEquals(0L, b.timers.reduceSpellDelay[0], "the reduce-spell table leaked between players");
+		assertEquals(0, b.timers.hitDelay, "the hit countdown leaked between players");
+		assertEquals(-6, b.timers.freezeTimer, "the freeze countdown leaked between players");
+		assertEquals(0, b.timers.skullTimer, "the skull countdown leaked between players");
 	}
 }

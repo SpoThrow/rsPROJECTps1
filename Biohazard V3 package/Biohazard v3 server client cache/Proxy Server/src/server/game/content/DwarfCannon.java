@@ -456,16 +456,16 @@ public class DwarfCannon {
 		if (c == null || c.inMulti()) {
 			return -1;
 		}
-		if (c.npcIndex > 0 && c.npcIndex < NPCHandler.maxNPCs) {
-			NPC n = NPCHandler.npcs[c.npcIndex];
+		if (c.targeting.npcIndex > 0 && c.targeting.npcIndex < NPCHandler.maxNPCs) {
+			NPC n = NPCHandler.npcs[c.targeting.npcIndex];
 			if (n != null && !n.isDead && n.HP > 0) {
-				return c.npcIndex;
+				return c.targeting.npcIndex;
 			}
 		}
-		if (c.underAttackBy2 > 0 && c.underAttackBy2 < NPCHandler.maxNPCs) {
-			NPC n = NPCHandler.npcs[c.underAttackBy2];
+		if (c.targeting.underAttackBy2 > 0 && c.targeting.underAttackBy2 < NPCHandler.maxNPCs) {
+			NPC n = NPCHandler.npcs[c.targeting.underAttackBy2];
 			if (n != null && !n.isDead && n.HP > 0) {
-				return c.underAttackBy2;
+				return c.targeting.underAttackBy2;
 			}
 		}
 		return -1;
@@ -536,8 +536,8 @@ public class DwarfCannon {
 		n.underAttackBy = c.playerId;
 		n.killerId = c.playerId;
 		n.lastDamageTaken = System.currentTimeMillis();
-		c.killingNpcIndex = n.npcId;
-		c.totalDamageDealt += damage;
+		c.targeting.killingNpcIndex = n.npcId;
+		c.killCredit.totalDamageDealt += damage;
 		if (damage > 0) {
 			c.getPA().addSkillXP(damage * Config.RANGE_EXP_RATE, 4);
 			c.getPA().addSkillXP(damage * Config.RANGE_EXP_RATE / 3, 3);

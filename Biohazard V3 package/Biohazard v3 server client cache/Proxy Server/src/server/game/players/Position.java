@@ -13,7 +13,7 @@ package server.game.players;
  * <p><b>This cluster is why the rewriter had to become type-aware.</b> {@code absX},
  * {@code absY} and {@code heightLevel} are declared on {@code NPC} as well, and
  * {@code PlayerAssistant} has its own public {@code absX}/{@code absY}/{@code heightLevel}
- * on top of that, while {@code Region} and {@code WalkingCheck} use locals with those
+ * on top of that, while {@code Region} uses locals with those
  * names and {@code withinDistance(int absX, int getY, int getHeightLevel)} has parameters
  * with them too. A rename pass keyed on the name cannot tell those apart -- 325
  * {@code NPC} uses alone would have been corrupted, and the same identifier ({@code n})

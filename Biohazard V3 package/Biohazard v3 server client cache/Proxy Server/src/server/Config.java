@@ -101,6 +101,30 @@ public class Config {
 	public static final int SAVE_TIMER = 10;
 	public static final int NPC_RANDOM_WALK_DISTANCE = 6;
 	public static final int NPC_FOLLOW_DISTANCE = 10;												
+
+	/**
+	 * How NPCs chase a player.
+	 *
+	 * <p>{@code false} (default) = authentic OSRS: step greedily toward the target and let
+	 * {@code NPCHandler.handleClipping} slide or stop the NPC. This deliberately lets NPCs snag on
+	 * fences, trees and wall corners, which is what makes safespotting work.
+	 *
+	 * <p>{@code true} = route with {@code SmartPathFinder} so NPCs walk around obstacles and reliably
+	 * reach the player. More "correct" AI, but it removes most safespots.
+	 */
+	public static final boolean NPC_SMART_PATHING = false;
+
+	/**
+	 * Use {@code Data/objectSize.cfg} for object collision footprints instead of the cache's
+	 * {@code loc.dat} sizes.
+	 *
+	 * <p>Must stay in sync with the client, which builds collision from {@code loc.dat} in
+	 * {@code Class11.method212}. With this on and the client unpatched the two disagree about ~2229
+	 * objects, so the client can predict a step the server refuses (visible as a stutter near scenery).
+	 * Set to {@code false} for the previous 1x1-ish behaviour.
+	 */
+	public static final boolean USE_OBJECT_SIZE_TABLE = true;
+
 	public static final int[] UNDEAD_NPCS = {90,91,92,93,94,103,104,73,74,75,76,77};
 	
 	public static final int ATTACK = 0;

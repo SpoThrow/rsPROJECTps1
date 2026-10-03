@@ -52,7 +52,7 @@ public abstract class Player {
 	public boolean[] checkSkilling = new boolean[5]; //herblore, smithing, smelting, cooking, fletching, crafting
 	public int lockedEXP = 0;
 	public ArrayList <String>killedPlayers = new ArrayList<String> ();
-	public ArrayList <Integer>attackedPlayers = new ArrayList<Integer> ();
+
 	public ArrayList<String> lastKilledPlayers = new ArrayList<String>();
 	public boolean hasFCape = false;
 	public boolean openDuel = false;
@@ -123,9 +123,6 @@ public abstract class Player {
 	public boolean isPotionMaking = false, isGrinding = false;
 	public long lastTeleport;
 	public int[] woodcuttingProp = new int[10];
-	public int[] autocastMemWeapon = new int[12];
-	public int[] autocastMemSpell = new int[12];
-	public int[] autocastMemBook = new int[12];
 	public int[] pouch = {
 			0, 0, 0, 0
 		};
@@ -154,7 +151,6 @@ public abstract class Player {
 	chatEffects = true,
 	acceptAid = false,
 	nextDialogue = false,
-	autocasting = false,
 	usedSpecial = false,
 	mageFollow = false,
 	dbowSpec = false,
@@ -235,8 +231,6 @@ public abstract class Player {
 	dialogueId, 
 	randomCoffin, 
 	newLocation, 
-	specEffect, 
-	specBarId, 
 	runecraftingLevelReq,
 	attackLevelReq, 
 	defenceLevelReq, 
@@ -244,18 +238,13 @@ public abstract class Player {
 	rangeLevelReq, 
 	magicLevelReq,
 	followId, 
-	skullTimer,
 	votingPoints,
 	nextChat = 0,
 	talkingNpc = -1,
 	dialogueAction = 0,
-	autocastId,
 	followDistance,
 	followId2,
 	barrageCount = 0,
-	delayedDamage = 0,
-	delayedDamage2 = 0,
-	pendingHitpoints = 0,
 	pcPoints = 0,
 	magePoints = 0,
 	lastArrowUsed = -1,
@@ -297,8 +286,8 @@ public abstract class Player {
 	public final int[] POUCH_SIZE = {3,6,9,12};
 	public boolean[] invSlot = new boolean[28], equipSlot = new boolean[14];
 	public long friends[] = new long[200];
-	public double specAmount = 0;
-	public double specAccuracy = 1;
+	/** This player's special-attack state: the charge, the accuracy/damage multipliers, the bar and the two flags. */
+	public final SpecialAttack specialAttack = new SpecialAttack();
 	public int recoilHits = 0;
 	//castlewars
 	public boolean isMining = false;
@@ -326,21 +315,13 @@ public abstract class Player {
 	//end
 	
 	
-	public double specDamage = 1;
-	public double prayerPoint = 1.0;
-	public int teleGrabItem, teleGrabX, teleGrabY, duelCount, underAttackBy, underAttackBy2, wildLevel, teleTimer, respawnTimer, saveTimer = 0, teleBlockLength, poisonDelay;
-	public long lastPlayerMove,lastPoison,lastPoisonSip,poisonImmune,lastSpear,lastProtItem, lastVeng,lastYell, lastAction, lastThieve,lastLockPick, specDelay = System.currentTimeMillis(), reduceStat, restoreStatsDelay;
-	/** This player's per-action availability clocks. */
+	public int teleGrabItem, teleGrabX, teleGrabY, duelCount, wildLevel, poisonDelay;
+	public long lastPlayerMove,lastPoison,lastPoisonSip,poisonImmune,lastSpear,lastProtItem, lastVeng,lastYell, lastAction, lastThieve,lastLockPick, specDelay = System.currentTimeMillis(), reduceStat;
+	/** This player's timer state: availability clocks, durations and countdowns. */
 	public final Timers timers = new Timers();
 
 	public boolean mageAllowed;
 	public int poisonMask = 0;
-	public boolean[] curseActive = {
-		false,false,false,false,false,
-		false,false,false,false,false,
-		false,false,false,false,false,
-		false,false,false,false,false
-	};
 	public int altarPrayed = 0;
 	public final int[] CURSE_LEVEL_REQUIRED = { 50, 50, 52, 54, 56, 59, 62, 65,
 			68, 71, 74, 76, 78, 80, 82, 84, 86, 89, 92, 95 };
@@ -358,7 +339,7 @@ public abstract class Player {
 	public int clawDamage, clawIndex, clawType;
 	public boolean usingClaws;
 	public int getatt, getstr, getdef;
-	public int ssHeal, ssTarget, ssTargetNpc;
+	public int ssHeal;
 	public int focusPointX = -1, focusPointY = -1;
 	public int questPoints = 0;	
 	public int cooksA;
@@ -369,10 +350,7 @@ public abstract class Player {
 	public long lastChat, lastRandom, lastCaught = 0, lastAttacked, homeTeleTime, lastDagChange = -1, reportDelay, lastPlant, objectTimer, npcTimer, lastEss, lastClanMessage;
 	public int DirectionCount = 0;
 
-	public int hitDiff2;
-	public int hitDiff = 0;
-	public boolean hitUpdateRequired2;
-	public boolean hitUpdateRequired = false;
+
 	public boolean isDead = false;
 	public boolean randomEvent = false;
 	public boolean FirstClickRunning = false;
@@ -506,7 +484,7 @@ public abstract class Player {
 	}
 
 	public void StartBestItemScan(Client c) {
-		if (c.isSkulled && !c.prayerActive[10]) {
+		if (c.isSkulled && !c.prayers.prayerActive[10]) {
 			ItemKeptInfo(c, 0);
 			return;
 		}
@@ -516,11 +494,11 @@ public abstract class Player {
 	}
 
 	public void FindItemKeptInfo(Client c) {
-		if (isSkulled && c.prayerActive[10])
+		if (isSkulled && c.prayers.prayerActive[10])
 			ItemKeptInfo(c, 1);
-		else if (!isSkulled && !c.prayerActive[10])
+		else if (!isSkulled && !c.prayers.prayerActive[10])
 			ItemKeptInfo(c, 3);
-		else if (!isSkulled && c.prayerActive[10])
+		else if (!isSkulled && c.prayers.prayerActive[10])
 			ItemKeptInfo(c, 4);
 	}
 
@@ -617,9 +595,9 @@ public abstract class Player {
 					BestValue = NextValue;
 					WillKeepItem1 = playerItems[ITEM] - 1;
 					WillKeepItem1Slot = ITEM;
-					if (playerItemsN[ITEM] > 2 && !c.prayerActive[10]) {
+					if (playerItemsN[ITEM] > 2 && !c.prayers.prayerActive[10]) {
 						WillKeepAmt1 = 3;
-					} else if (playerItemsN[ITEM] > 3 && c.prayerActive[10]) {
+					} else if (playerItemsN[ITEM] > 3 && c.prayers.prayerActive[10]) {
 						WillKeepAmt1 = 4;
 					} else {
 						WillKeepAmt1 = playerItemsN[ITEM];
@@ -636,9 +614,9 @@ public abstract class Player {
 					BestValue = NextValue;
 					WillKeepItem1 = playerEquipment[EQUIP];
 					WillKeepItem1Slot = EQUIP + 28;
-					if (playerEquipmentN[EQUIP] > 2 && !c.prayerActive[10]) {
+					if (playerEquipmentN[EQUIP] > 2 && !c.prayers.prayerActive[10]) {
 						WillKeepAmt1 = 3;
-					} else if (playerEquipmentN[EQUIP] > 3 && c.prayerActive[10]) {
+					} else if (playerEquipmentN[EQUIP] > 3 && c.prayers.prayerActive[10]) {
 						WillKeepAmt1 = 4;
 					} else {
 						WillKeepAmt1 = playerEquipmentN[EQUIP];
@@ -647,7 +625,7 @@ public abstract class Player {
 			}
 		}
 		if (!isSkulled && ItemsContained > 1
-				&& (WillKeepAmt1 < 3 || (c.prayerActive[10] && WillKeepAmt1 < 4))) {
+				&& (WillKeepAmt1 < 3 || (c.prayers.prayerActive[10] && WillKeepAmt1 < 4))) {
 			BestItem2(c, ItemsContained);
 		}
 	}
@@ -666,10 +644,10 @@ public abstract class Player {
 					BestValue = NextValue;
 					WillKeepItem2 = playerItems[ITEM] - 1;
 					WillKeepItem2Slot = ITEM;
-					if (playerItemsN[ITEM] > 2 - WillKeepAmt1 && !c.prayerActive[10]) {
+					if (playerItemsN[ITEM] > 2 - WillKeepAmt1 && !c.prayers.prayerActive[10]) {
 						WillKeepAmt2 = 3 - WillKeepAmt1;
 					} else if (playerItemsN[ITEM] > 3 - WillKeepAmt1
-							&& c.prayerActive[10]) {
+							&& c.prayers.prayerActive[10]) {
 						WillKeepAmt2 = 4 - WillKeepAmt1;
 					} else {
 						WillKeepAmt2 = playerItemsN[ITEM];
@@ -687,10 +665,10 @@ public abstract class Player {
 					WillKeepItem2 = playerEquipment[EQUIP];
 					WillKeepItem2Slot = EQUIP + 28;
 					if (playerEquipmentN[EQUIP] > 2 - WillKeepAmt1
-							&& !c.prayerActive[10]) {
+							&& !c.prayers.prayerActive[10]) {
 						WillKeepAmt2 = 3 - WillKeepAmt1;
 					} else if (playerEquipmentN[EQUIP] > 3 - WillKeepAmt1
-							&& c.prayerActive[10]) {
+							&& c.prayers.prayerActive[10]) {
 						WillKeepAmt2 = 4 - WillKeepAmt1;
 					} else {
 						WillKeepAmt2 = playerEquipmentN[EQUIP];
@@ -700,7 +678,7 @@ public abstract class Player {
 		}
 		if (!isSkulled
 				&& ItemsContained > 2
-				&& (WillKeepAmt1 + WillKeepAmt2 < 3 || (c.prayerActive[10] && WillKeepAmt1
+				&& (WillKeepAmt1 + WillKeepAmt2 < 3 || (c.prayers.prayerActive[10] && WillKeepAmt1
 						+ WillKeepAmt2 < 4))) {
 			BestItem3(c, ItemsContained);
 		}
@@ -722,10 +700,10 @@ public abstract class Player {
 					WillKeepItem3 = playerItems[ITEM] - 1;
 					WillKeepItem3Slot = ITEM;
 					if (playerItemsN[ITEM] > 2 - (WillKeepAmt1 + WillKeepAmt2)
-							&& !c.prayerActive[10]) {
+							&& !c.prayers.prayerActive[10]) {
 						WillKeepAmt3 = 3 - (WillKeepAmt1 + WillKeepAmt2);
 					} else if (playerItemsN[ITEM] > 3 - (WillKeepAmt1 + WillKeepAmt2)
-							&& c.prayerActive[10]) {
+							&& c.prayers.prayerActive[10]) {
 						WillKeepAmt3 = 4 - (WillKeepAmt1 + WillKeepAmt2);
 					} else {
 						WillKeepAmt3 = playerItemsN[ITEM];
@@ -744,10 +722,10 @@ public abstract class Player {
 					WillKeepItem3 = playerEquipment[EQUIP];
 					WillKeepItem3Slot = EQUIP + 28;
 					if (playerEquipmentN[EQUIP] > 2 - (WillKeepAmt1 + WillKeepAmt2)
-							&& !c.prayerActive[10]) {
+							&& !c.prayers.prayerActive[10]) {
 						WillKeepAmt3 = 3 - (WillKeepAmt1 + WillKeepAmt2);
 					} else if (playerEquipmentN[EQUIP] > 3 - WillKeepAmt1
-							&& c.prayerActive[10]) {
+							&& c.prayers.prayerActive[10]) {
 						WillKeepAmt3 = 4 - (WillKeepAmt1 + WillKeepAmt2);
 					} else {
 						WillKeepAmt3 = playerEquipmentN[EQUIP];
@@ -755,7 +733,7 @@ public abstract class Player {
 				}
 			}
 		}
-		if (!isSkulled && ItemsContained > 3 && c.prayerActive[10]
+		if (!isSkulled && ItemsContained > 3 && c.prayers.prayerActive[10]
 				&& ((WillKeepAmt1 + WillKeepAmt2 + WillKeepAmt3) < 4)) {
 			BestItem4(c);
 		}
@@ -813,8 +791,8 @@ public abstract class Player {
 		for (int j = 0; j < autocastIds.length; j++) {
 			if (autocastIds[j] == button) {
 				Client c = (Client) PlayerHandler.players[this.playerId];
-				autocasting = true;
-				autocastId = autocastIds[j+1];
+				attackMode.autocasting = true;
+				magic.autocastId = autocastIds[j+1];
 				c.getPA().rememberAutocast();
 				c.getPA().sendFrame36(108, 1);
 				c.setSidebarInterface(0, 328);
@@ -900,10 +878,7 @@ public abstract class Player {
 	
 	public int slayerTask,taskAmount;
 	
-	public int prayerId = -1;
-
-	public long stopPrayerDelay, prayerDelay;
-	public boolean usingPrayer;
+	public long prayerDelay;
 	public final int[] PRAYER_DRAIN_RATE = 		{1,1,1,1,1,2,2,2,1,1,1,2,2,4,4,4,4,4,4,4,4,1,2,5,6,6};
 	public final int[] PRAYER_LEVEL_REQUIRED = 	{1,4,7,8,9,10,13,16,19,22,25,26,27,28,31,34,37,40,43,44,45,46,49,52,60,70};
 	public final int[] PRAYER = 				{0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25};
@@ -914,7 +889,8 @@ public abstract class Player {
 	public final int[] PRAYER_HEAD_ICONS = 		{-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,2,1,0,-1,-1,3,5,4,-1,-1};
 												//{-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,3,2,1,4,6,5};
 												
-	public boolean[] prayerActive = 			{false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false};
+	/** This player's active prayers and curses, and the fractional prayer-point drain accumulator. */
+	public final Prayers prayers = new Prayers();
 	
 	public int duelTimer, duelTeleX, duelTeleY, duelSlot, duelSpaceReq, duelOption, duelingWith, duelStatus;
 
@@ -922,10 +898,26 @@ public abstract class Player {
 	public boolean[] duelRule = new boolean[22];
 	public final int[] DUEL_RULE_ID = {1, 2, 16, 32, 64, 128, 256, 512, 1024, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 2097152, 8388608, 16777216, 67108864, 134217728};
 	
-	public boolean doubleHit, usingSpecial, npcDroppingItems, usingRangeWeapon, usingBow, usingMagic, castingMagic;
-	public int specMaxHitIncrease, freezeDelay, freezeTimer = -6, killerId, playerIndex, oldPlayerIndex, lastWeaponUsed, projectileStage, crystalBowArrowCount, playerMagicBook, teleGfx, teleEndAnimation, teleHeight, teleX, teleY, rangeItemUsed, killingNpcIndex, totalDamageDealt, oldNpcIndex, fightMode, attackTimer, npcIndex,npcClickIndex, npcType, castingSpellId, oldSpellId, spellId, hitDelay;
+	/** How this player is currently attacking: the weapon-mode flags and the autocast flag. */
+	public final AttackMode attackMode = new AttackMode();
+	/** This player's magic configuration: spellbook, autocast selection and memory, current spell. */
+	public final MagicState magic = new MagicState();
+	/** Who this player is fighting: the current/previous targets, the attacker pointers and the Soul Split target. */
+	public final Targeting targeting = new Targeting();
+	/** The hit bookkeeping: the two hitsplat slots the client is told about, and the damage reserved but not yet applied. */
+	public final HitUpdate hitUpdate = new HitUpdate();
+	/** The ranged attack this player has launched: the shot's phase, its ammo, the weapon behind it. */
+	public final RangedAttack rangedAttack = new RangedAttack();
+	/** Who gets credit for a kill: the killer pointer, the running damage total, the per-attacker table and who has been engaged. */
+	public final KillCredit killCredit = new KillCredit();
+	/** Which NPC this player last interacted with: the type, the slot and the menu option chosen. */
+	public final NpcInteraction npcInteraction = new NpcInteraction();
+	/** This player's attack style (accurate/aggressive/defensive/controlled). */
+	public final CombatStyle combatStyle = new CombatStyle();
+	public boolean npcDroppingItems;
+	public int teleGfx, teleEndAnimation, teleHeight, teleX, teleY, castingSpellId;
 	public boolean magicFailed, oldMagicFailed, swingXpAwarded;
-	public int bowSpecShot, clickNpcType, clickObjectType, objectId, objectX, objectY, objectXOffset, objectYOffset, objectDistance;
+	public int clickObjectType, objectId, objectX, objectY, objectXOffset, objectYOffset, objectDistance;
 	public int pItemX, pItemY, pItemId;
 	public boolean isMoving, walkingToItem;
 	public boolean isShopping, updateShop;
@@ -1468,7 +1460,7 @@ public abstract class Player {
 				position.teleportToX = position.teleportToY = -1;
 				didTeleport = true;
 			} else {
-				if (freezeTimer > 0) {
+				if (timers.freezeTimer > 0) {
 					resetWalkingQueue();
 					return;
 				}
@@ -1971,11 +1963,11 @@ public abstract class Player {
 	
 	protected void appendHitUpdate2(Stream str) {
 		//synchronized(this) {
-			str.writeByte(hitDiff2); // What the perseon got 'hit' for
+			str.writeByte(hitUpdate.hitDiff2); // What the perseon got 'hit' for
 			if (poisonMask == 2) {
 				str.writeByteS(2);
 				poisonMask = -1;
-			} else if (hitDiff2 > 0) {
+			} else if (hitUpdate.hitDiff2 > 0) {
 				str.writeByteS(1); // 0: red hitting - 1: blue hitting
 			} else {
 				str.writeByteS(0); // 0: red hitting - 1: blue hitting
@@ -2019,7 +2011,7 @@ public abstract class Player {
 				updateMask |= 0x20;
 			}
 	
-			if(hitUpdateRequired2) {
+			if(hitUpdate.hitUpdateRequired2) {
 				updateMask |= 0x200;
 			}
 			
@@ -2056,7 +2048,7 @@ public abstract class Player {
 			if(isHitUpdateRequired()) {
 				appendHitUpdate(str); 
 			}
-			if(hitUpdateRequired2) {
+			if(hitUpdate.hitUpdateRequired2) {
 				appendHitUpdate2(str); 
 			}
 		
@@ -2067,7 +2059,7 @@ public abstract class Player {
 		setChatTextUpdateRequired(false);
 		setAppearanceUpdateRequired(false);
 		setHitUpdateRequired(false);
-		hitUpdateRequired2 = false;
+		hitUpdate.hitUpdateRequired2 = false;
 		forcedChatUpdateRequired = false;
 		mask100update = false;
 		animationRequest = -1;
@@ -2110,101 +2102,15 @@ public abstract class Player {
 	public abstract boolean processQueuedPackets();
 	
 	public synchronized void postProcessing() {
-		if (freezeTimer > 0) {
+		if (timers.freezeTimer > 0) {
 			newWalkCmdSteps = 0;
 			resetWalkingQueue();
 			return;
-		}
-		if(newWalkCmdSteps > 0) {
-			int firstX = getNewWalkCmdX()[0], firstY = getNewWalkCmdY()[0];	
-
-			int lastDir = 0;
-			boolean found = false;
-			numTravelBackSteps = 0;
-			int ptr = wQueueReadPtr;
-			int dir = Misc.direction(position.currentX, position.currentY, firstX, firstY);
-			if(dir != -1 && (dir&1) != 0) {				
-				do {
-					lastDir = dir;
-					if(--ptr < 0) 
-						ptr = walkingQueueSize-1;
-
-					travelBackX[numTravelBackSteps] = walkingQueueX[ptr];
-					travelBackY[numTravelBackSteps++] = walkingQueueY[ptr];
-					dir = Misc.direction(walkingQueueX[ptr], walkingQueueY[ptr], firstX, firstY);
-					if(lastDir != dir) {
-						found = true;
-						break;		
-					}
-
-				} while(ptr != wQueueWritePtr);
-			}
-			else found = true;	
-
-			if(!found) {
-				println_debug("Fatal: couldn't find connection vertex! Dropping packet.");
-			} else {
-				wQueueWritePtr = wQueueReadPtr;		
-
-				addToWalkingQueue(position.currentX, position.currentY);	
-
-				if(dir != -1 && (dir&1) != 0) {
-					
-
-					for(int i = 0; i < numTravelBackSteps-1; i++) {
-						addToWalkingQueue(travelBackX[i], travelBackY[i]);
-					}
-					int wayPointX2 = travelBackX[numTravelBackSteps-1], wayPointY2 = travelBackY[numTravelBackSteps-1];
-					int wayPointX1, wayPointY1;
-					if(numTravelBackSteps == 1) {
-						wayPointX1 = position.currentX;
-						wayPointY1 = position.currentY;
-					}
-					else {
-						wayPointX1 = travelBackX[numTravelBackSteps-2];
-						wayPointY1 = travelBackY[numTravelBackSteps-2];
-					}
-					
-					dir = Misc.direction(wayPointX1, wayPointY1, wayPointX2, wayPointY2);
-					if(dir == -1 || (dir&1) != 0) {
-						println_debug("Fatal: The walking queue is corrupt! wp1=("+wayPointX1+", "+wayPointY1+"), "+
-							"wp2=("+wayPointX2+", "+wayPointY2+")");
-					}
-					else {
-						dir >>= 1;
-						found = false;
-						int x = wayPointX1, y = wayPointY1;
-						while(x != wayPointX2 || y != wayPointY2) {
-							x += Misc.directionDeltaX[dir];
-							y += Misc.directionDeltaY[dir];
-							if((Misc.direction(x, y, firstX, firstY)&1) == 0) {
-								found = true;
-								break;
-							}
-						}
-						if(!found) {
-							println_debug("Fatal: Internal error: unable to determine connection vertex!"+
-								"  wp1=("+wayPointX1+", "+wayPointY1+"), wp2=("+wayPointX2+", "+wayPointY2+"), "+
-								"first=("+firstX+", "+firstY+")");
-						}
-						else addToWalkingQueue(wayPointX1, wayPointY1);
-					}
-				}
-				else {
-					for(int i = 0; i < numTravelBackSteps; i++) {
-						addToWalkingQueue(travelBackX[i], travelBackY[i]);
-					}
-				}
-
-				
-				for(int i = 0; i < newWalkCmdSteps; i++) {
-					addToWalkingQueue(getNewWalkCmdX()[i], getNewWalkCmdY()[i]);
-				}
-
-			}
-
-			isRunning = isNewWalkCmdIsRunning() || isRunning2;
-		}
+		}		// All movement is injected straight into the walking queue by the path finder
+		// (see PathFinder.applyRoute). This legacy reconciliation with the newWalkCmd*
+		// arrays was removed along with stopDiagonal, which was its only producer --
+		// on the next tick it reset wQueueWritePtr and discarded the path finder's
+		// queue, so the two walk systems fought over the same tick.
 	}
 	
 	public int getMapRegionX() {
@@ -2236,38 +2142,38 @@ public abstract class Player {
 
 
 	public void setHitDiff(int hitDiff) {
-		this.hitDiff = hitDiff;
+		this.hitUpdate.hitDiff = hitDiff;
 	}
 	
 	public void setHitDiff2(int hitDiff2) {
-		this.hitDiff2 = hitDiff2;
+		this.hitUpdate.hitDiff2 = hitDiff2;
 	}
 
 
 	public int getHitDiff() {
-		return hitDiff;
+		return hitUpdate.hitDiff;
 	}
 
 
 	public void setHitUpdateRequired(boolean hitUpdateRequired) {
-		this.hitUpdateRequired = hitUpdateRequired;
+		this.hitUpdate.hitUpdateRequired = hitUpdateRequired;
 	}
 	
 	public void setHitUpdateRequired2(boolean hitUpdateRequired2) {
-		this.hitUpdateRequired2 = hitUpdateRequired2;
+		this.hitUpdate.hitUpdateRequired2 = hitUpdateRequired2;
 	}
 
 
 	public boolean isHitUpdateRequired() {
-		return hitUpdateRequired;
+		return hitUpdate.hitUpdateRequired;
 	}
 	
 	public boolean getHitUpdateRequired() {
-		return hitUpdateRequired;
+		return hitUpdate.hitUpdateRequired;
 	}
 	
 	public boolean getHitUpdateRequired2() {
-		return hitUpdateRequired2;
+		return hitUpdate.hitUpdateRequired2;
 	}
 
 
@@ -2386,39 +2292,39 @@ public abstract class Player {
 	}
 	
 	public void putInCombat(int attacker) {
-		underAttackBy = attacker;
+		targeting.underAttackBy = attacker;
 		timers.logoutDelay = System.currentTimeMillis();
 		timers.singleCombatDelay = System.currentTimeMillis();	
 	}
 	
 	public void dealDamage(int damage) {
-		if (teleTimer <= 0) {
+		if (timers.teleTimer <= 0) {
 			skills.playerLevel[3] -= damage;
-			if (pendingHitpoints > 0) {
-				pendingHitpoints -= damage;
-				if (pendingHitpoints < 0) {
-					pendingHitpoints = 0;
+			if (hitUpdate.pendingHitpoints > 0) {
+				hitUpdate.pendingHitpoints -= damage;
+				if (hitUpdate.pendingHitpoints < 0) {
+					hitUpdate.pendingHitpoints = 0;
 				}
 			}
 		} else {
-			if (hitUpdateRequired)
-				hitUpdateRequired = false;
-			if (hitUpdateRequired2)
-				hitUpdateRequired2 = false;
+			if (hitUpdate.hitUpdateRequired)
+				hitUpdate.hitUpdateRequired = false;
+			if (hitUpdate.hitUpdateRequired2)
+				hitUpdate.hitUpdateRequired2 = false;
 		}
 	
 	}
 	
-	public int[] damageTaken = new int[Config.MAX_PLAYERS];
+
 	public static boolean canLoadObjects;
 	
 	public void handleHitMask(int damage) {
-		if (!hitUpdateRequired) {
-			hitUpdateRequired = true;
-			hitDiff = damage;
-		} else if (!hitUpdateRequired2) {
-			hitUpdateRequired2 = true;
-			hitDiff2 = damage;		
+		if (!hitUpdate.hitUpdateRequired) {
+			hitUpdate.hitUpdateRequired = true;
+			hitUpdate.hitDiff = damage;
+		} else if (!hitUpdate.hitUpdateRequired2) {
+			hitUpdate.hitUpdateRequired2 = true;
+			hitUpdate.hitDiff2 = damage;		
 		}
 		updateRequired = true;
 	}

@@ -400,37 +400,37 @@ public class ActionHandler {
 		break;
 
 		case 6552:
-		if (c.playerMagicBook == 0) {
-                        c.playerMagicBook = 1;
+		if (c.magic.playerMagicBook == 0) {
+                        c.magic.playerMagicBook = 1;
                         c.setSidebarInterface(6, 12855);
-                        c.autocasting = false;
+                        c.attackMode.autocasting = false;
                         c.sendMessage("An ancient wisdomin fills your mind.");
                         c.getPA().resetAutocast();
                         c.getPA().applyRememberedAutocast();
 		} else {
 			c.setSidebarInterface(6, 1151); //modern
-			c.playerMagicBook = 0;
-                        c.autocasting = false;
+			c.magic.playerMagicBook = 0;
+                        c.attackMode.autocasting = false;
 			c.sendMessage("You feel a drain on your memory.");
-			c.autocastId = -1;
+			c.magic.autocastId = -1;
 			c.getPA().resetAutocast();
 			c.getPA().applyRememberedAutocast();
 		}	
 		break;
 		case 410:
-			if (c.playerMagicBook == 0 || c.playerMagicBook == 1) {
-	                        c.playerMagicBook = 2;
+			if (c.magic.playerMagicBook == 0 || c.magic.playerMagicBook == 1) {
+	                        c.magic.playerMagicBook = 2;
 	                        c.setSidebarInterface(6, 29999);
-	                        c.autocasting = false;
+	                        c.attackMode.autocasting = false;
 	                        c.sendMessage("Lunar Spells have been activated!");
 	                        c.getPA().resetAutocast();
 	                        c.getPA().applyRememberedAutocast();
 			} else {
 				c.setSidebarInterface(6, 1151); //modern
-				c.playerMagicBook = 0;
-	                        c.autocasting = false;
+				c.magic.playerMagicBook = 0;
+	                        c.attackMode.autocasting = false;
 				c.sendMessage("You feel a drain on your memory.");
-				c.autocastId = -1;
+				c.magic.autocastId = -1;
 				c.getPA().resetAutocast();
 				c.getPA().applyRememberedAutocast();
 			}	
@@ -677,7 +677,7 @@ public class ActionHandler {
 			Flax.pickFlax(c, obX, obY);
 		break;
 			case 2558:
-				if (System.currentTimeMillis() - c.lastLockPick < 3000 || c.freezeTimer > 0)
+				if (System.currentTimeMillis() - c.lastLockPick < 3000 || c.timers.freezeTimer > 0)
 					break;
 				if (c.getItems().playerHasItem(1523,1)) {
 						c.lastLockPick = System.currentTimeMillis();
@@ -907,20 +907,20 @@ public class ActionHandler {
 	}
 
 	public void firstClickNpc(int npcType) {
-		c.clickNpcType = 0;
+		c.npcInteraction.clickNpcType = 0;
 		//c.npcClickIndex = 0;
 		if(c.getTT().clueNpc(npcType))
 			return;
 		if(Implings.Imps.implings.containsKey(npcType)) {
-			Imps.catchImp(c, npcType, c.npcClickIndex);
+			Imps.catchImp(c, npcType, c.npcInteraction.npcClickIndex);
 			return;
 		}
-		if (WorldAdventurer.isAdventurer(c.npcClickIndex)) {
+		if (WorldAdventurer.isAdventurer(c.npcInteraction.npcClickIndex)) {
 			WorldAdventurer.talk(c);
-			c.npcClickIndex = 0;
+			c.npcInteraction.npcClickIndex = 0;
 			return;
 		}
-		c.npcClickIndex = 0;
+		c.npcInteraction.npcClickIndex = 0;
 		
 		// Check npc-shop mapping first
 		int shopId = server.world.ShopHandler.getShopForNpc(npcType);
@@ -967,7 +967,7 @@ public class ActionHandler {
 
 
 		case 1597:
-			c.getDH().sendDialogues(400, c.npcType);
+			c.getDH().sendDialogues(400, c.npcInteraction.npcType);
 			break;
 		case 804:
 			Tanning.sendTanningInterface(c);
@@ -1039,8 +1039,8 @@ public class ActionHandler {
 	}
 
 	public void secondClickNpc(int npcType) {
-		c.clickNpcType = 0;
-		c.npcClickIndex = 0;
+		c.npcInteraction.clickNpcType = 0;
+		c.npcInteraction.npcClickIndex = 0;
 		if(c.getTT().clueNpc(npcType))
 			return;
 		if (NpcActionHandler.dispatch(c, npcType, NpcClick.SECOND)) {
@@ -1071,8 +1071,8 @@ public class ActionHandler {
 	}
 	
 	public void thirdClickNpc(int npcType) {
-		c.clickNpcType = 0;
-		c.npcClickIndex = 0;
+		c.npcInteraction.clickNpcType = 0;
+		c.npcInteraction.npcClickIndex = 0;
 		if (NpcActionHandler.dispatch(c, npcType, NpcClick.THIRD)) {
 			return;
 		}

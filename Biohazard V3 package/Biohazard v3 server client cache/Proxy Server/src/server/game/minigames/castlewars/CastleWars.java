@@ -610,40 +610,40 @@ public class CastleWars {
 				final int defence = 100;
 				//final int stat = 0; //fightxp
 				int damage = 0;
-				if (c.usingSpecial && !c.autocasting) { // special attack
+				if (c.specialAttack.usingSpecial && !c.attackMode.autocasting) { // special attack
 					c.sendMessage("You can't use special attack on this door.");
-					c.usingSpecial = false;
+					c.specialAttack.usingSpecial = false;
 					c.getItems().updateSpecialBar();
-				} else if (c.autocasting) {
-					c.spellId = c.autocastId;
-					if (!c.getCombat().checkMagicReqs(c.spellId)) {
+				} else if (c.attackMode.autocasting) {
+					c.magic.spellId = c.magic.autocastId;
+					if (!c.getCombat().checkMagicReqs(c.magic.spellId)) {
 						container.stop();
 						return;
 					}
 				}
-				if (!c.autocasting) {
+				if (!c.attackMode.autocasting) {
 					c.startAnimation(c.getCombat().getWepAnim(ItemAssistant.getItemName(c.playerEquipment[c.playerWeapon]).toLowerCase()));
 				} else {
-					c.startAnimation(c.MAGIC_SPELLS[c.spellId][2]);
+					c.startAnimation(c.MAGIC_SPELLS[c.magic.spellId][2]);
 				}
-				if (c.autocasting) { // magic
+				if (c.attackMode.autocasting) { // magic
 					int pX = c.getX();
 					int pY = c.getY();
 					int nX = c.objectX;
 					int nY = c.objectX;
 					int offX = (pY - nY) * -1;
 					int offY = (pX - nX) * -1;
-					if (c.MAGIC_SPELLS[c.spellId][3] > 0) {
+					if (c.MAGIC_SPELLS[c.magic.spellId][3] > 0) {
 						if (c.getCombat().getStartGfxHeight() == 100) {
-							c.gfx100(c.MAGIC_SPELLS[c.spellId][3]);
+							c.gfx100(c.MAGIC_SPELLS[c.magic.spellId][3]);
 						} else {
-							c.gfx0(c.MAGIC_SPELLS[c.spellId][3]);
+							c.gfx0(c.MAGIC_SPELLS[c.magic.spellId][3]);
 						}
 					}
-					if (c.MAGIC_SPELLS[c.spellId][4] > 0) {
-						c.getPA().createPlayersProjectile(pX, pY, offX, offY, 50, 78, c.MAGIC_SPELLS[c.spellId][4], c.getCombat().getStartHeight(), c.getCombat().getEndHeight(), 0, c.getCombat().getStartDelay());
+					if (c.MAGIC_SPELLS[c.magic.spellId][4] > 0) {
+						c.getPA().createPlayersProjectile(pX, pY, offX, offY, 50, 78, c.MAGIC_SPELLS[c.magic.spellId][4], c.getCombat().getStartHeight(), c.getCombat().getEndHeight(), 0, c.getCombat().getStartDelay());
 					}
-					damage = Misc.random(c.MAGIC_SPELLS[c.oldSpellId][6]);
+					damage = Misc.random(c.MAGIC_SPELLS[c.magic.oldSpellId][6]);
 					//damage = c.getCombat().getHit(MagicMaxHit.magicMaxHit(c, c.spellId), c.getCombat().getMagic(), defence);
 					final boolean magicFailed = false;
 					if(Misc.random(c.getCombat().mageAtk()) > Misc.random(defence))
@@ -651,11 +651,11 @@ public class CastleWars {
 					else
 						c.magicFailed = true;
 					if (!magicFailed) {
-						c.getPA().addSkillXP((c.MAGIC_SPELLS[c.oldSpellId][7] + damage*Config.MAGIC_EXP_RATE), 6); 
+						c.getPA().addSkillXP((c.MAGIC_SPELLS[c.magic.oldSpellId][7] + damage*Config.MAGIC_EXP_RATE), 6); 
 					}
 					CycleEventHandler.addEvent(c, new CycleEvent() {
 						boolean failMage = magicFailed;
-						int spellId = c.spellId;
+						int spellId = c.magic.spellId;
 						@Override
 						public void execute(CycleEventContainer container2) {
 							try {
@@ -668,8 +668,8 @@ public class CastleWars {
 						public void stop() {
 						}
 					}, c.getCombat().getHitDelay(ItemAssistant.getItemName(c.playerEquipment[c.playerWeapon]).toLowerCase()));
-					c.spellId = -1;
-				} else if (c.usingBow || c.usingRangeWeapon) { // range attack
+					c.magic.spellId = -1;
+				} else if (c.attackMode.usingBow || c.attackMode.usingRangeWeapon) { // range attack
 					damage = Misc.random(c.getCombat().rangeMaxHit());
 					final int offX, offY;
 					int oX = c.objectX, oY = c.objectY;
@@ -684,7 +684,7 @@ public class CastleWars {
 					c.getPA().addSkillXP((damage*Config.RANGE_EXP_RATE/3), 4); 
 				} else {
 					damage = Misc.random(c.getCombat().calculateMeleeMaxHit());
-					if(c.fightMode == 3) {
+					if(c.combatStyle.fightMode == 3) {
 						c.getPA().addSkillXP((damage*Config.MELEE_EXP_RATE/3), 0); 
 						c.getPA().addSkillXP((damage*Config.MELEE_EXP_RATE/3), 1);
 						c.getPA().addSkillXP((damage*Config.MELEE_EXP_RATE/3), 2); 				
@@ -694,9 +694,9 @@ public class CastleWars {
 						c.getPA().refreshSkill(2);
 						c.getPA().refreshSkill(3);
 					} else {
-						c.getPA().addSkillXP((damage*Config.MELEE_EXP_RATE), c.fightMode); 
+						c.getPA().addSkillXP((damage*Config.MELEE_EXP_RATE), c.combatStyle.fightMode); 
 						c.getPA().addSkillXP((damage*Config.MELEE_EXP_RATE/3), 3);
-						c.getPA().refreshSkill(c.fightMode);
+						c.getPA().refreshSkill(c.combatStyle.fightMode);
 						c.getPA().refreshSkill(3);
 					}
 				}

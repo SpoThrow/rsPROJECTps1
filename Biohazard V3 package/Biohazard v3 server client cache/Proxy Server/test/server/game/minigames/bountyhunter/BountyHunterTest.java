@@ -83,7 +83,7 @@ class BountyHunterTest {
 		final Client victim = new Client(null, 1);
 		victim.playerName = "Victim";
 		victim.bountyHunter.targetIndex = 2;
-		victim.killerId = 2;
+		victim.killCredit.killerId = 2;
 
 		final Client target = new Client(null, 2);
 		target.playerName = "Killer";

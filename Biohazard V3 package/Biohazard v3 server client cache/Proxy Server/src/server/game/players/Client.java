@@ -227,7 +227,7 @@ public class Client extends Player {
 	public void destruct() {
 		if(session == null) 
 			return;
-		if(this.underAttackBy > 0 || this.underAttackBy2 > 0)
+		if(this.targeting.underAttackBy > 0 || this.targeting.underAttackBy2 > 0)
 			return;
 		if(Server.trawler.players.contains(this)) {
 			Server.trawler.players.remove(this);
@@ -322,7 +322,7 @@ public class Client extends Player {
 			getPA().refreshSkill(i);
 		}
 		for(int p = 0; p < PRAYER.length; p++) { // reset prayer glows 
-			prayerActive[p] = false;
+			prayers.prayerActive[p] = false;
 			getPA().sendFrame36(PRAYER_GLOW[p], 0);	
 		}
 		getPA().handleWeaponStyle();
@@ -376,9 +376,9 @@ public class Client extends Player {
 		getPA().logIntoPM();
 		UUID = RS2LoginProtocolDecoder.UUID;
 		getItems().addSpecialBar(playerEquipment[playerWeapon]);
-		if(this.specAmount < 100)
+		if(this.specialAttack.specAmount < 100)
 			RestoreSpecialAttack.execute(this);
-		saveTimer = Config.SAVE_TIMER;
+		timers.saveTimer = Config.SAVE_TIMER;
 		saveCharacter = true;
 		Misc.println("[ONLINE]: "+Misc.capitalize(playerName)+"");
 		handler.updatePlayer(this, outStream);
@@ -787,20 +787,20 @@ public class Client extends Player {
 			return;
 		}
 		processFollowAfterMovement();
-		if (attackTimer == 1) {
-			if (npcIndex > 0 && clickNpcType == 0) {
-				getCombat().attackNpc(npcIndex);
+		if (timers.attackTimer == 1) {
+			if (targeting.npcIndex > 0 && npcInteraction.clickNpcType == 0) {
+				getCombat().attackNpc(targeting.npcIndex);
 			}
-			if (playerIndex > 0) {
-				getCombat().attackPlayer(playerIndex);
+			if (targeting.playerIndex > 0) {
+				getCombat().attackPlayer(targeting.playerIndex);
 			}
-		} else if (attackTimer <= 0 && (npcIndex > 0 || playerIndex > 0)) {
-			if (npcIndex > 0) {
-				attackTimer = 0;
-				getCombat().attackNpc(npcIndex);
-			} else if (playerIndex > 0) {
-				attackTimer = 0;
-				getCombat().attackPlayer(playerIndex);
+		} else if (timers.attackTimer <= 0 && (targeting.npcIndex > 0 || targeting.playerIndex > 0)) {
+			if (targeting.npcIndex > 0) {
+				timers.attackTimer = 0;
+				getCombat().attackNpc(targeting.npcIndex);
+			} else if (targeting.playerIndex > 0) {
+				timers.attackTimer = 0;
+				getCombat().attackPlayer(targeting.playerIndex);
 			}
 		}
 	}
@@ -832,36 +832,36 @@ public class Client extends Player {
 
 	private void processSingleCombatFlags() {
 		if (System.currentTimeMillis() - timers.singleCombatDelay > 3300) {
-			underAttackBy = 0;
+			targeting.underAttackBy = 0;
 		}
 		if (System.currentTimeMillis() - timers.singleCombatDelay2 > 3300) {
-			underAttackBy2 = 0;
+			targeting.underAttackBy2 = 0;
 		}
 	}
 
 	private void processSkullTimer() {
-		if (skullTimer > 0) {
-			skullTimer--;
-			if (skullTimer == 1) {
+		if (timers.skullTimer > 0) {
+			timers.skullTimer--;
+			if (timers.skullTimer == 1) {
 				isSkulled = false;
-				attackedPlayers.clear();
+				killCredit.attackedPlayers.clear();
 				appearance.headIconPk = -1;
-				skullTimer = -1;
+				timers.skullTimer = -1;
 				getPA().requestUpdates();
 			}
 		}
 	}
 
 	private void processFreezeTimer() {
-		if (freezeTimer > -6) {
-			freezeTimer--;
+		if (timers.freezeTimer > -6) {
+			timers.freezeTimer--;
 			if (frozenBy > 0) {
 				if (PlayerHandler.players[frozenBy] == null) {
-					freezeTimer = -1;
+					timers.freezeTimer = -1;
 					frozenBy = -1;
 				} else if (!goodDistance(position.absX, position.absY, PlayerHandler.players[frozenBy].position.absX,
 						PlayerHandler.players[frozenBy].position.absY, 20)) {
-					freezeTimer = -1;
+					timers.freezeTimer = -1;
 					frozenBy = -1;
 				}
 			}
@@ -888,8 +888,8 @@ public class Client extends Player {
 		processClawDelay();
 		processSingleCombatFlags();
 
-		if(System.currentTimeMillis() - restoreStatsDelay >  60000) {
-			restoreStatsDelay = System.currentTimeMillis();
+		if(System.currentTimeMillis() - timers.restoreStatsDelay >  60000) {
+			timers.restoreStatsDelay = System.currentTimeMillis();
 			for (int level = 0; level < skills.playerLevel.length; level++)  {
 				if (skills.playerLevel[level] < getLevelForXP(skills.playerXP[level])) {
 					if(level != 5) { // prayer doesn't restore
@@ -898,7 +898,7 @@ public class Client extends Player {
 						getPA().refreshSkill(level);
 					}
 				} else if (skills.playerLevel[level] > getLevelForXP(skills.playerXP[level])) {
-					if (curseActive[5] && core.util.Misc.random(100) < 15) {
+					if (prayers.curseActive[5] && core.util.Misc.random(100) < 15) {
 						continue;
 					}
 					skills.playerLevel[level] -= 1;
@@ -976,58 +976,58 @@ public class Client extends Player {
 
 		processSkullTimer();
 
-		if(isDead && respawnTimer == -6) {
+		if(isDead && timers.respawnTimer == -6) {
 			getPA().applyDead();
 		}
 
-		if(respawnTimer == 7) {
-			respawnTimer = -6;
+		if(timers.respawnTimer == 7) {
+			timers.respawnTimer = -6;
 			getPA().giveLife();
-		} else if(respawnTimer == 12) {
-			respawnTimer--;
+		} else if(timers.respawnTimer == 12) {
+			timers.respawnTimer--;
 			startAnimation(0x900);
 			poisonDamage = -1;
 		}	
 
-		if(respawnTimer > -6) {
-			respawnTimer--;
+		if(timers.respawnTimer > -6) {
+			timers.respawnTimer--;
 		}
 		processFreezeTimer();
 
-		if(hitDelay > 0) {
-			hitDelay--;
+		if(timers.hitDelay > 0) {
+			timers.hitDelay--;
 		}
-		if(teleTimer > 0) {
-			teleTimer--;
+		if(timers.teleTimer > 0) {
+			timers.teleTimer--;
 			if (!isDead) {
-				if(teleTimer == 1 && newLocation > 0) {
-					teleTimer = 0;
+				if(timers.teleTimer == 1 && newLocation > 0) {
+					timers.teleTimer = 0;
 					getPA().changeLocation();
 				}
-				if(teleTimer == 5) {
-					teleTimer--;
+				if(timers.teleTimer == 5) {
+					timers.teleTimer--;
 					getPA().processTeleport();
 				}
-				if(teleTimer == 9 && teleGfx > 0) {
-					teleTimer--;
+				if(timers.teleTimer == 9 && teleGfx > 0) {
+					timers.teleTimer--;
 					gfx100(teleGfx);
 				}
 			} else {
-				teleTimer = 0;
+				timers.teleTimer = 0;
 			}
 		}	
 
-		if(hitDelay == 1) {
-			if(oldNpcIndex > 0) {
-				getCombat().delayedHit(oldNpcIndex);
+		if(timers.hitDelay == 1) {
+			if(targeting.oldNpcIndex > 0) {
+				getCombat().delayedHit(targeting.oldNpcIndex);
 			}
-			if(oldPlayerIndex > 0) {
-				getCombat().playerDelayedHit(oldPlayerIndex);				
+			if(targeting.oldPlayerIndex > 0) {
+				getCombat().playerDelayedHit(targeting.oldPlayerIndex);				
 			}		
 		}
 
-		if(attackTimer > 0) {
-			attackTimer--;
+		if(timers.attackTimer > 0) {
+			timers.attackTimer--;
 		}
 		// Attack swings run in processCombatAfterMovement() after absX/absY update.
 

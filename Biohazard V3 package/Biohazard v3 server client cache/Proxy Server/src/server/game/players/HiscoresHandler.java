@@ -6,6 +6,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
+import server.Configuration;
+
 public class HiscoresHandler {
 
     public static Connection con = null;
@@ -15,10 +17,12 @@ public class HiscoresHandler {
     public static void createConnection() {
         try {
             Class.forName("com.mysql.jdbc.Driver").newInstance();//opens class
-            String IP="localhost";//connection ip
-            String DB="hiscores";//database name
-            String User="root";//username
-            String Pass="------"; //password
+            // Credentials come from Data/server.properties; the fallbacks are the values that used
+            // to be literals here, so an untouched checkout still connects exactly as before.
+            String IP = Configuration.get().getString("hiscores.host", "localhost");//connection ip
+            String DB = Configuration.get().getString("hiscores.database", "hiscores");//database name
+            String User = Configuration.get().getString("hiscores.user", "root");//username
+            String Pass = Configuration.get().getString("hiscores.password", "------"); //password
             con = DriverManager.getConnection("jdbc:mysql://"+IP+"/"+DB, User, Pass);//creates connection
             stmt = con.createStatement();
         } catch (Exception e) {//catches if connection failed

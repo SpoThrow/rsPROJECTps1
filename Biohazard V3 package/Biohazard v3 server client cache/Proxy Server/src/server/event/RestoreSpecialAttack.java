@@ -9,10 +9,10 @@ public class RestoreSpecialAttack {
 		CycleEventHandler.addEvent(player, new CycleEvent() {
 			@Override
 			public void execute(CycleEventContainer container) {
-					if (player.specAmount < 100) {
-						player.specAmount += 10;
-						if (player.specAmount >= 100) {
-							player.specAmount = 100;
+					if (player.specialAttack.specAmount < 100) {
+						player.specialAttack.specAmount += 10;
+						if (player.specialAttack.specAmount >= 100) {
+							player.specialAttack.specAmount = 100;
 							container.stop();
 						}
 						player.getItems().addSpecialBar(player.playerEquipment[player.playerWeapon]);

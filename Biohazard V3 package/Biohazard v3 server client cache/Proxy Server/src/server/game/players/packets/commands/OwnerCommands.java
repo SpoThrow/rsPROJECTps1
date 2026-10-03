@@ -60,17 +60,17 @@ final class OwnerCommands {
 		CommandHandler.register(Command.where(3, 3, (c, playerCommand) ->
 				playerCommand.startsWith("switch") && c.playerRights == 3,
 				(c, playerCommand) -> {
-				if (c.playerMagicBook == 0) {
-					c.playerMagicBook = 1;
+				if (c.magic.playerMagicBook == 0) {
+					c.magic.playerMagicBook = 1;
 					c.setSidebarInterface(6, 12855);
 					c.sendMessage("An ancient wisdomin fills your mind.");
 					c.getPA().resetAutocast();
 					c.getPA().applyRememberedAutocast();
 				} else {
 					c.setSidebarInterface(6, 1151);
-					c.playerMagicBook = 0;
+					c.magic.playerMagicBook = 0;
 					c.sendMessage("You feel a drain on your memory.");
-					c.autocastId = -1;
+					c.magic.autocastId = -1;
 					c.getPA().resetAutocast();
 					c.getPA().applyRememberedAutocast();
 				}

@@ -397,7 +397,7 @@ public final class Nex {
 	private static void dealWrathDamage(int x, int y, int height, int hit) {
 		for (int i = 0; i < PlayerHandler.players.length; i++) {
 			Client o = (Client) PlayerHandler.players[i];
-			if (o == null || o.isDead || o.respawnTimer > 0) {
+			if (o == null || o.isDead || o.timers.respawnTimer > 0) {
 				continue;
 			}
 			if (o.position.heightLevel != height) {
@@ -446,13 +446,13 @@ public final class Nex {
 			return;
 		}
 		if (Misc.random(6) == 0) {
-			c.prayerActive[16] = false;
-			c.prayerActive[17] = false;
-			c.prayerActive[18] = false;
-			c.curseActive[7] = false;
-			c.curseActive[8] = false;
-			c.curseActive[9] = false;
-			c.curseActive[18] = false;
+			c.prayers.prayerActive[16] = false;
+			c.prayers.prayerActive[17] = false;
+			c.prayers.prayerActive[18] = false;
+			c.prayers.curseActive[7] = false;
+			c.prayers.curseActive[8] = false;
+			c.prayers.curseActive[9] = false;
+			c.prayers.curseActive[18] = false;
 			c.appearance.headIcon = -1;
 			c.getPA().requestUpdates();
 			c.sendMessage("Nex smashes through your overhead prayers!");
@@ -491,10 +491,10 @@ public final class Nex {
 			return;
 		}
 		// Immunity window after a freeze (same idea as ice barrage)
-		if (c.freezeTimer > -3) {
+		if (c.timers.freezeTimer > -3) {
 			return;
 		}
-		c.freezeTimer = 25;
+		c.timers.freezeTimer = 25;
 		c.frozenBy = 0; // NPC freeze — don't clear via player-distance check
 		c.resetWalkingQueue();
 		c.newWalkCmdSteps = 0;

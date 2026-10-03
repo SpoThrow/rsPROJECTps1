@@ -49,8 +49,8 @@ public class RangersGuild {
 		if (arrowsLeft != 0) {
 			for (int bowId : c.BOWS) {
 				if(c.playerEquipment[c.playerWeapon] == bowId) {
-					c.usingBow = true;
-			if (c.playerEquipment[c.playerArrows] == ARROWS_REQ && c.usingBow) {
+					c.attackMode.usingBow = true;
+			if (c.playerEquipment[c.playerArrows] == ARROWS_REQ && c.attackMode.usingBow) {
 				if (isInTargetArea()) {
 					if (hitChance >= 10) {
 						c.getPA().removeAllWindows();

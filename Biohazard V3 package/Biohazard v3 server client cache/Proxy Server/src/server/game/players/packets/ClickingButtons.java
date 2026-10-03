@@ -63,8 +63,8 @@ public class ClickingButtons implements PacketType {
 		4147,6003,47005,4166,4167,4168,48157,50193,50187,50101,50061,50163,50211,50119,50081,50151,50199,50111,50071,50175,50223,50129,50091};
 		for(int i=0; i < spellIds.length; i++) {
 			if(actionButtonId == spellIds[i]) {
-				c.autocasting = true;
-				c.autocastId = i;
+				c.attackMode.autocasting = true;
+				c.magic.autocastId = i;
 				c.getPA().rememberAutocast();
 			}
 		}
@@ -113,11 +113,11 @@ public class ClickingButtons implements PacketType {
 			c.setSidebarInterface(3, 3213);
 			c.setSidebarInterface(4, 1644);
 			c.getPA().setPrayerBook();
-			if(c.playerMagicBook == 0) {
+			if(c.magic.playerMagicBook == 0) {
 				c.setSidebarInterface(6, 1151);
-			} else if (c.playerMagicBook == 1) {
+			} else if (c.magic.playerMagicBook == 1) {
 				c.setSidebarInterface(6, 12855);
-			} else if (c.playerMagicBook == 2) {
+			} else if (c.magic.playerMagicBook == 2) {
 				c.setSidebarInterface(6, 29999);
 			}
 			c.setSidebarInterface(7, 58128);
@@ -152,7 +152,7 @@ public class ClickingButtons implements PacketType {
 			if (c.WillKeepItem3 > 0)
 				c.getPA().sendFrame34a(10494, c.WillKeepItem3, 2,
 						c.WillKeepAmt3);
-			if (c.WillKeepItem4 > 0 && c.prayerActive[10])
+			if (c.WillKeepItem4 > 0 && c.prayers.prayerActive[10])
 				c.getPA().sendFrame34a(10494, c.WillKeepItem4, 3, 1);
 			for (int ITEM = 0; ITEM < 28; ITEM++) {
 				if (c.playerItems[ITEM] - 1 > 0
@@ -1177,7 +1177,7 @@ public class ClickingButtons implements PacketType {
 				break;
 			case 522: //easy
 				c.expModifier = c.EASY;
-				c.getDH().sendDialogues(523, c.npcType);
+				c.getDH().sendDialogues(523, c.npcInteraction.npcType);
 				break;
 			case 507: //Bounty Hunter // 1st
 				BountyHunter.handleReward(c, 1);
@@ -1251,7 +1251,7 @@ public class ClickingButtons implements PacketType {
 				break;
 				
 			case 401:
-				c.getDH().sendDialogues(402, c.npcType);
+				c.getDH().sendDialogues(402, c.npcInteraction.npcType);
 				break;
 				
 			}
@@ -1265,11 +1265,11 @@ public class ClickingButtons implements PacketType {
 				c.getPA().spellTeleport(2602, 3155, 0);
 			}
 			if(c.caOption4a) {
-				c.getDH().sendDialogues(102, c.npcType);
+				c.getDH().sendDialogues(102, c.npcInteraction.npcType);
 				c.caOption4a = false;
 			}
 			if(c.caOption4c) {
-				c.getDH().sendDialogues(118, c.npcType);
+				c.getDH().sendDialogues(118, c.npcInteraction.npcType);
 				c.caOption4c = false;
 			}
 			c.dialogueAction = -1;
@@ -1316,7 +1316,7 @@ public class ClickingButtons implements PacketType {
 				break;
 			case 522: //easy
 				c.expModifier = c.NORMAL;
-				c.getDH().sendDialogues(523, c.npcType);
+				c.getDH().sendDialogues(523, c.npcInteraction.npcType);
 				break;
 			case 507: //Bounty Hunter // 1st
 				BountyHunter.handleReward(c, 2);
@@ -1392,7 +1392,7 @@ public class ClickingButtons implements PacketType {
 				break;
 				
 			case 401:
-				c.getDH().sendDialogues(404, c.npcType);
+				c.getDH().sendDialogues(404, c.npcInteraction.npcType);
 				break;
 			}
 			if (c.usingGlory) {
@@ -1403,11 +1403,11 @@ public class ClickingButtons implements PacketType {
 				c.getPA().spellTeleport(2605, 3153, 0);
 			}
 			if(c.caOption4c) {
-				c.getDH().sendDialogues(120, c.npcType);
+				c.getDH().sendDialogues(120, c.npcInteraction.npcType);
 				c.caOption4c = false;
 			}	
 			if(c.caPlayerTalk1) {
-				c.getDH().sendDialogues(125, c.npcType);
+				c.getDH().sendDialogues(125, c.npcInteraction.npcType);
 				c.caPlayerTalk1 = false;
 			}
 			c.dialogueAction = -1;
@@ -1449,7 +1449,7 @@ public class ClickingButtons implements PacketType {
 				break;
 			case 522: //easy
 				c.expModifier = c.HARD;
-				c.getDH().sendDialogues(523, c.npcType);
+				c.getDH().sendDialogues(523, c.npcInteraction.npcType);
 				break;
 			case 507: //Bounty Hunter // 1st
 				BountyHunter.handleReward(c, 3);
@@ -1510,7 +1510,7 @@ public class ClickingButtons implements PacketType {
 				break;
 				
 			case 401:
-				c.getDH().sendDialogues(410, c.npcType);
+				c.getDH().sendDialogues(410, c.npcInteraction.npcType);
 				break;
 			}
 			if (c.usingGlory) {
@@ -1521,11 +1521,11 @@ public class ClickingButtons implements PacketType {
 				c.getPA().spellTeleport(3366, 3266, 0);
 			}
 			if(c.caOption4c) {
-				c.getDH().sendDialogues(122, c.npcType);
+				c.getDH().sendDialogues(122, c.npcInteraction.npcType);
 				c.caOption4c = false;
 			}
 			if(c.caPlayerTalk1) {
-				c.getDH().sendDialogues(127, c.npcType);
+				c.getDH().sendDialogues(127, c.npcInteraction.npcType);
 				c.caPlayerTalk1 = false;
 			}
 			c.dialogueAction = -1;
@@ -1561,7 +1561,7 @@ public class ClickingButtons implements PacketType {
 				break;
 			case 522: //easy
 				c.expModifier = c.EXTREME;
-				c.getDH().sendDialogues(523, c.npcType);
+				c.getDH().sendDialogues(523, c.npcInteraction.npcType);
 				break;
 			case 507: //Bounty Hunter // 1st
 				c.getPA().closeAllWindows();
@@ -1628,11 +1628,11 @@ public class ClickingButtons implements PacketType {
 				c.getPA().startTeleport(Config.MAGEBANK_X, Config.MAGEBANK_Y, 0, "modern");
 			}
 			if(c.caOption4c) {
-				c.getDH().sendDialogues(124, c.npcType);
+				c.getDH().sendDialogues(124, c.npcInteraction.npcType);
 				c.caOption4c = false;
 			}
 			if(c.caPlayerTalk1) {
-				c.getDH().sendDialogues(130, c.npcType);
+				c.getDH().sendDialogues(130, c.npcInteraction.npcType);
 				c.caPlayerTalk1 = false;
 			}
 			c.dialogueAction = -1;
@@ -1642,17 +1642,17 @@ public class ClickingButtons implements PacketType {
 		case 1093:
 		case 1094:
 		case 1097:
-			if (c.autocasting) {
+			if (c.attackMode.autocasting) {
 				c.getPA().resetAutocast();
 			} else if (c.getPA().applyRememberedAutocast()) {
 				break;
 			} else {
-				if (c.playerMagicBook == 1) {
+				if (c.magic.playerMagicBook == 1) {
 					if (c.playerEquipment[c.playerWeapon] == 4675)
 						c.setSidebarInterface(0, 1689);
 					else
 						c.sendMessage("You can't autocast ancients without an ancient staff.");
-				} else if (c.playerMagicBook == 0) {
+				} else if (c.magic.playerMagicBook == 0) {
 					if (c.playerEquipment[c.playerWeapon] == 4170) {
 						c.setSidebarInterface(0, 12050);
 					} else {
@@ -2174,7 +2174,7 @@ public class ClickingButtons implements PacketType {
 
 			/**Specials**/
 		case 29038:
-			c.specBarId = 7486;
+			c.specialAttack.specBarId = 7486;
 			c.getCombat().handleGmaulPlayer();
 			c.getItems().updateSpecialBar();
 			break;
@@ -2239,8 +2239,8 @@ public class ClickingButtons implements PacketType {
 
 			c.duelStatus = 4;
 			if(o1.duelStatus == 4 && c.duelStatus == 4) {
-				c.freezeTimer = 1;
-				o1.freezeTimer = 1;
+				c.timers.freezeTimer = 1;
+				o1.timers.freezeTimer = 1;
 				c.getTradeAndDuel().startDuel();
 				o1.getTradeAndDuel().startDuel();
 				o1.duelCount = 4;
@@ -2253,7 +2253,7 @@ public class ClickingButtons implements PacketType {
 								c.forcedChat(""+(--c.duelCount));
 								c.timers.duelDelay = System.currentTimeMillis();
 							} else {
-								c.damageTaken = new int[Config.MAX_PLAYERS];
+								c.killCredit.damageTaken = new int[Config.MAX_PLAYERS];
 								c.forcedChat("FIGHT!");
 								c.duelCount = 0;
 							}
@@ -2274,7 +2274,7 @@ public class ClickingButtons implements PacketType {
 								o1.forcedChat(""+(--o1.duelCount));
 								o1.timers.duelDelay = System.currentTimeMillis();
 							} else {
-								o1.damageTaken = new int[Config.MAX_PLAYERS];
+								o1.killCredit.damageTaken = new int[Config.MAX_PLAYERS];
 								o1.forcedChat("FIGHT!");
 								o1.duelCount = 0;
 							}
@@ -2297,7 +2297,7 @@ public class ClickingButtons implements PacketType {
 
 
 		case 4169: // god spell charge
-			c.usingMagic = true;
+			c.attackMode.usingMagic = true;
 			if(!c.getCombat().checkMagicReqs(48)) {
 				break;
 			}
@@ -2310,7 +2310,7 @@ public class ClickingButtons implements PacketType {
 			c.sendMessage("You feel charged with a magical power!");
 			c.gfx100(c.MAGIC_SPELLS[48][3]);
 			c.startAnimation(c.MAGIC_SPELLS[48][2]);
-			c.usingMagic = false;
+			c.attackMode.usingMagic = false;
 			break;			
 		case 154:
 			//skillcapeshere

@@ -1,0 +1,10 @@
+.gradle/
+build/
+
+# Runtime output written by the server itself
+*.tmp
+*.bak
+
+# Real configuration (credentials). Copy Data/server.properties.template to
+# Data/server.properties and fill it in; the template stays tracked.
+Data/server.properties

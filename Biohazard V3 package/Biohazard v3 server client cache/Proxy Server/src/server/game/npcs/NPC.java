@@ -1,7 +1,5 @@
 package server.game.npcs;
 
-import server.world.Tile;
-import server.world.WalkingCheck;
 import core.util.Misc;
 import core.util.Stream;
 
@@ -20,7 +18,6 @@ public class NPC {
 	public int spawnX, spawnY;
     public int viewX, viewY;
 	public int hp, maxHP;
-	private Tile currentTile;
 	public long singleCombatDelay = 0;
 	
 	/**
@@ -234,21 +231,13 @@ public class NPC {
 
 	
 	public int getNextWalkingDirection() {
-		currentTile = new Tile(absX + moveX, absY + moveY, heightLevel);
-		if(!WalkingCheck.tiles.containsKey(currentTile.getTileHeight() << 28 | currentTile.getTileX() << 14 | currentTile.getTileY())){
-			int dir;
-			dir = Misc.direction(absX, absY, (absX + moveX), (absY + moveY));
-			if (dir == -1)
-				return -1;
-			dir >>= 1;
-			absX += moveX;
-			absY += moveY;
-			return dir;
-		} else if(WalkingCheck.tiles.get(currentTile.getTileHeight() << 28 | currentTile.getTileX() << 14 | currentTile.getTileY()) == true) {
+		int dir = Misc.direction(absX, absY, (absX + moveX), (absY + moveY));
+		if (dir == -1)
 			return -1;
-		} else {
-			return -1;
-		}
+		dir >>= 1;
+		absX += moveX;
+		absY += moveY;
+		return dir;
 	}
 
 	public void getNextNPCMovement(int i) {

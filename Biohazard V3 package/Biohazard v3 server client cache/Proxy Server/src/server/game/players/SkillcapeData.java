@@ -77,11 +77,11 @@ package server.game.players;
             c.sendMessage("You can't perform this emote while in the wilderness.");
             return;
         }
-        if(c.playerIndex > 0) {
+        if(c.targeting.playerIndex > 0) {
             c.sendMessage("You can't perform this emote while attacking another player.");
             return;
         }
-        if(c.npcIndex > 0) {
+        if(c.targeting.npcIndex > 0) {
             c.sendMessage("You can't perform this emote while attacking an npc.");
             return;
         }

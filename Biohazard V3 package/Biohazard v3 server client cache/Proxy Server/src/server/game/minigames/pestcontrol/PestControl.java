@@ -163,7 +163,7 @@ public class PestControl {
 						c.getPA().sendFrame126("@red@Pest Control Points: @or2@"+c.pcPoints, 7333);
 						c.skills.playerLevel[3] = c.getLevelForXP(c.skills.playerXP[3]);
 						c.skills.playerLevel[5] = c.getLevelForXP(c.skills.playerXP[5]);
-						c.specAmount = 100;
+						c.specialAttack.specAmount = 100;
 						c.getItems().addItem(995, c.combatLevel * 50);
 						c.getPA().refreshSkill(3);
 						c.getPA().refreshSkill(5);

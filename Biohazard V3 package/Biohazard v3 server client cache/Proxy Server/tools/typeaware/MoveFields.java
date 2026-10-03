@@ -128,9 +128,12 @@ public final class MoveFields {
 				"headIconPk", "appearance.headIconPk",
 				"headIconHints", "appearance.headIconHints")));
 
-		// 4.10 -- the pure "*Delay" availability timers (the "you may do X again" clocks).
-		// The duration/schedule timers (hitDelay, attackTimer, freezeTimer, respawnTimer,
-		// delayedDamage) and the persisted skullTimer are deliberately not here.
+		// 4.10/4.11 -- the timer bag. Group 1 (4.10) is the pure "*Delay" availability
+		// clocks: the "you may do X again" stamps, all zero-defaulted. Group 2 (4.11) is
+		// the duration/scheduling timers, including teleBlockLength reunited with the
+		// teleBlockDelay it was split from and the persisted skullTimer. specDelay,
+		// poisonDelay and prayerDelay are deliberately absent: all three are dead (the
+		// measurement reports zero references of any kind anywhere in the tree).
 		CLUSTERS.put("timers", new Cluster("server.game.players.Player", moves(
 				"foodDelay", "timers.foodDelay",
 				"potDelay", "timers.potDelay",
@@ -149,11 +152,133 @@ public final class MoveFields {
 				"logoutDelay", "timers.logoutDelay",
 				"teleGrabDelay", "timers.teleGrabDelay",
 				"singleCombatDelay", "timers.singleCombatDelay",
-				"singleCombatDelay2", "timers.singleCombatDelay2")));
+				"singleCombatDelay2", "timers.singleCombatDelay2",
+				// 4.11 -- the duration / scheduling group.
+				"hitDelay", "timers.hitDelay",
+				"attackTimer", "timers.attackTimer",
+				"freezeTimer", "timers.freezeTimer",
+				"freezeDelay", "timers.freezeDelay",
+				"respawnTimer", "timers.respawnTimer",
+				"delayedDamage", "timers.delayedDamage",
+				"delayedDamage2", "timers.delayedDamage2",
+				"teleBlockLength", "timers.teleBlockLength",
+				"restoreStatsDelay", "timers.restoreStatsDelay",
+				"saveTimer", "timers.saveTimer",
+				"teleTimer", "timers.teleTimer",
+				"skullTimer", "timers.skullTimer")));
 
 		// The clusters for 4.1-4.6 (shop, smelting, clan-chat, settings, woodcutting,
 		// bounty hunter) are already applied and verified; their members are recorded in
 		// the plan's sections 4.1-4.6 and would only be needed again to re-derive them.
+
+		// 4.12 -- the prayer/curse *state* (sub-slice of the combat pass). The PRAYER_*/
+		// CURSE_* constant tables deliberately stay on Player: they are lookup data, not
+		// per-player state, and the already-migrated button modules read PRAYER_GLOW /
+		// CURSE_GLOW directly -- the same reasoning that kept the skill-index constants.
+		// The zero-reference prayerDelay is absent on purpose (dead field, see 4.11).
+		CLUSTERS.put("prayers", new Cluster("server.game.players.Player", moves(
+				"prayerActive", "prayers.prayerActive",
+				"curseActive", "prayers.curseActive",
+				"prayerPoint", "prayers.prayerPoint",
+				"stopPrayerDelay", "prayers.stopPrayerDelay",
+				"prayerId", "prayers.prayerId",
+				"usingPrayer", "prayers.usingPrayer")));
+
+		// 4.13 -- the special-attack subsystem (the other half of the combat pass). Only the
+		// spec bar's own state, not the attack-mode flags it sits next to on Player
+		// (usingRangeWeapon/usingBow/usingMagic/castingMagic/autocasting) nor the hit-diff
+		// family: those collide with NPC and are a separate boundary.
+		CLUSTERS.put("specialAttack", new Cluster("server.game.players.Player", moves(
+				"specAmount", "specialAttack.specAmount",
+				"specAccuracy", "specialAttack.specAccuracy",
+				"specDamage", "specialAttack.specDamage",
+				"specEffect", "specialAttack.specEffect",
+				"specBarId", "specialAttack.specBarId",
+				"specMaxHitIncrease", "specialAttack.specMaxHitIncrease",
+				"usingSpecial", "specialAttack.usingSpecial",
+				"doubleHit", "specialAttack.doubleHit")));
+
+		// 4.14 -- the attack mode (5 boolean flags: which weapon style is in use, and whether
+		// autocast is on). Deliberately NOT named CombatStyle: `fightMode` on Player is the
+		// accurate/aggressive/defensive attack style, which is a different thing entirely.
+		CLUSTERS.put("attackMode", new Cluster("server.game.players.Player", moves(
+				"usingRangeWeapon", "attackMode.usingRangeWeapon",
+				"usingBow", "attackMode.usingBow",
+				"usingMagic", "attackMode.usingMagic",
+				"castingMagic", "attackMode.castingMagic",
+				"autocasting", "attackMode.autocasting")));
+
+		// 4.15 -- the magic configuration the attack mode is driven by: spellbook, the autocast
+		// selection and its memory slots, and the current/previous spell ids. The measurement
+		// missed two on the first pass: the autocast memory is THREE parallel arrays saved as
+		// one row (weapon/spell/book per slot -- see PlayerSave), and `autocastId` is the
+		// selection those slots are applied from.
+		CLUSTERS.put("magic", new Cluster("server.game.players.Player", moves(
+				"playerMagicBook", "magic.playerMagicBook",
+				"autocastId", "magic.autocastId",
+				"autocastMemWeapon", "magic.autocastMemWeapon",
+				"autocastMemSpell", "magic.autocastMemSpell",
+				"autocastMemBook", "magic.autocastMemBook",
+				"spellId", "magic.spellId",
+				"oldSpellId", "magic.oldSpellId")));
+
+		// 4.16 -- the combat targeting pointers: who I am attacking, who I was attacking, the NPC
+		// whose death is mine, and who is attacking me. ⚠️ `underAttackBy` is declared on NPC too
+		// (line 32), unlike the rest, so the dry run must be read for skipped NPC references.
+		CLUSTERS.put("targeting", new Cluster("server.game.players.Player", moves(
+				"playerIndex", "targeting.playerIndex",
+				"npcIndex", "targeting.npcIndex",
+				"oldPlayerIndex", "targeting.oldPlayerIndex",
+				"oldNpcIndex", "targeting.oldNpcIndex",
+				"killingNpcIndex", "targeting.killingNpcIndex",
+				"underAttackBy", "targeting.underAttackBy",
+				"underAttackBy2", "targeting.underAttackBy2",
+				"ssTarget", "targeting.ssTarget",
+				"ssTargetNpc", "targeting.ssTargetNpc")));
+
+		// 4.17 -- the hit-update bookkeeping for this player: the two hitsplat slots the client is
+		// told about (value + "required" flag) and the damage reserved against the player before it
+		// is actually applied. ⚠️ All four mask names are declared on NPC too (NPC lines 29/54/297/298),
+		// so the NPC half of every assignment must be left alone; `pendingHitpoints` is Player-only
+		// because the NPC side uses `pendingDamage` instead.
+		CLUSTERS.put("hitUpdate", new Cluster("server.game.players.Player", moves(
+				"hitDiff", "hitUpdate.hitDiff",
+				"hitDiff2", "hitUpdate.hitDiff2",
+				"hitUpdateRequired", "hitUpdate.hitUpdateRequired",
+				"hitUpdateRequired2", "hitUpdate.hitUpdateRequired2",
+				"pendingHitpoints", "hitUpdate.pendingHitpoints")));
+
+		// 4.18 -- ranged-attack state: which phase the shot is in, the ammo it will drop, the weapon
+		// that launched it, the crystal bow's degrade counter and the bow-spec flag. None of these
+		// are declared on NPC.
+		CLUSTERS.put("rangedAttack", new Cluster("server.game.players.Player", moves(
+				"projectileStage", "rangedAttack.projectileStage",
+				"rangeItemUsed", "rangedAttack.rangeItemUsed",
+				"lastWeaponUsed", "rangedAttack.lastWeaponUsed",
+				"crystalBowArrowCount", "rangedAttack.crystalBowArrowCount",
+				"bowSpecShot", "rangedAttack.bowSpecShot")));
+
+		// 4.19 -- kill credit: the killer pointer, the running damage total, the per-attacker damage
+		// table and the list of players this one has engaged. ⚠️ `killerId` is declared on NPC too
+		// (NPC line 32) with the mirrored meaning, so its NPC-side uses must be left alone.
+		CLUSTERS.put("killCredit", new Cluster("server.game.players.Player", moves(
+				"killerId", "killCredit.killerId",
+				"totalDamageDealt", "killCredit.totalDamageDealt",
+				"damageTaken", "killCredit.damageTaken",
+				"attackedPlayers", "killCredit.attackedPlayers")));
+
+		// 4.20 -- NPC-interaction state: which NPC type was last clicked, its slot, and the type from
+		// the item-on-NPC path. ⚠️ `npcType` is declared on NPC too (NPC line 16), so its NPC-side
+		// uses (npcs[i].npcType, n.npcType, newNPC.npcType, ...) must be left alone.
+		CLUSTERS.put("npcInteraction", new Cluster("server.game.players.Player", moves(
+				"npcType", "npcInteraction.npcType",
+				"npcClickIndex", "npcInteraction.npcClickIndex",
+				"clickNpcType", "npcInteraction.clickNpcType")));
+
+		// 4.21 -- the attack style (accurate/aggressive/defensive/controlled). Persisted under the
+		// `fightMode` save key, which must not move. None of these names exist on NPC.
+		CLUSTERS.put("combatStyle", new Cluster("server.game.players.Player", moves(
+				"fightMode", "combatStyle.fightMode")));
 	}
 
 	/* ---------------------------------------------------------------------- main -- */
@@ -332,12 +457,14 @@ public final class MoveFields {
 			String name = node.getIdentifier().toString();
 			if (cluster.moves.containsKey(name)) {
 				consider(name, node);
-				// Do NOT walk into the receiver: `c` in `c.playerLevel` is a local that must
-				// not be counted, and a further target cannot hide behind it. When the name is
-				// not ours we DO recurse, which is what finds `playerLevel` in
-				// `p.playerLevel.length`.
-				return null;
 			}
+			// Always walk into the receiver, even after a hit. `consider` only ever acts on a
+			// name in the cluster that also resolves to the owner's field, so a bare receiver
+			// such as `c` in `c.playerLevel` cannot be mistaken for one. Crucially a SECOND
+			// target can hide behind a hit: in
+			// `PlayerHandler.players[c.playerIndex].underAttackBy` the member `underAttackBy`
+			// and the nested `c.playerIndex` are both ours, and not recursing silently dropped
+			// the nested one -- which only surfaced later as a javac error (see §4.16).
 			return super.visitMemberSelect(node, p);
 		}
 
@@ -472,8 +599,9 @@ public final class MoveFields {
 			String name = node.getIdentifier().toString();
 			if (names.contains(name)) {
 				count(name, true);
-				return null;
 			}
+			// Recurse even after counting, for the same reason as the rewriter: a nested field
+			// of ours can sit inside the receiver of a counted member select.
 			return super.visitMemberSelect(node, p);
 		}
 

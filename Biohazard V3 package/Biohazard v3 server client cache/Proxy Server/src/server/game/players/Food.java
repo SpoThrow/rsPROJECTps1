@@ -74,7 +74,7 @@ public class Food {
 		}
 		if (System.currentTimeMillis() - c.timers.foodDelay >= 1500 && c.skills.playerLevel[3] > 0) {
 			c.getCombat().resetPlayerAttack();
-			c.attackTimer += 2;
+			c.timers.attackTimer += 2;
 			c.startAnimation(829);
 			c.getItems().deleteItem(id,slot,1);
 			FoodToEat f = FoodToEat.food.get(id);

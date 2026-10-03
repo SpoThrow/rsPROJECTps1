@@ -17,9 +17,9 @@ public class MagicOnItems implements PacketType {
 		int spellId = c.getInStream().readSignedWordA();
 		if(!c.getItems().playerHasItem(itemId, 1, slot))
 			return;
-		c.usingMagic = true;
+		c.attackMode.usingMagic = true;
 		c.getPA().magicOnItems(slot, itemId, spellId);
-		c.usingMagic = false;
+		c.attackMode.usingMagic = false;
 
 	}
 

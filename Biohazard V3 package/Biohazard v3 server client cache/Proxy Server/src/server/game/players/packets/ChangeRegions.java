@@ -22,7 +22,7 @@ public class ChangeRegions implements PacketType {
 		
 		c.saveFile = true;
 		
-		if(c.skullTimer > 0) {
+		if(c.timers.skullTimer > 0) {
 			c.isSkulled = true;	
 			c.appearance.headIconPk = 0;
 			c.getPA().requestUpdates();

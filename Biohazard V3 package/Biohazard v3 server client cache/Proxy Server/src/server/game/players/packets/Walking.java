@@ -39,7 +39,7 @@ public class Walking implements PacketType {
 		}
 		if(c.inTrade)
 			return;
-		if(c.usingMagic) {
+		if(c.attackMode.usingMagic) {
 			c.stopMovement();
 		}
 		if(c.woodcutting.active) {
@@ -55,43 +55,43 @@ public class Walking implements PacketType {
 		// here cancels the bank/shop action after you arrive, so it only opens
 		// on a second click.
 		if (packetType != 248) {
-			c.clickNpcType = 0;
+			c.npcInteraction.clickNpcType = 0;
 			c.clickObjectType = 0;
 		}
 		if (packetType == 248 || packetType == 164) {
 			c.faceUpdate(0);
-			c.npcIndex = 0;
-			c.playerIndex = 0;
+			c.targeting.npcIndex = 0;
+			c.targeting.playerIndex = 0;
 			if (packetType != 248 && (c.followId > 0 || c.followId2 > 0))
 				c.getPA().resetFollow();
 		}		
 		if(c.duelRule[1] && c.duelStatus == 5) {
 			if(PlayerHandler.players[c.duelingWith] != null) { 
-				if(!c.goodDistance(c.getX(), c.getY(), PlayerHandler.players[c.duelingWith].getX(), PlayerHandler.players[c.duelingWith].getY(), 1) || c.attackTimer == 0) {
+				if(!c.goodDistance(c.getX(), c.getY(), PlayerHandler.players[c.duelingWith].getX(), PlayerHandler.players[c.duelingWith].getY(), 1) || c.timers.attackTimer == 0) {
 					c.sendMessage("Walking has been disabled in this duel!");
 				}
 			}
-			c.playerIndex = 0;	
+			c.targeting.playerIndex = 0;	
 			return;		
 		}
 		
-		if(c.freezeTimer > 0) {
-			if(PlayerHandler.players[c.playerIndex] != null) {
-				if(c.goodDistance(c.getX(), c.getY(), PlayerHandler.players[c.playerIndex].getX(), PlayerHandler.players[c.playerIndex].getY(), 1) && packetType != 98) {
-					c.playerIndex = 0;	
+		if(c.timers.freezeTimer > 0) {
+			if(PlayerHandler.players[c.targeting.playerIndex] != null) {
+				if(c.goodDistance(c.getX(), c.getY(), PlayerHandler.players[c.targeting.playerIndex].getX(), PlayerHandler.players[c.targeting.playerIndex].getY(), 1) && packetType != 98) {
+					c.targeting.playerIndex = 0;	
 					return;
 				}
 			}
 			if (packetType != 98) {
 				c.sendMessage("A magical force stops you from moving.");
-				c.playerIndex = 0;
+				c.targeting.playerIndex = 0;
 			}	
 			return;
 		}
 		
 		if (System.currentTimeMillis() - c.lastSpear < 4000) {
 			c.sendMessage("You have been stunned.");
-			c.playerIndex = 0;
+			c.targeting.playerIndex = 0;
 			return;
 		}
 		
@@ -101,7 +101,7 @@ public class Walking implements PacketType {
 	
 		
 		
-		if(c.respawnTimer > 3) {
+		if(c.timers.respawnTimer > 3) {
 			return;
 		}
 		//Reset all

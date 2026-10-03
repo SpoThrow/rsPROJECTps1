@@ -18,15 +18,15 @@ public class ItemOnNpc implements PacketType {
 			return;
 		}
 		NPC n = NPCHandler.npcs[i];
-		c.npcClickIndex = i;
-		c.clickNpcType = 0;
+		c.npcInteraction.npcClickIndex = i;
+		c.npcInteraction.clickNpcType = 0;
 		c.itemOnNpcItemId = itemId;
 		c.itemOnNpcItemSlot = slot;
 		if(c.goodDistance(n.getX(), n.getY(), c.getX(), c.getY(), 1)) {
 			c.turnPlayerTo(n.getX(), n.getY());
 			UseItem.ItemonNpc(c, itemId, slot, npcId);	
 		} else {
-			c.clickNpcType = 4;
+			c.npcInteraction.clickNpcType = 4;
 		}
 	}
 }

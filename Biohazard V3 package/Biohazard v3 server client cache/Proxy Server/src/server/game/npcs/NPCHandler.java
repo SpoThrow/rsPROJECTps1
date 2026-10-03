@@ -287,7 +287,7 @@ public class NPCHandler {
 				if (PlayerHandler.players[j].goodDistance(c.position.absX, c.position.absY,
 						npcs[i].absX, npcs[i].absY, 15)) {
 					if (npcs[i].attackType == 2) {
-						if (!c.prayerActive[16] && !c.curseActive[7]) {
+						if (!c.prayers.prayerActive[16] && !c.prayers.curseActive[7]) {
 							if (Misc.random(500) + 200 > Misc.random(c
 									.getCombat().mageDef())) {
 								int dam = Misc.random(max);
@@ -302,7 +302,7 @@ public class NPCHandler {
 							c.handleHitMask(0);
 						}
 					} else if (npcs[i].attackType == 1) {
-						if (!c.prayerActive[17] && !c.curseActive[8]) {
+						if (!c.prayers.prayerActive[17] && !c.prayers.curseActive[8]) {
 							int dam = Misc.random(max);
 							if (Misc.random(500) + 200 > Misc.random(c
 									.getCombat().calculateRangeDefence())) {
@@ -336,7 +336,7 @@ public class NPCHandler {
 						npcs[i].absY, 2 + distanceRequired(i)
 								+ followDistance(i))
 						|| isFightCaveNpc(i)) {
-					if ((PlayerHandler.players[j].underAttackBy <= 0 && PlayerHandler.players[j].underAttackBy2 <= 0)
+					if ((PlayerHandler.players[j].targeting.underAttackBy <= 0 && PlayerHandler.players[j].targeting.underAttackBy2 <= 0)
 							|| PlayerHandler.players[j].inMulti())
 						if (PlayerHandler.players[j].position.heightLevel == npcs[i].heightLevel)
 							return j;
@@ -355,7 +355,7 @@ public class NPCHandler {
 						npcs[i].absY, 2 + distanceRequired(i)
 								+ followDistance(i))
 						|| isFightCaveNpc(i)) {
-					if ((PlayerHandler.players[j].underAttackBy <= 0 && PlayerHandler.players[j].underAttackBy2 <= 0)
+					if ((PlayerHandler.players[j].targeting.underAttackBy <= 0 && PlayerHandler.players[j].targeting.underAttackBy2 <= 0)
 							|| PlayerHandler.players[j].inMulti())
 						if (PlayerHandler.players[j].position.heightLevel == npcs[i].heightLevel)
 							players.add(j);
@@ -2831,7 +2831,7 @@ public class NPCHandler {
 				if (npcs[i].spawnedBy > 0) { // delete summons npc
 					if (PlayerHandler.players[npcs[i].spawnedBy] == null
 							|| PlayerHandler.players[npcs[i].spawnedBy].position.heightLevel != npcs[i].heightLevel
-							|| PlayerHandler.players[npcs[i].spawnedBy].respawnTimer > 0
+							|| PlayerHandler.players[npcs[i].spawnedBy].timers.respawnTimer > 0
 							|| !PlayerHandler.players[npcs[i].spawnedBy]
 									.goodDistance(
 											npcs[i].getX(),
@@ -3137,11 +3137,11 @@ public class NPCHandler {
 		for (int p = 1; p < Config.MAX_PLAYERS; p++) {
 			if (PlayerHandler.players[p] != null) {
 				if (PlayerHandler.players[p].lastNpcAttacked == npcId) {
-					if (PlayerHandler.players[p].totalDamageDealt > oldDamage) {
-						oldDamage = PlayerHandler.players[p].totalDamageDealt;
+					if (PlayerHandler.players[p].killCredit.totalDamageDealt > oldDamage) {
+						oldDamage = PlayerHandler.players[p].killCredit.totalDamageDealt;
 						killerId = p;
 					}
-					PlayerHandler.players[p].totalDamageDealt = 0;
+					PlayerHandler.players[p].killCredit.totalDamageDealt = 0;
 				}
 			}
 		}
@@ -3504,8 +3504,8 @@ public class NPCHandler {
 	public void resetPlayersInCombat(int i) {
 		for (int j = 0; j < PlayerHandler.players.length; j++) {
 			if (PlayerHandler.players[j] != null)
-				if (PlayerHandler.players[j].underAttackBy2 == i)
-					PlayerHandler.players[j].underAttackBy2 = 0;
+				if (PlayerHandler.players[j].targeting.underAttackBy2 == i)
+					PlayerHandler.players[j].targeting.underAttackBy2 = 0;
 		}
 	}
 
@@ -3625,7 +3625,7 @@ public class NPCHandler {
 		if (PlayerHandler.players[playerId] == null) {
 			return;
 		}
-		if (PlayerHandler.players[playerId].respawnTimer > 0) {
+		if (PlayerHandler.players[playerId].timers.respawnTimer > 0) {
 			npcs[i].facePlayer(0);
 			npcs[i].randomWalk = true;
 			npcs[i].underAttack = false;
@@ -3683,7 +3683,16 @@ public class NPCHandler {
 						} else if (npcs[i].absY > playerY) {
 							approachY = playerY + 1;
 						}
-						applyNpcRouteStep(i, approachX, approachY);
+						if (Config.NPC_SMART_PATHING) {
+							// Route around obstacles — the NPC always reaches the player.
+							applyNpcRouteStep(i, approachX, approachY);
+						} else {
+							// Authentic OSRS: step straight at the player and let handleClipping
+							// slide or stop us. NPCs snag on fences, trees and corners, which is
+							// exactly what allows safespotting.
+							npcs[i].moveX = GetMove(npcs[i].absX, approachX);
+							npcs[i].moveY = GetMove(npcs[i].absY, approachY);
+						}
 					}
 					int x = (npcs[i].absX + npcs[i].moveX);
 					int y = (npcs[i].absY + npcs[i].moveY);
@@ -4163,7 +4172,7 @@ public class NPCHandler {
 				return;
 			}
 			if (!npcs[i].inMulti()
-					&& (c.underAttackBy > 0 || (c.underAttackBy2 > 0 && c.underAttackBy2 != i))) {
+					&& (c.targeting.underAttackBy > 0 || (c.targeting.underAttackBy2 > 0 && c.targeting.underAttackBy2 != i))) {
 				npcs[i].killerId = 0;
 				return;
 			}
@@ -4184,7 +4193,7 @@ public class NPCHandler {
 				if (!PathFinder.hasLineOfSight(npcs[i].absX, npcs[i].absY, nSize, c.position.absX, c.position.absY, 1, c.position.heightLevel)) {
 					return;
 				}
-				if (c.respawnTimer <= 0) {
+				if (c.timers.respawnTimer <= 0) {
 					npcs[i].facePlayer(c.playerId);
 					npcs[i].attackTimer = getNpcDelay(i);
 					npcs[i].hitDelayTimer = getHitDelay(i);
@@ -4214,7 +4223,7 @@ public class NPCHandler {
 								npcs[i].projectileId, 43, 31, -c.getId() - 1,
 								65);
 					}
-					c.underAttackBy2 = i;
+					c.targeting.underAttackBy2 = i;
 					c.timers.singleCombatDelay2 = System.currentTimeMillis();
 					npcs[i].oldIndex = c.playerId;
 					startAnimation(getAttackEmote(i), i);
@@ -4341,14 +4350,14 @@ public class NPCHandler {
 				multiAttackDamage(i);
 				return;
 			}
-			if (c.playerIndex <= 0 && c.npcIndex <= 0)
+			if (c.targeting.playerIndex <= 0 && c.targeting.npcIndex <= 0)
 				if (c.autoRet == 1)
-					c.npcIndex = i;
-			if (c.attackTimer <= 3 || c.attackTimer == 0 && c.npcIndex == 0
-					&& c.oldNpcIndex == 0) {
+					c.targeting.npcIndex = i;
+			if (c.timers.attackTimer <= 3 || c.timers.attackTimer == 0 && c.targeting.npcIndex == 0
+					&& c.targeting.oldNpcIndex == 0) {
 				c.startAnimation(c.getCombat().getBlockEmote());
 			}
-			if (c.respawnTimer <= 0) {
+			if (c.timers.respawnTimer <= 0) {
 				int damage = 0;
 				if (npcs[i].attackType == 0) {
 					damage = Misc.random(npcs[i].maxHit);
@@ -4358,7 +4367,7 @@ public class NPCHandler {
 							.random(NPCHandler.npcs[i].attack)) {
 						damage = 0;
 					}
-					if (c.prayerActive[18] || c.curseActive[9]) { // protect
+					if (c.prayers.prayerActive[18] || c.prayers.curseActive[9]) { // protect
 																	// from
 																	// melee
 						if (npcs[i].npcType == 2030 || npcs[i].npcType == 1158
@@ -4380,7 +4389,7 @@ public class NPCHandler {
 							.random(NPCHandler.npcs[i].attack)) {
 						damage = 0;
 					}
-					if (c.prayerActive[17] || c.curseActive[8]) { // protect from range
+					if (c.prayers.prayerActive[17] || c.prayers.curseActive[8]) { // protect from range
 						if (Nex.isNex(npcs[i].npcType))
 							damage = (damage / 2);
 						else
@@ -4401,7 +4410,7 @@ public class NPCHandler {
 						damage = 0;
 						magicFailed = true;
 					}
-					if (c.prayerActive[16] || c.curseActive[7]) { // protect from magic
+					if (c.prayers.prayerActive[16] || c.prayers.curseActive[7]) { // protect from magic
 						if (Nex.isNex(npcs[i].npcType))
 							damage = (damage / 2);
 						else

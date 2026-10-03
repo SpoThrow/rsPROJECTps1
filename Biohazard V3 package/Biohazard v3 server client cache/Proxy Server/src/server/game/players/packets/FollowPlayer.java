@@ -11,11 +11,11 @@ public class FollowPlayer implements PacketType {
 		if(PlayerHandler.players[followPlayer] == null) {
 			return;
 		}
-		c.playerIndex = 0;
-		c.npcIndex = 0;
+		c.targeting.playerIndex = 0;
+		c.targeting.npcIndex = 0;
 		c.mageFollow = false;
-		c.usingBow = false;
-		c.usingRangeWeapon = false;
+		c.attackMode.usingBow = false;
+		c.attackMode.usingRangeWeapon = false;
 		c.followDistance = 1;
 		c.followId = followPlayer;
 	}	

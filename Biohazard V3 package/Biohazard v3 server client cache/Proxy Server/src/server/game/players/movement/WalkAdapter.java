@@ -19,7 +19,7 @@ public final class WalkAdapter {
 		if (c == null) {
 			return;
 		}
-		if (c.freezeTimer > 0) {
+		if (c.timers.freezeTimer > 0) {
 			return;
 		}
 		PathFinder.getPathFinder().findRoute(c, x, y, true, 1, 1);
@@ -36,7 +36,7 @@ public final class WalkAdapter {
 		if (c == null) {
 			return;
 		}
-		if (c.freezeTimer > 0) {
+		if (c.timers.freezeTimer > 0) {
 			return;
 		}
 		if (dx == 0 && dy == 0) {
@@ -58,7 +58,7 @@ public final class WalkAdapter {
 		if (c == null) {
 			return;
 		}
-		if (c.freezeTimer > 0 || c.freezeDelay > 0) {
+		if (c.timers.freezeTimer > 0 || c.timers.freezeDelay > 0) {
 			return;
 		}
 		walkRelative(c, dx, dy);

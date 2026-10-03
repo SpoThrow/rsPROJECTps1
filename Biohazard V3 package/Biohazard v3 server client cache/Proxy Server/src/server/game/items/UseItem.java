@@ -344,7 +344,7 @@ if (c.getItems().isHilt(itemUsed) || c.getItems().isHilt(useWith)) {
 	
 	//castlewars
 	public static void ItemonNpc(Client c, int itemId, int slot, int npcId) {
-		NPC npc = NPCHandler.npcs[c.npcClickIndex];
+		NPC npc = NPCHandler.npcs[c.npcInteraction.npcClickIndex];
 		switch(itemId) {
 		case 4045:
 			if(npcId == 1532) {
@@ -360,11 +360,11 @@ if (c.getItems().isHilt(itemUsed) || c.getItems().isHilt(useWith)) {
 		
 		default:
 			if(c.playerRights == 3)
-				Misc.println("Player used Item id: "+itemId+" with Npc id: "+npcId+" With Slot : "+slot+" the i is: "+c.npcClickIndex);
+				Misc.println("Player used Item id: "+itemId+" with Npc id: "+npcId+" With Slot : "+slot+" the i is: "+c.npcInteraction.npcClickIndex);
 			break;
 		}
-		c.npcClickIndex = 0;
-		c.clickNpcType = 0;
+		c.npcInteraction.npcClickIndex = 0;
+		c.npcInteraction.clickNpcType = 0;
 		
 	}
 

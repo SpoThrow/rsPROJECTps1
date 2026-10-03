@@ -881,7 +881,7 @@ public class TradeAndDuel{
 		
 		if(c.duelRule[7]){
 			for(int p = 0; p < c.PRAYER.length; p++) { // reset prayer glows 
-				c.prayerActive[p] = false;
+				c.prayers.prayerActive[p] = false;
 				c.getPA().sendFrame36(c.PRAYER_GLOW[p], 0);		
 			}
 			c.appearance.headIcon = -1;
@@ -922,7 +922,7 @@ public class TradeAndDuel{
 		}		
 		c.duelStatus = 5;
 		c.getPA().removeAllWindows();
-		c.specAmount = 100;
+		c.specialAttack.specAmount = 100;
 		c.getItems().addSpecialBar(c.playerEquipment[c.playerWeapon]);
 		
 		if(c.duelRule[8]){	

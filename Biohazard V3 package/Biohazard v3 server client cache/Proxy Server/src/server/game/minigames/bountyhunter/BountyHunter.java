@@ -246,8 +246,8 @@ public class BountyHunter {
 
 	public static void handleBHDeath(Client c) {
 		Client target = PlayerHandler.players[c.bountyHunter.targetIndex];
-		Client rogue = PlayerHandler.players[c.killerId];
-		if(c.killerId == c.bountyHunter.targetIndex) {
+		Client rogue = PlayerHandler.players[c.killCredit.killerId];
+		if(c.killCredit.killerId == c.bountyHunter.targetIndex) {
 			target.bountyHunter.safeTimer = 0;
 			if(isKillCreditFor(target, c)) {
 				target.bountyHunter.bountyKills++;

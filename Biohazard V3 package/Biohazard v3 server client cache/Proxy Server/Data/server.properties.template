@@ -1,0 +1,39 @@
+# Soul-Trail server configuration template.
+#
+# Copy this to server.properties (same directory) and fill in the values you need.
+# server.properties is gitignored; this template is checked in.
+#
+# Every key is optional. A missing file, a missing key, or a blank value all fall
+# back to the built-in default shown below -- which is exactly what the server used
+# before this file existed, so an empty copy changes nothing.
+
+# ---------------------------------------------------------------------------
+# Hiscores database (HiscoresHandler)
+# ---------------------------------------------------------------------------
+# host     : hostname or IP of the MySQL server           [default: localhost]
+# database : schema holding the `hs` table                [default: hiscores]
+# user     : MySQL user                                   [default: root]
+# password : MySQL password                               [default: ------]
+#
+# NOTE: the built-in password default is the placeholder string "------" that was
+# hardcoded in the source. It was never a working credential, so set a real one
+# here if you want hiscores to save.
+hiscores.host=localhost
+hiscores.database=hiscores
+hiscores.user=root
+hiscores.password=
+
+# ---------------------------------------------------------------------------
+# Vote rewards (GTLVote MainLoader)
+# ---------------------------------------------------------------------------
+# host     : hostname or IP of the MySQL server           [default: localhost]
+# database : schema holding the vote table                [default: vote]
+# user     : MySQL user                                   [default: root]
+# password : MySQL password                               [default: ------]
+#
+# When the database is unreachable the server logs one line and disables vote
+# claims; it does not fail to start.
+vote.host=localhost
+vote.database=vote
+vote.user=root
+vote.password=

@@ -42,7 +42,7 @@ public class ClickObject implements PacketType {
 				if (Doors.getSingleton().handleDoor(c.objectId, c.objectX, c.objectY, c.position.heightLevel)) {
 				}
 			}				
-			if(c.teleTimer > 0)
+			if(c.timers.teleTimer > 0)
 				return;
 			if(c.playerRights >= 3) {
 				Misc.println("objectId1: "+c.objectId+"  ObjectX: "+c.objectX+ "  objectY: "+c.objectY+" Xoff: "+ (c.getX() - c.objectX)+" Yoff: "+ (c.getY() - c.objectY)); 

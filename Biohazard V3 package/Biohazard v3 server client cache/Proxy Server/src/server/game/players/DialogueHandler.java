@@ -31,31 +31,31 @@ public class DialogueHandler {
 		 * rank switcher
 		 */
 		case 8800:
-			c.npcType = WorldAdventurer.NPC_ID;
+			c.npcInteraction.npcType = WorldAdventurer.NPC_ID;
 			sendNpcChat2(WorldAdventurer.greetingLine(c),
 					"Need something, or just watching?", WorldAdventurer.NPC_ID, WorldAdventurer.NAME);
 			c.nextChat = 8801;
 			break;
 		case 8802:
-			c.npcType = WorldAdventurer.NPC_ID;
+			c.npcInteraction.npcType = WorldAdventurer.NPC_ID;
 			sendNpcChat2(WorldAdventurer.doingLine(c),
 					"Talk if you want. I don't mind the company.", WorldAdventurer.NPC_ID, WorldAdventurer.NAME);
 			c.nextChat = 8801;
 			break;
 		case 8803:
-			c.npcType = WorldAdventurer.NPC_ID;
+			c.npcInteraction.npcType = WorldAdventurer.NPC_ID;
 			sendNpcChat2(WorldAdventurer.headingLine(),
 					"I don't sit still for long.", WorldAdventurer.NPC_ID, WorldAdventurer.NAME);
 			c.nextChat = 8801;
 			break;
 		case 8804:
-			c.npcType = WorldAdventurer.NPC_ID;
+			c.npcInteraction.npcType = WorldAdventurer.NPC_ID;
 			sendNpcChat2(WorldAdventurer.tipLine(c),
 					"That's free. The rest you earn.", WorldAdventurer.NPC_ID, WorldAdventurer.NAME);
 			c.nextChat = 8801;
 			break;
 		case 8805:
-			c.npcType = WorldAdventurer.NPC_ID;
+			c.npcInteraction.npcType = WorldAdventurer.NPC_ID;
 			sendNpcChat2("Yeah. I'll be around.",
 					"Try not to die somewhere stupid.", WorldAdventurer.NPC_ID, WorldAdventurer.NAME);
 			c.nextChat = 0;
@@ -357,11 +357,11 @@ public class DialogueHandler {
 			c.nextChat = 0;
 			break;
 		case 1699:
-			sendNpcChat1("You don't have enough vote points!", c.npcType, "Vote Master");
+			sendNpcChat1("You don't have enough vote points!", c.npcInteraction.npcType, "Vote Master");
 			c.nextChat = 0;
 			break;
 		case 1700:
-			sendNpcChat1("There's 500000 coins!", c.npcType, "Vote Master");
+			sendNpcChat1("There's 500000 coins!", c.npcInteraction.npcType, "Vote Master");
 			c.nextChat = 0;
 			break;
 		case 73:
@@ -691,7 +691,7 @@ public class DialogueHandler {
 		c.getPA().sendFrame200(4883, emote);
 		c.getPA().sendFrame126(name, 4884);
 		c.getPA().sendFrame126(s, 4885);
-		c.getPA().sendFrame75(c.npcType, 4883);
+		c.getPA().sendFrame75(c.npcInteraction.npcType, 4883);
 		c.getPA().sendFrame164(4882);
 	}
 	
@@ -700,7 +700,7 @@ public class DialogueHandler {
 		c.getPA().sendFrame126(name, 4889);
 		c.getPA().sendFrame126(s, 4890);
 		c.getPA().sendFrame126(s1, 4891);
-		c.getPA().sendFrame75(c.npcType, 4888);
+		c.getPA().sendFrame75(c.npcInteraction.npcType, 4888);
 		c.getPA().sendFrame164(4887);
 	}
 	
@@ -709,7 +709,7 @@ public class DialogueHandler {
 		c.getPA().sendFrame126("Skill Master", 4889);
 		c.getPA().sendFrame126(s, 4890);
 		c.getPA().sendFrame126(s1, 4891);
-		c.getPA().sendFrame75(c.npcType, 4888);
+		c.getPA().sendFrame75(c.npcInteraction.npcType, 4888);
 		c.getPA().sendFrame164(4887);
 	}
 
@@ -719,7 +719,7 @@ public class DialogueHandler {
 		c.getPA().sendFrame126(s, 4896);
 		c.getPA().sendFrame126(s1, 4897);
 		c.getPA().sendFrame126(s2, 4898);
-		c.getPA().sendFrame75(c.npcType, 4894);
+		c.getPA().sendFrame75(c.npcInteraction.npcType, 4894);
 		c.getPA().sendFrame164(4893);
 	}
 	
@@ -730,7 +730,7 @@ public class DialogueHandler {
 		c.getPA().sendFrame126(s1, 4904);
 		c.getPA().sendFrame126(s2, 4905);
 		c.getPA().sendFrame126(s3, 4906);
-		c.getPA().sendFrame75(c.npcType, 4901);
+		c.getPA().sendFrame75(c.npcInteraction.npcType, 4901);
 		c.getPA().sendFrame164(4900);
 	}
 	

@@ -65,8 +65,8 @@ public final class FightModeButtons {
 		for (int[] row : MODES) {
 			final int mode = row[1];
 			ButtonHandler.register(row[0], (c, actionButtonId) -> {
-				c.fightMode = mode;
-				if (c.autocasting) {
+				c.combatStyle.fightMode = mode;
+				if (c.attackMode.autocasting) {
 					c.getPA().resetAutocast();
 				}
 			});

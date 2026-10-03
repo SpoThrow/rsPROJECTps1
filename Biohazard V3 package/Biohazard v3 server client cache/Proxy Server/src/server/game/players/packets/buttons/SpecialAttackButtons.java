@@ -35,8 +35,8 @@ public final class SpecialAttackButtons {
 		for (int[] entry : BUTTONS) {
 			final int specBarId = entry[1];
 			ButtonHandler.register(entry[0], (c, actionButtonId) -> {
-				c.specBarId = specBarId;
-				c.usingSpecial = !c.usingSpecial;
+				c.specialAttack.specBarId = specBarId;
+				c.specialAttack.usingSpecial = !c.specialAttack.usingSpecial;
 				c.getItems().updateSpecialBar();
 			});
 		}

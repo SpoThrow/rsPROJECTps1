@@ -93,7 +93,11 @@ public class Server {
 		try {
 			System.setOut(sink);
 			System.setErr(sink);
-			vote = new MainLoader("localhost", "root", "------", "vote");
+			vote = new MainLoader(
+					Configuration.get().getString("vote.host", "localhost"),
+					Configuration.get().getString("vote.user", "root"),
+					Configuration.get().getString("vote.password", "------"),
+					Configuration.get().getString("vote.database", "vote"));
 		} catch (Throwable t) {
 			vote = null;
 		} finally {
@@ -103,7 +107,18 @@ public class Server {
 		String voteLog = captured.toString();
 		if (voteLog.indexOf("Error connecting") >= 0 || voteLog.indexOf("CommunicationsException") >= 0
 				|| voteLog.indexOf("Communications link failure") >= 0) {
-			System.out.println("[GTLVote] MySQL is not running on localhost; vote claims are disabled until the database is up.");
+			// The loader's failure noise is deliberately suppressed, but Configuration.load() logs
+			// from inside this hijacked region, so its line would be swallowed with the noise —
+			// and a missing or unreadable server.properties is exactly what an operator needs to
+			// see when the database refuses to connect. Surface our own line before the summary.
+			for (String line : voteLog.split("\\r?\\n")) {
+				if (line.startsWith("[Configuration]")) {
+					System.out.println(line);
+				}
+			}
+			System.out.println("[GTLVote] MySQL is not running on "
+					+ Configuration.get().getString("vote.host", "localhost")
+					+ "; vote claims are disabled until the database is up.");
 		} else if (voteLog.length() > 0) {
 			System.out.print(voteLog);
 		}
@@ -128,7 +143,6 @@ public class Server {
 		Region.load();
 		Config.loadConfigurations();
 		//ShutdownHook.getSingleton().run();
-		//WalkingCheck.load();
 		//Highscores.process();
 		System.setOut(new Logger(System.out));
 		System.setErr(new Logger(System.err));

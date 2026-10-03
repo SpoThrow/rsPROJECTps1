@@ -464,15 +464,15 @@ public class ItemAssistant {
 		resetBank();
 	}
 	public void dropAllItems() {
-		Client o = (Client) PlayerHandler.players[c.killerId];
+		Client o = (Client) PlayerHandler.players[c.killCredit.killerId];
 		
 		for(int i = 0; i < c.playerItems.length; i++) {
 			if(o != null) {
 				if (tradeable(c.playerItems[i] - 1)) {
-					Server.itemHandler.createGroundItem(o, c.playerItems[i] -1, c.getX(), c.getY(), c.playerItemsN[i], c.killerId);
+					Server.itemHandler.createGroundItem(o, c.playerItems[i] -1, c.getX(), c.getY(), c.playerItemsN[i], c.killCredit.killerId);
 				} else {
 					if (specialCase(c.playerItems[i] - 1))
-						Server.itemHandler.createGroundItem(o, 995, c.getX(), c.getY(), getUntradePrice(c.playerItems[i]-1), c.killerId);
+						Server.itemHandler.createGroundItem(o, 995, c.getX(), c.getY(), getUntradePrice(c.playerItems[i]-1), c.killCredit.killerId);
 					Server.itemHandler.createGroundItem(c, c.playerItems[i] -1, c.getX(), c.getY(), c.playerItemsN[i], c.playerId);
 				}
 			} else {
@@ -482,10 +482,10 @@ public class ItemAssistant {
 		for(int e = 0; e < c.playerEquipment.length; e++) {
 			if(o != null) {
 				if (tradeable(c.playerEquipment[e])) {
-					Server.itemHandler.createGroundItem(o, c.playerEquipment[e], c.getX(), c.getY(), c.playerEquipmentN[e], c.killerId);
+					Server.itemHandler.createGroundItem(o, c.playerEquipment[e], c.getX(), c.getY(), c.playerEquipmentN[e], c.killCredit.killerId);
 				} else {
 					if (specialCase(c.playerEquipment[e]))
-						Server.itemHandler.createGroundItem(o, 995, c.getX(), c.getY(), getUntradePrice(c.playerEquipment[e]), c.killerId);
+						Server.itemHandler.createGroundItem(o, 995, c.getX(), c.getY(), getUntradePrice(c.playerEquipment[e]), c.killCredit.killerId);
 					Server.itemHandler.createGroundItem(c, c.playerEquipment[e], c.getX(), c.getY(), c.playerEquipmentN[e], c.playerId);
 				}
 			} else {
@@ -493,7 +493,7 @@ public class ItemAssistant {
 			}
 		}
 		if(o != null) {	
-			Server.itemHandler.createGroundItem(o, 526, c.getX(), c.getY(), 1, c.killerId);
+			Server.itemHandler.createGroundItem(o, 526, c.getX(), c.getY(), 1, c.killCredit.killerId);
 		}	
 	}
 	
@@ -1209,7 +1209,7 @@ public class ItemAssistant {
 			case 15443:
 			case 15444:
 			c.getPA().sendFrame171(0, 12323);
-			specialAmount(weapon, c.specAmount, 12335);
+			specialAmount(weapon, c.specialAttack.specAmount, 12335);
 			break;
 			
 			case 859: // magic bows
@@ -1218,38 +1218,38 @@ public class ItemAssistant {
 			case 13879:
 			case 13883:
 			c.getPA().sendFrame171(0, 7549);
-			specialAmount(weapon, c.specAmount, 7561);
+			specialAmount(weapon, c.specialAttack.specAmount, 7561);
 			break;
 			
 			case 4587: // dscimmy
 			c.getPA().sendFrame171(0, 7599);
-			specialAmount(weapon, c.specAmount, 7611);
+			specialAmount(weapon, c.specialAttack.specAmount, 7611);
 			break;
 			
 			case 3204: // d hally
 			c.getPA().sendFrame171(0, 8493);
-			specialAmount(weapon, c.specAmount, 8505);
+			specialAmount(weapon, c.specialAttack.specAmount, 8505);
 			break;
 			
 			case 1377: // d battleaxe
 			c.getPA().sendFrame171(0, 7499);
-			specialAmount(weapon, c.specAmount, 7511);
+			specialAmount(weapon, c.specialAttack.specAmount, 7511);
 			break;
 			
 			case 4153: // gmaul
 			case 13902:
 			c.getPA().sendFrame171(0, 7474);
-			specialAmount(weapon, c.specAmount, 7486);
+			specialAmount(weapon, c.specialAttack.specAmount, 7486);
 			break;
 
 			case 14484:
 			c.getPA().sendFrame171(0, 7800);
-			specialAmount(weapon, c.specAmount, 7812);
+			specialAmount(weapon, c.specialAttack.specAmount, 7812);
 			break;
 			
 			case 1249: //dspear
 			c.getPA().sendFrame171(0, 7674);
-			specialAmount(weapon, c.specAmount, 7686);
+			specialAmount(weapon, c.specialAttack.specAmount, 7686);
 			break;
 		
 			
@@ -1269,12 +1269,12 @@ public class ItemAssistant {
 			case 13899:
 			case 13905:
 			c.getPA().sendFrame171(0, 7574); 
-			specialAmount(weapon, c.specAmount, 7586);
+			specialAmount(weapon, c.specialAttack.specAmount, 7586);
 			break;
 			
 			case 1434: // dragon mace
 			c.getPA().sendFrame171(0, 7624);
-			specialAmount(weapon, c.specAmount, 7636);
+			specialAmount(weapon, c.specialAttack.specAmount, 7636);
 			break;
 			
 			default:
@@ -1296,7 +1296,7 @@ public class ItemAssistant {
 	**/
 	
 	public void specialAmount(int weapon, double specAmount, int barId) {
-		c.specBarId = barId;
+		c.specialAttack.specBarId = barId;
 		c.getPA().sendFrame70(specAmount >= 100 ? 500 : 0, 0, (--barId));
         c.getPA().sendFrame70(specAmount >= 90 ? 500 : 0, 0, (--barId));
         c.getPA().sendFrame70(specAmount >= 80 ? 500 : 0, 0, (--barId));
@@ -1316,10 +1316,10 @@ public class ItemAssistant {
 	**/
 	
 	public void updateSpecialBar() {
-		if(c.usingSpecial && c.playerEquipment[c.playerWeapon] != 15050) {
-			c.getPA().sendFrame126("@yel@ Special Attack ("+(int)c.specAmount+"%)", c.specBarId);
+		if(c.specialAttack.usingSpecial && c.playerEquipment[c.playerWeapon] != 15050) {
+			c.getPA().sendFrame126("@yel@ Special Attack ("+(int)c.specialAttack.specAmount+"%)", c.specialAttack.specBarId);
 		} else { 
-			c.getPA().sendFrame126("@bla@ Special Attack ("+(int)c.specAmount+"%)", c.specBarId);
+			c.getPA().sendFrame126("@bla@ Special Attack ("+(int)c.specialAttack.specAmount+"%)", c.specialAttack.specBarId);
 		}
 	}
 	
@@ -1483,8 +1483,8 @@ public class ItemAssistant {
 				}
 				
 				if (targetSlot == c.playerWeapon) {
-					c.autocasting = false;
-					c.autocastId = -1;
+					c.attackMode.autocasting = false;
+					c.magic.autocastId = -1;
 					c.getPA().sendFrame36(108, 0);
 				}
 				
@@ -1576,7 +1576,7 @@ public class ItemAssistant {
 					resetItems(3214);
 				}
 				if(targetSlot == 3) {
-					c.usingSpecial = false;
+					c.specialAttack.usingSpecial = false;
 					addSpecialBar(wearID);
 				}
 				if(c.getOutStream() != null && c != null ) {
@@ -2399,31 +2399,31 @@ public class ItemAssistant {
 	public void dropArrowNpc() {
 		if (c.playerEquipment[c.playerCape] == 10499)
 			return;
-		int enemyX = NPCHandler.npcs[c.oldNpcIndex].getX();
-		int enemyY = NPCHandler.npcs[c.oldNpcIndex].getY();
+		int enemyX = NPCHandler.npcs[c.targeting.oldNpcIndex].getX();
+		int enemyY = NPCHandler.npcs[c.targeting.oldNpcIndex].getY();
 		if(Misc.random(10) >= 4) {
-			if (Server.itemHandler.itemAmount(c.playerName, c.rangeItemUsed, enemyX, enemyY) == 0) {
-				Server.itemHandler.createGroundItem(c, c.rangeItemUsed, enemyX, enemyY, 1, c.getId());
-			} else if (Server.itemHandler.itemAmount(c.playerName, c.rangeItemUsed, enemyX, enemyY) != 0) {
-				int amount = Server.itemHandler.itemAmount(c.playerName, c.rangeItemUsed, enemyX, enemyY);
-				Server.itemHandler.removeGroundItem(c, c.rangeItemUsed, enemyX, enemyY, false);
-				Server.itemHandler.createGroundItem(c, c.rangeItemUsed, enemyX, enemyY, amount+1, c.getId());
+			if (Server.itemHandler.itemAmount(c.playerName, c.rangedAttack.rangeItemUsed, enemyX, enemyY) == 0) {
+				Server.itemHandler.createGroundItem(c, c.rangedAttack.rangeItemUsed, enemyX, enemyY, 1, c.getId());
+			} else if (Server.itemHandler.itemAmount(c.playerName, c.rangedAttack.rangeItemUsed, enemyX, enemyY) != 0) {
+				int amount = Server.itemHandler.itemAmount(c.playerName, c.rangedAttack.rangeItemUsed, enemyX, enemyY);
+				Server.itemHandler.removeGroundItem(c, c.rangedAttack.rangeItemUsed, enemyX, enemyY, false);
+				Server.itemHandler.createGroundItem(c, c.rangedAttack.rangeItemUsed, enemyX, enemyY, amount+1, c.getId());
 			}		
 		}
 	}	
 	
 	public void dropArrowPlayer() {
-		int enemyX = PlayerHandler.players[c.oldPlayerIndex].getX();
-		int enemyY = PlayerHandler.players[c.oldPlayerIndex].getY();
+		int enemyX = PlayerHandler.players[c.targeting.oldPlayerIndex].getX();
+		int enemyY = PlayerHandler.players[c.targeting.oldPlayerIndex].getY();
 		if (c.playerEquipment[c.playerCape] == 10499)
 			return;
 		if(Misc.random(10) >= 4) {
-			if (Server.itemHandler.itemAmount(c.playerName, c.rangeItemUsed, enemyX, enemyY) == 0) {
-				Server.itemHandler.createGroundItem(c, c.rangeItemUsed, enemyX, enemyY, 1, c.getId());
-			} else if (Server.itemHandler.itemAmount(c.playerName, c.rangeItemUsed, enemyX, enemyY) != 0) {
-				int amount = Server.itemHandler.itemAmount(c.playerName, c.rangeItemUsed, enemyX, enemyY);
-				Server.itemHandler.removeGroundItem(c, c.rangeItemUsed, enemyX, enemyY, false);
-				Server.itemHandler.createGroundItem(c, c.rangeItemUsed, enemyX, enemyY, amount+1, c.getId());
+			if (Server.itemHandler.itemAmount(c.playerName, c.rangedAttack.rangeItemUsed, enemyX, enemyY) == 0) {
+				Server.itemHandler.createGroundItem(c, c.rangedAttack.rangeItemUsed, enemyX, enemyY, 1, c.getId());
+			} else if (Server.itemHandler.itemAmount(c.playerName, c.rangedAttack.rangeItemUsed, enemyX, enemyY) != 0) {
+				int amount = Server.itemHandler.itemAmount(c.playerName, c.rangedAttack.rangeItemUsed, enemyX, enemyY);
+				Server.itemHandler.removeGroundItem(c, c.rangedAttack.rangeItemUsed, enemyX, enemyY, false);
+				Server.itemHandler.createGroundItem(c, c.rangedAttack.rangeItemUsed, enemyX, enemyY, amount+1, c.getId());
 			}		
 		}
 	}

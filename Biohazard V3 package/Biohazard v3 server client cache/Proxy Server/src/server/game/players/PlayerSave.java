@@ -241,34 +241,34 @@ public class PlayerSave {
 					} else if (token.equals("completed-tut")) {
 						p.completedTut = Boolean.parseBoolean(token2);
 					} else if (token.equals("crystal-bow-shots")) {
-						p.crystalBowArrowCount = Integer.parseInt(token2);
+						p.rangedAttack.crystalBowArrowCount = Integer.parseInt(token2);
 					} else if (token.equals("skull-timer")) {
-						p.skullTimer = Integer.parseInt(token2);
+						p.timers.skullTimer = Integer.parseInt(token2);
 					} else if (token.equals("play-time")) {
 						p.pTime = Integer.parseInt(token2);
 					} else if (token.equals("magic-book")) {
-						p.playerMagicBook = Integer.parseInt(token2);
+						p.magic.playerMagicBook = Integer.parseInt(token2);
 					} else if (token.equals("prayer-book")) {
 						p.altarPrayed = Integer.parseInt(token2);
 					} else if (token.equals("autocast-memory")) {
 						if (token2 != null && token2.length() > 0 && token3 != null && token3.length >= 3) {
 							int count = token3.length / 3;
-							if (count > p.autocastMemWeapon.length) {
-								count = p.autocastMemWeapon.length;
+							if (count > p.magic.autocastMemWeapon.length) {
+								count = p.magic.autocastMemWeapon.length;
 							}
 							for (int j = 0; j < count; j++) {
-								p.autocastMemWeapon[j] = Integer.parseInt(token3[j * 3]);
-								p.autocastMemSpell[j] = Integer.parseInt(token3[j * 3 + 1]);
-								p.autocastMemBook[j] = Integer.parseInt(token3[j * 3 + 2]);
+								p.magic.autocastMemWeapon[j] = Integer.parseInt(token3[j * 3]);
+								p.magic.autocastMemSpell[j] = Integer.parseInt(token3[j * 3 + 1]);
+								p.magic.autocastMemBook[j] = Integer.parseInt(token3[j * 3 + 2]);
 							}
 						}
 					} else if (token.equals("brother-info")) {
 						p.barrowsNpcs[Integer.parseInt(token3[0])][1] = Integer.parseInt(token3[1]);
 					 } else if (token.equals("special-amount")) {
-						p.specAmount = Double.parseDouble(token2);					
+						p.specialAttack.specAmount = Double.parseDouble(token2);					
 					} else if (token.equals("teleblock-length")) {
 						p.timers.teleBlockDelay = System.currentTimeMillis();
-						p.teleBlockLength = Integer.parseInt(token2);							
+						p.timers.teleBlockLength = Integer.parseInt(token2);							
 					} else if (token.equals("pouch")) {
 						for (int j = 0; j < token3.length; j++) {
 							p.pouch[j] = Integer.parseInt(token3[j]);
@@ -316,7 +316,7 @@ public class PlayerSave {
 					} else if (token.equals("gwkc")) {
 						p.killCount = Integer.parseInt(token2);
 					} else if (token.equals("fightMode")) {
-						p.fightMode = Integer.parseInt(token2);
+						p.combatStyle.fightMode = Integer.parseInt(token2);
 					} else if (token.equals("musicVolume")) {
 						p.settings.musicVolume = Integer.parseInt(token2);
 					} else if (token.equals("soundEffectVolume")) {
@@ -424,7 +424,7 @@ public class PlayerSave {
 			return false;
 		}
 		p.playerName = p.playerName2;
-		int tbTime = (int)(p.timers.teleBlockDelay - System.currentTimeMillis() + p.teleBlockLength);
+		int tbTime = (int)(p.timers.teleBlockDelay - System.currentTimeMillis() + p.timers.teleBlockLength);
 		if(tbTime > 300000 || tbTime < 0){
 			tbTime = 0;
 		}
@@ -561,32 +561,32 @@ public class PlayerSave {
 			characterfile.write(Boolean.toString(p.trailborn), 0, Boolean.toString(p.trailborn).length());
 			characterfile.newLine();
 			characterfile.write("crystal-bow-shots = ", 0, 20);
-			characterfile.write(Integer.toString(p.crystalBowArrowCount), 0, Integer.toString(p.crystalBowArrowCount).length());
+			characterfile.write(Integer.toString(p.rangedAttack.crystalBowArrowCount), 0, Integer.toString(p.rangedAttack.crystalBowArrowCount).length());
 			characterfile.newLine();
 			characterfile.write("skull-timer = ", 0, 14);
-			characterfile.write(Integer.toString(p.skullTimer), 0, Integer.toString(p.skullTimer).length());
+			characterfile.write(Integer.toString(p.timers.skullTimer), 0, Integer.toString(p.timers.skullTimer).length());
 			characterfile.newLine();
 			characterfile.write("play-time = ", 0, 12);
 			characterfile.write(Integer.toString(p.pTime), 0, Integer.toString(p.pTime).length());
 			characterfile.newLine();
 			characterfile.write("magic-book = ", 0, 13);
-			characterfile.write(Integer.toString(p.playerMagicBook), 0, Integer.toString(p.playerMagicBook).length());
+			characterfile.write(Integer.toString(p.magic.playerMagicBook), 0, Integer.toString(p.magic.playerMagicBook).length());
 			characterfile.newLine();
 			characterfile.write("prayer-book = ", 0, 14);
 			characterfile.write(Integer.toString(p.altarPrayed), 0, Integer.toString(p.altarPrayed).length());
 			characterfile.newLine();
 			characterfile.write("autocast-memory = ", 0, 18);
 			StringBuilder autocastMem = new StringBuilder();
-			for (int j = 0; j < p.autocastMemWeapon.length; j++) {
-				if (p.autocastMemWeapon[j] <= 0) {
+			for (int j = 0; j < p.magic.autocastMemWeapon.length; j++) {
+				if (p.magic.autocastMemWeapon[j] <= 0) {
 					continue;
 				}
 				if (autocastMem.length() > 0) {
 					autocastMem.append("\t");
 				}
-				autocastMem.append(p.autocastMemWeapon[j]).append("\t")
-						.append(p.autocastMemSpell[j]).append("\t")
-						.append(p.autocastMemBook[j]);
+				autocastMem.append(p.magic.autocastMemWeapon[j]).append("\t")
+						.append(p.magic.autocastMemSpell[j]).append("\t")
+						.append(p.magic.autocastMemBook[j]);
 			}
 			characterfile.write(autocastMem.toString(), 0, autocastMem.length());
 			characterfile.newLine();
@@ -598,7 +598,7 @@ public class PlayerSave {
 				characterfile.newLine();
 			}	
 			characterfile.write("special-amount = ", 0, 17);
-			characterfile.write(Double.toString(p.specAmount), 0, Double.toString(p.specAmount).length());
+			characterfile.write(Double.toString(p.specialAttack.specAmount), 0, Double.toString(p.specialAttack.specAmount).length());
 			characterfile.newLine();
 			characterfile.write("selected-coffin = ", 0, 18);
 			characterfile.write(Integer.toString(p.randomCoffin), 0, Integer.toString(p.randomCoffin).length());
@@ -670,7 +670,7 @@ public class PlayerSave {
 			characterfile.write(Integer.toString(p.killCount), 0, Integer.toString(p.killCount).length());
 			characterfile.newLine();
 			characterfile.write("fightMode = ", 0, 12);
-			characterfile.write(Integer.toString(p.fightMode), 0, Integer.toString(p.fightMode).length());
+			characterfile.write(Integer.toString(p.combatStyle.fightMode), 0, Integer.toString(p.combatStyle.fightMode).length());
 			characterfile.newLine();
 			characterfile.write("musicVolume = ", 0, 14);
 			characterfile.write(Integer.toString(p.settings.musicVolume), 0, Integer.toString(p.settings.musicVolume).length());

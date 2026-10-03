@@ -53,7 +53,7 @@ public class DropItem implements PacketType {
 		}
 		if(c.playerItemsN[slot] != 0 && itemId != -1 && c.playerItems[slot] == itemId + 1) {
 			if(droppable) {
-				if (c.underAttackBy > 0) {
+				if (c.targeting.underAttackBy > 0) {
 					if (c.getShops().getItemShopValue(itemId) > 1000) {
 						c.sendMessage("You may not drop items worth more than 1000 while in combat.");
 						return;

@@ -72,6 +72,12 @@ def testWorkDir = layout.buildDirectory.dir('testwork').get().asFile
 tasks.named('test', Test) {
     useJUnitPlatform()
     workingDir = testWorkDir
+    // RealCharacterFilesTest reads (never writes) the live character files to prove the
+    // pre-refactor saves still load. Points at the repo copy, which the test task never
+    // runs against directly.
+    systemProperty 'realCharactersDir', file('Data/characters').absolutePath
+    systemProperty 'objectSizeCfg', file('Data/objectSize.cfg').absolutePath
+    systemProperty 'serverPropertiesTemplate', file('Data/server.properties.template').absolutePath
     doFirst {
         delete testWorkDir
         new File(testWorkDir, 'Data/characters').mkdirs()
