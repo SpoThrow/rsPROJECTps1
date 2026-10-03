@@ -1,6 +1,6 @@
 import java.util.Properties;
 
-/** HP and prayer bars beside the inventory, with optional numbers and heal preview. */
+/** HP and prayer bars in the inventory stone columns, matching Old School RuneScape. */
 final class StatusBars {
 
 	static boolean enabled = true;
@@ -10,22 +10,24 @@ final class StatusBars {
 
 	static int hoverHeal;
 	static int posX = 4;
-	static int posY = 42;
+	static int posY = 37;
 
-	private static final int BAR_H = 170;
-	private static int boxW = 22;
-	private static int boxH = 194;
-	private static boolean dragging;
-	private static int grabX;
-	private static int grabY;
+	private static final int TAB_W = 246;
+	private static final int TAB_H = 335;
+	private static final int BAR_W = 20;
+	private static final int INSET = 4;
+	private static final int TOP = 37;
+	private static final int BOTTOM = 298;
+	private static final int HP_FILL = 0xCC2020;
+	private static final int PRAY_FILL = 0x00B8C4;
 
 	static void load(Properties props) {
 		enabled = readBool(props, "statusBars", true);
 		numbers = readBool(props, "statusBarNumbers", true);
 		icons = readBool(props, "statusBarIcons", true);
 		healPreview = readBool(props, "statusBarHeal", true);
-		posX = readInt(props, "statusBarX", 4);
-		posY = readInt(props, "statusBarY", 42);
+		posX = readInt(props, "statusBarX", INSET);
+		posY = readInt(props, "statusBarY", TOP);
 	}
 
 	static void save(Properties props) {
@@ -38,125 +40,69 @@ final class StatusBars {
 	}
 
 	static boolean dragging() {
-		return dragging;
+		return false;
 	}
 
 	static boolean processDrag(int localX, int localY, int click2, int click3, int saveX, int saveY, int tabW, int tabH) {
-		if (!enabled) {
-			dragging = false;
-			return false;
-		}
-		if (dragging) {
-			if (click2 != 1 || !RSApplet.altIsDown) {
-				dragging = false;
-				clamp(tabW, tabH);
-				if (client.instance != null) {
-					client.instance.saveClientSettings();
-				}
-				return false;
-			}
-			posX = localX - grabX;
-			posY = localY - grabY;
-			clamp(tabW, tabH);
-			return true;
-		}
-		if (!RSApplet.altIsDown) {
-			return false;
-		}
-		if (click2 != 1 && click3 != 1) {
-			return false;
-		}
-		int sx = click3 == 1 ? saveX : localX;
-		int sy = click3 == 1 ? saveY : localY;
-		if (sx < posX || sy < posY || sx >= posX + boxW || sy >= posY + boxH) {
-			return false;
-		}
-		dragging = true;
-		grabX = sx - posX;
-		grabY = sy - posY;
-		posX = localX - grabX;
-		posY = localY - grabY;
-		clamp(tabW, tabH);
-		return true;
+		return false;
 	}
 
-	static void draw(TextDrawingArea font, int hp, int maxHp, int pray, int maxPray) {
+	static void draw(TextDrawingArea font, int hp, int maxHp, int pray, int maxPray, Sprite hpIcon, Sprite prayIcon) {
 		if (!enabled) {
 			return;
 		}
-		int x = posX;
-		int y = posY;
-		int h = BAR_H;
-		int w = 6;
-		boxW = 22;
-		boxH = h + 24;
-		if (RSApplet.altIsDown || dragging) {
-			DrawingArea.method335(0x000000, y - 12, boxW, boxH, 80, x - 2);
-			DrawingArea.fillPixels(x - 2, boxW, boxH, 0xFFE14A, y - 12);
+		int h = BOTTOM - TOP;
+		if (h < 32) {
+			h = TAB_H - TOP - 37;
 		}
-		drawBar(x, y, w, h, hp, maxHp, 0xCC2020, hoverHeal);
-		if (numbers && font != null) {
-			font.method385(0xFFFFFF, Integer.toString(hp), y + h + 12, x - 2);
-		}
-		if (icons) {
-			DrawingArea.drawPixels(6, y - 10, x, 0xCC2020, 6);
-		}
-		int px = x + 10;
-		drawBar(px, y, w, h, pray, maxPray, 0x00A0FF, 0);
-		if (numbers && font != null) {
-			font.method385(0xFFFFFF, Integer.toString(pray), y + h + 12, px - 2);
-		}
-		if (icons) {
-			DrawingArea.drawPixels(6, y - 10, px, 0x00A0FF, 6);
-		}
+		int leftX = INSET;
+		int rightX = TAB_W - INSET - BAR_W;
+		drawBar(leftX, TOP, BAR_W, h, hp, maxHp, HP_FILL, hoverHeal, font, hpIcon);
+		drawBar(rightX, TOP, BAR_W, h, pray, maxPray, PRAY_FILL, 0, font, prayIcon);
 	}
 
-	private static void clamp(int tabW, int tabH) {
-		if (tabW < 32) {
-			tabW = 246;
-		}
-		if (tabH < 32) {
-			tabH = 335;
-		}
-		if (posX < 0) {
-			posX = 0;
-		}
-		if (posY < 12) {
-			posY = 12;
-		}
-		if (posX + boxW > tabW) {
-			posX = Math.max(0, tabW - boxW);
-		}
-		if (posY + boxH > tabH - 40) {
-			posY = Math.max(12, tabH - 40 - boxH);
-		}
-	}
-
-	private static void drawBar(int x, int y, int w, int h, int cur, int max, int color, int extra) {
-		DrawingArea.method335(0x000000, y, w, h, 180, x);
-		DrawingArea.fillPixels(x, w, h, 0x3A3228, y);
+	private static void drawBar(int x, int y, int w, int h, int cur, int max, int color, int extra,
+			TextDrawingArea font, Sprite icon) {
+		DrawingArea.method335(0x000000, y, w, h, 140, x);
+		DrawingArea.fillPixels(x, w, h, 0x2A241C, y);
 		if (max <= 0) {
 			max = 1;
 		}
-		int fill = cur * (h - 2) / max;
-		if (fill > h - 2) {
-			fill = h - 2;
+		int inner = w - 2;
+		int fillH = cur * (h - 2) / max;
+		if (fillH > h - 2) {
+			fillH = h - 2;
 		}
-		if (fill < 0) {
-			fill = 0;
+		if (fillH < 0) {
+			fillH = 0;
 		}
-		int fy = y + h - 1 - fill;
-		if (fill > 0) {
-			DrawingArea.drawPixels(fill, fy, x + 1, color, w - 2);
+		int fy = y + h - 1 - fillH;
+		if (fillH > 0) {
+			DrawingArea.drawPixels(fillH, fy, x + 1, color, inner);
 		}
 		if (healPreview && extra > 0) {
 			int healFill = extra * (h - 2) / max;
-			if (fill + healFill > h - 2) {
-				healFill = h - 2 - fill;
+			if (fillH + healFill > h - 2) {
+				healFill = h - 2 - fillH;
 			}
 			if (healFill > 0) {
-				DrawingArea.method335(0xFFFF00, fy - healFill, w - 2, healFill, 120, x + 1);
+				DrawingArea.method335(0xFFFF00, fy - healFill, inner, healFill, 120, x + 1);
 			}
+		}
+		if (icons && icon != null && icon.myWidth > 0) {
+			int ix = x + (w - icon.myWidth) / 2;
+			int iy = y + 2;
+			icon.drawSprite(ix, iy);
+		}
+		if (numbers && font != null) {
+			int textY = fy + fillH / 2 + 4;
+			if (textY < y + 22) {
+				textY = y + 22;
+			}
+			if (textY > y + h - 8) {
+				textY = y + h - 8;
+			}
+			font.method382(0xFFFFFF, x + w / 2, Integer.toString(cur), textY, true);
 		}
 	}
 

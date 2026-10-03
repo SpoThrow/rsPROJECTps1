@@ -353,6 +353,24 @@ public abstract class Player {
 		false,false,false,false,false,
 		false,false,false,false,false
 	};
+	public int altarPrayed = 0;
+	public final int[] CURSE_LEVEL_REQUIRED = { 50, 50, 52, 54, 56, 59, 62, 65,
+			68, 71, 74, 76, 78, 80, 82, 84, 86, 89, 92, 95 };
+	public final String[] CURSE_NAME = { "Protect Item", "Sap Warrior",
+			"Sap Ranger", "Sap Mage", "Sap Spirit", "Berserker",
+			"Deflect Summoning", "Deflect Magic", "Deflect Missiles",
+			"Deflect Melee", "Leech Attack", "Leech Ranged", "Leech Magic",
+			"Leech Defence", "Leech Strength", "Leech Energy",
+			"Leech Special Attack", "Wrath", "Soul Split", "Turmoil" };
+	public final int[] CURSE_GLOW = { 610, 611, 612, 613, 614, 615, 616, 617,
+			618, 619, 620, 621, 622, 623, 624, 625, 626, 627, 628, 629 };
+	public final int[] CURSE_HEAD_ICONS = { -1, -1, -1, -1, -1, -1, 12, 10, 11,
+			9, -1, -1, -1, -1, -1, -1, -1, 16, 17, -1 };
+	public final double[] CURSE_DRAIN = { 0.6, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4, 5 };
+	public int clawDelay, clawDamage, clawIndex, clawType;
+	public boolean usingClaws;
+	public int getatt, getstr, getdef;
+	public int ssDelay, ssHeal, ssTarget, ssTargetNpc;
 	public int focusPointX = -1, focusPointY = -1;
 	public int questPoints = 0;	
 	public int cooksA;
@@ -417,7 +435,7 @@ public abstract class Player {
 	public final int[] BOWS = 	{9185,839,845,847,851,855,859,841,843,849,853,857,861,4212,4214,4215,11235,4216,4217,4218,4219,4220,4221,4222,4223,6724,4734,4934,4935,4936,4937};
 	public final int[] ARROWS = {5627,882,884,886,888,890,892,4740,11212,9140,9141,4142,4160,9143,9144,9240,9241,9242,9243,9244,9245};
 	public final int[] NO_ARROW_DROP = {4212,4214,4215,4216,4217,4218,4219,4220,4221,4222,4223,4734,4934,4935,4936,4937};
-	public final int[] OTHER_RANGE_WEAPONS = 	{863,864,865,866,867,868,869,806,807,808,809,810,811,825,826,827,828,829,830,800,801,802,803,804,805,6522};
+	public final int[] OTHER_RANGE_WEAPONS = 	{863,864,865,866,867,868,869,806,807,808,809,810,811,825,826,827,828,829,830,800,801,802,803,804,805,6522,13879,13883};
 	
 	public final int[][] MAGIC_SPELLS = { 
 	// example {magicId, level req, animation, startGFX, projectile Id, endGFX, maxhit, exp gained, rune 1, rune 1 amount, rune 2, rune 2 amount, rune 3, rune 3 amount, rune 4, rune 4 amount}
@@ -1264,8 +1282,16 @@ public abstract class Player {
 	}
 
 	public boolean withinDistance(NPC npc) {
+		if (npc == null) {
+			return false;
+		}
 		if (heightLevel != npc.heightLevel) return false;
 		if (npc.needRespawn == true) return false;
+		// Removed from the world (e.g. Blood reavers after Nex dies) — drop from local list.
+		if (npc.npcId < 0 || npc.npcId >= NPCHandler.maxNPCs
+				|| NPCHandler.npcs[npc.npcId] != npc) {
+			return false;
+		}
 		int deltaX = npc.absX-absX, deltaY = npc.absY-absY;
 		return deltaX <= 15 && deltaX >= -16 && deltaY <= 15 && deltaY >= -16;
 	}
@@ -1315,13 +1341,11 @@ public abstract class Player {
 	}
 
 	public void addToWalkingQueue(int x, int y) {
-		//if (VirtualWorld.I(heightLevel, absX, absY, x, y, 0)) {
-			int next = (wQueueWritePtr+1) % walkingQueueSize;
-			if(next == wQueueWritePtr) return;		
-			walkingQueueX[wQueueWritePtr] = x;
-			walkingQueueY[wQueueWritePtr] = y;
-			wQueueWritePtr = next; 
-		//}
+		int next = (wQueueWritePtr+1) % walkingQueueSize;
+		if(next == wQueueWritePtr) return;
+		walkingQueueX[wQueueWritePtr] = x;
+		walkingQueueY[wQueueWritePtr] = y;
+		wQueueWritePtr = next;
 	}
 
 	public boolean goodDistance(int objectX, int objectY, int playerX, int playerY, int distance) {
@@ -1381,10 +1405,16 @@ public abstract class Player {
 					return -1;
 				}
 			  }
-		currentX += Misc.directionDeltaX[dir];
-		currentY += Misc.directionDeltaY[dir];
-		absX += Misc.directionDeltaX[dir];
-		absY += Misc.directionDeltaY[dir];
+		int stepX = Misc.directionDeltaX[dir];
+		int stepY = Misc.directionDeltaY[dir];
+		if (!server.clip.region.SmartPathFinder.canStep(absX, absY, stepX, stepY, heightLevel)) {
+			resetWalkingQueue();
+			return -1;
+		}
+		currentX += stepX;
+		currentY += stepY;
+		absX += stepX;
+		absY += stepY;
 		walkedTiles++;
 		if (walkedTiles >= 2 && isRunning()) {
 			if (playerEnergy > 0) {
@@ -1439,7 +1469,11 @@ public abstract class Player {
 				
 				teleportToX = teleportToY = -1;
 				didTeleport = true;
-			} else {			
+			} else {
+				if (freezeTimer > 0) {
+					resetWalkingQueue();
+					return;
+				}
 				dir1 = getNextWalkingDirection();
 				if(dir1 == -1) 
 					return;
@@ -2169,14 +2203,17 @@ public abstract class Player {
 	}
 
 	public void stopMovement() {
-        if(teleportToX <= 0 && teleportToY <= 0) {
-            teleportToX = absX;
-            teleportToY = absY;
-        }
+		// Clear the path only. Setting teleportToX/Y and running movement here
+		// marks didTeleport, and combat calls this after the tick's walk is
+		// already computed, so the client receives a teleport instead of a step.
+		if (teleportToX != -1 || teleportToY != -1) {
+			newWalkCmdSteps = 0;
+			return;
+		}
+		resetWalkingQueue();
 		newWalkCmdSteps = 0;
-        getNewWalkCmdX()[0] = getNewWalkCmdY()[0] = travelBackX[0] = travelBackY[0] = 0;
-        getNextPlayerMovement();
-    }
+		getNewWalkCmdX()[0] = getNewWalkCmdY()[0] = travelBackX[0] = travelBackY[0] = 0;
+	}
 
 
 	private int newWalkCmdX[] = new int[walkingQueueSize];
@@ -2191,10 +2228,17 @@ public abstract class Player {
 		newWalkCmdSteps = 0;
 	}
 
+	public void processCombatAfterMovement() {}
+
 	public abstract void process();
 	public abstract boolean processQueuedPackets();
 	
 	public synchronized void postProcessing() {
+		if (freezeTimer > 0) {
+			newWalkCmdSteps = 0;
+			resetWalkingQueue();
+			return;
+		}
 		if(newWalkCmdSteps > 0) {
 			int firstX = getNewWalkCmdX()[0], firstY = getNewWalkCmdY()[0];	
 

@@ -138,6 +138,7 @@ public class PlayerHandler{
 					players[i].process();
 					players[i].postProcessing();
 					players[i].getNextPlayerMovement();
+					players[i].processCombatAfterMovement();
 
 				} catch(Exception e) {
 					e.printStackTrace();

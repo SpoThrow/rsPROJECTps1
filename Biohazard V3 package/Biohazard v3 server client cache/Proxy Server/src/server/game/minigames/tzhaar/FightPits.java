@@ -7,7 +7,6 @@ import core.util.Misc;
 /**
  * FightPits.java
  *
- * @author Acquittal
  *
  */
 

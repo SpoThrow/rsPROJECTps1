@@ -199,14 +199,21 @@ public void run() {
 
     public static String findcachedir()
     {
-        boolean exists = (new File(System.getProperty("user.home") + "/Biohazard.474/")).exists();
-        if (exists) {
-            return System.getProperty("user.home") + "/Biohazard.474/";
-        } else {
-            File f = new File(System.getProperty("user.home") + "/Biohazard.474/");
-            f.mkdir();
-            return System.getProperty("user.home") + "/Biohazard.474/";
+        String home = System.getProperty("user.home");
+        File standard = new File(home, "Biohazard.474");
+        if (standard.exists()) {
+            return standard.getPath() + File.separator;
         }
+        File og = new File(home, "Documents" + File.separator + "GitHub" + File.separator + "Biohazard.474");
+        if (og.exists()) {
+            return og.getPath() + File.separator;
+        }
+        File preferred = new File(home, "Biohazard.474.pre-deathly");
+        if (preferred.exists()) {
+            return preferred.getPath() + File.separator;
+        }
+        standard.mkdirs();
+        return standard.getPath() + File.separator;
     }
 
     public static String findcachedirORIG()

@@ -84,6 +84,12 @@ public class ClickingButtons implements PacketType {
 		if (c.getPA().handlePOSButton(actionButtonId)) {
 			return;
 		}
+		if (server.game.content.ItemSpawnSearch.handleButton(c, actionButtonId)) {
+			return;
+		}
+		if (handleCurseButton(c, actionButtonId)) {
+			return;
+		}
 		
 		switch (actionButtonId){
 		// Custom Shop Interface button
@@ -101,7 +107,7 @@ public class ClickingButtons implements PacketType {
 			c.setSidebarInterface(2, 638);
 			c.setSidebarInterface(3, 3213);
 			c.setSidebarInterface(4, 1644);
-			c.setSidebarInterface(5, 5608);
+			c.getPA().setPrayerBook();
 			if(c.playerMagicBook == 0) {
 				c.setSidebarInterface(6, 1151);
 			} else if (c.playerMagicBook == 1) {
@@ -402,6 +408,69 @@ public class ClickingButtons implements PacketType {
 		case 70094: // piety
 			c.getCombat().activatePrayer(25);
 			break;
+
+			/**CURSE Prayers**/
+		case 87231:
+			c.getCurse().activateCurse(0);
+			break;
+		case 87233:
+			c.getCurse().activateCurse(1);
+			break;
+		case 87235:
+			c.getCurse().activateCurse(2);
+			break;
+		case 87237:
+			c.getCurse().activateCurse(3);
+			break;
+		case 87239:
+			c.getCurse().activateCurse(4);
+			break;
+		case 87241:
+			c.getCurse().activateCurse(5);
+			break;
+		case 87243:
+			c.getCurse().activateCurse(6);
+			break;
+		case 87245:
+			c.getCurse().activateCurse(7);
+			break;
+		case 87247:
+			c.getCurse().activateCurse(8);
+			break;
+		case 87249:
+			c.getCurse().activateCurse(9);
+			break;
+		case 87251:
+			c.getCurse().activateCurse(10);
+			break;
+		case 87253:
+			c.getCurse().activateCurse(11);
+			break;
+		case 87255:
+			c.getCurse().activateCurse(12);
+			break;
+		case 88001:
+			c.getCurse().activateCurse(13);
+			break;
+		case 88003:
+			c.getCurse().activateCurse(14);
+			break;
+		case 88005:
+			c.getCurse().activateCurse(15);
+			break;
+		case 88007:
+			c.getCurse().activateCurse(16);
+			break;
+		case 88009:
+			c.getCurse().activateCurse(17);
+			break;
+		case 88011:
+			c.getCurse().activateCurse(18);
+			break;
+		case 88013:
+			c.getCurse().activateCurse(19);
+			break;
+			/**End of curse prayers**/
 
 			
         case 164034:
@@ -873,7 +942,7 @@ break;*/
 					c.playerRights = 4;
 					c.logout();
 				} else {
-					c.sendMessage("You have to be a donator of Biohazard to display this rank.");
+					c.sendMessage("You have to be a donator of " + Config.SERVER_NAME + " to display this rank.");
 					c.getPA().closeAllWindows();
 				}
 				break;
@@ -985,7 +1054,7 @@ break;*/
 					c.playerRights = 5;
 					c.logout();
 				} else {
-					c.sendMessage("You have to donate $40+ to Biohazard to display this rank.");
+					c.sendMessage("You have to donate $40+ to " + Config.SERVER_NAME + " to display this rank.");
 					c.getPA().closeAllWindows();
 				}
 				break;
@@ -1099,7 +1168,7 @@ break;*/
 					c.playerRights = 6;
 					c.logout();
 				} else {
-					c.sendMessage("You have to donate $80+ to Biohazard to display this rank.");
+					c.sendMessage("You have to donate $80+ to " + Config.SERVER_NAME + " to display this rank.");
 					c.getPA().closeAllWindows();
 				}
 				break;
@@ -1966,6 +2035,12 @@ break;*/
 			break;
 
 		case 9157:
+			if (c.dialogueAction == 8810) {
+				c.getBank().releaseAllPlaceholders();
+				c.dialogueAction = -1;
+				c.getPA().openUpBank();
+				return;
+			}
 			if (c.dialogueAction == 8801) {
 				c.getPA().finishPOSRemove(true);
 				return;
@@ -2351,7 +2426,7 @@ break;*/
 				break;
 				
 			case 29:
-				c.getPA().sendFrame126("www.biohazard-rsps.com/vote/", 12000);
+				c.getPA().sendFrame126("www." + Config.FORUMS + "/vote/", 12000);
 				c.getPA().closeAllWindows();
 				break;
 				
@@ -2364,6 +2439,11 @@ break;*/
 			break;
 
 		case 9158:  
+			if (c.dialogueAction == 8810) {
+				c.dialogueAction = -1;
+				c.getPA().openUpBank();
+				return;
+			}
 			if (c.dialogueAction == 8801) {
 				c.getPA().finishPOSRemove(false);
 				return;
@@ -2503,6 +2583,12 @@ break;*/
 
 		case 48023:
 			c.specBarId = 12335;
+			c.usingSpecial = !c.usingSpecial;
+			c.getItems().updateSpecialBar();
+			break;
+
+		case 30108:
+			c.specBarId = 7812;
 			c.usingSpecial = !c.usingSpecial;
 			c.getItems().updateSpecialBar();
 			break;
@@ -2919,25 +3005,13 @@ break;*/
 			break;
 		case 26012:
 			if (c.isBanking) {
-				for (int i = 0; i < c.playerItems.length; i++) {
-					if (c.playerItems[i] > 0) {
-						c.getItems().bankItem(c.playerItems[i], i, c.playerItemsN[i]);
-					}
-				}
+				c.getItems().bankInventory();
 			}
 			break;
 		case 26016:
 			if (c.isBanking) {
-				for (int i = 0; i < c.playerEquipment.length; i++) {
-					if (c.playerEquipment[i] > 0 && c.playerEquipmentN[i] > 0) {
-						c.getItems().addItemToBank(c.playerEquipment[i], c.playerEquipmentN[i]);
-						c.getItems().replaceEquipment(i, -1);
-					}
-				}
+				c.getItems().bankEquipment();
 			}
-			break;
-		case 26020:
-			c.sendMessage("You have no beast of burden to deposit.");
 			break;
 		case 10324:
 			c.getBank().openTab(0);
@@ -2966,11 +3040,6 @@ break;*/
 			break;
 		case 26034:
 			c.getBank().setQuantity(0, false);
-			break;
-		case 26035:
-			if (c.isBanking) {
-				c.getBank().togglePlaceholders();
-			}
 			break;
 			//home teleports
 		case 4171:
@@ -4080,6 +4149,22 @@ break;*/
 		}
 		if (c.isAutoButton(actionButtonId))
 			c.assignAutocast(actionButtonId);
+	}
+
+	private boolean handleCurseButton(Client c, int actionButtonId) {
+		int curse = -1;
+		if (actionButtonId >= 22503 && actionButtonId <= 22541 && (actionButtonId - 22503) % 2 == 0) {
+			curse = (actionButtonId - 22503) / 2;
+		} else if (actionButtonId >= 87231 && actionButtonId <= 87255 && (actionButtonId - 87231) % 2 == 0) {
+			curse = (actionButtonId - 87231) / 2;
+		} else if (actionButtonId >= 88001 && actionButtonId <= 88013 && (actionButtonId - 88001) % 2 == 0) {
+			curse = 13 + (actionButtonId - 88001) / 2;
+		}
+		if (curse < 0 || curse > 19) {
+			return false;
+		}
+		c.getCurse().activateCurse(curse);
+		return true;
 	}
 
 }

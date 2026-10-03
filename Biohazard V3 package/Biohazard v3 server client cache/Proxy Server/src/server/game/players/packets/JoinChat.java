@@ -19,6 +19,15 @@ public class JoinChat implements PacketType {
 			}
 			return;
 		}
+		if (paramClient.itemSpawnSearching) {
+			if (str != null && str.length() > 0) {
+				server.game.content.ItemSpawnSearch.handleSearchString(paramClient, str);
+			} else {
+				paramClient.itemSpawnSearching = false;
+				paramClient.sendMessage("Item search cancelled.");
+			}
+			return;
+		}
 		if (paramClient.posSearchingItem || paramClient.posSearchingPlayer) {
 			if (str != null && str.length() > 0) {
 				if (paramClient.posSearchingItem) {

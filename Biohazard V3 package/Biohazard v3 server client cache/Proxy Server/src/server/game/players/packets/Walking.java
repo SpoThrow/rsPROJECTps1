@@ -2,8 +2,8 @@ package server.game.players.packets;
 
 import server.game.players.Client;
 import server.game.players.PacketType;
+import server.game.players.PathFinder;
 import server.game.players.PlayerHandler;
-import core.util.Misc;
 
 
 /**
@@ -52,13 +52,18 @@ public class Walking implements PacketType {
             c.isDoingEmote = false;
         }
 		c.walkingToItem = false;
-		c.clickNpcType = 0;
-		c.clickObjectType = 0;
+		// 248 is the walk sent with an object or NPC click. Clearing the click
+		// here cancels the bank/shop action after you arrive, so it only opens
+		// on a second click.
+		if (packetType != 248) {
+			c.clickNpcType = 0;
+			c.clickObjectType = 0;
+		}
 		if (packetType == 248 || packetType == 164) {
 			c.faceUpdate(0);
 			c.npcIndex = 0;
 			c.playerIndex = 0;
-			if (c.followId > 0 || c.followId2 > 0)
+			if (packetType != 248 && (c.followId > 0 || c.followId2 > 0))
 				c.getPA().resetFollow();
 		}		
 		if(c.duelRule[1] && c.duelStatus == 5) {
@@ -108,28 +113,38 @@ public class Walking implements PacketType {
 		if(packetType == 248) {
 			packetSize -= 14;
 		}
-		c.newWalkCmdSteps = (packetSize - 5)/2;
-		if(++c.newWalkCmdSteps > c.walkingQueueSize) {
-			c.newWalkCmdSteps = 0;
+		int steps = (packetSize - 5) / 2;
+		if (++steps > c.walkingQueueSize) {
 			return;
 		}
-		
-		c.getNewWalkCmdX()[0] = c.getNewWalkCmdY()[0] = 0;
-		
-		int firstStepX = c.getInStream().readSignedWordBigEndianA()-c.getMapRegionX()*8;
-		for(int i = 1; i < c.newWalkCmdSteps; i++) {
-			c.getNewWalkCmdX()[i] = c.getInStream().readSignedByte();
-			c.getNewWalkCmdY()[i] = c.getInStream().readSignedByte();
+
+		int firstStepX = c.getInStream().readSignedWordBigEndianA() - c.getMapRegionX() * 8;
+		int[] relX = new int[steps];
+		int[] relY = new int[steps];
+		relX[0] = 0;
+		relY[0] = 0;
+		for (int i = 1; i < steps; i++) {
+			relX[i] = c.getInStream().readSignedByte();
+			relY[i] = c.getInStream().readSignedByte();
 		}
-		
-		int firstStepY = c.getInStream().readSignedWordBigEndian()-c.getMapRegionY()*8;
-		c.setNewWalkCmdIsRunning((c.getInStream().readSignedByteC() == 1) && c.playerEnergy > 0);
+		int firstStepY = c.getInStream().readSignedWordBigEndian() - c.getMapRegionY() * 8;
+		boolean running = c.getInStream().readSignedByteC() == 1 && c.playerEnergy > 0;
 		c.isResting = false;
-		for(int i1 = 0; i1 < c.newWalkCmdSteps; i1++) {
-			c.otherDirection = Misc.direction1(c.absX, c.absY, c.getNewWalkCmdX()[i1] + firstStepX + c.getMapRegionX()*8, c.getNewWalkCmdY()[i1] + firstStepY + c.getMapRegionY()*8);
-			c.getNewWalkCmdX()[i1] += firstStepX;
-			c.getNewWalkCmdY()[i1] += firstStepY;
+
+		int destLocalX = firstStepX;
+		int destLocalY = firstStepY;
+		for (int i = 1; i < steps; i++) {
+			destLocalX = firstStepX + relX[i];
+			destLocalY = firstStepY + relY[i];
 		}
+		int destAbsX = destLocalX + c.getMapRegionX() * 8;
+		int destAbsY = destLocalY + c.getMapRegionY() * 8;
+
+		// Server-side BFS (rsmod RouteFinding) — ignore client waypoints for accuracy.
+		PathFinder.getPathFinder().findRoute(c, destAbsX, destAbsY, true, 1, 1);
+		c.setNewWalkCmdIsRunning(running);
+		c.isRunning = running || c.isRunning2;
+		c.newWalkCmdSteps = 0;
 	}
 
 }

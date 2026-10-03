@@ -10,7 +10,6 @@ import server.world.ShopHandler;
 
 /**
  * Shops rewritten
- * @author Acquittal
  * 
  **/
 

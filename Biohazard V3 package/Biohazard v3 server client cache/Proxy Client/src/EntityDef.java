@@ -5,12 +5,16 @@ public final class EntityDef {
 			if (cache[j].interfaceType == (long) i)
 				return cache[j];
 
+		int id = i;
+		int readId = i;
+		if (i < 0 || streamIndices == null || i >= streamIndices.length)
+			readId = 0;
 		anInt56 = (anInt56 + 1) % 20;
 		EntityDef entityDef = cache[anInt56] = new EntityDef();
-		stream.currentOffset = streamIndices[i];
-		entityDef.interfaceType = i;
+		stream.currentOffset = streamIndices[readId];
+		entityDef.interfaceType = id;
 		entityDef.readValues(stream);
-		switch (i) {
+		switch (id) {
 	       case 1625:
 	           entityDef.name = "Smoke devil";
 	           entityDef.combatLevel = 160;
@@ -33,6 +37,133 @@ public final class EntityDef {
 	           entityDef.anInt86 = 70;
 	           entityDef.anInt91 = 60;
 	    				break;
+	       case 650:
+	           // World-adventurer Max — 667 Max cape look (npc 3373).
+	           // Model 252 remapped to 90252 so Raw preload cannot clobber OG model 252.
+	           entityDef.name = "Max";
+	           entityDef.combatLevel = 138;
+	           entityDef.anIntArray94 = new int[] { 65291, 62746, 62743, 27738, 13307, 65300, 90252 };
+	           entityDef.anIntArray73 = new int[] { 16, 38097 };
+	           entityDef.standAnim = 813;
+	           entityDef.walkAnim = 1205;
+	           entityDef.anInt58 = 1205;
+	           entityDef.anInt83 = 1205;
+	           entityDef.anInt55 = 1205;
+	           entityDef.aByte68 = 1;
+	           entityDef.actions = new String[5];
+	           entityDef.actions[0] = "Talk-to";
+	           entityDef.description = "A skillcaper who never stops training.".getBytes();
+	           break;
+	       case 13447:
+	           // Deflect Melee (curse overhead)
+	           entityDef.name = "Nex";
+	           entityDef.combatLevel = 1001;
+	           entityDef.anIntArray94 = new int[] { 62717 };
+	           entityDef.standAnim = 6320;
+	           entityDef.walkAnim = 6319;
+	           entityDef.anInt58 = 6319;
+	           entityDef.anInt83 = 6319;
+	           entityDef.anInt55 = 6319;
+	           entityDef.aByte68 = 3;
+	           entityDef.anInt75 = 9;
+	           entityDef.actions = new String[5];
+	           entityDef.actions[1] = "Attack";
+	           entityDef.description = "The empty lord's general.".getBytes();
+	           break;
+	       case 13448:
+	           // Deflect Missiles (curse overhead)
+	           entityDef.name = "Nex";
+	           entityDef.combatLevel = 1001;
+	           entityDef.anIntArray94 = new int[] { 62717 };
+	           entityDef.standAnim = 6320;
+	           entityDef.walkAnim = 6319;
+	           entityDef.anInt58 = 6319;
+	           entityDef.anInt83 = 6319;
+	           entityDef.anInt55 = 6319;
+	           entityDef.aByte68 = 3;
+	           entityDef.anInt75 = 11;
+	           entityDef.actions = new String[5];
+	           entityDef.actions[1] = "Attack";
+	           entityDef.description = "The empty lord's general.".getBytes();
+	           break;
+	       case 13449:
+	           // Deflect Magic (curse overhead)
+	           entityDef.name = "Nex";
+	           entityDef.combatLevel = 1001;
+	           entityDef.anIntArray94 = new int[] { 62717 };
+	           entityDef.standAnim = 6320;
+	           entityDef.walkAnim = 6319;
+	           entityDef.anInt58 = 6319;
+	           entityDef.anInt83 = 6319;
+	           entityDef.anInt55 = 6319;
+	           entityDef.aByte68 = 3;
+	           entityDef.anInt75 = 10;
+	           entityDef.actions = new String[5];
+	           entityDef.actions[1] = "Attack";
+	           entityDef.description = "The empty lord's general.".getBytes();
+	           break;
+	       case 13450:
+	           // Soul Split (curse overhead — late fight)
+	           entityDef.name = "Nex";
+	           entityDef.combatLevel = 1001;
+	           entityDef.anIntArray94 = new int[] { 62717 };
+	           entityDef.standAnim = 6320;
+	           entityDef.walkAnim = 6319;
+	           entityDef.anInt58 = 6319;
+	           entityDef.anInt83 = 6319;
+	           entityDef.anInt55 = 6319;
+	           entityDef.aByte68 = 3;
+	           entityDef.anInt75 = 17;
+	           entityDef.actions = new String[5];
+	           entityDef.actions[1] = "Attack";
+	           entityDef.description = "The empty lord's general.".getBytes();
+	           break;
+	       case 13451:
+	           // Wrath (curse overhead — critical HP)
+	           entityDef.name = "Nex";
+	           entityDef.combatLevel = 1001;
+	           entityDef.anIntArray94 = new int[] { 62717 };
+	           entityDef.standAnim = 6320;
+	           entityDef.walkAnim = 6319;
+	           entityDef.anInt58 = 6319;
+	           entityDef.anInt83 = 6319;
+	           entityDef.anInt55 = 6319;
+	           entityDef.aByte68 = 3;
+	           entityDef.anInt75 = 16;
+	           entityDef.actions = new String[5];
+	           entityDef.actions[1] = "Attack";
+	           entityDef.description = "The empty lord's general.".getBytes();
+	           break;
+	       case 13458:
+	           // Blood reaver (667) - model 27823, anims 7000/7001/7004/7008
+	           entityDef.name = "Blood reaver";
+	           entityDef.combatLevel = 147;
+	           entityDef.anIntArray94 = new int[] { 27823 };
+	           entityDef.standAnim = 7008;
+	           entityDef.walkAnim = 7001;
+	           entityDef.anInt58 = 7001;
+	           entityDef.anInt83 = 7001;
+	           entityDef.anInt55 = 7001;
+	           entityDef.aByte68 = 1;
+	           entityDef.actions = new String[5];
+	           entityDef.actions[1] = "Attack";
+	           entityDef.description = "A blood-thirsty servant of Nex.".getBytes();
+	           break;
+	       case 7133:
+	           // Bork (667) - models/anims from CursePack-era 667 Data
+	           entityDef.name = "Bork";
+	           entityDef.combatLevel = 267;
+	           entityDef.anIntArray94 = new int[] { 32351, 32352 };
+	           entityDef.standAnim = 8753;
+	           entityDef.walkAnim = 8752;
+	           entityDef.anInt58 = 8752;
+	           entityDef.anInt83 = 8752;
+	           entityDef.anInt55 = 8752;
+	           entityDef.aByte68 = 3;
+	           entityDef.actions = new String[5];
+	           entityDef.actions[1] = "Attack";
+	           entityDef.description = "A huge ork warbeast.".getBytes();
+	           break;
 		}
 		return entityDef;
 	}
@@ -93,11 +224,17 @@ public final class EntityDef {
 		stream = new Stream(streamLoader.getDataForName("npc.dat"));
 		Stream stream2 = new Stream(streamLoader.getDataForName("npc.idx"));
 		int totalNPCs = stream2.readUnsignedWord();
-		streamIndices = new int[totalNPCs];
+		// Room for custom high IDs (Nex + Blood reaver) without remapping to 0.
+		int maxId = Math.max(totalNPCs, 13458 + 1);
+		streamIndices = new int[maxId];
 		int i = 2;
 		for (int j = 0; j < totalNPCs; j++) {
 			streamIndices[j] = i;
 			i += stream2.readUnsignedWord();
+		}
+		int fallback = totalNPCs > 0 ? streamIndices[0] : 2;
+		for (int j = totalNPCs; j < maxId; j++) {
+			streamIndices[j] = fallback;
 		}
 
 		cache = new EntityDef[20];
@@ -202,6 +339,14 @@ public final class EntityDef {
 				anInt58 = stream.readUnsignedWord();
 				anInt83 = stream.readUnsignedWord();
 				anInt55 = stream.readUnsignedWord();
+				if (walkAnim == 65535)
+					walkAnim = -1;
+				if (anInt58 == 65535)
+					anInt58 = -1;
+				if (anInt83 == 65535)
+					anInt83 = -1;
+				if (anInt55 == 65535)
+					anInt55 = -1;
 			} else if (i >= 30 && i < 40) {
 				if (actions == null)
 					actions = new String[5];

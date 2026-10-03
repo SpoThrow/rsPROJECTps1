@@ -404,7 +404,7 @@ public class PlayerAssistant {
 			c.setSidebarInterface(2, 638);
 			c.setSidebarInterface(3, 3213);
 			c.setSidebarInterface(4, 1644);
-			c.setSidebarInterface(5, 5608);
+			c.getPA().setPrayerBook();
 			if(c.playerMagicBook == 0)
 				c.setSidebarInterface(6, 1151); //modern
 			else if (c.playerMagicBook == 1)
@@ -496,6 +496,14 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 		c.outStream.writeDWord(amount);
 		c.outStream.endFrameVarSizeWord();
 	}
+	public void setPrayerBook() {
+		if (c.altarPrayed == 1) {
+			c.setSidebarInterface(5, 22500);
+		} else {
+			c.setSidebarInterface(5, 5608);
+		}
+	}
+
 	public void setSidebarInterfaces(Client c) {
 		int[] inter = { 2434, // Attack
 				3917, // Skill
@@ -515,6 +523,7 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 		for (int i = 0; i < 14; i++) {
 			c.setSidebarInterface(i, inter[i]);
 		}
+		setPrayerBook();
 		if (c.playerMagicBook == 1) {
 			c.setSidebarInterface(6, 12855);
 		} else if (c.playerMagicBook == 2) {
@@ -873,9 +882,9 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 	 **/
 	public void loadQuests() {
 		// c.getAA2().sendQuestTab();
-				sendFrame126("Biohazard", 640);
+				sendFrame126(Config.SERVER_NAME, 640);
 				sendFrame126("", 13136);
-				sendFrame126("Welcome to Biohazard", 663);
+				sendFrame126("Welcome to " + Config.SERVER_NAME, 663);
 				sendFrame126("", 673);
 				sendFrame126("@red@[@or1@Assault@red@] Points: @or2@"+c.assaultPoints, 7332);
 				sendFrame126("@red@[@or1@Donated@red@] Amount: @or2@"+c.donated, 7333);
@@ -1203,8 +1212,50 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 		if (c.getOutStream() != null && c != null) {
 			c.getOutStream().createFrame(200);
 			c.getOutStream().writeWord(MainFrame);
-			c.getOutStream().writeWord(SubFrame);
+			c.getOutStream().writeWord(chatheadEmote(SubFrame));
 			c.flushOutStream();
+		}
+	}
+
+	public static int chatheadEmote(int emote) {
+		if (emote < 588 || emote > 617) {
+			return emote;
+		}
+		switch (emote) {
+		case 588:
+			return 9843;
+		case 589:
+		case 590:
+			return 9847;
+		case 591:
+			return 9850;
+		case 592:
+		case 593:
+		case 594:
+		case 595:
+		case 604:
+			return 9844;
+		case 596:
+		case 597:
+		case 598:
+		case 599:
+		case 610:
+		case 611:
+		case 613:
+			return 9760;
+		case 605:
+		case 606:
+		case 607:
+		case 608:
+		case 609:
+			return 9840;
+		case 614:
+		case 615:
+		case 616:
+		case 617:
+			return 9844;
+		default:
+			return 9850;
 		}
 	}
 
@@ -1615,9 +1666,7 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 			int objectType) {
 		if (c.distanceToPoint(objectX, objectY) > 60)
 			return;
-					Region r = Region.getRegion(objectX, objectY);
-					if (r != null)
-						r.realObjects.add(new Objects(objectId, objectX, objectY, 0, face, objectType));
+		clipSpawnedObject(objectId, objectX, objectY, face, objectType);
 		// synchronized(c) {
 		if (c.getOutStream() != null && c != null) {
 			c.getOutStream().createFrame(85);
@@ -1638,13 +1687,32 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 
 	}
 
+	/**
+	 * Custom spawns are drawn by a packet only. Register them in the clip map
+	 * once so pathing cannot walk through altars, banks, doors, and the like.
+	 */
+	private void clipSpawnedObject(int objectId, int objectX, int objectY, int face, int objectType) {
+		if (objectId < 0)
+			return;
+		int height = c.heightLevel;
+		int direction = face < 0 ? 0 : (face & 3);
+		Region r = Region.getRegion(objectX, objectY);
+		if (r != null) {
+			for (Objects o : r.realObjects) {
+				if (o.objectId == objectId && o.objectX == objectX && o.objectY == objectY
+						&& o.objectHeight == height && o.objectType == objectType) {
+					return;
+				}
+			}
+		}
+		Region.addObject(objectId, objectX, objectY, height, objectType, direction);
+	}
+
 	public void checkObjectSpawn(int objectId, int objectX, int objectY,
 			int face, int objectType) {
 		if (c.distanceToPoint(objectX, objectY) > 60)
 			return;
-		Region r = Region.getRegion(objectX, objectY);
-		if (r != null)
-			r.realObjects.add(new Objects(objectId, objectX, objectY, 0, face, objectType));
+		clipSpawnedObject(objectId, objectX, objectY, face, objectType);
 		// synchronized(c) {
 		if (c.getOutStream() != null && c != null) {
 			c.getOutStream().createFrame(85);
@@ -2144,6 +2212,9 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 	        }
 	    }
 	    c.faceUpdate(0);
+		if (c.getCurse() != null) {
+			c.getCurse().applyWrath();
+		}
 		CycleEventHandler.addEvent(c, new CycleEvent() {
 			@Override
 			public void execute(CycleEventContainer container) {
@@ -3076,143 +3147,47 @@ public void underWaterTele() {
 			return;
 		int otherX = NPCHandler.npcs[c.followId2].getX(); //npcs[i].otherx and change when npc walks.
 		int otherY = NPCHandler.npcs[c.followId2].getY();
-		boolean withinDistance = c.goodDistance(otherX, otherY, c.getX(), c.getY(), 2);
-		@SuppressWarnings("unused")
-		boolean goodDistance = c.goodDistance(otherX, otherY, c.getX(), c.getY(), 1);
-		boolean hallyDistance = c.goodDistance(otherX, otherY, c.getX(), c.getY(), 2);
-		boolean bowDistance = c.goodDistance(otherX, otherY, c.getX(), c.getY(), 8);
-		boolean rangeWeaponDistance = c.goodDistance(otherX, otherY, c.getX(), c.getY(), 4);
-		boolean sameSpot = c.absX == otherX && c.absY == otherY;
-		if(!c.goodDistance(otherX, otherY, c.getX(), c.getY(), 25)) {
-			return;
+		int nSize = Server.npcHandler.npcSize(c.followId2);
+		if (nSize < 1) {
+			nSize = 1;
 		}
-		/*if(c.goodDistance(otherX, otherY, c.getX(), c.getY(), 1)) {
-			if (otherX != c.getX() && otherY != c.getY()) {
-				stopDiagonal(otherX, otherY);
-				return;
-			} else {
-				c.followId2 = 0;
-				return;
-			}
-		}*/
-		
-		if((c.usingBow || c.mageFollow || (c.npcIndex > 0 && c.autocastId > 0)) && bowDistance && !sameSpot) {
-			return;
-		}
-
-		if(c.getCombat().usingHally() && hallyDistance && !sameSpot) {
-			return;
-		}
-
-		if(c.usingRangeWeapon && rangeWeaponDistance && !sameSpot) {
+		boolean sameSpot = c.absX >= otherX && c.absX <= otherX + nSize - 1
+				&& c.absY >= otherY && c.absY <= otherY + nSize - 1;
+		if(!c.getCombat().withinNpcDistance(c.getX(), c.getY(), otherX, otherY, nSize, 25)) {
 			return;
 		}
 		c.faceUpdate(c.followId2);
-		if (otherX == c.absX && otherY == c.absY) {
-		/*	int r = Misc.random(3);
-			switch (r) {
-				case 0:
-					walkTo(0,-1);
-				break;
-				case 1:
-					walkTo(0,1);
-				break;
-				case 2:
-					walkTo(1,0);
-				break;
-				case 3:
-					walkTo(-1,0);
-				break;			
-			}	*/
+		if (sameSpot) {
 			walkClipped(c);
-		} else if(c.isRunning2 && !withinDistance) {
-			/*if(otherY > c.getY() && otherX == c.getX()) {
-				walkTo(0, getMove(c.getY(), otherY - 1) + getMove(c.getY(), otherY - 1));
-			} else if(otherY < c.getY() && otherX == c.getX()) {
-				walkTo(0, getMove(c.getY(), otherY + 1) + getMove(c.getY(), otherY + 1));
-			} else if(otherX > c.getX() && otherY == c.getY()) {
-				walkTo(getMove(c.getX(), otherX - 1) + getMove(c.getX(), otherX - 1), 0);
-			} else if(otherX < c.getX() && otherY == c.getY()) {
-				walkTo(getMove(c.getX(), otherX + 1) + getMove(c.getX(), otherX + 1), 0);
-			} else if(otherX < c.getX() && otherY < c.getY()) {
-				walkTo(getMove(c.getX(), otherX + 1) + getMove(c.getX(), otherX + 1), getMove(c.getY(), otherY + 1) + getMove(c.getY(), otherY + 1));
-			} else if(otherX > c.getX() && otherY > c.getY()) {
-				walkTo(getMove(c.getX(), otherX - 1) + getMove(c.getX(), otherX - 1), getMove(c.getY(), otherY - 1) + getMove(c.getY(), otherY - 1));
-			} else if(otherX < c.getX() && otherY > c.getY()) {
-				walkTo(getMove(c.getX(), otherX + 1) + getMove(c.getX(), otherX + 1), getMove(c.getY(), otherY - 1) + getMove(c.getY(), otherY - 1));
-			} else if(otherX > c.getX() && otherY < c.getY()) {
-				walkTo(getMove(c.getX(), otherX + 1) + getMove(c.getX(), otherX + 1), getMove(c.getY(), otherY - 1) + getMove(c.getY(), otherY - 1));
-			} 
-		} else {
-			if(otherY > c.getY() && otherX == c.getX()) {
-				walkTo(0, getMove(c.getY(), otherY - 1));
-			} else if(otherY < c.getY() && otherX == c.getX()) {
-				walkTo(0, getMove(c.getY(), otherY + 1));
-			} else if(otherX > c.getX() && otherY == c.getY()) {
-				walkTo(getMove(c.getX(), otherX - 1), 0);
-			} else if(otherX < c.getX() && otherY == c.getY()) {
-				walkTo(getMove(c.getX(), otherX + 1), 0);
-			} else if(otherX < c.getX() && otherY < c.getY()) {
-				walkTo(getMove(c.getX(), otherX + 1), getMove(c.getY(), otherY + 1));
-			} else if(otherX > c.getX() && otherY > c.getY()) {
-				walkTo(getMove(c.getX(), otherX - 1), getMove(c.getY(), otherY - 1));
-			} else if(otherX < c.getX() && otherY > c.getY()) {
-				walkTo(getMove(c.getX(), otherX + 1), getMove(c.getY(), otherY - 1));
-			} else if(otherX > c.getX() && otherY < c.getY()) {
-				walkTo(getMove(c.getX(), otherX - 1), getMove(c.getY(), otherY + 1));
-			}*/
-			if(otherY > c.getY() && otherX == c.getX()) {
-				//walkTo(0, getMove(c.getY(), otherY - 1) + getMove(c.getY(), otherY - 1));
-				playerWalk(otherX, otherY - 1);
-			} else if(otherY < c.getY() && otherX == c.getX()) {
-				//walkTo(0, getMove(c.getY(), otherY + 1) + getMove(c.getY(), otherY + 1));
-				playerWalk(otherX, otherY + 1);
-			} else if(otherX > c.getX() && otherY == c.getY()) {
-				//walkTo(getMove(c.getX(), otherX - 1) + getMove(c.getX(), otherX - 1), 0);
-				playerWalk(otherX - 1, otherY);
-			} else if(otherX < c.getX() && otherY == c.getY()) {
-				//walkTo(getMove(c.getX(), otherX + 1) + getMove(c.getX(), otherX + 1), 0);
-				playerWalk(otherX + 1, otherY);
-			} else if(otherX < c.getX() && otherY < c.getY()) {
-				//walkTo(getMove(c.getX(), otherX + 1) + getMove(c.getX(), otherX + 1), getMove(c.getY(), otherY + 1) + getMove(c.getY(), otherY + 1));
-				playerWalk(otherX + 1, otherY + 1);
-			} else if(otherX > c.getX() && otherY > c.getY()) {
-				//walkTo(getMove(c.getX(), otherX - 1) + getMove(c.getX(), otherX - 1), getMove(c.getY(), otherY - 1) + getMove(c.getY(), otherY - 1));
-				playerWalk(otherX - 1, otherY - 1);
-			} else if(otherX < c.getX() && otherY > c.getY()) {
-				//walkTo(getMove(c.getX(), otherX + 1) + getMove(c.getX(), otherX + 1), getMove(c.getY(), otherY - 1) + getMove(c.getY(), otherY - 1));
-				playerWalk(otherX + 1, otherY - 1);
-			} else if(otherX > c.getX() && otherY < c.getY()) {
-				//walkTo(getMove(c.getX(), otherX + 1) + getMove(c.getX(), otherX + 1), getMove(c.getY(), otherY - 1) + getMove(c.getY(), otherY - 1));
-				playerWalk(otherX + 1, otherY - 1);
-			}
-		} else {
-			if(otherY > c.getY() && otherX == c.getX()) {
-				//walkTo(0, getMove(c.getY(), otherY - 1));
-				playerWalk(otherX, otherY - 1);
-			} else if(otherY < c.getY() && otherX == c.getX()) {
-				//walkTo(0, getMove(c.getY(), otherY + 1));
-				playerWalk(otherX, otherY + 1);
-			} else if(otherX > c.getX() && otherY == c.getY()) {
-				//walkTo(getMove(c.getX(), otherX - 1), 0);
-				playerWalk(otherX - 1, otherY);
-			} else if(otherX < c.getX() && otherY == c.getY()) {
-				//walkTo(getMove(c.getX(), otherX + 1), 0);
-				playerWalk(otherX + 1, otherY);
-			} else if(otherX < c.getX() && otherY < c.getY()) {
-				//walkTo(getMove(c.getX(), otherX + 1), getMove(c.getY(), otherY + 1));
-				playerWalk(otherX + 1, otherY + 1);
-			} else if(otherX > c.getX() && otherY > c.getY()) {
-				//walkTo(getMove(c.getX(), otherX - 1), getMove(c.getY(), otherY - 1));
-				playerWalk(otherX - 1, otherY - 1);
-			} else if(otherX < c.getX() && otherY > c.getY()) {
-				//walkTo(getMove(c.getX(), otherX + 1), getMove(c.getY(), otherY - 1));
-				playerWalk(otherX + 1, otherY - 1);
-			} else if(otherX > c.getX() && otherY < c.getY()) {
-				//walkTo(getMove(c.getX(), otherX - 1), getMove(c.getY(), otherY + 1));
-				playerWalk(otherX - 1, otherY + 1);
+			return;
+		}
+		// Talking or shopping walks up next to the NPC. Combat holds at weapon
+		// range, and only once the target is not behind a wall.
+		boolean talking = c.clickNpcType > 0;
+		int hold = talking ? 1 : c.getCombat().attackRange();
+		boolean inHold = c.getCombat().withinNpcDistance(c.getX(), c.getY(), otherX, otherY, nSize, hold);
+		boolean clearShot = talking || c.npcIndex <= 0
+				|| PathFinder.hasLineOfSight(c.absX, c.absY, 1, otherX, otherY, nSize, c.heightLevel);
+		if (inHold && clearShot) {
+			c.stopMovement();
+			return;
+		}
+		// Behind a wall with a ranged weapon: walk to the nearest peek tile.
+		if (!talking && hold > 1 && !clearShot) {
+			int[] fire = PathFinder.getPathFinder().findShootingTile(c, otherX, otherY, nSize, hold);
+			if (fire != null) {
+				if (fire[0] == c.absX && fire[1] == c.absY) {
+					c.stopMovement();
+				} else {
+					playerWalk(fire[0], fire[1]);
+				}
+				c.faceUpdate(c.followId2);
+				return;
 			}
 		}
+		// Path to the NPC footprint. moveNear + reach checks go around walls
+		// instead of stopping on the far side of the building.
+		PathFinder.getPathFinder().findRoute(c, otherX, otherY, true, nSize, nSize);
 		c.faceUpdate(c.followId2);
 	}
 
@@ -3232,6 +3207,9 @@ public void underWaterTele() {
 	}
 
 	public void walkTo(int i, int j) {
+		if (c.freezeTimer > 0) {
+			return;
+		}
 		c.newWalkCmdSteps = 0;
 		if (++c.newWalkCmdSteps > 50)
 			c.newWalkCmdSteps = 0;
@@ -3248,7 +3226,7 @@ public void underWaterTele() {
 	}
 
 	public void walkTo2(int i, int j) {
-		if (c.freezeDelay > 0)
+		if (c.freezeTimer > 0 || c.freezeDelay > 0)
 			return;
 		c.newWalkCmdSteps = 0;
 		if (++c.newWalkCmdSteps > 50)
@@ -4353,13 +4331,13 @@ public void underWaterTele() {
 		Connection.addIpToStarterList1(PlayerHandler.players[c.playerId].connectedFrom);
 		Connection.addIpToStarter1(PlayerHandler.players[c.playerId].connectedFrom);
 		//c.sendMessage("@red@Thanks for joining! You have received a special item: Whip.");
-		c.sendMessage("@red@Thanks for joining Biohazard!");
+		c.sendMessage("@red@Thanks for joining " + Config.SERVER_NAME + "!");
 		c.sendMessage("@red@Rub the lamp to advance a level to 70!");
 		c.sendMessage("@red@Type ::train to train instantly.");
 		for (int j = 0; j < PlayerHandler.players.length; j++) {
 			if (PlayerHandler.players[j] != null) {
 				Client c2 = (Client)PlayerHandler.players[j];
-				c2.sendMessage("@cr1@@red@[Biohazard] @dre@"+c.playerName+" has joined Biohazard for the first time!");
+				c2.sendMessage("@cr1@@red@[" + Config.SERVER_NAME + "] @dre@"+c.playerName+" has joined " + Config.SERVER_NAME + " for the first time!");
 			}
 		}
 	} else if (Connection.hasRecieved1stStarter(PlayerHandler.players[c.playerId].connectedFrom) && !Connection.hasRecieved2ndStarter(PlayerHandler.players[c.playerId].connectedFrom)) {

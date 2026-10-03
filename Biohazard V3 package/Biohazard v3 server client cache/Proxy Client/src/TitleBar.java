@@ -107,7 +107,7 @@ final class TitleBar extends JPanel {
 		setOpaque(true);
 		setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, BORDER));
 
-		title = new JLabel("Biohazard");
+		title = new JLabel("Soul-Trail");
 		title.setForeground(TEXT);
 		title.setFont(TITLE_FONT);
 		title.setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 8));

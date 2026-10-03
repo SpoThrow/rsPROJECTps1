@@ -27,6 +27,7 @@ final class NpcIndicators {
 	static boolean names;
 	static boolean minimapNames;
 	static int colorIndex;
+	static int rgb = 0x30FF60;
 
 	private static final int[] COLORS = {
 			0x00FFFF, 0xFFFF00, 0xFF3030, 0x30FF60, 0xFF40FF, 0xFF981F, 0xFFFFFF
@@ -39,8 +40,12 @@ final class NpcIndicators {
 	private static final HashMap nameStyles = new HashMap();
 
 	private static final int MAP = 104;
-	private static final int[] occupied = new int[MAP * MAP];
-	private static int occupyStamp = 1;
+	private static final int MAX_FOOTPRINTS = 256;
+	private static final int[] fpSwX = new int[MAX_FOOTPRINTS];
+	private static final int[] fpSwY = new int[MAX_FOOTPRINTS];
+	private static final int[] fpSize = new int[MAX_FOOTPRINTS];
+	private static final int[] fpColor = new int[MAX_FOOTPRINTS];
+	private static int fpCount;
 
 	private static final int[] hullX = new int[256];
 	private static final int[] hullY = new int[256];
@@ -57,7 +62,11 @@ final class NpcIndicators {
 		southWestTile = readBool(props, "npcIndSwTile", false);
 		names = readBool(props, "npcIndNames", false);
 		minimapNames = readBool(props, "npcIndMinimapNames", false);
-		colorIndex = clamp(readInt(props, "npcIndColor", 0), 0, COLORS.length - 1);
+		colorIndex = clamp(readInt(props, "npcIndColor", 3), 0, COLORS.length - 1);
+		rgb = readInt(props, "npcIndRgb", COLORS[colorIndex]);
+		if (rgb <= 0) {
+			rgb = COLORS[colorIndex];
+		}
 		idStyles.clear();
 		nameStyles.clear();
 		parseNames(props.getProperty("npcIndList", ""));
@@ -73,16 +82,13 @@ final class NpcIndicators {
 		props.setProperty("npcIndNames", Boolean.toString(names));
 		props.setProperty("npcIndMinimapNames", Boolean.toString(minimapNames));
 		props.setProperty("npcIndColor", Integer.toString(colorIndex));
+		props.setProperty("npcIndRgb", Integer.toString(rgb));
 		props.setProperty("npcIndList", packMap(nameStyles, false));
 		props.setProperty("npcIndIds", packMap(idStyles, true));
 	}
 
 	static boolean active() {
 		return mode > 0;
-	}
-
-	static int color() {
-		return COLORS[colorIndex];
 	}
 
 	static String modeLabel() {
@@ -95,26 +101,60 @@ final class NpcIndicators {
 		return "Off";
 	}
 
-	static String colorLabel() {
-		return COLOR_NAMES[colorIndex];
-	}
-
 	static void cycleMode() {
 		mode = (mode + 1) % 3;
 	}
 
+	static int color() {
+		return rgb == 0 ? COLORS[colorIndex] : rgb;
+	}
+
+	static String colorLabel() {
+		return "#" + toHex(color());
+	}
+
 	static void cycleColor() {
 		colorIndex = (colorIndex + 1) % COLORS.length;
+		rgb = COLORS[colorIndex];
+	}
+
+	static void setRgb(int value) {
+		rgb = value & 0xFFFFFF;
+		if (rgb == 0) {
+			rgb = 1;
+		}
+	}
+
+	private static String toHex(int value) {
+		String hex = Integer.toHexString(value & 0xFFFFFF).toUpperCase();
+		while (hex.length() < 6) {
+			hex = "0" + hex;
+		}
+		return hex;
 	}
 
 	static void beginFrame() {
-		occupyStamp++;
-		if (occupyStamp == Integer.MAX_VALUE) {
-			occupyStamp = 1;
-			for (int i = 0; i < occupied.length; i++) {
-				occupied[i] = 0;
-			}
-		}
+		fpCount = 0;
+	}
+
+	static int footprintCount() {
+		return fpCount;
+	}
+
+	static int footprintSwX(int i) {
+		return fpSwX[i];
+	}
+
+	static int footprintSwY(int i) {
+		return fpSwY[i];
+	}
+
+	static int footprintSize(int i) {
+		return fpSize[i];
+	}
+
+	static int footprintColor(int i) {
+		return fpColor[i];
 	}
 
 	static boolean matches(NPC npc) {
@@ -263,27 +303,65 @@ final class NpcIndicators {
 		if (size < 1) {
 			size = 1;
 		}
+		int color = color();
 		if (footprint) {
 			int swX = npc.x - size * 64 >> 7;
 			int swY = npc.y - size * 64 >> 7;
-			markArea(swX, swY, size);
+			addFootprint(swX, swY, size, color);
 		}
 		if (trueFoot && mode == 2) {
-			markArea(npc.smallX[0], npc.smallY[0], size);
+			addFootprint(npc.smallX[0], npc.smallY[0], size, color);
 		}
 		if (sw) {
-			markCell(npc.x - size * 64 >> 7, npc.y - size * 64 >> 7);
+			addFootprint(npc.x - size * 64 >> 7, npc.y - size * 64 >> 7, 1, color);
 		}
 	}
 
+	/** Legacy per-tile path no longer used — footprints are drawn merged once. */
 	static int tileColor(int localX, int localY) {
-		if (!active() || localX < 0 || localY < 0 || localX >= MAP || localY >= MAP) {
-			return 0;
-		}
-		if (occupied[localX + localY * MAP] == occupyStamp) {
-			return color();
-		}
 		return 0;
+	}
+
+	private static void addFootprint(int swX, int swY, int size, int color) {
+		if (size < 1 || fpCount >= MAX_FOOTPRINTS) {
+			return;
+		}
+		if (swX < 0) {
+			size += swX;
+			swX = 0;
+		}
+		if (swY < 0) {
+			size += swY;
+			swY = 0;
+		}
+		if (size < 1) {
+			return;
+		}
+		if (swX >= MAP || swY >= MAP) {
+			return;
+		}
+		if (swX + size > MAP) {
+			size = MAP - swX;
+		}
+		if (swY + size > MAP) {
+			int lim = MAP - swY;
+			if (lim < size) {
+				size = lim;
+			}
+		}
+		if (size < 1) {
+			return;
+		}
+		for (int i = 0; i < fpCount; i++) {
+			if (fpSwX[i] == swX && fpSwY[i] == swY && fpSize[i] == size) {
+				return;
+			}
+		}
+		fpSwX[fpCount] = swX;
+		fpSwY[fpCount] = swY;
+		fpSize[fpCount] = size;
+		fpColor[fpCount] = color;
+		fpCount++;
 	}
 
 	static void drawHull(client c, NPC npc) {
@@ -349,21 +427,6 @@ final class NpcIndicators {
 		int w = font.getTextWidth(npc.desc.name);
 		int[] p = OverlayManager.placeWorld(x - w / 2, y - 10, w, 12);
 		font.drawText(color(), npc.desc.name, p[1] + 10, p[0] + w / 2);
-	}
-
-	private static void markArea(int swX, int swY, int size) {
-		for (int dx = 0; dx < size; dx++) {
-			for (int dy = 0; dy < size; dy++) {
-				markCell(swX + dx, swY + dy);
-			}
-		}
-	}
-
-	private static void markCell(int x, int y) {
-		if (x < 0 || y < 0 || x >= MAP || y >= MAP) {
-			return;
-		}
-		occupied[x + y * MAP] = occupyStamp;
 	}
 
 	private static int convexHull(int[] xs, int[] ys, int n, int[] outX, int[] outY) {

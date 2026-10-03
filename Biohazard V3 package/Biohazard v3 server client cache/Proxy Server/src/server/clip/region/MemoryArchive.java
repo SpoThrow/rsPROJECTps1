@@ -16,16 +16,19 @@ public class MemoryArchive {
 	public byte[] get(int dataIndex)
 	{
 		try {
-			if(index.length() < (dataIndex * INDEX_DATA_CHUNK_SIZE))
+			if (index == null || cache == null || dataIndex < 0)
 				return null;
-			index.setOffset(dataIndex * INDEX_DATA_CHUNK_SIZE);
+			int pos = dataIndex * INDEX_DATA_CHUNK_SIZE;
+			if (pos < 0 || pos + INDEX_DATA_CHUNK_SIZE > index.length())
+				return null;
+			index.setOffset(pos);
 			long fileOffset = index.getLong();
 			int fileSize = index.getInt();
+			if (fileSize <= 0 || fileOffset < 0 || fileOffset + fileSize > cache.length())
+				return null;
 			cache.setOffset(fileOffset);
-			byte[] buffer = cache.read(fileSize);
-			return buffer;
+			return cache.read(fileSize);
 		} catch(Exception e) {
-			e.printStackTrace();
 			return null;
 		}
 	}

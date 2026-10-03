@@ -1734,26 +1734,82 @@ label0:
 	}
 
 	private boolean tileNeedsOverlay(int tileX, int tileY) {
-		if(client.tileMarkers && tileX == hoverTileX && tileY == hoverTileY)
-			return true;
-		if(client.destTile && client.walkTileX != 0 && tileX == client.walkTileX && tileY == client.walkTileY)
-			return true;
-		if(client.trueTile && client.myPlayer != null && tileX == client.myPlayer.smallX[0] && tileY == client.myPlayer.smallY[0])
-			return true;
 		if(GroundMarkers.enabled && GroundMarkers.colorLocal(tileX, tileY, client.scenePlane) != 0)
-			return true;
-		if(NpcIndicators.tileColor(tileX, tileY) != 0)
 			return true;
 		if(ObjectMarkers.colorLocal(tileX, tileY, client.scenePlane) != 0)
 			return true;
 		if(PlayerIndicators.tileColor(tileX, tileY) != 0)
 			return true;
-		return CannonOverlay.tileColor(tileX, tileY, client.scenePlane) != 0;
+		if(CannonOverlay.tileColor(tileX, tileY, client.scenePlane) != 0)
+			return true;
+		return BossTimers.tileColor(tileX, tileY, client.scenePlane) != 0;
 	}
 
 	private void finishScene() {
 		aBoolean467 = false;
 		flushTileOverlays();
+		drawSceneTileMarkers();
+		drawNpcFootprints();
+	}
+
+	/**
+	 * Hover / destination / player true-tile — drawn once on the scene-plane
+	 * heightmap so elevated ground does not produce double layers.
+	 */
+	private void drawSceneTileMarkers() {
+		int plane = client.scenePlane;
+		if(plane < 0 || plane >= anIntArrayArrayArray440.length)
+			plane = 0;
+		if(client.tileMarkers && hoverTileX >= 0 && hoverTileY >= 0)
+			drawMergedFootprint(plane, hoverTileX, hoverTileY, 1, 0xD0D0D0);
+		if(client.destTile && client.walkTileX != 0)
+			drawMergedFootprint(plane, client.walkTileX, client.walkTileY, 1, 0xE8E8E8);
+		if(client.trueTile && client.myPlayer != null)
+			drawMergedFootprint(plane, client.myPlayer.smallX[0], client.myPlayer.smallY[0], 1, 0x40C8FF);
+	}
+
+	/**
+	 * Draw NPC indicator tiles once as merged footprints on the scene-plane
+	 * heightmap (avoids per-tile grids and bridge underlay double-layers).
+	 */
+	private void drawNpcFootprints() {
+		int n = NpcIndicators.footprintCount();
+		if(n <= 0)
+			return;
+		int plane = client.scenePlane;
+		if(plane < 0 || plane >= anIntArrayArrayArray440.length)
+			plane = 0;
+		for(int i = 0; i < n; i++) {
+			drawMergedFootprint(plane, NpcIndicators.footprintSwX(i), NpcIndicators.footprintSwY(i),
+					NpcIndicators.footprintSize(i), NpcIndicators.footprintColor(i));
+		}
+	}
+
+	private void drawMergedFootprint(int plane, int swX, int swY, int size, int color) {
+		if(size < 1 || color == 0)
+			return;
+		int neX = swX + size - 1;
+		int neY = swY + size - 1;
+		for(int tx = swX; tx <= neX; tx++) {
+			for(int ty = swY; ty <= neY; ty++) {
+				if(!projectTileCorners(plane, tx, ty, overlayTmp))
+					continue;
+				fillTileQuad(overlayTmp[0], overlayTmp[1], overlayTmp[2], overlayTmp[3],
+						overlayTmp[4], overlayTmp[5], overlayTmp[6], overlayTmp[7], color, 70);
+			}
+		}
+		for(int tx = swX; tx <= neX; tx++) {
+			if(projectTileCorners(plane, tx, swY, overlayTmp))
+				drawOverlayLine(overlayTmp[0], overlayTmp[1], overlayTmp[2], overlayTmp[3], color);
+			if(projectTileCorners(plane, tx, neY, overlayTmp))
+				drawOverlayLine(overlayTmp[4], overlayTmp[5], overlayTmp[6], overlayTmp[7], color);
+		}
+		for(int ty = swY; ty <= neY; ty++) {
+			if(projectTileCorners(plane, swX, ty, overlayTmp))
+				drawOverlayLine(overlayTmp[6], overlayTmp[7], overlayTmp[0], overlayTmp[1], color);
+			if(projectTileCorners(plane, neX, ty, overlayTmp))
+				drawOverlayLine(overlayTmp[2], overlayTmp[3], overlayTmp[4], overlayTmp[5], color);
+		}
 	}
 
 	private void flushTileOverlays() {
@@ -1769,20 +1825,11 @@ label0:
 
 	private void paintTileOverlays(int tileX, int tileY, int x1, int y1, int x2, int y2, int x3, int y3, int x4, int y4) {
 		int color;
-		if(client.tileMarkers && tileX == hoverTileX && tileY == hoverTileY)
-			drawTileOverlay(x1, y1, x2, y2, x3, y3, x4, y4, 0xD0D0D0, 90);
-		if(client.destTile && client.walkTileX != 0 && tileX == client.walkTileX && tileY == client.walkTileY)
-			drawTileOverlay(x1, y1, x2, y2, x3, y3, x4, y4, 0xE8E8E8, 80);
-		if(client.trueTile && client.myPlayer != null && tileX == client.myPlayer.smallX[0] && tileY == client.myPlayer.smallY[0])
-			drawTileOverlay(x1, y1, x2, y2, x3, y3, x4, y4, 0x40C8FF, 80);
 		if(GroundMarkers.enabled) {
 			color = GroundMarkers.colorLocal(tileX, tileY, client.scenePlane);
 			if(color != 0)
 				drawTileOverlay(x1, y1, x2, y2, x3, y3, x4, y4, color, 70);
 		}
-		color = NpcIndicators.tileColor(tileX, tileY);
-		if(color != 0)
-			drawTileOverlay(x1, y1, x2, y2, x3, y3, x4, y4, color, 70);
 		color = ObjectMarkers.colorLocal(tileX, tileY, client.scenePlane);
 		if(color != 0)
 			drawTileOverlay(x1, y1, x2, y2, x3, y3, x4, y4, color, 70);
@@ -1792,6 +1839,9 @@ label0:
 		color = CannonOverlay.tileColor(tileX, tileY, client.scenePlane);
 		if(color != 0)
 			drawTileOverlay(x1, y1, x2, y2, x3, y3, x4, y4, color, 70);
+		color = BossTimers.tileColor(tileX, tileY, client.scenePlane);
+		if(color != 0)
+			drawTileOverlay(x1, y1, x2, y2, x3, y3, x4, y4, color, 90);
 	}
 
 	private boolean projectTileCorners(int plane, int tileX, int tileY, int[] out) {

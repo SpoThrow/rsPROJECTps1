@@ -5,7 +5,6 @@ import server.game.items.ItemAssistant;
 /**
  * 
  * Potions.java
- * @author Acquittal
  * 
  */
 

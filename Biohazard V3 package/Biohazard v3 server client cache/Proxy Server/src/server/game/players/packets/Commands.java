@@ -45,19 +45,13 @@ public class Commands implements PacketType {
 			}
 			if (playerCommand.equalsIgnoreCase("banki")) {
 				if(c.isBanking) {
-					for(int i = 0; i < c.playerItems.length; i++){
-						c.getItems().bankItem(c.playerItems[i], i,c.playerItemsN[i]);
-					}
+					c.getItems().bankInventory();
 					c.sendMessage("Inventory successfully banked.");
 				}
 			}
 			if (playerCommand.equalsIgnoreCase("banke")) {
 				if(c.isBanking) {
-					for (int i = 0; i < c.playerEquipment.length; i++) {
-						if (c.playerEquipment[i] > 0 && c.playerEquipmentN[i] > 0)
-							c.getItems().addItemToBank(c.playerEquipment[i], c.playerEquipmentN[i]);
-						c.getItems().replaceEquipment(i, -1);
-					}
+					c.getItems().bankEquipment();
 	            	c.sendMessage("Equipment successfully banked.");
 				}
 			}
@@ -70,7 +64,10 @@ public class Commands implements PacketType {
 						+ PlayerHandler.getPlayerCount() + "@bla@!");
 			}
 			if (playerCommand.equalsIgnoreCase("cancel")) {
-				if (c.posSearchingItem || c.posSearchingPlayer) {
+				if (c.itemSpawnSearching) {
+					c.itemSpawnSearching = false;
+					c.sendMessage("Item search cancelled.");
+				} else if (c.posSearchingItem || c.posSearchingPlayer) {
 					c.posSearchingItem = false;
 					c.posSearchingPlayer = false;
 					c.sendMessage("Search cancelled.");
@@ -120,7 +117,7 @@ public class Commands implements PacketType {
 	    				for (int j = 0; j < PlayerHandler.players.length; j++) {
 	    					if (PlayerHandler.players[j] != null) {
 	    						Client c2 = (Client)PlayerHandler.players[j];
-	    						c2.sendMessage("@cr1@@red@[Vote] @dre@"+c.playerName+" just voted for Biohazard!");
+	    						c2.sendMessage("@cr1@@red@[Vote] @dre@"+c.playerName+" just voted for "+Config.SERVER_NAME+"!");
 	    					}
 	    				}
 	                } else {
@@ -139,11 +136,11 @@ public class Commands implements PacketType {
 			
 			//initiate the forums
 			if (playerCommand.startsWith("forums")) {
-				c.getPA().sendFrame126("www.bio-hazard.net/forums", 12000);
+				c.getPA().sendFrame126("www." + Config.FORUMS + "/forums", 12000);
 			}
 
 			if (playerCommand.startsWith("vote")) {
-				c.getPA().sendFrame126("www.bio-hazard.net/vote", 12000);
+				c.getPA().sendFrame126("www." + Config.FORUMS + "/vote", 12000);
 			}
 			
 			if (playerCommand.startsWith("train")) {
@@ -227,7 +224,7 @@ public class Commands implements PacketType {
 							c2.sendMessage("[Administrator] @cr2@@or3@" +   Misc.capitalize(c.playerName) +": <col=013ADF>" + Misc.optimizeText(playerCommand.substring(5)) +"</col>");
 						}
 						if (c.playerRights == 3) {
-							c2.sendMessage("[MrClassic] @cr2@@or3@" +   Misc.capitalize(c.playerName) +": <col=013ADF>" + Misc.optimizeText(playerCommand.substring(5)) +"</col>");
+							c2.sendMessage("[Owner] @cr2@@or3@" +   Misc.capitalize(c.playerName) +": <col=013ADF>" + Misc.optimizeText(playerCommand.substring(5)) +"</col>");
 						}
 						if (c.playerRights == 4) {
 							c2.sendMessage("[Donator] @cr3@@or3@" +   Misc.capitalize(c.playerName) +": <col=ff0000>" + Misc.optimizeText(playerCommand.substring(5)) +"</col>");
@@ -335,33 +332,15 @@ public class Commands implements PacketType {
 			}
 /***************************Admin commands**********************************/
 				if (c.playerRights >= 2 && c.playerRights <= 3) {
-					if (playerCommand.equalsIgnoreCase("master") && (c.playerName.equalsIgnoreCase("dylan")
-							|| c.playerName.equalsIgnoreCase("mrclassic"))) {
+					if (playerCommand.equalsIgnoreCase("master") && c.playerRights == 3) {
 						for (int i = 0; i < 23; i++) {
 							c.getPA().addSkillXP(c.getPA().getXPForLevel(100), i);
 							c.getPA().refreshSkill(i);	
 							c.getPA().requestUpdates();
 						}
 					}
-					if (playerCommand.startsWith("item") && (c.playerName.equalsIgnoreCase("dylan")
-							|| c.playerName.equalsIgnoreCase("mrclassic"))) {
-						try {
-							String[] args = playerCommand.split(" ");
-							if (args.length == 3) {
-								int newItemID = Integer.parseInt(args[1]);
-								int newItemAmount = Integer.parseInt(args[2]);
-								if ((newItemID <= 20000) && (newItemID >= 0)) {
-									c.getItems().addItem(newItemID, newItemAmount);
-									c.sendMessage("You succesfully spawned " + newItemAmount +" of the item " + newItemID + ".");
-									System.out.println("Spawned: " + newItemID + " by: " + Misc.capitalize(c.playerName));
-								} else {
-									c.sendMessage("Could not complete spawn request.");
-								}
-							} else {
-								c.sendMessage("Use as ::item 4151 1");
-							}
-						} catch (Exception e) {
-						}
+					if (playerCommand.startsWith("item") && c.playerRights == 3) {
+						handleItemSpawnCommand(c, playerCommand);
 					}
 						if (playerCommand.startsWith("unipban")) {
 							try {
@@ -503,15 +482,18 @@ public class Commands implements PacketType {
 								c.sendMessage("::interface id");
 							}
 						}
-						if (playerCommand.startsWith("npc")&& c.playerRights == 3) {
+						if (playerCommand.startsWith("npc") && c.playerRights == 3) {
 							try {
-								int newNPC = Integer.parseInt(playerCommand.substring(4));
+								String[] args = playerCommand.split(" ");
+								int newNPC = Integer.parseInt(args[1]);
 								if (newNPC > 0) {
-									Server.npcHandler.spawnNpc(c, newNPC, c.absX, c.absY, 0, 0, 120, 7, 70, 70, false, false);
+									Server.npcHandler.spawnNpc(c, newNPC, c.absX, c.absY, c.heightLevel, 0, 120, 7, 70, 70, false, false);
+									c.sendMessage("Spawned NPC " + newNPC + ".");
 								} else {
 									c.sendMessage("Requested NPC does not exist.");
 								}
 							} catch (Exception e) {
+								c.sendMessage("::npc id");
 							}
 						}
 						if (playerCommand.startsWith("openbank")&& c.playerRights == 3) {
@@ -551,23 +533,7 @@ public class Commands implements PacketType {
 							}	
 						}
 						if (playerCommand.startsWith("item")) {
-							try {
-								String[] args = playerCommand.split(" ");
-								if (args.length == 3) {
-									int newItemID = Integer.parseInt(args[1]);
-									int newItemAmount = Integer.parseInt(args[2]);
-									if ((newItemID <= 20000) && (newItemID >= 0)) {
-										c.getItems().addItem(newItemID, newItemAmount);
-										c.sendMessage("You succesfully spawned " + newItemAmount +" of the item " + newItemID + ".");
-										System.out.println("Spawned: " + newItemID + " by: " + Misc.capitalize(c.playerName));
-									} else {
-										c.sendMessage("Could not complete spawn request.");
-									}
-								} else {
-									c.sendMessage("Use as ::item 4151 1");
-								}
-							} catch (Exception e) {
-							}
+							handleItemSpawnCommand(c, playerCommand);
 						}
 						if(playerCommand.startsWith("pnpc") && c.playerRights == 3) {
 							int npc = Integer.parseInt(playerCommand.substring(5));
@@ -737,5 +703,26 @@ public class Commands implements PacketType {
 				            }
 				}
 		}
+	}
+
+	private void handleItemSpawnCommand(Client c, String playerCommand) {
+		String[] args = playerCommand.split(" ");
+		if (args.length >= 3) {
+			try {
+				int newItemID = Integer.parseInt(args[1]);
+				int newItemAmount = Integer.parseInt(args[2]);
+				if ((newItemID <= 20000) && (newItemID >= 0)) {
+					c.getItems().addItem(newItemID, newItemAmount);
+					c.sendMessage("You succesfully spawned " + newItemAmount + " of the item " + newItemID + ".");
+					System.out.println("Spawned: " + newItemID + " by: " + Misc.capitalize(c.playerName));
+				} else {
+					c.sendMessage("Could not complete spawn request.");
+				}
+				return;
+			} catch (NumberFormatException ignored) {
+			}
+		}
+		String query = playerCommand.length() > 5 ? playerCommand.substring(5).trim() : "";
+		server.game.content.ItemSpawnSearch.start(c, query);
 	}
 }

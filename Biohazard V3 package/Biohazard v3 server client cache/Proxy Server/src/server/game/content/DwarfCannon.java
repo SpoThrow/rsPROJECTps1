@@ -38,7 +38,8 @@ public class DwarfCannon {
 
 	private static final int[] SETUP_ITEMS = { ITEM_BASE, ITEM_STAND, ITEM_BARRELS, ITEM_FURNACE };
 	private static final int[] SETUP_OBJECTS = { OBJ_BASE, OBJ_STAND, OBJ_BARRELS, OBJ_CANNON };
-	private static final int[] ROTATE_ANIMS = { 516, 517, 518, 519, 520, 521, 514, 515 };
+	/* Rotation index must match muzzle + firing arc: N, NE, E, SE, S, SW, W, NW */
+	private static final int[] ROTATE_ANIMS = { 515, 516, 517, 518, 519, 520, 521, 514 };
 	private static final int[] MUZZLE_X = { 0, 1, 1, 1, 0, -1, -1, -1 };
 	private static final int[] MUZZLE_Y = { 1, 1, 0, -1, -1, -1, 0, 1 };
 
@@ -360,7 +361,8 @@ public class DwarfCannon {
 		int cy = cannon.y + 1 + MUZZLE_Y[cannon.rotation];
 		int offX = (cy - target.absY) * -1;
 		int offY = (cx - target.absX) * -1;
-		c.getPA().createPlayersProjectile(cx, cy, offX, offY, 50, 50, PROJECTILE, 35, 20, target.npcId + 1, 25);
+		int lockon = targetIndex(target) + 1;
+		c.getPA().createPlayersProjectile(cx, cy, offX, offY, 50, 50, PROJECTILE, 35, 20, lockon, 25);
 		final NPC hitNpc = target;
 		final int damage = rollDamage(c, target);
 		CycleEventHandler.addEvent(c, new CycleEvent() {
@@ -374,6 +376,18 @@ public class DwarfCannon {
 			public void stop() {
 			}
 		}, 1);
+	}
+
+	private static int targetIndex(NPC target) {
+		if (target == null) {
+			return -1;
+		}
+		for (int i = 0; i < NPCHandler.maxNPCs; i++) {
+			if (NPCHandler.npcs[i] == target) {
+				return i;
+			}
+		}
+		return -1;
 	}
 
 	private static NPC findTarget(Client c, DwarfCannon cannon, NPC ignore) {

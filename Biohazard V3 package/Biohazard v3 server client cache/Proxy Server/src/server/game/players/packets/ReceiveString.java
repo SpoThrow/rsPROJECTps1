@@ -88,6 +88,9 @@ public class ReceiveString implements PacketType {
 			}
 			break;
 		case 4:
+			if (server.game.content.ItemSpawnSearch.handleSearchString(player, string)) {
+				break;
+			}
 			if (player.posSearchingItem) {
 				player.posSearchingItem = false;
 				player.posSearchingPlayer = false;
@@ -97,6 +100,12 @@ public class ReceiveString implements PacketType {
 				player.posSearchingPlayer = false;
 				player.getPA().searchPOSByPlayer(string);
 			}
+			break;
+		case 5:
+			server.game.players.HiscoresLookup.lookup(player, string);
+			break;
+		case 6:
+			server.game.content.ItemSpawnSearch.handleSelect(player, string);
 			break;
 		default:
 			System.out.println("Received string: identifier=" + id

@@ -26,11 +26,15 @@ final class Animable_Sub4 extends Animable {
 
 	public Model getRotatedModel()
 	{
+		if(aSpotAnim_1592 == null)
+			return null;
 		Model model = aSpotAnim_1592.getModel();
 		if(model == null)
 			return null;
 		int j = -1;
-		if(aSpotAnim_1592.aAnimation_407 != null)
+		if(aSpotAnim_1592.aAnimation_407 != null
+				&& aSpotAnim_1592.aAnimation_407.anIntArray353 != null
+				&& anInt1593 >= 0 && anInt1593 < aSpotAnim_1592.aAnimation_407.anIntArray353.length)
 			j = aSpotAnim_1592.aAnimation_407.anIntArray353[anInt1593];
 		Model model_1 = new Model(true, Class36.method532(j), false, model);
 		if(j != -1)
@@ -51,7 +55,10 @@ final class Animable_Sub4 extends Animable {
 						 int l1, int i2, int j2, int k2, int l2)
 	{
 		aBoolean1579 = false;
-		aSpotAnim_1592 = SpotAnim.cache[l2];
+		if (SpotAnim.cache != null && l2 >= 0 && l2 < SpotAnim.cache.length)
+			aSpotAnim_1592 = SpotAnim.cache[l2];
+		else
+			aSpotAnim_1592 = null;
 		anInt1597 = k1;
 		anInt1580 = j2;
 		anInt1581 = i2;
@@ -74,7 +81,7 @@ final class Animable_Sub4 extends Animable {
 		aDouble1577 += aDouble1578 * (double)i;
 		anInt1595 = (int)(Math.atan2(aDouble1574, aDouble1575) * 325.94900000000001D) + 1024 & 0x7ff;
 		anInt1596 = (int)(Math.atan2(aDouble1577, aDouble1576) * 325.94900000000001D) & 0x7ff;
-		if(aSpotAnim_1592.aAnimation_407 != null)
+		if(aSpotAnim_1592 != null && aSpotAnim_1592.aAnimation_407 != null)
 			for(anInt1594 += i; anInt1594 > aSpotAnim_1592.aAnimation_407.method258(anInt1593);)
 			{
 				anInt1594 -= aSpotAnim_1592.aAnimation_407.method258(anInt1593) + 1;

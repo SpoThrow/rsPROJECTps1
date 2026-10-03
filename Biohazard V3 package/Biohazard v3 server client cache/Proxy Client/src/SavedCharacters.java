@@ -243,6 +243,7 @@ final class SavedCharacters {
 		int hair = kit(gender == 1 ? 45 : 7);
 		int beard = gender == 1 ? 0 : kit(14);
 		int helm = 0;
+		boolean fullHelm = false;
 		if (hasLook(equipment)) {
 			helm = equipment[0];
 			if (equipment[8] >= 256 && equipment[8] < 512) {
@@ -250,6 +251,16 @@ final class SavedCharacters {
 			}
 			if (equipment[11] >= 256 && equipment[11] < 512) {
 				beard = equipment[11];
+			}
+			// Check if helmet is a full helmet that hides hair
+			if (helm >= 512) {
+				ItemDef def = ItemDef.forID(helm - 512);
+				if (def != null) {
+					int headModel = gender == 1 ? def.anInt197 : def.anInt175;
+					if (headModel != -1) {
+						fullHelm = true;
+					}
+				}
 			}
 		}
 		Model[] parts = new Model[4];
@@ -260,13 +271,15 @@ final class SavedCharacters {
 				parts[n++] = helmModel;
 			}
 		}
-		Model hairModel = kitHead(hair);
-		if (hairModel != null) {
-			parts[n++] = hairModel;
-		}
-		Model beardModel = kitHead(beard);
-		if (beardModel != null) {
-			parts[n++] = beardModel;
+		if (!fullHelm) {
+			Model hairModel = kitHead(hair);
+			if (hairModel != null) {
+				parts[n++] = hairModel;
+			}
+			Model beardModel = kitHead(beard);
+			if (beardModel != null) {
+				parts[n++] = beardModel;
+			}
 		}
 		if (n == 0) {
 			return null;
@@ -283,7 +296,7 @@ final class SavedCharacters {
 			}
 		}
 		model.method469();
-		model.method479(64, 850, -50, -10, -50, true);
+		model.method479(64, 850, -30, -50, -30, true);
 		return model;
 	}
 
@@ -341,13 +354,16 @@ final class SavedCharacters {
 		if (model == null) {
 			return false;
 		}
+		// Match the makeover / character-creator head boxes: eye-level,
+		// slight 3/4 yaw, tight crop on the face.
+		int yaw = 50;
 		int pitch = 0;
-		int zoom = 1080;
+		int zoom = 1200;
 		Texture.textureInt1 = w / 2;
-		Texture.textureInt2 = h / 2 + 2;
-		int i5 = Texture.anIntArray1470[pitch] * zoom >> 16;
-		int l5 = Texture.anIntArray1471[pitch] * zoom >> 16;
-		model.method482(0, 0, pitch, 0, i5, l5);
+		Texture.textureInt2 = h / 2 + 10;
+		int camY = Texture.anIntArray1470[pitch] * zoom >> 16;
+		int camZ = Texture.anIntArray1471[pitch] * zoom >> 16;
+		model.method482(yaw, 0, pitch, 0, camY, camZ);
 		return true;
 	}
 

@@ -1,5 +1,6 @@
 package server.game.players.packets;
 
+import server.Config;
 import server.Server;
 import server.clip.region.Region;
 import server.content.skills.Mining;
@@ -32,7 +33,8 @@ public class ClickObject implements PacketType {
 			c.objectId = c.getInStream().readUnsignedWord();
 			c.objectY = c.getInStream().readUnsignedWordA();
 			c.objectDistance = 1;
-			if (!Region.objectExists(c.objectId, c.objectX, c.objectY, c.heightLevel)) {
+			if (!Region.objectExists(c.objectId, c.objectX, c.objectY, c.heightLevel)
+					&& c.objectId != 409 && c.objectId != 410 && c.objectId != 6552) {
 				c.sendMessage("FAKE");
 		        return;
 			}
@@ -175,7 +177,7 @@ public class ClickObject implements PacketType {
 				break;
 				
 			case 9398://deposit
-				c.getPA().sendFrame126("The Bank of Biohazard - Deposit Box", 7421);
+				c.getPA().sendFrame126("The Bank of " + Config.SERVER_NAME + " - Deposit Box", 7421);
 				c.getPA().sendFrame248(4465, 197);//197 just because you can't see it =\
 				c.getItems().resetItems(7423);
 			break;
@@ -377,13 +379,19 @@ public class ClickObject implements PacketType {
 			c.objectY = c.getInStream().readSignedWordBigEndian();
 			c.objectX = c.getInStream().readUnsignedWordA();
 			c.objectDistance = 1;
-			if (!Region.objectExists(c.objectId, c.objectX, c.objectY, c.heightLevel))
+			if (!Region.objectExists(c.objectId, c.objectX, c.objectY, c.heightLevel)
+					&& c.objectId != 409 && c.objectId != 410 && c.objectId != 6552)
 		        return;
 			if(c.playerRights >= 3) {
 				Misc.println("objectId2: "+c.objectId+"  ObjectX: "+c.objectX+ "  objectY: "+c.objectY+" Xoff: "+ (c.getX() - c.objectX)+" Yoff: "+ (c.getY() - c.objectY)); 
 			}
 			
 			switch(c.objectId) {
+			case 409:
+			case 410:
+			case 6552:
+				c.objectDistance = 2;
+				break;
 			case 6:
 			case 7:
 			case 8:

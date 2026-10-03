@@ -1,6 +1,6 @@
 package server.clip.region;
 
-import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -220,17 +220,19 @@ public class Region {
 
 	public static void addObject(int objectId, int x, int y, int height, int type, int direction) {
 		Region r = Region.getRegion(x, y);
-		if (r != null && !startup) {
-			for (Objects o : r.realObjects) {
-				if (o.objectId >= 0) {
-					if (o.objectX == x && o.objectY == y && o.objectHeight == height) {
-						o.objectId = -1;
-						break;
+		if (r != null) {
+			if (!startup) {
+				for (Objects o : r.realObjects) {
+					if (o.objectId >= 0) {
+						if (o.objectX == x && o.objectY == y && o.objectHeight == height) {
+							o.objectId = -1;
+							break;
+						}
 					}
 				}
 			}
+			r.realObjects.add(new Objects(objectId, x, y, height, direction, type));
 		}
-		r.realObjects.add(new Objects(objectId, x, y, height, direction, type));
 		if(objectId < 0)
 			return;
 		ObjectDef def = ObjectDef.getObjectDef(objectId);
@@ -248,12 +250,21 @@ public class Region {
 			xLength = def.yLength();
 			yLength = def.xLength();
 		}
+		// Chaos, Guthix, and ancient altars are 2x2. A missing size leaves three tiles open.
+		if (objectId == 409 || objectId == 410 || objectId == 6552) {
+			if (xLength < 2)
+				xLength = 2;
+			if (yLength < 2)
+				yLength = 2;
+		}
+		boolean blocksWalk = def.aBoolean767()
+				|| objectId == 409 || objectId == 410 || objectId == 6552;
 		if (type == 22) {
-			if (def.hasActions() && def.aBoolean767()) {
+			if (def.hasActions() && blocksWalk) {
 				addClipping(x, y, height, 0x200000);
 			}
 		} else if (type >= 9) {
-			if(def.aBoolean767())
+			if(blocksWalk)
 			{
 				addClippingForSolidObject(x, y, height, xLength, yLength, def.solid());
 			}
@@ -354,7 +365,7 @@ public class Region {
 				try {
 					loadMaps(regionIds[i], new ByteStream(file1), new ByteStream(file2));
 				} catch(Exception e) {
-					System.out.println("Error loading map region: " + regionIds[i]);
+					System.out.println("Error loading map region: " + regionIds[i] + " (" + e.getClass().getSimpleName() + ")");
 				}
 			}
 			System.out.println("[Region] DONE LOADING REGION CONFIGURATIONS");
@@ -434,27 +445,17 @@ public class Region {
 	{
 		if(!f.exists())
 			return null;
-		byte[] buffer = new byte[(int) f.length()];
-		DataInputStream dis = new DataInputStream(new FileInputStream(f));
-		dis.readFully(buffer);
-		dis.close();
-		byte[] gzipInputBuffer = new byte[999999];
-		int bufferlength = 0;
-		GZIPInputStream gzip = new GZIPInputStream(new ByteArrayInputStream(buffer));
-		do {
-			if(bufferlength == gzipInputBuffer.length)
-			{
-				System.out.println("Error inflating data.\nGZIP buffer overflow.");
-				break;
-			}
-			int readByte = gzip.read(gzipInputBuffer, bufferlength, gzipInputBuffer.length - bufferlength);
-			if(readByte == -1)
-				break;
-			bufferlength += readByte;
-		} while(true);
-		byte[] inflated = new byte[bufferlength];
-		System.arraycopy(gzipInputBuffer, 0, inflated, 0, bufferlength);
-		buffer = inflated;
+		FileInputStream fis = new FileInputStream(f);
+		GZIPInputStream gzip = new GZIPInputStream(fis);
+		ByteArrayOutputStream bos = new ByteArrayOutputStream();
+		byte[] tmp = new byte[4096];
+		int n;
+		while ((n = gzip.read(tmp)) != -1) {
+			bos.write(tmp, 0, n);
+		}
+		gzip.close();
+		fis.close();
+		byte[] buffer = bos.toByteArray();
 		if(buffer.length < 10)
 			return null;
 		return buffer;

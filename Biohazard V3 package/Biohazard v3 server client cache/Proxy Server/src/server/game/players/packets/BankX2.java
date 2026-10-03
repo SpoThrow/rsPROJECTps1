@@ -25,6 +25,10 @@ public class BankX2 implements PacketType {
 		if (Xamount == 0) {
 			Xamount = 1;
 		}
+
+		if (server.game.content.ItemSpawnSearch.handleAmount(c, Xamount)) {
+			return;
+		}
 		
 		if (c.posEditListingId > 0 && c.xInterfaceId == 43002) {
 			int price = Xamount;

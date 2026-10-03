@@ -3,6 +3,8 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintWriter;
 
+import sign.signlink;
+
 
 public final class ObjectDef {
 	
@@ -14,15 +16,17 @@ public final class ObjectDef {
 		for (int j = 0; j < 20; j++)
 			if (cache[j].type == i)
 				return cache[j];
-		if (i > streamIndices474.length)
+		if (streamIndices474 == null || i > streamIndices474.length - 1)
 			return forID525(i);
+		if (i < 0)
+			i = 0;
 		cacheIndex = (cacheIndex + 1) % 20;
 		ObjectDef class46 = cache[cacheIndex];
 		stream474.currentOffset = streamIndices474[i];
 		class46.type = i;
 		if(i > 0 && dumpObjects) {
 			try {
-		    File file = new File ("C:/Users/jordyortega/Desktop/objects/"+i+".txt");
+		    File file = new File(signlink.findcachedir() + "objects/" + i + ".txt");
 		    try {
 		        file.createNewFile();
 		   }
@@ -39,6 +43,7 @@ public final class ObjectDef {
 		}
 		class46.setDefaults();
 		class46.readValues474(stream474);
+		patchDeathlyScenery(class46, i);
 		if (i == 11214) {
 			class46.name = "Empty space"; 
 			class46.description = "You can build here something.".getBytes();
@@ -105,6 +110,20 @@ public final class ObjectDef {
 			class46.hasActions = true;
 			class46.name = "Mysterious Ruins";
 		}
+		if (i == 409 || (class46.name != null && class46.name.equalsIgnoreCase("Altar") && i != 6552 && i != 410)) {
+			if (class46.actions == null || class46.actions.length < 5) {
+				String[] grown = new String[5];
+				if (class46.actions != null) {
+					System.arraycopy(class46.actions, 0, grown, 0, class46.actions.length);
+				}
+				class46.actions = grown;
+			}
+			if (class46.actions[0] == null) {
+				class46.actions[0] = "Pray-at";
+			}
+			class46.actions[1] = "Switch-prayers";
+			class46.hasActions = true;
+		}
 		switch(i){
 		case 10638:
 			class46.hasActions = true;
@@ -117,13 +136,25 @@ public final class ObjectDef {
 		for(int j = 0; j < 20; j++)
 			if(cache[j].type == i)
 				return cache[j];
+		if (streamIndices525 == null || stream525 == null) {
+			i = 0;
+			cacheIndex = (cacheIndex + 1) % 20;
+			ObjectDef fallback = cache[cacheIndex];
+			stream474.currentOffset = streamIndices474[0];
+			fallback.type = 0;
+			fallback.setDefaults();
+			fallback.readValues474(stream474);
+			return fallback;
+		}
+		if (i < 0 || i >= streamIndices525.length)
+			i = 0;
 		cacheIndex = (cacheIndex + 1) % 20;
 		ObjectDef objectDef = cache[cacheIndex];
 		stream525.currentOffset = streamIndices525[i];
 		objectDef.type = i;
 		if(i > 0 && dumpObjects) {
 			try {
-		    File file = new File ("C:/Users/jordyortega/Desktop/objects/"+i+".txt");
+		    File file = new File(signlink.findcachedir() + "objects/" + i + ".txt");
 		    try {
 		        file.createNewFile();
 		   }
@@ -286,6 +317,34 @@ public final class ObjectDef {
 			anInt760 = aBoolean767 ? 1 : 0;
     }
 
+	private static void patchDeathlyScenery(ObjectDef def, int id) {
+		if (def.anIntArray773 != null) {
+			boolean hdRange = false;
+			for (int n = 0; n < def.anIntArray773.length; n++) {
+				int model = def.anIntArray773[n];
+				if (model == 12616 || model == 12617 || model == 12618) {
+					hdRange = true;
+					break;
+				}
+			}
+			if (hdRange) {
+				def.anIntArray773 = new int[1];
+				def.anIntArray773[0] = 1219;
+				def.anIntArray776 = null;
+			}
+		}
+		if (id == 1315 || id == 1316) {
+			def.anIntArray773 = new int[1];
+			def.anIntArray773[0] = id == 1315 ? 1570 : 1637;
+			def.anIntArray776 = null;
+			def.name = "Tree";
+			def.modifiedModelColors = new int[1];
+			def.originalModelColors = new int[1];
+			def.modifiedModelColors[0] = 0xd8e;
+			def.originalModelColors[0] = 0x1420;
+		}
+	}
+
 	public void setDefaults() {
 		anIntArray773 = null;
 		anIntArray776 = null;
@@ -338,12 +397,14 @@ public final class ObjectDef {
 		streamIndices474 = null;
 		cache = null;
 		stream474 = null;
+		stream525 = null;
+		streamIndices525 = null;
 	}
 
 	public static void unpackConfig(StreamLoader streamLoader) {
 		stream474 = new Stream(streamLoader.getDataForName("loc.dat"));
 		Stream idxBuffer474 = new Stream(streamLoader.getDataForName("loc.idx"));
-		
+
 		stream525 = new Stream(streamLoader.getDataForName("525loc.dat"));
 		Stream idxBuffer525 = new Stream(streamLoader.getDataForName("525loc.idx"));
 		int totalObjects474 = idxBuffer474.readUnsignedWord();
@@ -356,10 +417,9 @@ public final class ObjectDef {
 			streamIndices474[j] = i;
 			i += idxBuffer474.readUnsignedWord();
 		}
-		totalObjects474 = totalObjects525;
-		streamIndices525 = new int[totalObjects474];
+		streamIndices525 = new int[totalObjects525];
 		i = 2;
-		for (int j = 0; j < totalObjects474; j++) {
+		for (int j = 0; j < totalObjects525; j++) {
 			streamIndices525[j] = i;
 			i += idxBuffer525.readUnsignedWord();
 		}
@@ -521,9 +581,8 @@ public final class ObjectDef {
 			model_3.method478(anInt748, anInt740, anInt772);
 		if (flag2)
 			model_3.method475(anInt738, anInt745, anInt783);
-		//model_3.method479(64 + aByte737, 768 + aByte742 * 5, -50, -10, -50,
-				//!aBoolean769);
-		model_3.method479(74, 1000, -90, -580, -90, !aBoolean769);
+		model_3.method479(64 + aByte737, 768 + aByte742 * 5, -50, -10, -50,
+				!aBoolean769);
 		if (anInt760 == 1)
 			model_3.anInt1654 = model_3.modelHeight;
 		mruNodes2.removeFromCache(model_3, l1);

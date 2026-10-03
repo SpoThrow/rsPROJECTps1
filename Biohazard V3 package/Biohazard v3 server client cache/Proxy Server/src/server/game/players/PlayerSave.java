@@ -240,6 +240,8 @@ public class PlayerSave {
 						p.pTime = Integer.parseInt(token2);
 					} else if (token.equals("magic-book")) {
 						p.playerMagicBook = Integer.parseInt(token2);
+					} else if (token.equals("prayer-book")) {
+						p.altarPrayed = Integer.parseInt(token2);
 					} else if (token.equals("autocast-memory")) {
 						if (token2 != null && token2.length() > 0 && token3 != null && token3.length >= 3) {
 							int count = token3.length / 3;
@@ -559,6 +561,9 @@ public class PlayerSave {
 			characterfile.write("magic-book = ", 0, 13);
 			characterfile.write(Integer.toString(p.playerMagicBook), 0, Integer.toString(p.playerMagicBook).length());
 			characterfile.newLine();
+			characterfile.write("prayer-book = ", 0, 14);
+			characterfile.write(Integer.toString(p.altarPrayed), 0, Integer.toString(p.altarPrayed).length());
+			characterfile.newLine();
 			characterfile.write("autocast-memory = ", 0, 18);
 			StringBuilder autocastMem = new StringBuilder();
 			for (int j = 0; j < p.autocastMemWeapon.length; j++) {
@@ -825,7 +830,91 @@ public class PlayerSave {
 			return false;
 		}
 		return true;
-	}	
-	
+	}
+
+	private static String lastMatchedName;
+
+	public static String matchedCharacterName(String query) {
+		return lastMatchedName;
+	}
+
+	public static File characterFile(String name) {
+		if (name == null || name.length() == 0) {
+			return null;
+		}
+		File exact = new File("./Data/characters/" + name + ".txt");
+		if (exact.exists()) {
+			lastMatchedName = name;
+			return exact;
+		}
+		File formatted = new File("./Data/characters/" + Misc.formatPlayerName(name) + ".txt");
+		if (formatted.exists()) {
+			lastMatchedName = Misc.formatPlayerName(name);
+			return formatted;
+		}
+		File dir = new File("./Data/characters");
+		File[] files = dir.listFiles();
+		if (files == null) {
+			return null;
+		}
+		String wanted = name + ".txt";
+		for (int i = 0; i < files.length; i++) {
+			if (files[i].getName().equalsIgnoreCase(wanted)) {
+				String raw = files[i].getName();
+				lastMatchedName = raw.substring(0, raw.length() - 4);
+				return files[i];
+			}
+		}
+		return null;
+	}
+
+	public static boolean readSkills(String name, int[] levels, int[] xp) {
+		lastMatchedName = null;
+		File file = characterFile(name);
+		if (file == null) {
+			return false;
+		}
+		return readSkillsFromFile(file, levels, xp);
+	}
+
+	public static boolean readSkillsFromFile(File file, int[] levels, int[] xp) {
+		BufferedReader reader = null;
+		boolean any = false;
+		try {
+			reader = new BufferedReader(new FileReader(file));
+			String line;
+			while ((line = reader.readLine()) != null) {
+				line = line.trim();
+				if (!line.startsWith("character-skill")) {
+					continue;
+				}
+				int eq = line.indexOf('=');
+				if (eq < 0) {
+					continue;
+				}
+				String[] bits = line.substring(eq + 1).trim().split("\t");
+				if (bits.length < 3) {
+					continue;
+				}
+				int id = Integer.parseInt(bits[0].trim());
+				if (id < 0 || id >= levels.length) {
+					continue;
+				}
+				levels[id] = Integer.parseInt(bits[1].trim());
+				xp[id] = Integer.parseInt(bits[2].trim());
+				any = true;
+			}
+		} catch (Exception e) {
+			return false;
+		} finally {
+			if (reader != null) {
+				try {
+					reader.close();
+				} catch (IOException ignored) {
+				}
+			}
+		}
+		return any;
+	}
 
 }

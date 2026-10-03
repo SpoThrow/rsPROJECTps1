@@ -31,13 +31,24 @@ public class ByteStream {
 		return buffer.length;
 	}
 	
+	public int remaining()
+	{
+		if (buffer == null)
+			return 0;
+		return buffer.length - offset;
+	}
+
 	public byte getByte()
 	{
+		if (buffer == null || offset >= buffer.length)
+			return 0;
 		return buffer[offset++];
 	}
 
 	public int getUByte()
 	{
+		if (buffer == null || offset >= buffer.length)
+			return 0;
 		return buffer[offset++] & 0xff;
 	}
 
@@ -66,10 +77,14 @@ public class ByteStream {
 
 	public int getUSmart()
 	{
+		if (buffer == null || offset >= buffer.length)
+			return 0;
         int i = buffer[offset] & 0xff;
         if (i < 128) {
         	return getUByte();
         } else {
+        	if (remaining() < 2)
+        		return 0;
         	return getUShort() - 32768;
         }
     }
@@ -92,6 +107,12 @@ public class ByteStream {
 	
 	public byte[] read(int length)
 	{
+		if (length < 0)
+			length = 0;
+		if (buffer == null || offset >= buffer.length)
+			return new byte[0];
+		if (offset + length > buffer.length)
+			length = buffer.length - offset;
 		byte[] b = new byte[length];
 		for (int i = 0; i < length; i++)
 			b[i] = buffer[offset++];

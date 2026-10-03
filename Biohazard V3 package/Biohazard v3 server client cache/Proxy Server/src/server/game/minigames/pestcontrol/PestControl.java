@@ -8,7 +8,6 @@ import server.game.players.PlayerHandler;
 /**
  * PestControl.java
  *
- * @author Acquittal
  *
  */
 

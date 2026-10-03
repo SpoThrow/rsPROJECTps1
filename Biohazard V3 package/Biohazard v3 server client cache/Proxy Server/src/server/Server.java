@@ -49,7 +49,6 @@ import core.util.log.Logger;
  * @author Graham
  * @author Blake
  * @author Ryan Lmctruck30
- * @author Acquittal
  *
  */
 
@@ -85,9 +84,30 @@ public class Server {
 	public static Trawler trawler = new Trawler();
 	//public static ClanChatHandler clanChat = new ClanChatHandler();
 	public static FightCaves fightCaves = new FightCaves();
-	public static MainLoader vote = new MainLoader("localhost", "root", "------", "vote");
-	
+	public static MainLoader vote;
+
 	static {
+		java.io.PrintStream previousOut = System.out;
+		java.io.PrintStream previousErr = System.err;
+		java.io.ByteArrayOutputStream captured = new java.io.ByteArrayOutputStream();
+		java.io.PrintStream sink = new java.io.PrintStream(captured);
+		try {
+			System.setOut(sink);
+			System.setErr(sink);
+			vote = new MainLoader("localhost", "root", "------", "vote");
+		} catch (Throwable t) {
+			vote = null;
+		} finally {
+			System.setOut(previousOut);
+			System.setErr(previousErr);
+		}
+		String voteLog = captured.toString();
+		if (voteLog.indexOf("Error connecting") >= 0 || voteLog.indexOf("CommunicationsException") >= 0
+				|| voteLog.indexOf("Communications link failure") >= 0) {
+			System.out.println("[GTLVote] MySQL is not running on localhost; vote claims are disabled until the database is up.");
+		} else if (voteLog.length() > 0) {
+			System.out.print(voteLog);
+		}
 		if(!Config.SERVER_DEBUG) {
 			serverlistenerPort = 43594;
 		} else {
@@ -159,7 +179,7 @@ public class Server {
 		/**
 		 * Server Successfully Loaded 
 		 */
-		System.out.println("[Final Stage] Acquittal has been launched on localhost:" + serverlistenerPort + "...");
+		System.out.println("[Final Stage] " + Config.SERVER_NAME + " has been launched on localhost:" + serverlistenerPort + "...");
 		/**
 		 * Main Server Tick
 		 */

@@ -9,6 +9,12 @@ final class InventoryTags {
 	static final int ACTION_UNTAG = 1626;
 
 	static boolean enabled;
+	static int style;
+	static int opacity = 55;
+
+	static final int STYLE_UNDERLINE = 0;
+	static final int STYLE_OUTLINE = 1;
+	static final int STYLE_FILL = 2;
 
 	private static final int[] COLORS = { 0xFF3030, 0x30FF60, 0x3090FF, 0xFFFF00, 0xFF40FF, 0xFF981F };
 	private static final String[] NAMES = { "Red", "Green", "Blue", "Yellow", "Pink", "Orange" };
@@ -16,6 +22,8 @@ final class InventoryTags {
 
 	static void load(Properties props) {
 		enabled = readBool(props, "invTags", false);
+		style = clamp(readInt(props, "invTagStyle", 0), 0, 2);
+		opacity = clamp(readInt(props, "invTagOpacity", 55), 10, 100);
 		tags.clear();
 		String packed = props.getProperty("invTagList", "");
 		if (packed == null || packed.length() == 0) {
@@ -37,6 +45,8 @@ final class InventoryTags {
 
 	static void save(Properties props) {
 		props.setProperty("invTags", Boolean.toString(enabled));
+		props.setProperty("invTagStyle", Integer.toString(style));
+		props.setProperty("invTagOpacity", Integer.toString(opacity));
 		StringBuffer sb = new StringBuffer();
 		Iterator it = tags.entrySet().iterator();
 		while (it.hasNext()) {
@@ -104,13 +114,67 @@ final class InventoryTags {
 		c.pushMessage("Tagged " + NAMES[idx].toLowerCase() + ".", 0, "");
 	}
 
+	static void cycleStyle() {
+		style = (style + 1) % 3;
+	}
+
+	static String styleLabel() {
+		if (style == STYLE_OUTLINE) {
+			return "Outline";
+		}
+		if (style == STYLE_FILL) {
+			return "Fill";
+		}
+		return "Underline";
+	}
+
+	static void setOpacity(int value) {
+		opacity = clamp(value, 10, 100);
+	}
+
 	static void drawSlot(int itemId, int x, int y) {
 		int color = colorOf(itemId);
 		if (color == 0) {
 			return;
 		}
+		int alpha = 20 + (opacity * 180) / 100;
+		if (style == STYLE_FILL) {
+			DrawingArea.method335(color, y + 1, 31, 31, alpha, x + 1);
+			return;
+		}
+		if (style == STYLE_OUTLINE) {
+			int x2 = x + 31;
+			int y2 = y + 31;
+			DrawingArea.drawLine(x + 1, y + 1, x2, y + 1, color);
+			DrawingArea.drawLine(x + 1, y2, x2, y2, color);
+			DrawingArea.drawLine(x + 1, y + 1, x + 1, y2, color);
+			DrawingArea.drawLine(x2, y + 1, x2, y2, color);
+			if (opacity >= 60) {
+				DrawingArea.drawLine(x + 2, y + 2, x2 - 1, y + 2, color);
+				DrawingArea.drawLine(x + 2, y2 - 1, x2 - 1, y2 - 1, color);
+			}
+			return;
+		}
 		DrawingArea.drawLine(x + 2, y + 30, x + 30, y + 30, color);
 		DrawingArea.drawLine(x + 2, y + 29, x + 30, y + 29, color);
+	}
+
+	private static int clamp(int v, int min, int max) {
+		if (v < min) {
+			return min;
+		}
+		if (v > max) {
+			return max;
+		}
+		return v;
+	}
+
+	private static int readInt(Properties props, String key, int def) {
+		try {
+			return Integer.parseInt(props.getProperty(key, Integer.toString(def)));
+		} catch (Exception e) {
+			return def;
+		}
 	}
 
 	private static boolean isInvAction(int id) {

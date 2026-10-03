@@ -30,6 +30,18 @@ public class NPC {
 	public boolean walkingHome, underAttack, applyDead, isDead, needRespawn, respawns;
 	public boolean worldAdventurer;
 	public int freezeTimer, attackTimer, killerId, killedBy, oldIndex, underAttackBy;
+	public int phaseChange = -1;
+	/** Nex protect: 0 melee, 1 range, 2 mage, 3 wrath; -1 unset. */
+	public int protectStyle = -1;
+	public int prayerSwitchTimer = 0;
+	public int transformId = -1;
+	public boolean transformUpdateRequired;
+	/** Set when Nex ice special should bind the target this hit. */
+	public boolean nexIceBind;
+	/** Blood reaver → owning Nex npc slot (-1 none). */
+	public int nexLink = -1;
+	/** Nex: Blood reavers spawned once per fight (first Soul Split). */
+	public boolean nexReaversSpawned = false;
 	public long lastDamageTaken;
 	public boolean randomWalk;
 	public boolean dirUpdateRequired;
@@ -173,7 +185,8 @@ public class NPC {
 		if(mask80update) updateMask |= 0x80;
 		if(dirUpdateRequired) updateMask |= 0x20;
 		if(forcedChatRequired) updateMask |= 1;
-		if(hitUpdateRequired) updateMask |= 0x40;		
+		if(hitUpdateRequired) updateMask |= 0x40;
+		if(transformUpdateRequired) updateMask |= 2;
 		if(FocusPointX != -1) updateMask |= 4;		
 			
 		str.writeByte(updateMask);
@@ -186,8 +199,13 @@ public class NPC {
 			str.writeString(forcedText);
 		}
 		if (hitUpdateRequired)  appendHitUpdate(str);
+		if (transformUpdateRequired) appendTransformUpdate(str);
 		if(FocusPointX != -1) appendSetFocusDestination(str);
 		
+	}
+
+	public void appendTransformUpdate(Stream str) {
+		str.writeWordBigEndianA(transformId);
 	}
 
 	public void clearUpdateFlags() {
@@ -195,9 +213,12 @@ public class NPC {
 		forcedChatRequired = false;
 		hitUpdateRequired = false;
 		hitUpdateRequired2 = false;
+		hitIcon = 0;
+		hitIcon2 = 0;
 		animUpdateRequired = false;
 		dirUpdateRequired = false;
 		mask80update = false;
+		transformUpdateRequired = false;
 		forcedText = null;
 		moveX = 0;
 		moveY = 0;
@@ -226,51 +247,94 @@ public class NPC {
 	}
 
 	public void getNextNPCMovement(int i) {
-		//direction = -1;
-		if(NPCHandler.npcs[i].freezeTimer == 0) {
-			direction = getNextWalkingDirection();
+		if (freezeTimer > 0) {
+			moveX = 0;
+			moveY = 0;
+			direction = -1;
+			return;
 		}
+		direction = getNextWalkingDirection();
 	}
 
+
+	/** 317 hit updates send HP as a single byte — scale when MaxHP > 255. */
+	private int packetHp() {
+		if (MaxHP <= 255) {
+			return HP < 0 ? 0 : HP;
+		}
+		if (HP <= 0) {
+			return 0;
+		}
+		int shown = (int) (((long) HP * 255L) / MaxHP);
+		return shown < 1 ? 1 : shown;
+	}
+
+	private int packetMaxHp() {
+		return MaxHP > 255 ? 255 : MaxHP;
+	}
 
 	public void appendHitUpdate(Stream str) {		
 		if (HP <= 0) {
 			isDead = true;
 		}
-		str.writeByteC(hitDiff); 
-		if (hitDiff > 0) {
-			str.writeByteS(1); 
-		} else {
-			str.writeByteS(0); 
-		}	
-		str.writeByteS(HP); 
-		str.writeByteC(MaxHP); 	
+		str.writeByteC(hitDiff);
+		// 0 miss (blue), 1 damage (red), 2 poison, 3 heal (purple).
+		// Many combat paths set hitDiff without hitIcon — derive red/blue from damage.
+		int type = hitIcon;
+		if (type != 2 && type != 3) {
+			type = hitDiff > 0 ? 1 : 0;
+		}
+		str.writeByteS(type);	
+		str.writeByteS(packetHp()); 
+		str.writeByteC(packetMaxHp()); 	
 	}
 	
 	public int hitDiff2 = 0;
 	public boolean hitUpdateRequired2 = false;
+	/** 0 miss, 1 damage, 2 poison, 3 heal (purple). */
+	public int hitIcon = 0;
+	public int hitIcon2 = 0;
 	
 	public void appendHitUpdate2(Stream str) {		
 		if (HP <= 0) {
 			isDead = true;
 		}
-		str.writeByteA(hitDiff2); 
-		if (hitDiff2 > 0) {
-			str.writeByteC(1); 
-		} else {
-			str.writeByteC(0); 
-		}	
-		str.writeByteA(HP); 
-		str.writeByte(MaxHP); 	
+		str.writeByteA(hitDiff2);
+		int type = hitIcon2;
+		if (type != 2 && type != 3) {
+			type = hitDiff2 > 0 ? 1 : 0;
+		}
+		str.writeByteC(type);
+		str.writeByteA(packetHp()); 
+		str.writeByte(packetMaxHp()); 	
 	}
 	
 	public void handleHitMask(int damage) {
 		if (!hitUpdateRequired) {
 			hitUpdateRequired = true;
 			hitDiff = damage;
+			hitIcon = damage > 0 ? 1 : 0;
 		} else if (!hitUpdateRequired2) {
 			hitUpdateRequired2 = true;
-			hitDiff2 = damage;		
+			hitDiff2 = damage;
+			hitIcon2 = damage > 0 ? 1 : 0;
+		}
+		updateRequired = true;
+	}
+
+	/** Purple heal hitsplat (Soul Split / Blood reaver heal). */
+	public void handleHealHitMask(int amount) {
+		if (amount <= 0) {
+			return;
+		}
+		if (!hitUpdateRequired) {
+			hitUpdateRequired = true;
+			hitDiff = amount;
+			hitIcon = 3;
+		} else if (!hitUpdateRequired2) {
+			hitUpdateRequired2 = true;
+			hitDiff2 = amount;
+			hitIcon2 = 3;
 		}
 		updateRequired = true;
 	}

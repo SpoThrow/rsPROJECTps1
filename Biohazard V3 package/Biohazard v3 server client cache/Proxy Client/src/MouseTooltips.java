@@ -18,16 +18,35 @@ final class MouseTooltips {
 		props.setProperty("mouseTipsChat", Boolean.toString(chatbox));
 	}
 
+	static boolean skipTab(int tabId, int openInterfaceId) {
+		if (tabId == 1 || tabId == 5 || tabId == 6) {
+			return true;
+		}
+		if (openInterfaceId == 15106 || openInterfaceId == 17100 || openInterfaceId == 18100) {
+			return true;
+		}
+		return false;
+	}
+
 	static boolean skip(String s) {
 		if (s == null) {
 			return true;
 		}
 		String t = strip(s).toLowerCase();
-		return t.startsWith("walk here") || t.equals("cancel") || t.startsWith("continue") || t.startsWith("move");
+		if (t.startsWith("walk here") || t.equals("cancel") || t.startsWith("continue") || t.startsWith("move")) {
+			return true;
+		}
+		if (t.indexOf("auto retaliat") >= 0 || t.indexOf("retaliate") >= 0) {
+			return true;
+		}
+		return false;
 	}
 
 	static void drawAtMouse(client c, String raw, int mouseX, int mouseY) {
 		if (!enabled || c == null || c.smallText == null || raw == null) {
+			return;
+		}
+		if (skipTab(client.tabID, c.openInterfaceID)) {
 			return;
 		}
 		if (skip(raw)) {
@@ -38,25 +57,36 @@ final class MouseTooltips {
 		if (cut > 0) {
 			text = text.substring(0, cut);
 		}
+		String note = FriendNotes.noteFromMenu(raw);
 		int w = c.smallText.getTextWidth(text) + 8;
 		int h = 16;
+		if (note != null && note.length() > 0) {
+			int nw = c.smallText.getTextWidth(note) + 8;
+			if (nw > w) {
+				w = nw;
+			}
+			h = 30;
+		}
 		int x = mouseX + 12;
-		int y = mouseY + 12;
+		int y = mouseY - h - 6;
 		if (x + w > DrawingArea.bottomX) {
 			x = mouseX - w - 4;
 		}
+		if (y < DrawingArea.topY) {
+			y = mouseY + 16;
+		}
 		if (y + h > DrawingArea.bottomY) {
-			y = mouseY - h - 4;
+			y = DrawingArea.bottomY - h;
 		}
 		if (x < DrawingArea.topX) {
 			x = DrawingArea.topX;
 		}
-		if (y < DrawingArea.topY) {
-			y = DrawingArea.topY;
-		}
-		DrawingArea.method335(0x000000, y, w, h, 180, x);
-		DrawingArea.fillPixels(x, w, h, 0x5A4933, y);
+		DrawingArea.method335(0x000000, y, w, h, 210, x);
+		DrawingArea.fillPixels(x, w, h, 0xC6B895, y);
 		c.smallText.method385(0xffffff, text, y + 12, x + 4);
+		if (note != null && note.length() > 0) {
+			c.smallText.method385(0xFFE14A, note, y + 26, x + 4);
+		}
 	}
 
 	private static String strip(String s) {

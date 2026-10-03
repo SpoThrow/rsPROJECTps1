@@ -10,10 +10,6 @@ import server.game.objects.Object;
 import server.game.players.Client;
 import server.world.Tile;
 
-/**
- * @author Acquittal - Done
- **/
-
 public class Firemaking {
 
 	Client c;

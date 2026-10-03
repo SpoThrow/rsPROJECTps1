@@ -9,7 +9,6 @@ import server.game.players.Player;
 /**
  * Agility.java
  * 
- * @author Acquittal
  *
  *
  **/

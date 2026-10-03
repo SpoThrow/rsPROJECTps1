@@ -60,7 +60,6 @@ public class ClickNPC implements PacketType {
 			}
 			c.followId2 = c.npcIndex;
 			c.faceUpdate(c.npcIndex);
-			c.getPA().followNpc();		
 			c.usingMagic = false;
 			boolean usingBow = false;
 			boolean usingOtherRangeWeapons = false;
@@ -108,11 +107,11 @@ public class ClickNPC implements PacketType {
 			}
 			
 			if (c.followId > 0) {
-				c.getPA().resetFollow();			
+				c.getPA().resetFollow();
 			}
+			c.getPA().followNpc();
 			if (c.attackTimer <= 0) {
 				c.getCombat().attackNpc(c.npcIndex);
-				c.attackTimer++;
 			}	
 			
 			break;
@@ -171,15 +170,14 @@ public class ClickNPC implements PacketType {
 			
 			if (c.autocasting)
 				c.autocasting = false;
-			
+
 			if(c.usingMagic) {
 				if(c.goodDistance(c.getX(), c.getY(), NPCHandler.npcs[c.npcIndex].getX(), NPCHandler.npcs[c.npcIndex].getY(), 6)) {
 					c.stopMovement();
 				}
 				if (c.attackTimer <= 0) {
 					c.getCombat().attackNpc(c.npcIndex);
-					c.attackTimer++;
-				}	
+				}
 			}
 	
 			break;

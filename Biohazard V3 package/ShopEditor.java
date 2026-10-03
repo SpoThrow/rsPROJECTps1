@@ -142,7 +142,7 @@ public class ShopEditor extends JFrame {
     private List<String> redoStack = new ArrayList<>();
 
     public ShopEditor() {
-        setTitle("Biohazard Shop Editor");
+        setTitle("Soul-Trail Shop Editor");
         setSize(1200, 700);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
@@ -2388,7 +2388,7 @@ public class ShopEditor extends JFrame {
         if (npcDropsFile != null) {
             try (PrintWriter writer = new PrintWriter(new FileWriter(npcDropsFile))) {
                 writer.println("################################");
-                writer.println("#  NPC DROPS LIST FOR BIOHAZARD  #");
+                writer.println("#  NPC DROPS LIST FOR SOUL-TRAIL  #");
                 writer.println("################################");
                 writer.println("#  GUIDELINES FOR FORMATTING   #");
                 writer.println("#       ID:AMOUNT:RARITY       #");

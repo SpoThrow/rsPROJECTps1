@@ -752,9 +752,9 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 	 **/
 	public void loadQuests() {
 		// c.getAA2().sendQuestTab();
-				sendFrame126("Biohazard", 640);
+				sendFrame126("Soul-Trail", 640);
 				sendFrame126("", 13136);
-				sendFrame126("Welcome to Biohazard", 663);
+				sendFrame126("Welcome to Soul-Trail", 663);
 				sendFrame126("", 673);
 				sendFrame126("@red@[@or1@Assault@red@] Points: @or2@"+c.assaultPoints, 7332);
 				sendFrame126("@red@[@or1@Donated@red@] Amount: @or2@"+c.donated, 7333);
@@ -4383,13 +4383,13 @@ public void underWaterTele() {
 		Connection.addIpToStarterList1(PlayerHandler.players[c.playerId].connectedFrom);
 		Connection.addIpToStarter1(PlayerHandler.players[c.playerId].connectedFrom);
 		//c.sendMessage("@red@Thanks for joining! You have received a special item: Whip.");
-		c.sendMessage("@red@Thanks for joining Biohazard!");
+		c.sendMessage("@red@Thanks for joining Soul-Trail!");
 		c.sendMessage("@red@Rub the lamp to advance a level to 70!");
 		c.sendMessage("@red@Type ::train to train instantly.");
 		for (int j = 0; j < PlayerHandler.players.length; j++) {
 			if (PlayerHandler.players[j] != null) {
 				Client c2 = (Client)PlayerHandler.players[j];
-				c2.sendMessage("@cr1@@red@[Biohazard] @dre@"+c.playerName+" has joined Biohazard for the first time!");
+				c2.sendMessage("@cr1@@red@[Soul-Trail] @dre@"+c.playerName+" has joined Soul-Trail for the first time!");
 			}
 		}
 	} else if (Connection.hasRecieved1stStarter(PlayerHandler.players[c.playerId].connectedFrom) && !Connection.hasRecieved2ndStarter(PlayerHandler.players[c.playerId].connectedFrom)) {

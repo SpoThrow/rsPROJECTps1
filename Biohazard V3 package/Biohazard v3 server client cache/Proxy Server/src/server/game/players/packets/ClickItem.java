@@ -148,7 +148,8 @@ public class ClickItem implements PacketType {
 			break;
 			
 		case 4155:
-			c.getDH().sendDialogues(784, 0);
+		case 15051:
+			c.getSlayer().checkTask();
 			break;
 			
 		case 4447:

@@ -10,7 +10,6 @@ import server.game.players.Client;
 import core.util.Misc;
  
 /**
- * @author Acquittal
  **/
 
 public class Cooking extends SkillHandler {

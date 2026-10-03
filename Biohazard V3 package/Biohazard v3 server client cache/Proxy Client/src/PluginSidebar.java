@@ -21,9 +21,11 @@ import java.util.ArrayList;
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
+import javax.swing.JColorChooser;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollBar;
 import javax.swing.JScrollPane;
@@ -32,6 +34,7 @@ import javax.swing.ScrollPaneConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
+import javax.swing.plaf.basic.BasicButtonUI;
 import javax.swing.plaf.basic.BasicScrollBarUI;
 
 /**
@@ -47,6 +50,7 @@ final class PluginSidebar {
 	static boolean sidebarOut = true;
 	static final int TAB_CONFIG = 0;
 	static final int TAB_LOOT = 1;
+	static final int TAB_HISCORE = 2;
 	static int selectedTab = TAB_CONFIG;
 
 	private static final Color DARKER = new Color(30, 30, 30);
@@ -59,6 +63,8 @@ final class PluginSidebar {
 	private static final Color HOVER = new Color(60, 60, 60);
 	private static final Color SCROLL_TRACK = new Color(25, 25, 25);
 	private static final Color SELECTED_TAB = new Color(50, 42, 28);
+	private static final Color CHIP_BG = new Color(72, 72, 72);
+	private static final Color CHIP_BORDER = new Color(140, 140, 140);
 	private static final Font TITLE_FONT = new Font("SansSerif", Font.PLAIN, 16);
 	private static final Font ROW_FONT = new Font("SansSerif", Font.PLAIN, 12);
 	private static final Font SMALL_FONT = new Font("SansSerif", Font.PLAIN, 12);
@@ -74,6 +80,7 @@ final class PluginSidebar {
 	private static JLabel clearSearch;
 	private static JPanel wrench;
 	private static JPanel lootTab;
+	private static JPanel hiscoreTab;
 	private static JLabel configTitle;
 	private static ToggleSwitch configToggle;
 	private static PluginDef openPlugin;
@@ -94,6 +101,7 @@ final class PluginSidebar {
 		pluginHost.setBackground(DARK);
 		pluginHost.add(configPanel, "config");
 		pluginHost.add(LootTracker.buildPanel(), "loot");
+		pluginHost.add(HiscoresPanel.buildPanel(), "hiscore");
 		pluginHost.setVisible(open);
 		east.add(pluginHost, BorderLayout.CENTER);
 		east.add(buildIconBar(), BorderLayout.EAST);
@@ -120,7 +128,7 @@ final class PluginSidebar {
 	}
 
 	static void selectTab(int tab) {
-		if (tab != TAB_LOOT) {
+		if (tab != TAB_LOOT && tab != TAB_HISCORE) {
 			tab = TAB_CONFIG;
 		}
 		if (sidebarOut && open && selectedTab == tab) {
@@ -141,13 +149,7 @@ final class PluginSidebar {
 	}
 
 	static String windowTitle() {
-		if (!sidebarOut || !open) {
-			return "Biohazard";
-		}
-		if (selectedTab == TAB_LOOT) {
-			return "Loot Tracker";
-		}
-		return "Configuration";
+		return "Soul-Trail";
 	}
 
 	static void toggleSidebar() {
@@ -189,6 +191,10 @@ final class PluginSidebar {
 			lootTab.setBackground(tabOn(TAB_LOOT) ? SELECTED_TAB : DARKER);
 			lootTab.repaint();
 		}
+		if (hiscoreTab != null) {
+			hiscoreTab.setBackground(tabOn(TAB_HISCORE) ? SELECTED_TAB : DARKER);
+			hiscoreTab.repaint();
+		}
 		TitleBar.sync();
 	}
 
@@ -198,7 +204,13 @@ final class PluginSidebar {
 
 	private static void showPluginCard() {
 		if (pluginCards != null && pluginHost != null) {
-			pluginCards.show(pluginHost, selectedTab == TAB_LOOT ? "loot" : "config");
+			String card = "config";
+			if (selectedTab == TAB_LOOT) {
+				card = "loot";
+			} else if (selectedTab == TAB_HISCORE) {
+				card = "hiscore";
+			}
+			pluginCards.show(pluginHost, card);
 		}
 	}
 
@@ -299,8 +311,20 @@ final class PluginSidebar {
 				selectTab(TAB_LOOT);
 			}
 		});
+		hiscoreTab = new IconTab(TAB_HISCORE);
+		hiscoreTab.setBackground(tabOn(TAB_HISCORE) ? SELECTED_TAB : DARKER);
+		hiscoreTab.setAlignmentX(0.5f);
+		hiscoreTab.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+		hiscoreTab.setToolTipText("Look up a player name on this server");
+		hiscoreTab.addMouseListener(new MouseAdapter() {
+			public void mouseClicked(MouseEvent e) {
+				selectTab(TAB_HISCORE);
+			}
+		});
 		bar.add(javax.swing.Box.createVerticalStrut(4));
 		bar.add(wrench);
+		bar.add(javax.swing.Box.createVerticalStrut(2));
+		bar.add(hiscoreTab);
 		bar.add(javax.swing.Box.createVerticalStrut(2));
 		bar.add(lootTab);
 		bar.add(javax.swing.Box.createVerticalGlue());
@@ -469,7 +493,8 @@ final class PluginSidebar {
 		configRows.clear();
 		configItems.removeAll();
 		for (int i = 0; i < def.optionIds.length; i++) {
-			ConfigItem item = new ConfigItem(def.optionIds[i], def.optionNames[i]);
+			String tip = def.optionTips != null && i < def.optionTips.length ? def.optionTips[i] : def.optionNames[i];
+			ConfigItem item = new ConfigItem(def.optionIds[i], def.optionNames[i], tip);
 			configRows.add(item);
 			configItems.add(item);
 		}
@@ -512,65 +537,136 @@ final class PluginSidebar {
 
 	private static PluginDef[] defs() {
 		return new PluginDef[] {
-			def("Ammo Overlay", 24263, null, null),
-			def("Anti Drag", 24264, ids(24265, 24266), names("Shift only", "Delay")),
-			def("Attack Styles", 24224, ids(24267), names("Warn skill")),
-			def("Barrows Brothers", 24408, null, null),
-			def("Boosted Stats", 24221, ids(24223), names("Show as +N")),
-			def("Boss Timers", 24276, null, null),
-			def("Cannon", 24400, ids(24401, 24402, 24403, 24404),
-					names("Infobox", "Low-ball warning", "Double-hit tiles", "Cannon spots")),
-			def("Chat Channels", 24411, ids(24412), names("Join/leave messages")),
-			def("Chat History", 24410, null, null),
-			def("Chat Timestamps", 24243, null, null),
-			def("Client Display", 0, ids(24210, 24248, 24211, 24212, 24213, 24215, 24216, 24217, 24233, 24234, 24231, 24232),
-					names("Resizable client", "Inventory tab", "Distance fog", "Anti-aliasing",
+			def("Ammo Overlay", "Shows remaining ammo beside the weapon when ranging.", 24263, null, null),
+			def("Anti Drag", "Adds a short delay before inventory items start dragging so you do not miss-click.", 24264,
+					ids(24265, 24266), names("Shift only", "Delay"),
+					tips("Only apply the delay while Shift is held.", "Click and type a delay in milliseconds (1-80).")),
+			def("Attack Styles", "Shows your current combat style and can warn when a style trains the wrong skill.", 24224,
+					ids(24267), names("Warn skill"),
+					tips("Warns if the selected attack style would train this skill.")),
+			def("Barrows Brothers", "Tracks which Barrows brothers you have killed this run.", 24408, null, null),
+			def("Boosted Stats", "Shows stat boosts as text or as potion-icon infoboxes.", 24221,
+					ids(24223, 24425), names("Show as +N", "Info box icons"),
+					tips("Display boosts as +N instead of current/max.", "Show each boost as an item icon plus the remaining boost.")),
+			def("Boss Timers", "Counts down boss respawns on the death tile and as an infobox.", 24276, null, null),
+			def("Cannon", "Tracks dwarf multicannon balls, spots, and double-hit tiles.", 24400,
+					ids(24401, 24402, 24403, 24404),
+					names("Infobox", "Low-ball warning", "Double-hit tiles", "Cannon spots"),
+					tips("Show a cannonball icon and remaining balls.", "Click and type how many balls left before a warning (0-50).",
+							"Highlight tiles where the cannon hits twice.", "Mark common cannon setup spots.")),
+			def("Chat Channels", "Clan chat join and leave handling.", 24411, ids(24412), names("Join/leave messages"),
+					tips("Show clan join and leave messages in chat.")),
+			def("Chat History", "Keeps typed chat after sending so you can press up to reuse it.", 24410, null, null),
+			def("Chat Timestamps", "Prefixes game chat with the time the message arrived.", 24243, null, null),
+			def("Client Display", "Window, fog, anti-aliasing, draw distance, zoom, and performance options.", 0,
+					new int[] { 24210, 24248, 24245, 24431, 24432, 24211, 24212, 24213, 24215, 24216, 24217, 24233, 24234,
+							24434, 24435, 24231, 24232 },
+					new String[] { "Resizable client", "Inventory tab", "Chat box", "Chat scrollbar", "Chat click-through",
+							"Distance fog", "Anti-aliasing",
 							"Animation smoothing", "Draw distance", "Ground blending", "Hide roofs",
-							"OpenGL acceleration", "FPS cap", "Performance stats", "Show ping")),
-			def("Combat Level", 24409, null, null),
-			def("Destination Tile", 24241, null, null),
-			def("Friend List", 24413, null, null),
-			def("Friend Notes", 24414, null, null),
-			def("Ground Items", 24219, ids(24239, 24240, 24420, 24421),
-					names("Hide loot below", "Loot beams", "Beam style", "Drop fanfare")),
-			def("Ground Markers", 24229, null, null),
-			def("Implings", 24405, ids(24406, 24407), names("Names", "Notify")),
-			def("Inventory Tags", 24268, null, null),
-			def("Item Stats", 24275, null, null),
-			def("Key Remapping", 24310, ids(24228, 24311, 24312, 24313),
-					names("Open key bind setup", "Enter to chat", "Space to continue", "WASD camera")),
-			def("Low HP/Prayer Flash", 24247, null, null),
-			def("Menu Entry Swapper", 24227, null, null),
-			def("Middle-click Wear", 24237, null, null),
-			def("Mouse Tooltips", 24269, null, null),
-			def("NPC Attack", 24225, null, null),
-			def("NPC Health Overlay", 24220, null, null),
-			def("NPC Indicators", 24253, ids(24254, 24255, 24256, 24257, 24258, 24259, 24260),
-					names("Hull", "Tile", "True tile", "South-west tile", "Colour", "Names", "Minimap names")),
-			def("Object Markers", 24270, null, null),
-			def("Player Attack", 24226, null, null),
-			def("Player Indicators", 24271, ids(24272, 24273, 24274, 24277, 24278, 24279, 24280),
-					names("Names", "Tiles", "Minimap names", "Friends", "Team", "Others", "Self")),
-			def("Poison", 24415, null, null),
-			def("Regeneration Meter", 24416, null, null),
-			def("Shift-click Drop", 24236, null, null),
-			def("Silent Screenshots", 24244, null, null),
-			def("Slayer", 24261, ids(24262, 24281), names("Highlight task NPCs", "Count on gem/helm")),
-			def("Special Attack Orb", 24238, null, null),
-			def("Status Bars", 24417, ids(24418, 24419), names("Numbers", "Heal preview")),
-			def("Status Timers", 24246, null, null),
-			def("Tile Markers", 24218, null, null),
-			def("True Tile", 24242, null, null),
-			def("XP Drops", 24222, ids(24235, 24422), names("Drop speed", "Group XP drops"))
+							"OpenGL acceleration", "FPS cap", "Zoom sensitivity", "Reset camera zoom",
+							"Performance stats", "Show ping" },
+					new String[] { "Switch between fixed 765x503 and a resizable window.",
+							"Solid or transparent inventory panel in resizable mode.",
+							"Solid or frosted-glass chatbox in resizable mode.",
+							"Put the chat scrollbar on the left or right.",
+							"Click through the transparent chat message area to the game world. Resizable transparent chat only.",
+							"How strong distance fog is.",
+							"Off / Low / Medium / High / Ultra. Crisp silhouette edges only — no blur.",
+							"Smooths animation frames between ticks.",
+							"Click and type how many tiles to render (5-90).",
+							"Blend ground textures between tiles.",
+							"Hide roof tiles while indoors.",
+							"Present frames with OpenGL. Restart after changing.",
+							"Unlock the 50 FPS present cap. Game ticks stay at 50.",
+							"Mouse-wheel zoom speed. Default is 100%. Click and type 25-300.",
+							"Restore camera zoom to the default closeness (600). Does not change sensitivity.",
+							"Show FPS, memory, and GL stats.",
+							"Show ping to the game server." }),
+			def("Destination Tile", "Highlights the tile you clicked to walk to.", 24241, null, null),
+			def("Friend List", "Shows friend and ignore list capacity on the tab.", 24413, null, null),
+			def("Friend Notes", "Right-click a friend to attach a private note, shown when you hover their name.", 24414, null, null),
+			def("Ground Items", "Names, hide-value, loot beams, and drop sounds for items on the ground. Hold Alt for +/- lists.", 24219,
+					ids(24239, 24240, 24420, 24421, 24426, 24427, 24428, 24429),
+					names("Hide loot below", "Loot beams", "Beam style", "Drop fanfare", "Name shadow", "Name size", "Whitelist", "Blacklist"),
+					tips("Hide ground-item names cheaper than this value.",
+							"Show a loot beam on drops worth at least this value.",
+							"Visual style of the loot beam.",
+							"Play a sound when valuable loot drops.",
+							"Black shadow or outline behind item names for readability.",
+							"Size of ground item name text.",
+							"Always show these items (bypasses hide-value). Hold Alt and click +.",
+							"Hide these items. Hold Alt to see them grey and click + to restore.")),
+			def("Ground Markers", "Mark tiles with Alt. Colours cycle if you mark the same tile again.", 24229, null, null),
+			def("Implings", "Highlights implings on the minimap and can notify when one appears.", 24405,
+					ids(24406, 24407), names("Names", "Notify"),
+					tips("Draw impling names on the minimap.", "Chat a message when an impling spawns nearby.")),
+			def("Inventory Tags", "Shift-right-click an item to colour-tag it. Outline, fill, or underline.", 24268,
+					ids(24423, 24424), names("Tag style", "Fill opacity"),
+					tips("Underline, outline, or fill tagged inventory slots.",
+							"Click and type fill/outline strength (10-100%).")),
+			def("Item Stats", "Hover food or potions in the inventory to preview heals and boosts.", 24275, null, null),
+			def("Key Remapping", "F-keys, Enter-to-chat, space to continue, and WASD camera.", 24310,
+					ids(24228, 24311, 24312, 24313),
+					names("Open key bind setup", "Enter to chat", "Space to continue", "WASD camera"),
+					tips("Open the key-bind overlay.", "Enter focuses chat instead of clicking.",
+							"Space clicks Continue on dialogues.", "WASD pans the camera while unlocked.")),
+			def("Low HP/Prayer Flash", "Flashes the HP and prayer orbs when they run low.", 24247, null, null),
+			def("Menu Entry Swapper", "Left-click the most useful option on NPCs, objects, and items.", 24227, null, null),
+			def("Middle-click Wear", "Middle-click an equipable inventory item to wear it.", 24237, null, null),
+			def("Mouse Tooltips", "Shows the left-click action next to the cursor. Skips tabs that already have tooltips.", 24269, null, null),
+			def("NPC Attack", "Choose whether Attack is left-click on NPCs.", 24225, null, null),
+			def("NPC Health Overlay", "Draws hitpoints over NPCs you are fighting.", 24220, null, null),
+			def("NPC Indicators", "Highlight tagged NPCs with hulls, tiles, names, and a colour of your choice.", 24253,
+					ids(24254, 24255, 24256, 24257, 24258, 24259, 24260),
+					names("Hull", "Tile", "True tile", "South-west tile", "Colour", "Names", "Minimap names"),
+					tips("Draw an outline around the NPC model.", "Fill the NPC's occupied tiles.",
+							"Highlight the true tile under the NPC.", "Highlight the south-west tile of large NPCs.",
+							"Click to open a colour picker. Stores an RGB value.",
+							"Draw NPC names in the world.", "Draw NPC names on the minimap.")),
+			def("Object Markers", "Shift or Alt right-click an object to mark its tiles.", 24270, null, null),
+			def("Player Attack", "Choose whether Attack is left-click on players.", 24226, null, null),
+			def("Player Indicators", "Highlight friends, clan, and other players.", 24271,
+					ids(24272, 24273, 24274, 24277, 24278, 24279, 24280),
+					names("Names", "Tiles", "Minimap names", "Friends", "Team", "Others", "Self"),
+					tips("Draw player names over their models.", "Fill tiles under highlighted players.",
+							"Draw names on the minimap.", "Highlight friends.", "Highlight clan/team members.",
+							"Highlight other players.", "Highlight your own player.")),
+			def("Poison", "Shows poison damage and when it will wear off.", 24415, null, null),
+			def("Regeneration Meter", "Hitpoint regeneration progress on the HP orb.", 24416, null, null),
+			def("Shift-click Drop", "Hold Shift and left-click to drop an inventory item.", 24236, null, null),
+			def("Shift-click Walk Here", "Hold Shift and left-click an NPC or object to Walk here (walk under).", 24433, null, null),
+			def("Silent Screenshots", "F12 captures without the screenshot sound.", 24244, null, null),
+			def("Slayer", "Task remaining on the gem, slayer helm, and black mask, plus an infobox.", 24261,
+					ids(24262, 24281), names("Highlight task NPCs", "Count on gem/helm"),
+					tips("Highlight NPCs that match your slayer task.",
+							"Draw remaining kills on the enchanted gem, slayer helmet, and black mask.")),
+			def("Special Attack Orb", "Shows special-attack energy on the orb.", 24238, null, null),
+			def("Status Bars", "Hitpoint and prayer bars in the inventory stone columns, like Old School RuneScape.", 24417,
+					ids(24418, 24419), names("Numbers", "Heal preview"),
+					tips("Draw the current value on the bar.", "Preview how much food would heal.")),
+			def("Status Timers", "Infobox timers for freeze, vengeance, teleblock, and related effects.", 24246, null, null),
+			def("Tile Markers", "Shows a hover outline on the tile under your mouse.", 24218, null, null),
+			def("True Tile", "Highlights the tile your player actually occupies.", 24242, null, null),
+			def("XP Drops", "Floating XP drops when you gain experience.", 24222, ids(24235, 24422),
+					names("Drop speed", "Group XP drops"),
+					tips("How fast drops travel. Cycles Low through Fastest.",
+							"Combine XP drops of the same skill that land close together."))
 		};
 	}
 
-	private static PluginDef def(String name, int toggle, int[] options, String[] optionNames) {
+	private static PluginDef def(String name, String desc, int toggle, int[] options, String[] optionNames) {
+		return def(name, desc, toggle, options, optionNames, null);
+	}
+
+	private static PluginDef def(String name, String desc, int toggle, int[] options, String[] optionNames, String[] optionTips) {
 		PluginDef d = new PluginDef();
 		d.name = name;
+		d.description = desc;
 		d.toggleId = toggle;
 		d.optionIds = options == null ? new int[0] : options;
 		d.optionNames = optionNames == null ? new String[0] : optionNames;
+		d.optionTips = optionTips == null ? new String[0] : optionTips;
 		return d;
 	}
 
@@ -590,12 +686,28 @@ final class PluginSidebar {
 		return new int[] { a, b, c, d };
 	}
 
+	private static int[] ids(int a, int b, int c, int d, int e, int f) {
+		return new int[] { a, b, c, d, e, f };
+	}
+
+	private static int[] ids(int a, int b, int c, int d, int e, int f, int g, int h) {
+		return new int[] { a, b, c, d, e, f, g, h };
+	}
+
 	private static int[] ids(int a, int b, int c, int d, int e, int f, int g) {
 		return new int[] { a, b, c, d, e, f, g };
 	}
 
 	private static int[] ids(int a, int b, int c, int d, int e, int f, int g, int h, int i, int j, int k, int l) {
 		return new int[] { a, b, c, d, e, f, g, h, i, j, k, l };
+	}
+
+	private static int[] ids(int a, int b, int c, int d, int e, int f, int g, int h, int i, int j, int k, int l, int m) {
+		return new int[] { a, b, c, d, e, f, g, h, i, j, k, l, m };
+	}
+
+	private static int[] ids(int a, int b, int c, int d, int e, int f, int g, int h, int i, int j, int k, int l, int m, int n, int o) {
+		return new int[] { a, b, c, d, e, f, g, h, i, j, k, l, m, n, o };
 	}
 
 	private static String[] names(String a) {
@@ -614,6 +726,14 @@ final class PluginSidebar {
 		return new String[] { a, b, c, d };
 	}
 
+	private static String[] names(String a, String b, String c, String d, String e, String f) {
+		return new String[] { a, b, c, d, e, f };
+	}
+
+	private static String[] names(String a, String b, String c, String d, String e, String f, String g, String h) {
+		return new String[] { a, b, c, d, e, f, g, h };
+	}
+
 	private static String[] names(String a, String b, String c, String d, String e, String f, String g) {
 		return new String[] { a, b, c, d, e, f, g };
 	}
@@ -623,12 +743,71 @@ final class PluginSidebar {
 		return new String[] { a, b, c, d, e, f, g, h, i, j, k, l };
 	}
 
+	private static String[] names(String a, String b, String c, String d, String e, String f, String g, String h,
+			String i, String j, String k, String l, String m) {
+		return new String[] { a, b, c, d, e, f, g, h, i, j, k, l, m };
+	}
+
+	private static String[] names(String a, String b, String c, String d, String e, String f, String g, String h,
+			String i, String j, String k, String l, String m, String n, String o) {
+		return new String[] { a, b, c, d, e, f, g, h, i, j, k, l, m, n, o };
+	}
+
+	private static String[] tips(String a) {
+		return names(a);
+	}
+
+	private static String[] tips(String a, String b) {
+		return names(a, b);
+	}
+
+	private static String[] tips(String a, String b, String c) {
+		return names(a, b, c);
+	}
+
+	private static String[] tips(String a, String b, String c, String d) {
+		return names(a, b, c, d);
+	}
+
+	private static String[] tips(String a, String b, String c, String d, String e, String f) {
+		return names(a, b, c, d, e, f);
+	}
+
+	private static String[] tips(String a, String b, String c, String d, String e, String f, String g, String h) {
+		return names(a, b, c, d, e, f, g, h);
+	}
+
+	private static String[] tips(String a, String b, String c, String d, String e, String f, String g) {
+		return names(a, b, c, d, e, f, g);
+	}
+
+	private static String[] tips(String a, String b, String c, String d, String e, String f, String g, String h,
+			String i, String j, String k, String l) {
+		return names(a, b, c, d, e, f, g, h, i, j, k, l);
+	}
+
+	private static String[] tips(String a, String b, String c, String d, String e, String f, String g, String h,
+			String i, String j, String k, String l, String m) {
+		return names(a, b, c, d, e, f, g, h, i, j, k, l, m);
+	}
+
+	private static String[] tips(String a, String b, String c, String d, String e, String f, String g, String h,
+			String i, String j, String k, String l, String m, String n, String o) {
+		return names(a, b, c, d, e, f, g, h, i, j, k, l, m, n, o);
+	}
+
 	static boolean isOn(int id) {
 		switch (id) {
 		case 24210:
 			return !client.isFixed();
 		case 24248:
 			return client.resizableInvTransparent;
+		case 24245:
+			return client.resizableChatTransparent;
+		case 24431:
+			return client.chatScrollbarLeft;
+		case 24432:
+			return client.chatClickThrough;
 		case 24213:
 			return client.tweeningEnabled;
 		case 24216:
@@ -673,6 +852,8 @@ final class PluginSidebar {
 			return GroundMarkers.enabled;
 		case 24236:
 			return client.shiftClickDrop;
+		case 24433:
+			return client.shiftClickWalkHere;
 		case 24237:
 			return client.middleClickWear;
 		case 24238:
@@ -757,8 +938,6 @@ final class PluginSidebar {
 			return ImplingsPlugin.notify;
 		case 24408:
 			return BarrowsPlugin.enabled;
-		case 24409:
-			return CombatLevelPlugin.enabled;
 		case 24410:
 			return ChatHistory.enabled;
 		case 24411:
@@ -779,6 +958,8 @@ final class PluginSidebar {
 			return StatusBars.numbers;
 		case 24419:
 			return StatusBars.healPreview;
+		case 24425:
+			return client.boostedInfoBox;
 		case 24311:
 			return client.enterToChat;
 		case 24312:
@@ -790,10 +971,24 @@ final class PluginSidebar {
 		}
 	}
 
+	private static boolean isNumber(int id) {
+		return id == 24212 || id == 24215 || id == 24266 || id == 24402 || id == 24424 || id == 24434;
+	}
+
+	private static boolean isDialog(int id) {
+		return id == 24428 || id == 24429;
+	}
+
+	private static boolean isColor(int id) {
+		return id == 24258;
+	}
+
 	private static boolean isCycle(int id) {
-		return id == 24211 || id == 24212 || id == 24215 || id == 24225 || id == 24226
-				|| id == 24235 || id == 24239 || id == 24240 || id == 24420 || id == 24421 || id == 24253 || id == 24258
-				|| id == 24266 || id == 24267 || id == 24402 || id == 24228 || id == 24248;
+		return id == 24211 || id == 24225 || id == 24226
+				|| id == 24235 || id == 24239 || id == 24240 || id == 24420 || id == 24421 || id == 24426
+				|| id == 24427 || id == 24253
+				|| id == 24267 || id == 24228 || id == 24248 || id == 24245 || id == 24431 || id == 24432 || id == 24423
+				|| id == 24435;
 	}
 
 	private static String optionText(int id, String fallback) {
@@ -802,6 +997,45 @@ final class PluginSidebar {
 		}
 		if (id == 24421) {
 			return "Drop fanfare: " + LootBeams.fanfareName();
+		}
+		if (id == 24426) {
+			return "Name shadow: " + client.groundItemShadowLabel(client.groundItemTextShadow);
+		}
+		if (id == 24427) {
+			return "Name size: " + client.groundItemSizeLabel(client.groundItemTextSize);
+		}
+		if (id == 24428) {
+			return "Whitelist: " + GroundItemLists.whitelistCount();
+		}
+		if (id == 24429) {
+			return "Blacklist: " + GroundItemLists.blacklistCount();
+		}
+		if (id == 24212) {
+			return "Anti-aliasing: " + client.aaLabel(client.aaStrength);
+		}
+		if (id == 24434) {
+			return client.zoomSensitivityLabel();
+		}
+		if (id == 24435) {
+			return "Reset";
+		}
+		if (id == 24215) {
+			return "Draw distance: " + client.drawDistance;
+		}
+		if (id == 24266) {
+			return "Delay: " + AntiDrag.delay;
+		}
+		if (id == 24258) {
+			return "Colour: " + NpcIndicators.colorLabel();
+		}
+		if (id == 24402) {
+			return "Low-ball warning: " + CannonOverlay.warningLabel();
+		}
+		if (id == 24423) {
+			return "Tag style: " + InventoryTags.styleLabel();
+		}
+		if (id == 24424) {
+			return "Fill opacity: " + InventoryTags.opacity + "%";
 		}
 		if (id == 24228) {
 			return fallback;
@@ -823,11 +1057,92 @@ final class PluginSidebar {
 		return t;
 	}
 
+	static void styleValueButton(JButton value) {
+		value.setUI(new BasicButtonUI());
+		value.setFont(SMALL_FONT);
+		value.setForeground(Color.WHITE);
+		value.setBackground(CHIP_BG);
+		value.setOpaque(true);
+		value.setContentAreaFilled(true);
+		value.setBorderPainted(true);
+		value.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(CHIP_BORDER),
+				BorderFactory.createEmptyBorder(3, 8, 3, 8)));
+		value.setFocusPainted(false);
+		value.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+	}
+
+	private static void promptNumber(int id) {
+		int min = 0;
+		int max = 100;
+		int cur = 0;
+		String label = "Value";
+		if (id == 24266) {
+			min = 1;
+			max = 80;
+			cur = AntiDrag.delay;
+			label = "Anti-drag delay (milliseconds)";
+		} else if (id == 24215) {
+			min = 5;
+			max = 90;
+			cur = client.drawDistance;
+			label = "Draw distance (tiles)";
+		} else if (id == 24212) {
+			min = 0;
+			max = 4;
+			cur = client.aaStrength;
+			label = "Anti-aliasing (0=Off 1=Low 2=Medium 3=High 4=Ultra)";
+		} else if (id == 24402) {
+			min = 0;
+			max = 50;
+			cur = CannonOverlay.warningThreshold;
+			label = "Warn when cannonballs remaining";
+		} else if (id == 24424) {
+			min = 10;
+			max = 100;
+			cur = InventoryTags.opacity;
+			label = "Tag fill/outline opacity (%)";
+		} else if (id == 24434) {
+			min = client.ZOOM_SENSITIVITY_MIN;
+			max = client.ZOOM_SENSITIVITY_MAX;
+			cur = client.zoomSensitivity;
+			label = "Zoom sensitivity (%). Default is " + client.ZOOM_SENSITIVITY_DEFAULT;
+		}
+		String in = JOptionPane.showInputDialog(east, label + "\nEnter a number from " + min + " to " + max + ".",
+				Integer.toString(cur));
+		if (in == null) {
+			return;
+		}
+		try {
+			int v = Integer.parseInt(in.trim());
+			if (v < min) {
+				v = min;
+			}
+			if (v > max) {
+				v = max;
+			}
+			if (client.instance != null) {
+				client.instance.queueClientSettingValue(id, v);
+			}
+		} catch (Exception e) {
+		}
+	}
+
+	private static void promptColor(int id) {
+		Color start = new Color(NpcIndicators.color());
+		Color chosen = JColorChooser.showDialog(east, "Highlight colour", start);
+		if (chosen == null || client.instance == null) {
+			return;
+		}
+		client.instance.queueClientSettingValue(id, chosen.getRGB() & 0xFFFFFF);
+	}
+
 	private static final class PluginDef {
 		String name;
+		String description;
 		int toggleId;
 		int[] optionIds;
 		String[] optionNames;
+		String[] optionTips;
 	}
 
 	private static final class PluginRow extends JPanel {
@@ -842,21 +1157,29 @@ final class PluginSidebar {
 			setBackground(DARK);
 			setOpaque(true);
 			setAlignmentX(0f);
-			setPreferredSize(new Dimension(PANEL_INNER, 20));
-			setMaximumSize(new Dimension(Integer.MAX_VALUE, 25));
-			setMinimumSize(new Dimension(0, 20));
-			setBorder(BorderFactory.createEmptyBorder(0, 0, 5, 0));
+			setPreferredSize(new Dimension(PANEL_INNER, 26));
+			setMaximumSize(new Dimension(Integer.MAX_VALUE, 28));
+			setMinimumSize(new Dimension(0, 24));
+			setBorder(BorderFactory.createEmptyBorder(0, 2, 2, 2));
+			if (def.description != null && def.description.length() > 0) {
+				setToolTipText(def.description);
+			}
 
 			name = new JLabel(def.name);
 			name.setForeground(Color.WHITE);
 			name.setFont(ROW_FONT);
+			if (def.description != null && def.description.length() > 0) {
+				name.setToolTipText(def.description);
+			}
 			add(name, BorderLayout.CENTER);
 
-			JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+			JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 2, 2));
 			buttons.setOpaque(false);
 			if (def.optionIds.length > 0) {
 				JPanel gear = new GearButton();
-				gear.setPreferredSize(new Dimension(25, 20));
+				gear.setPreferredSize(new Dimension(22, 22));
+				gear.setMinimumSize(new Dimension(22, 22));
+				gear.setMaximumSize(new Dimension(22, 22));
 				gear.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 				gear.setToolTipText("Edit plugin configuration");
 				gear.addMouseListener(new MouseAdapter() {
@@ -903,6 +1226,9 @@ final class PluginSidebar {
 			if (def.name.toLowerCase().indexOf(q) >= 0) {
 				return true;
 			}
+			if (def.description != null && def.description.toLowerCase().indexOf(q) >= 0) {
+				return true;
+			}
 			for (int i = 0; i < def.optionNames.length; i++) {
 				if (def.optionNames[i].toLowerCase().indexOf(q) >= 0) {
 					return true;
@@ -920,7 +1246,7 @@ final class PluginSidebar {
 		final ToggleSwitch toggle;
 		final JButton value;
 
-		ConfigItem(int id, String fallback) {
+		ConfigItem(int id, String fallback, String tip) {
 			this.id = id;
 			this.fallback = fallback;
 			setLayout(new BorderLayout(6, 0));
@@ -933,26 +1259,41 @@ final class PluginSidebar {
 			name = new JLabel(fallback);
 			name.setForeground(Color.WHITE);
 			name.setFont(ROW_FONT);
+			if (tip != null && tip.length() > 0) {
+				name.setToolTipText(tip);
+				setToolTipText(tip);
+			}
 			add(name, BorderLayout.CENTER);
-			boolean cycle = isCycle(id);
-			if (cycle) {
+			boolean button = isCycle(id) || isNumber(id) || isColor(id) || isDialog(id);
+			if (button) {
 				toggle = null;
 				value = new JButton();
-				value.setFont(SMALL_FONT);
-				value.setForeground(TEXT);
-				value.setBackground(DARKER);
-				value.setBorder(BorderFactory.createEmptyBorder(3, 8, 3, 8));
-				value.setFocusPainted(false);
-				value.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+				styleValueButton(value);
 				value.addActionListener(new ActionListener() {
 					public void actionPerformed(ActionEvent e) {
-						queue(ConfigItem.this.id);
+						if (isNumber(ConfigItem.this.id)) {
+							promptNumber(ConfigItem.this.id);
+						} else if (isColor(ConfigItem.this.id)) {
+							promptColor(ConfigItem.this.id);
+						} else if (isDialog(ConfigItem.this.id)) {
+							if (ConfigItem.this.id == 24428) {
+								GroundItemLists.openManageWhitelist();
+							} else if (ConfigItem.this.id == 24429) {
+								GroundItemLists.openManageBlacklist();
+							}
+							PluginSidebar.refresh();
+						} else {
+							queue(ConfigItem.this.id);
+						}
 					}
 				});
 				add(value, BorderLayout.EAST);
 			} else {
 				value = null;
 				toggle = new ToggleSwitch();
+				if (tip != null && tip.length() > 0) {
+					toggle.setToolTipText(tip);
+				}
 				toggle.addMouseListener(new MouseAdapter() {
 					public void mouseClicked(MouseEvent e) {
 						queue(ConfigItem.this.id);
@@ -1038,6 +1379,10 @@ final class PluginSidebar {
 				g2.drawArc(cx - 6, cy - 9, 12, 10, 200, 140);
 				g2.fillOval(cx - 4, cy - 1, 5, 5);
 				g2.fillOval(cx, cy + 1, 5, 5);
+			} else if (kind == TAB_HISCORE) {
+				g2.fillOval(cx - 6, cy - 8, 12, 10);
+				g2.fillRect(cx - 3, cy + 1, 6, 5);
+				g2.fillRect(cx - 5, cy + 6, 10, 3);
 			} else {
 				g2.translate(cx, cy);
 				g2.rotate(Math.toRadians(-45));
@@ -1065,11 +1410,11 @@ final class PluginSidebar {
 			g2.setColor(LIGHT);
 			for (int i = 0; i < 6; i++) {
 				double a = i * Math.PI / 3.0;
-				int x = cx + (int) Math.round(Math.cos(a) * 5);
-				int y = cy + (int) Math.round(Math.sin(a) * 5);
-				g2.fillOval(x - 2, y - 2, 5, 5);
+				int x = cx + (int) Math.round(Math.cos(a) * 4);
+				int y = cy + (int) Math.round(Math.sin(a) * 4);
+				g2.fillOval(x - 2, y - 2, 4, 4);
 			}
-			g2.fillOval(cx - 4, cy - 4, 8, 8);
+			g2.fillOval(cx - 3, cy - 3, 7, 7);
 			g2.setColor(DARK);
 			g2.fillOval(cx - 2, cy - 2, 4, 4);
 			g2.dispose();

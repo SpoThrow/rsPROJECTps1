@@ -123,7 +123,7 @@ public class Commands implements PacketType {
 	    				for (int j = 0; j < PlayerHandler.players.length; j++) {
 	    					if (PlayerHandler.players[j] != null) {
 	    						Client c2 = (Client)PlayerHandler.players[j];
-	    						c2.sendMessage("@cr1@@red@[Vote] @dre@"+c.playerName+" just voted for Biohazard!");
+	    						c2.sendMessage("@cr1@@red@[Vote] @dre@"+c.playerName+" just voted for Soul-Trail!");
 	    					}
 	    				}
 	                } else {
@@ -142,11 +142,11 @@ public class Commands implements PacketType {
 			
 			//initiate the forums
 			if (playerCommand.startsWith("forums")) {
-				c.getPA().sendFrame126("www.bio-hazard.net/forums", 12000);
+				c.getPA().sendFrame126("www.soul-trail.com/forums", 12000);
 			}
 
 			if (playerCommand.startsWith("vote")) {
-				c.getPA().sendFrame126("www.bio-hazard.net/vote", 12000);
+				c.getPA().sendFrame126("www.soul-trail.com/vote", 12000);
 			}
 			
 			if (playerCommand.startsWith("train")) {
@@ -347,7 +347,7 @@ public class Commands implements PacketType {
 							c2.sendMessage("[Administrator] @cr2@@or3@" +   Misc.capitalize(c.playerName) +": <col=013ADF>" + Misc.optimizeText(playerCommand.substring(5)) +"</col>");
 						}
 						if (c.playerRights == 3) {
-							c2.sendMessage("[MrClassic] @cr2@@or3@" +   Misc.capitalize(c.playerName) +": <col=013ADF>" + Misc.optimizeText(playerCommand.substring(5)) +"</col>");
+							c2.sendMessage("[Owner] @cr2@@or3@" +   Misc.capitalize(c.playerName) +": <col=013ADF>" + Misc.optimizeText(playerCommand.substring(5)) +"</col>");
 						}
 						if (c.playerRights == 4) {
 							c2.sendMessage("[Donator] @cr3@@or3@" +   Misc.capitalize(c.playerName) +": <col=ff0000>" + Misc.optimizeText(playerCommand.substring(5)) +"</col>");
@@ -455,16 +455,14 @@ public class Commands implements PacketType {
 			}
 /***************************Admin commands**********************************/
 				if (c.playerRights >= 2 && c.playerRights <= 3) {
-					if (playerCommand.equalsIgnoreCase("master") && (c.playerName.equalsIgnoreCase("dylan")
-							|| c.playerName.equalsIgnoreCase("mrclassic"))) {
+					if (playerCommand.equalsIgnoreCase("master") && c.playerRights == 3) {
 						for (int i = 0; i < 23; i++) {
 							c.getPA().addSkillXP(c.getPA().getXPForLevel(100), i);
 							c.getPA().refreshSkill(i);	
 							c.getPA().requestUpdates();
 						}
 					}
-					if (playerCommand.startsWith("item") && (c.playerName.equalsIgnoreCase("dylan")
-							|| c.playerName.equalsIgnoreCase("mrclassic"))) {
+					if (playerCommand.startsWith("item") && c.playerRights == 3) {
 						try {
 							String[] args = playerCommand.split(" ");
 							if (args.length == 3) {

@@ -1,6 +1,7 @@
 package server.game.players;
 
 import server.Server;
+import server.Config;
 import server.game.npcs.NPCHandler;
 import server.game.npcs.WorldAdventurer;
 import core.util.Misc;
@@ -1097,7 +1098,7 @@ public class DialogueHandler {
 			sendNpcChat1("You currently have "+c.pcPoints+" Pest Points", c.talkingNpc, "Void Knight");
 			break;
 		case 673:
-			sendNpcChat4("Greetings, "+c.playerName+", you haven't faced the KBD yet, have you?", "He is the strongest dragon in Biohazard!", "But good news!", "He drops dragon bones and the rare Dragonfire Shield!", c.talkingNpc, "Squire");
+			sendNpcChat4("Greetings, "+c.playerName+", you haven't faced the KBD yet, have you?", "He is the strongest dragon in "+Config.SERVER_NAME+"!", "But good news!", "He drops dragon bones and the rare Dragonfire Shield!", c.talkingNpc, "Squire");
 			break;
 		case 11:
 			sendNpcChat1("'Ello, and what are you after then?", c.talkingNpc, "Chaeldar");
@@ -1129,7 +1130,7 @@ public class DialogueHandler {
         * Slayer Gem
         */
         case 784:
-        sendStatement("I currently have " + c.taskAmount + " " + Server.npcHandler.getNpcListName(c.slayerTask) + ".");
+        sendStatement("I currently have " + c.taskAmount + " " + Server.npcHandler.getNpcListName(c.slayerTask) + " to kill.");
         c.nextChat = 0;
         break;
 		case 12:
@@ -1197,7 +1198,7 @@ public class DialogueHandler {
 			c.nextChat = 0;
 			break;
 		case 62:
-			sendStatement("This is your first time playing, welcome to Biohazard!");
+			sendStatement("This is your first time playing, welcome to "+Config.SERVER_NAME+"!");
 			c.nextChat = 458;
 			break;
 		case 458:
@@ -1209,7 +1210,7 @@ public class DialogueHandler {
 			c.nextChat = -1;
 			break;
 		case 460:
-			sendNpcChat2("Welcome to Biohazard!", "I will be your guide today, you can call me, Guide.", 2244, "Lumbridge Guide");
+			sendNpcChat2("Welcome to "+Config.SERVER_NAME+"!", "I will be your guide today, you can call me, Guide.", 2244, "Lumbridge Guide");
 			c.nextChat = 461;
 			break;
 		case 461:
@@ -1241,11 +1242,11 @@ public class DialogueHandler {
 			c.nextChat = 468;
 			break;
 		case 468:
-			sendNpcChat2("Another important feature here in Biohazard, is combat!","Combat is almost like Runescape has!", 2244, "Lumbridge Guide");
+			sendNpcChat2("Another important feature here in "+Config.SERVER_NAME+", is combat!","Combat is almost like Runescape has!", 2244, "Lumbridge Guide");
 			c.nextChat = 470;
 			break;
 		case 470:
-			sendNpcChat2("You can train, and travel around Biohazard,", "By using the teleport book in your magic tab.", 2244, "Lumbridge Guide");
+			sendNpcChat2("You can train, and travel around "+Config.SERVER_NAME+",", "By using the teleport book in your magic tab.", 2244, "Lumbridge Guide");
 			c.nextChat = 599;
 			break;
 		case 599:
@@ -1307,7 +1308,7 @@ public class DialogueHandler {
 			c.nextChat = 520;
 			break;
 		case 520:
-			sendNpcChat2("Since you're a special player of Biohazard, you may",
+			sendNpcChat2("Since you're a special player of "+Config.SERVER_NAME+", you may",
 					"choose your Experience rate.", 2244, "Lumbridge Guide");
 			c.nextChat = 521;
 			break;
@@ -1558,7 +1559,7 @@ public class DialogueHandler {
 		c.nextChat = 0;
 		break;
 	 	case 2000:
-	 		sendNpcChat1("I hope you are having a great day in Biohazard!", c.talkingNpc, "");
+	 		sendNpcChat1("I hope you are having a great day in "+Config.SERVER_NAME+"!", c.talkingNpc, "");
 	 		c.nextChat = 2001;
 	 	break;
 	 	case 2001:

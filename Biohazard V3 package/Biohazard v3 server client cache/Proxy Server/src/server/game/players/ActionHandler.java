@@ -1,5 +1,6 @@
 package server.game.players;
 
+import server.clip.region.ObjectDef;
 import server.Config;
 import server.Server;
 import server.content.skills.Fishing;
@@ -1401,7 +1402,7 @@ public class ActionHandler {
 				c.sendMessage("You recharge your prayer points.");
 				c.getPA().refreshSkill(5);
 			} else {
-				c.sendMessage("You already have full prayer points.");
+				switchPrayerBook();
 			}
 			break;
 			
@@ -1428,7 +1429,9 @@ public class ActionHandler {
 		break;
 		
 		default:
-			ScriptManager.callFunc("objectClick1_"+objectType, c, objectType, obX, obY);
+			if (!handleGenericObject(1, objectType, obX, obY)) {
+				ScriptManager.callFunc("objectClick1_"+objectType, c, objectType, obX, obY);
+			}
 			break;
 
 		}
@@ -1586,8 +1589,13 @@ public class ActionHandler {
 					c.sendMessage("I need a lockpick to pick this lock.");
 				}
 			break;
+		case 409:
+			switchPrayerBook();
+			break;
 		default:
-			ScriptManager.callFunc("objectClick2_"+objectType, c, objectType, obX, obY);
+			if (!handleGenericObject(2, objectType, obX, obY)) {
+				ScriptManager.callFunc("objectClick2_"+objectType, c, objectType, obX, obY);
+			}
 			break;
 		}
 	}
@@ -1644,11 +1652,179 @@ public class ActionHandler {
 		break;	
 		//In here
 		default:
-			ScriptManager.callFunc("objectClick3_"+objectType, c, objectType, obX, obY);
+			if (!handleGenericObject(3, objectType, obX, obY)) {
+				ScriptManager.callFunc("objectClick3_"+objectType, c, objectType, obX, obY);
+			}
 			break;
 		}
 	}
-	
+
+	private boolean handleGenericObject(int click, int objectType, int obX, int obY) {
+		ObjectDef def = ObjectDef.getObjectDef(objectType);
+		if (def == null || def.name == null) {
+			return false;
+		}
+		String name = def.name.toLowerCase();
+		if (name.equals("null") || name.length() == 0) {
+			return false;
+		}
+		String action = null;
+		if (def.actions != null && click - 1 >= 0 && click - 1 < def.actions.length) {
+			action = def.actions[click - 1];
+		}
+		String act = action == null ? "" : action.toLowerCase();
+		if (act.length() == 0 && click == 1 && def.actions != null) {
+			for (int i = 0; i < def.actions.length; i++) {
+				if (def.actions[i] != null && def.actions[i].length() > 0) {
+					act = def.actions[i].toLowerCase();
+					break;
+				}
+			}
+		}
+		if (click == 2 && isPrayerAltar(objectType, name)) {
+			switchPrayerBook();
+			return true;
+		}
+		if (act.length() == 0) {
+			return false;
+		}
+		if (act.indexOf("switch") >= 0 || act.indexOf("convert") >= 0) {
+			if (isPrayerAltar(objectType, name)) {
+				switchPrayerBook();
+				return true;
+			}
+		}
+		if (act.indexOf("bank") >= 0 || name.indexOf("bank booth") >= 0
+				|| name.indexOf("bank chest") >= 0 || name.equals("bank")) {
+			c.getPA().openUpBank();
+			return true;
+		}
+		if (act.indexOf("climb-up") >= 0 || (act.equals("climb") && click == 1)) {
+			return climbObject(obX, obY, true);
+		}
+		if (act.indexOf("climb-down") >= 0) {
+			return climbObject(obX, obY, false);
+		}
+		if (act.equals("open") || act.equals("close")) {
+			return false;
+		}
+		if (act.indexOf("mine") >= 0 || act.indexOf("prospect") >= 0) {
+			if (Mining.miningRocks(c, objectType)) {
+				Mining.attemptData(c, objectType, obX, obY);
+				return true;
+			}
+			if (act.indexOf("prospect") >= 0) {
+				c.sendMessage("This rock contains ore.");
+				return true;
+			}
+			return false;
+		}
+		if (act.indexOf("chop") >= 0) {
+			int tree = treeIndexForName(name);
+			if (tree >= 0) {
+				Woodcutting.startWoodcutting(c, tree, obX, obY, click);
+				return true;
+			}
+			return false;
+		}
+		if (act.indexOf("pray") >= 0 || act.indexOf("recharge") >= 0) {
+			if(c.playerLevel[5] < c.getPA().getLevelForXP(c.playerXP[5])) {
+				c.startAnimation(645);
+				c.playerLevel[5] = c.getPA().getLevelForXP(c.playerXP[5]);
+				c.sendMessage("You recharge your prayer points.");
+				c.getPA().refreshSkill(5);
+			} else {
+				c.sendMessage("You already have full prayer points.");
+			}
+			return true;
+		}
+		return false;
+	}
+
+	private boolean isPrayerAltar(int objectType, String name) {
+		if (objectType == 6552 || objectType == 410) {
+			return false;
+		}
+		if (objectType == 409) {
+			return true;
+		}
+		if (name.equals("altar") && name.indexOf("ancient") < 0 && name.indexOf("lunar") < 0) {
+			return true;
+		}
+		return false;
+	}
+
+	private void switchPrayerBook() {
+		if (c.altarPrayed == 0) {
+			c.altarPrayed = 1;
+			c.getCombat().resetPrayers();
+			c.getPA().setPrayerBook();
+			c.gfx100(2011);
+			c.startAnimation(645);
+			c.sendMessage("The altar switches your prayers to Curses.");
+		} else {
+			c.altarPrayed = 0;
+			c.getCombat().resetPrayers();
+			c.getPA().setPrayerBook();
+			c.gfx100(2011);
+			c.startAnimation(645);
+			c.sendMessage("The altar switches your prayers to the regular book.");
+		}
+	}
+
+	private int treeIndexForName(String name) {
+		if (name.indexOf("magic") >= 0)
+			return 8;
+		if (name.indexOf("yew") >= 0)
+			return 7;
+		if (name.indexOf("maple") >= 0)
+			return 6;
+		if (name.indexOf("willow") >= 0)
+			return 4;
+		if (name.indexOf("oak") >= 0)
+			return 3;
+		if (name.indexOf("tree") >= 0 || name.indexOf("dead") >= 0)
+			return 0;
+		return -1;
+	}
+
+	private boolean climbObject(int obX, int obY, boolean up) {
+		if (up) {
+			if(obX == 3069 && obY == 10256) {
+				c.getPA().movePlayer(3017, 3850, 0);
+				return true;
+			}
+			if(obX == 3017 && obY == 10249) {
+				c.getPA().movePlayer(3069, 3857, 0);
+				return true;
+			}
+			if(c.getY() > 6400) {
+				c.getPA().movePlayer(obX + 1, obY + 1 - 6400, c.heightLevel);
+			} else {
+				c.getPA().movePlayer(c.absX, c.absY, c.heightLevel + 1);
+			}
+			return true;
+		}
+		if(obX == 3017 && obY == 3849) {
+			c.getPA().movePlayer(3069, 10257, 0);
+			return true;
+		}
+		if(obX == 3069 && obY == 3856) {
+			c.getPA().movePlayer(3017, 10248, 0);
+			return true;
+		}
+		if(c.getY() < 6400 && (c.heightLevel & 3) == 0) {
+			c.getPA().movePlayer(c.getX(), c.getY() + 6400, c.heightLevel);
+		} else {
+			int height = c.heightLevel - 1;
+			if (height < 0) {
+				height = 0;
+			}
+			c.getPA().movePlayer(c.absX, c.absY, height);
+		}
+		return true;
+	}
+
 	public void firstClickNpc(int npcType) {
 		c.clickNpcType = 0;
 		//c.npcClickIndex = 0;

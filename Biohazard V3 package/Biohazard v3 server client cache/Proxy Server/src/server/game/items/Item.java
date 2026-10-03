@@ -284,6 +284,9 @@ public class Item {
 		try {
 			FileInputStream dataIn = new FileInputStream(new File("./Data/data/stackable.dat"));
 			while ((c = dataIn.read()) != -1) {
+				if (counter >= itemStackable.length) {
+					break;
+				}
 				if (c == 0) {
 					itemStackable[counter] = false;
 				} else {
@@ -302,6 +305,9 @@ public class Item {
 		try {
 			FileInputStream dataIn = new FileInputStream(new File("./Data/data/notes.dat"));
 			while ((c = dataIn.read()) != -1) {
+				if (counter >= itemIsNote.length) {
+					break;
+				}
 				if (c == 0) {
 					itemIsNote[counter] = true;
 				} else {
@@ -319,6 +325,9 @@ public class Item {
 		try {
 			FileInputStream dataIn = new FileInputStream(new File("./Data/data/equipment.dat"));
 			while ((c = dataIn.read()) != -1) {
+				if (counter >= targetSlots.length) {
+					break;
+				}
 				targetSlots[counter++] = c;
 			}
 			dataIn.close();

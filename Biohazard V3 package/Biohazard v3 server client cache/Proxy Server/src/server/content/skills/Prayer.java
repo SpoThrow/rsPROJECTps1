@@ -11,7 +11,6 @@ import core.util.Misc;
 /**
  *
  *Prayer
- *@author Acquittal
  *
  */
 public class Prayer {

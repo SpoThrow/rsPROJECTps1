@@ -64,4 +64,41 @@ final class InfoBoxes {
 			f.method385(cols[i], texts[i], p.y + 11 + i * 15, p.x + 4);
 		}
 	}
+
+	static Sprite itemSprite(int itemId) {
+		try {
+			return ItemDef.getSprite(itemId, 1, 0);
+		} catch (Exception e) {
+			return null;
+		}
+	}
+
+	static void icon(String id, int itemId, String text, int color) {
+		icon(id, itemSprite(itemId), text, color);
+	}
+
+	static void icon(String id, Sprite sprite, String text, int color) {
+		if (text == null) {
+			text = "";
+		}
+		int tw = fontWidth(text);
+		int icon = sprite != null ? 32 : 0;
+		int w = icon + tw + 10;
+		int h = 32;
+		OverlayManager.Panel p = OverlayManager.place(id, OverlayManager.TOP_LEFT, w, h);
+		OverlayManager.paint(p, 160);
+		if (sprite != null) {
+			sprite.drawSprite(p.x + 2, p.y);
+		}
+		if (client.instance != null && client.instance.smallText != null) {
+			client.instance.smallText.method385(color, text, p.y + 21, p.x + icon + 4);
+		}
+	}
+
+	private static int fontWidth(String text) {
+		if (client.instance == null || client.instance.smallText == null || text == null) {
+			return text == null ? 0 : text.length() * 7;
+		}
+		return client.instance.smallText.getTextWidth(text);
+	}
 }

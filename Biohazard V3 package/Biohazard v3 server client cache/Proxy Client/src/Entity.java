@@ -106,6 +106,8 @@ public class Entity extends Animable {
 	public int entScreenX;
 	public int entScreenY;
 	public final int index = -1;
+	/** Client-side freeze indicator (Ice Barrage etc). */
+	public long freezeUntilMillis;
 	public boolean isVisible()
 	{
 		return false;
@@ -208,7 +210,8 @@ public class Entity extends Animable {
 	}
 
 	static int frameDuration(int anim, int frame) {
-		if (anim < 0 || Animation.anims == null || anim >= Animation.anims.length) {
+		if (anim < 0 || Animation.anims == null || anim >= Animation.anims.length
+				|| Animation.anims[anim] == null) {
 			return 1;
 		}
 		int duration = Animation.anims[anim].method258(frame);

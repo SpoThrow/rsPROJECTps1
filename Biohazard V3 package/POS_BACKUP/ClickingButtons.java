@@ -865,7 +865,7 @@ break;*/
 					c.playerRights = 4;
 					c.logout();
 				} else {
-					c.sendMessage("You have to be a donator of Biohazard to display this rank.");
+					c.sendMessage("You have to be a donator of Soul-Trail to display this rank.");
 					c.getPA().closeAllWindows();
 				}
 				break;
@@ -977,7 +977,7 @@ break;*/
 					c.playerRights = 5;
 					c.logout();
 				} else {
-					c.sendMessage("You have to donate $40+ to Biohazard to display this rank.");
+					c.sendMessage("You have to donate $40+ to Soul-Trail to display this rank.");
 					c.getPA().closeAllWindows();
 				}
 				break;
@@ -1091,7 +1091,7 @@ break;*/
 					c.playerRights = 6;
 					c.logout();
 				} else {
-					c.sendMessage("You have to donate $80+ to Biohazard to display this rank.");
+					c.sendMessage("You have to donate $80+ to Soul-Trail to display this rank.");
 					c.getPA().closeAllWindows();
 				}
 				break;
@@ -2318,7 +2318,7 @@ break;*/
 				break;
 				
 			case 29:
-				c.getPA().sendFrame126("www.biohazard-rsps.com/vote/", 12000);
+				c.getPA().sendFrame126("www.soul-trail.com/vote/", 12000);
 				c.getPA().closeAllWindows();
 				break;
 				

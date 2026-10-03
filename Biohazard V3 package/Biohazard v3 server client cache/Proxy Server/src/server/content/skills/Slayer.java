@@ -9,8 +9,8 @@ import core.util.Misc;
 
 
 /**
- * @author Jordy aka MrClassic
- **/
+ * Slayer
+ */
 
 
 public class Slayer {
@@ -208,6 +208,21 @@ public class Slayer {
 
     public boolean hasTask() {
         return c.slayerTask > 0 || c.taskAmount > 0;
+    }
+
+    public static boolean isCheckItem(int id) {
+        if (id == 4155 || id == 15051) {
+            return true;
+        }
+        return id >= 8901 && id <= 8921;
+    }
+
+    public void checkTask() {
+        if (!hasTask()) {
+            c.sendMessage("You don't currently have a slayer task.");
+            return;
+        }
+        c.sendMessage("I currently have " + c.taskAmount + " " + getTaskName(c.slayerTask) + " to kill.");
     }
 
 

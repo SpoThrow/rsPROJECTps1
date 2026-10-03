@@ -1,0 +1,16 @@
+---
+description: Throttle HUD overlay number refresh so trackers stay cheap
+globs: "**/Proxy Client/src/{client,OverlayRefresh,OverlayManager,*Tracker,*Overlay,StatusTimers,InfoBoxes,StatusBars,CannonOverlay,BossTimers,SlayerTracker,AmmoOverlay,PoisonPlugin,BarrowsPlugin}.java"
+alwaysApply: false
+---
+
+# Overlay refresh
+
+HUD overlays (XP tracker, FPS, ping, memory, timers) must not recompute displayed numbers every frame.
+
+- Recalculate XP/hr and session totals at most every 250ms (`OverlayRefresh.XP_MS`).
+- Recalculate FPS, memory, ping, and frame-time overlay text at most every 200ms (`OverlayRefresh.PERF_MS`).
+- Timer infobox labels can update when the displayed second changes, not every present.
+- Still *draw* cached text every frame so Alt-drag, anchors, and stacking stay smooth.
+- Use `OverlayRefresh` constants instead of magic intervals.
+- Java 7 source: no lambdas, no diamond operator.

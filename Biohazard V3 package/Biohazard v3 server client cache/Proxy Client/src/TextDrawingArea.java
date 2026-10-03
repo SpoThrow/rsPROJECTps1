@@ -79,6 +79,10 @@ public final class TextDrawingArea extends DrawingArea {
 		method389(flag, j, i, s, l);
 	}
 
+	private boolean validChar(char c) {
+		return c < anIntArray1496.length && c < aByteArrayArray1491.length;
+	}
+
 	public int getTextWidth(String s) {
 		if(s == null)
 			return 0;
@@ -86,8 +90,11 @@ public final class TextDrawingArea extends DrawingArea {
 		for(int k = 0; k < s.length(); k++)
 			if(s.charAt(k) == '@' && k + 4 < s.length() && s.charAt(k + 4) == '@')
 				k += 4;
-			else
-				j += anIntArray1496[s.charAt(k)];
+			else {
+				char c = s.charAt(k);
+				if (validChar(c))
+					j += anIntArray1496[c];
+			}
 		return j;
 	}
 
@@ -95,8 +102,11 @@ public final class TextDrawingArea extends DrawingArea {
 		if(s == null)
 			return 0;
 		int j = 0;
-		for(int k = 0; k < s.length(); k++)
-			j += anIntArray1496[s.charAt(k)];
+		for(int k = 0; k < s.length(); k++) {
+			char c = s.charAt(k);
+			if (validChar(c))
+				j += anIntArray1496[c];
+		}
 		return j;
 	}
 
@@ -106,7 +116,9 @@ public final class TextDrawingArea extends DrawingArea {
 		j -= anInt1497;
 		for(int i1 = 0; i1 < s.length(); i1++) {
 			char c = s.charAt(i1);
-			if(c != ' ')
+			if(!validChar(c))
+				continue;
+			if(c != ' ' && aByteArrayArray1491[c] != null)
 				method392(aByteArrayArray1491[c], l + anIntArray1494[c], j + anIntArray1495[c], anIntArray1492[c], anIntArray1493[c], i);
 			l += anIntArray1496[c];
 		}
@@ -119,7 +131,9 @@ public final class TextDrawingArea extends DrawingArea {
 		l -= anInt1497;
 		for(int i1 = 0; i1 < s.length(); i1++) {
 			char c = s.charAt(i1);
-			if(c != ' ')
+			if(!validChar(c))
+				continue;
+			if(c != ' ' && aByteArrayArray1491[c] != null)
 				method392(aByteArrayArray1491[c], j + anIntArray1494[c], l + anIntArray1495[c] + (int)(Math.sin((double)i1 / 2D + (double)k / 5D) * 5D), anIntArray1492[c], anIntArray1493[c], i);
 			j += anIntArray1496[c];
 		}
@@ -132,7 +146,9 @@ public final class TextDrawingArea extends DrawingArea {
 		k -= anInt1497;
 		for(int i1 = 0; i1 < s.length(); i1++) {
 			char c = s.charAt(i1);
-			if(c != ' ')
+			if(!validChar(c))
+				continue;
+			if(c != ' ' && aByteArrayArray1491[c] != null)
 				method392(aByteArrayArray1491[c], i + anIntArray1494[c] + (int)(Math.sin((double)i1 / 5D + (double)j / 5D) * 5D), k + anIntArray1495[c] + (int)(Math.sin((double)i1 / 3D + (double)j / 5D) * 5D), anIntArray1492[c], anIntArray1493[c], l);
 			i += anIntArray1496[c];
 		}
@@ -148,7 +164,9 @@ public final class TextDrawingArea extends DrawingArea {
 		k -= anInt1497;
 		for(int k1 = 0; k1 < s.length(); k1++) {
 			char c = s.charAt(k1);
-			if(c != ' ')
+			if(!validChar(c))
+				continue;
+			if(c != ' ' && aByteArrayArray1491[c] != null)
 				method392(aByteArrayArray1491[c], l + anIntArray1494[c], k + anIntArray1495[c] + (int)(Math.sin((double)k1 / 1.5D + (double)j) * d), anIntArray1492[c], anIntArray1493[c], i1);
 			l += anIntArray1496[c];
 		}
@@ -168,7 +186,9 @@ public final class TextDrawingArea extends DrawingArea {
 				i1 += 4;
 			} else {
 				char c = s.charAt(i1);
-				if(c != ' ') {
+				if(!validChar(c))
+					continue;
+				if(c != ' ' && aByteArrayArray1491[c] != null) {
 					if(flag1)
 					method392(aByteArrayArray1491[c], i + anIntArray1494[c] + 1, k + anIntArray1495[c] + 1, anIntArray1492[c], anIntArray1493[c], 0);
 					method392(aByteArrayArray1491[c], i + anIntArray1494[c], k + anIntArray1495[c], anIntArray1492[c], anIntArray1493[c], j);
@@ -193,11 +213,13 @@ public final class TextDrawingArea extends DrawingArea {
 				k1 += 4;
 			} else {
 				char c = s.charAt(k1);
-				if(c != ' ') {
+				if(c != ' ' && c < aByteArrayArray1491.length && aByteArrayArray1491[c] != null) {
 					method394(192, i + anIntArray1494[c] + 1, aByteArrayArray1491[c], anIntArray1492[c], i1 + anIntArray1495[c] + 1, anIntArray1493[c], 0);
 					method394(j1, i + anIntArray1494[c], aByteArrayArray1491[c], anIntArray1492[c], i1 + anIntArray1495[c], anIntArray1493[c], j);
 				}
-				i += anIntArray1496[c];
+				if (c < anIntArray1496.length) {
+					i += anIntArray1496[c];
+				}
 				if((aRandom1498.nextInt() & 3) == 0)
 					i++;
 			}

@@ -41,6 +41,8 @@ public final class HudLayout {
 	public int worldMapH;
 	public int mapFrameW;
 	public int mapFrameH;
+	public int xpOrbX;
+	public int xpOrbY;
 
 	private HudLayout(boolean resizableMode) {
 		this.resizableMode = resizableMode;
@@ -119,6 +121,8 @@ public final class HudLayout {
 			worldMapH = read(properties, "worldMapH", worldMapH);
 			mapFrameW = read(properties, "mapFrameW", mapFrameW);
 			mapFrameH = read(properties, "mapFrameH", mapFrameH);
+			xpOrbX = read(properties, "xpOrbX", xpOrbX);
+			xpOrbY = read(properties, "xpOrbY", xpOrbY);
 		} catch (Exception ignored) {
 		} finally {
 			if (in != null) {
@@ -164,10 +168,12 @@ public final class HudLayout {
 		properties.setProperty("worldMapH", Integer.toString(worldMapH));
 		properties.setProperty("mapFrameW", Integer.toString(mapFrameW));
 		properties.setProperty("mapFrameH", Integer.toString(mapFrameH));
+		properties.setProperty("xpOrbX", Integer.toString(xpOrbX));
+		properties.setProperty("xpOrbY", Integer.toString(xpOrbY));
 		FileOutputStream out = null;
 		try {
 			out = new FileOutputStream(file);
-			properties.store(out, "Biohazard " + modeName() + " minimap HUD layout. Width/height 0 = native sprite size.");
+			properties.store(out, "Soul-Trail " + modeName() + " minimap HUD layout. Width/height 0 = native sprite size.");
 		} catch (Exception ignored) {
 		} finally {
 			if (out != null) {
@@ -213,6 +219,8 @@ public final class HudLayout {
 		b.append("h.worldMapH = ").append(worldMapH).append(";\n");
 		b.append("h.mapFrameW = ").append(mapFrameW).append(";\n");
 		b.append("h.mapFrameH = ").append(mapFrameH).append(";\n");
+		b.append("h.xpOrbX = ").append(xpOrbX).append(";\n");
+		b.append("h.xpOrbY = ").append(xpOrbY).append(";\n");
 		b.append("h.save();\n");
 		return b.toString();
 	}
@@ -239,36 +247,185 @@ public final class HudLayout {
 		h.prayerOrbY = 53;
 		h.runOrbX = 190;
 		h.runOrbY = 92;
-		h.specOrbX = 174;
-		h.specOrbY = 131;
+		h.specOrbX = 180;
+		h.specOrbY = 129;
 		h.worldMapX = 8;
 		h.worldMapY = 124;
 		h.mapFrameX = 0;
 		h.mapFrameY = 0;
 		h.minimapX = 45;
 		h.minimapY = 10;
+		h.compassW = 0;
+		h.compassH = 0;
+		h.hpOrbW = 0;
+		h.hpOrbH = 0;
+		h.prayerOrbW = 0;
+		h.prayerOrbH = 0;
+		h.runOrbW = 0;
+		h.runOrbH = 0;
+		h.specOrbW = 0;
+		h.specOrbH = 0;
+		h.worldMapW = 0;
+		h.worldMapH = 0;
+		h.mapFrameW = 0;
+		h.mapFrameH = 0;
+		h.xpOrbX = -29;
+		h.xpOrbY = 4;
 		return h;
 	}
 
 	private static HudLayout createResizableDefaults() {
 		HudLayout h = new HudLayout(true);
 		h.compassX = 69;
-		h.compassY = 4;
-		h.hpOrbX = 42;
-		h.hpOrbY = 44;
-		h.prayerOrbX = 47;
-		h.prayerOrbY = 81;
-		h.runOrbX = 64;
-		h.runOrbY = 119;
-		h.specOrbX = 82;
-		h.specOrbY = 157;
+		h.compassY = 5;
+		h.hpOrbX = 39;
+		h.hpOrbY = 35;
+		h.prayerOrbX = 44;
+		h.prayerOrbY = 69;
+		h.runOrbX = 52;
+		h.runOrbY = 103;
+		h.specOrbX = 58;
+		h.specOrbY = 136;
 		h.worldMapX = 213;
 		h.worldMapY = 122;
 		h.mapFrameX = 65;
 		h.mapFrameY = 0;
 		h.minimapX = 90;
 		h.minimapY = 8;
+		h.compassW = 0;
+		h.compassH = 0;
+		h.hpOrbW = 0;
+		h.hpOrbH = 0;
+		h.prayerOrbW = 0;
+		h.prayerOrbH = 0;
+		h.runOrbW = 0;
+		h.runOrbH = 0;
+		h.specOrbW = 0;
+		h.specOrbH = 0;
+		h.worldMapW = 0;
+		h.worldMapH = 0;
+		h.mapFrameW = 0;
+		h.mapFrameH = 0;
+		h.xpOrbX = 33;
+		h.xpOrbY = 4;
 		return h;
+	}
+
+	public String saveAsBuiltin() {
+		File src = sourceFile();
+		if (src == null) {
+			return null;
+		}
+		try {
+			String text = readAll(src);
+			String method = resizableMode ? "createResizableDefaults" : "createFixedDefaults";
+			String startTok = "	private static HudLayout " + method + "() {";
+			int start = text.indexOf(startTok);
+			if (start < 0) {
+				return src.getAbsolutePath();
+			}
+			int end = text.indexOf("\n	}", start);
+			if (end < 0) {
+				return src.getAbsolutePath();
+			}
+			end += 3;
+			String rebuilt = factoryMethod();
+			text = text.substring(0, start) + rebuilt + text.substring(end);
+			writeAll(src, text);
+			File props = propertiesFile();
+			if (props.exists()) {
+				props.delete();
+			}
+			return src.getAbsolutePath();
+		} catch (Exception e) {
+			return null;
+		}
+	}
+
+	private String factoryMethod() {
+		StringBuilder b = new StringBuilder();
+		b.append("	private static HudLayout create");
+		b.append(resizableMode ? "Resizable" : "Fixed");
+		b.append("Defaults() {\n");
+		b.append("		HudLayout h = new HudLayout(").append(resizableMode).append(");\n");
+		b.append("		h.compassX = ").append(compassX).append(";\n");
+		b.append("		h.compassY = ").append(compassY).append(";\n");
+		b.append("		h.hpOrbX = ").append(hpOrbX).append(";\n");
+		b.append("		h.hpOrbY = ").append(hpOrbY).append(";\n");
+		b.append("		h.prayerOrbX = ").append(prayerOrbX).append(";\n");
+		b.append("		h.prayerOrbY = ").append(prayerOrbY).append(";\n");
+		b.append("		h.runOrbX = ").append(runOrbX).append(";\n");
+		b.append("		h.runOrbY = ").append(runOrbY).append(";\n");
+		b.append("		h.specOrbX = ").append(specOrbX).append(";\n");
+		b.append("		h.specOrbY = ").append(specOrbY).append(";\n");
+		b.append("		h.worldMapX = ").append(worldMapX).append(";\n");
+		b.append("		h.worldMapY = ").append(worldMapY).append(";\n");
+		b.append("		h.mapFrameX = ").append(mapFrameX).append(";\n");
+		b.append("		h.mapFrameY = ").append(mapFrameY).append(";\n");
+		b.append("		h.minimapX = ").append(minimapX).append(";\n");
+		b.append("		h.minimapY = ").append(minimapY).append(";\n");
+		b.append("		h.compassW = ").append(compassW).append(";\n");
+		b.append("		h.compassH = ").append(compassH).append(";\n");
+		b.append("		h.hpOrbW = ").append(hpOrbW).append(";\n");
+		b.append("		h.hpOrbH = ").append(hpOrbH).append(";\n");
+		b.append("		h.prayerOrbW = ").append(prayerOrbW).append(";\n");
+		b.append("		h.prayerOrbH = ").append(prayerOrbH).append(";\n");
+		b.append("		h.runOrbW = ").append(runOrbW).append(";\n");
+		b.append("		h.runOrbH = ").append(runOrbH).append(";\n");
+		b.append("		h.specOrbW = ").append(specOrbW).append(";\n");
+		b.append("		h.specOrbH = ").append(specOrbH).append(";\n");
+		b.append("		h.worldMapW = ").append(worldMapW).append(";\n");
+		b.append("		h.worldMapH = ").append(worldMapH).append(";\n");
+		b.append("		h.mapFrameW = ").append(mapFrameW).append(";\n");
+		b.append("		h.mapFrameH = ").append(mapFrameH).append(";\n");
+		b.append("		h.xpOrbX = ").append(xpOrbX).append(";\n");
+		b.append("		h.xpOrbY = ").append(xpOrbY).append(";\n");
+		b.append("		return h;\n");
+		b.append("	}");
+		return b.toString();
+	}
+
+	private static File sourceFile() {
+		String[] paths = {
+			"src/HudLayout.java",
+			"Proxy Client/src/HudLayout.java",
+			System.getProperty("user.dir") + "/src/HudLayout.java",
+			"C:/Users/llrbi/Documents/GitHub/rsPROJECTps/Biohazard V3 package/Biohazard v3 server client cache/Proxy Client/src/HudLayout.java"
+		};
+		for (int i = 0; i < paths.length; i++) {
+			File f = new File(paths[i]);
+			if (f.isFile()) {
+				return f;
+			}
+		}
+		return null;
+	}
+
+	private static String readAll(File file) throws Exception {
+		FileInputStream in = new FileInputStream(file);
+		try {
+			byte[] data = new byte[(int) file.length()];
+			int n = 0;
+			while (n < data.length) {
+				int r = in.read(data, n, data.length - n);
+				if (r < 0) {
+					break;
+				}
+				n += r;
+			}
+			return new String(data, 0, n, "UTF-8");
+		} finally {
+			in.close();
+		}
+	}
+
+	private static void writeAll(File file, String text) throws Exception {
+		FileOutputStream out = new FileOutputStream(file);
+		try {
+			out.write(text.getBytes("UTF-8"));
+		} finally {
+			out.close();
+		}
 	}
 
 	static {
@@ -276,3 +433,4 @@ public final class HudLayout {
 		RESIZABLE.load();
 	}
 }
+

@@ -12,10 +12,6 @@ import server.game.players.Client;
 import server.game.players.Player;
 import core.util.Misc;
 
-/**
- * @author Acquittal - good system
- **/
-
 public class Mining extends SkillHandler {
 
 	public static void mineEss(final Client c, final int object) {

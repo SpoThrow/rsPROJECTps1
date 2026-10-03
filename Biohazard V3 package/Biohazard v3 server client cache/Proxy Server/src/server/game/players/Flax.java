@@ -7,7 +7,6 @@ import core.util.Misc;
 
  /**
   * Flaxpicking. OUTDATED
-  * @author Acquittal
   *
   */
 public class Flax {

@@ -6,7 +6,6 @@ import server.game.players.Client;
 /**
  * FightCaves.java
  *
- * @author Acquittal
  *
  */
 

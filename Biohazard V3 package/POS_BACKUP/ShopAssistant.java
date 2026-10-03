@@ -10,7 +10,7 @@ import server.world.ShopHandler;
 
 /**
  * Shops rewritten
- * @author Acquittal
+ * @author Soul-Trail
  * 
  **/
 

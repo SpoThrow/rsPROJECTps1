@@ -11,10 +11,6 @@ import server.game.players.Player;
 import server.game.players.PlayerHandler;
 import core.util.Misc;
 
-/**
- * @author MrClassic
- */
-
 public class ObjectManager {
 
 	public CopyOnWriteArrayList<Object> object = new CopyOnWriteArrayList<Object>();

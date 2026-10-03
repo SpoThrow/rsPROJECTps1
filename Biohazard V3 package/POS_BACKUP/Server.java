@@ -48,7 +48,7 @@ import core.util.log.Logger;
  * @author Graham
  * @author Blake
  * @author Ryan Lmctruck30
- * @author Acquittal
+ * @author Soul-Trail
  *
  */
 
@@ -157,7 +157,7 @@ public class Server {
 		/**
 		 * Server Successfully Loaded 
 		 */
-		System.out.println("[Final Stage] Acquittal has been launched on localhost:" + serverlistenerPort + "...");
+		System.out.println("[Final Stage] Soul-Trail has been launched on localhost:" + serverlistenerPort + "...");
 		/**
 		 * Main Server Tick
 		 */

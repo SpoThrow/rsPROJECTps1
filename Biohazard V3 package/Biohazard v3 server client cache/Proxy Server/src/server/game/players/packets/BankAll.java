@@ -38,6 +38,11 @@ public class BankAll implements PacketType {
 				break;
 			
 			case 5382:
+			int abs = c.getBank().toAbsolute(removeSlot);
+			if (c.getBank().isPlaceholder(abs)) {
+				c.getBank().promptReleaseAllPlaceholders();
+				break;
+			}
 			c.getItems().fromBank(removeId, removeSlot, Integer.MAX_VALUE);
 			break;	
 			

@@ -12,7 +12,6 @@ import core.util.Misc;
 /**
  * 
  * TradeAndDuel.java
- * @author Acquittal
  *
  */
 

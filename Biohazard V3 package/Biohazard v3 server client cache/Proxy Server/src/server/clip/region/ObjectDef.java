@@ -11,9 +11,26 @@ public final class ObjectDef {
 		ObjectDef class46 = cache[cacheIndex];
 		class46.type = i;
 		class46.setDefaults();
-		byte[] buffer = archive.get(i);
-		if (buffer != null && buffer.length > 0)
-			class46.readValues(new ByteStreamExt(buffer));
+		byte[] buffer = archive != null ? archive.get(i) : null;
+		if (buffer != null && buffer.length > 0) {
+			try {
+				class46.readValues(new ByteStreamExt(buffer));
+			} catch (Exception e) {
+				class46.setDefaults();
+			}
+			return class46;
+		}
+		byte[] buffer377 = archive377 != null ? archive377.get(i) : null;
+		if (buffer377 != null && buffer377.length > 0) {
+			try {
+				class46.readValues377(new ByteStreamExt(buffer377));
+			} catch (Exception e) {
+				class46.setDefaults();
+			}
+			return class46;
+		}
+		class46.aBoolean767 = false;
+		class46.aBoolean779 = false;
 		return class46;
 	}
 	
@@ -55,6 +72,7 @@ public final class ObjectDef {
 		aBoolean779 = true;
 		anInt768 = 0;
 		aBoolean736 = false;
+		aBoolean766 = false;
 		anInt774 = -1;
 		anInt749 = -1;
 		childrenIDs = null;
@@ -130,7 +148,9 @@ public final class ObjectDef {
 					}
 				}
 			} else if (type == 2) {
-				name = stream.readNewString();
+				name = stream.readString();
+			} else if (type == 3) {
+				description = stream.readBytes();
 			} else if (type == 5) {
 				int len = stream.readUnsignedByte();
 				if (len > 0) {
@@ -151,8 +171,11 @@ public final class ObjectDef {
 				aBoolean767 = false;
 			else if (type == 18)
 				aBoolean757 = false;
-			else if (type == 19)
-				hasActions = (stream.readUnsignedByte() == 1);
+			else if (type == 19) {
+				flag = stream.readUnsignedByte();
+				if (flag == 1)
+					hasActions = true;
+			}
 			else if (type == 21)
 				aBoolean762 = true;
 			else if (type == 22) {
@@ -170,13 +193,19 @@ public final class ObjectDef {
 				stream.readSignedByte();
 			else if (type == 39)
 				stream.readSignedByte();
-			else if (type >= 30 && type < 39) {
+			else if (type >= 30 && type < 40) {
 				if (actions == null)
-					actions = new String[5];
-				actions[type - 30] = stream.readNewString();
+					actions = new String[10];
+				int slot = type - 30;
+				if (slot >= actions.length) {
+					String[] grown = new String[slot + 1];
+					System.arraycopy(actions, 0, grown, 0, actions.length);
+					actions = grown;
+				}
+				actions[slot] = stream.readString();
 				hasActions = true;
-				if (actions[type - 30].equalsIgnoreCase("hidden"))
-					actions[type - 30] = null;
+				if (actions[slot].equalsIgnoreCase("hidden"))
+					actions[slot] = null;
 			} else if (type == 40) {
 				int i1 = stream.readUnsignedByte();
 				modifiedModelColors = new int[i1];
@@ -216,6 +245,7 @@ public final class ObjectDef {
 			else if (type == 73)
 				aBoolean736 = true;
 			else if (type == 74) {
+				aBoolean766 = true;
 			} else if (type == 75)
 				stream.readUnsignedByte();
 			else if (type == 77 || type == 92) {
@@ -263,14 +293,22 @@ public final class ObjectDef {
 					else
 						stream.skip(4);
 				}
-			} else
-				System.out.println("Unknown config: " + type);
+			} else {
+				// Unknown opcode. Keep the flags already read (including whether
+				// the object blocks movement) instead of desyncing the rest of
+				// the definition into a walkable object.
+				break;
+			}
 		} while (true);
 		if (flag == -1) {
 			hasActions = anIntArray773 != null
 					&& (anIntArray776 == null || anIntArray776[0] == 10);
 			if (actions != null)
 				hasActions = true;
+		}
+		if (aBoolean766) {
+			aBoolean767 = false;
+			aBoolean757 = false;
 		}
 	}
 	
@@ -489,8 +527,9 @@ public final class ObjectDef {
 					else
 						stream.skip(4);
 				}
-		    	} else
-				System.out.println("Unknown config: " + type);
+		    	} else {
+				break;
+			}
 		} while(true);
 		if(flag == -1)
 	        {
@@ -542,6 +581,7 @@ public final class ObjectDef {
 	public int anInt761;
 	public boolean aBoolean762;
 	public boolean aBoolean764;
+	public boolean aBoolean766;
 	public boolean aBoolean767;
 	public int anInt768;
 	private static int cacheIndex;

@@ -6,7 +6,6 @@ import server.game.players.Client;
 import server.game.players.Player;
 
 /**
- * @author Acquittal
  **/
  
 public class Smithing {

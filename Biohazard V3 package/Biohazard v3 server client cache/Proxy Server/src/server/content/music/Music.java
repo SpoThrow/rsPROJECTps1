@@ -3,9 +3,7 @@ package server.content.music;
 import server.game.players.Client;
  
 /**
- * 
- * @author Jordy/mrclassic
- *
+ * Music
  */
 public class Music {
        

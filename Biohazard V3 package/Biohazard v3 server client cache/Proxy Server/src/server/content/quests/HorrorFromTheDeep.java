@@ -6,7 +6,6 @@ import server.game.players.Client;
 
 /**
 * Horror from the Deep
-* @author Acquittal
 */
 
 public class HorrorFromTheDeep {

@@ -25,7 +25,8 @@ final class Animable_Sub5 extends Animable {
 				break;
 			}
 			anInt1608 = client.loopCycle - k;
-			if(aAnimation_1607 != null)
+			if(aAnimation_1607 != null && aAnimation_1607.anIntArray353 != null
+					&& anInt1599 >= 0 && anInt1599 < aAnimation_1607.anIntArray353.length)
 				j = aAnimation_1607.anIntArray353[anInt1599];
 		}
 		ObjectDef class46;
@@ -72,12 +73,12 @@ final class Animable_Sub5 extends Animable {
 		anInt1604 = l;
 		anInt1605 = i1;
 		anInt1606 = k1;
-		if(l1 != -1)
+		if(l1 >= 0 && Animation.anims != null && l1 < Animation.anims.length)
 		{
 			aAnimation_1607 = Animation.anims[l1];
 			anInt1599 = 0;
 			anInt1608 = client.loopCycle;
-			if(flag && aAnimation_1607.anInt356 != -1)
+			if(aAnimation_1607 != null && flag && aAnimation_1607.anInt356 != -1)
 			{
 				anInt1599 = (int)(Math.random() * (double) aAnimation_1607.anInt352);
 				anInt1608 -= (int)(Math.random() * (double) aAnimation_1607.method258(anInt1599));

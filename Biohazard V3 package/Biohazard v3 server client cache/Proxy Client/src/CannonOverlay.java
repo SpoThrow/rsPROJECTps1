@@ -39,7 +39,7 @@ final class CannonOverlay {
 		infobox = readBool(props, "cannonInfobox", true);
 		doubleHit = readBool(props, "cannonDoubleHit", false);
 		spots = readBool(props, "cannonSpots", true);
-		warningThreshold = clamp(readInt(props, "cannonWarn", 15), 0, 30);
+		warningThreshold = clamp(readInt(props, "cannonWarn", 15), 0, 50);
 	}
 
 	static void save(Properties props) {
@@ -48,6 +48,10 @@ final class CannonOverlay {
 		props.setProperty("cannonDoubleHit", Boolean.toString(doubleHit));
 		props.setProperty("cannonSpots", Boolean.toString(spots));
 		props.setProperty("cannonWarn", Integer.toString(warningThreshold));
+	}
+
+	static void setWarning(int value) {
+		warningThreshold = clamp(value, 0, 50);
 	}
 
 	static void cycleWarning() {
@@ -128,7 +132,7 @@ final class CannonOverlay {
 		if (!enabled || !infobox || !active || font == null) {
 			return;
 		}
-		InfoBoxes.draw("cannon", font, "Cannon: " + balls, stateColor());
+		InfoBoxes.icon("cannon", 2, Integer.toString(balls), stateColor());
 	}
 
 	static int tileColor(int localX, int localY, int plane) {

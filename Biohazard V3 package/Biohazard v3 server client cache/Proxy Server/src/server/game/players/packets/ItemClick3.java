@@ -1,5 +1,6 @@
 package server.game.players.packets;
 
+import server.content.skills.Slayer;
 import server.content.skills.TalismanHandler;
 import server.content.skills.TalismanHandler.talismanData;
 import server.game.items.ItemAssistant;
@@ -22,6 +23,22 @@ public class ItemClick3 implements PacketType {
 		int itemId11 = c.getInStream().readSignedWordBigEndianA();
 		int itemId1 = c.getInStream().readSignedWordA();
 		int itemId = c.getInStream().readSignedWordA();
+		if (Slayer.isCheckItem(itemId)) {
+			boolean inInv = c.getItems().playerHasItem(itemId, 1);
+			boolean worn = false;
+			if (!inInv) {
+				for (int i = 0; i < c.playerEquipment.length; i++) {
+					if (c.playerEquipment[i] == itemId) {
+						worn = true;
+						break;
+					}
+				}
+			}
+			if (inInv || worn) {
+				c.getSlayer().checkTask();
+				return;
+			}
+		}
 		if(!c.getItems().playerHasItem(itemId, 1)) {
 			return;
 		}

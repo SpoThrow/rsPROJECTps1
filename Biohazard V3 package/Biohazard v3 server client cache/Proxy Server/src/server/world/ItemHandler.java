@@ -296,7 +296,7 @@ public class ItemHandler {
 		// first, search for a free slot
 		int slot = ItemId;
 
-		if(slot == -1) return;		// no free slot found
+		if(slot < 0 || slot >= ItemList.length) return;
 		ItemList newItemList = new ItemList(ItemId);
 		newItemList.itemName = ItemName;
 		newItemList.itemDescription = ItemDescription;
@@ -875,10 +875,10 @@ public class ItemHandler {
 				token2_2 = token2_2.replaceAll("\t\t", "\t");
 				token2_2 = token2_2.replaceAll("\t\t", "\t");
 				token3 = token2_2.split("\t");
-				if (token.equals("item")) {
+				if (token.equals("item") && token3.length > 6) {
 					int[] Bonuses = new int[12];
 					for (int i = 0; i < 12; i++) {
-						if (token3[(6 + i)] != null) {
+						if (token3.length > (6 + i) && token3[(6 + i)] != null && token3[(6 + i)].length() > 0) {
 							Bonuses[i] = Integer.parseInt(token3[(6 + i)]);
 						} else {
 							break;

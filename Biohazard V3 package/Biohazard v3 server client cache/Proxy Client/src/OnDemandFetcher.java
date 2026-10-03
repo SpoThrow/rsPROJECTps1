@@ -112,20 +112,28 @@ public final class OnDemandFetcher extends OnDemandFetcherParent
 
     public void start(StreamLoader streamLoader, client client1)
     {
-        byte[] abyte2 = streamLoader.getDataForName("map_index");
-        Stream stream2 = new Stream(abyte2);
-        int j1 = abyte2.length / 6;
-        mapIndices1 = new int[j1];
-        mapIndices2 = new int[j1];
-        mapIndices3 = new int[j1];
-        for(int i2 = 0; i2 < j1; i2++)
-        {
-            mapIndices1[i2] = stream2.readUnsignedWord();
-            mapIndices2[i2] = stream2.readUnsignedWord();
-            mapIndices3[i2] = stream2.readUnsignedWord();
-mapAmount++;
-        }
-	System.out.println("Map Amount: "+mapAmount+"");
+		byte[] abyte2 = streamLoader.getDataForName("map_index");
+		Stream stream2 = new Stream(abyte2);
+		boolean sevenByte = abyte2.length % 7 == 0;
+		if (abyte2.length % 6 == 0 && abyte2.length % 7 != 0) {
+			sevenByte = false;
+		}
+		int j1 = sevenByte ? abyte2.length / 7 : abyte2.length / 6;
+		mapIndices1 = new int[j1];
+		mapIndices2 = new int[j1];
+		mapIndices3 = new int[j1];
+		mapIndices4 = new int[j1];
+		for(int i2 = 0; i2 < j1; i2++)
+		{
+			mapIndices1[i2] = stream2.readUnsignedWord();
+			mapIndices2[i2] = stream2.readUnsignedWord();
+			mapIndices3[i2] = stream2.readUnsignedWord();
+			if (sevenByte) {
+				mapIndices4[i2] = stream2.readUnsignedByte();
+			}
+			mapAmount++;
+		}
+		System.out.println("Map Amount: "+mapAmount+"");
         abyte2 = streamLoader.getDataForName("midi_index");
         stream2 = new Stream(abyte2);
         j1 = abyte2.length;
@@ -417,18 +425,14 @@ _ex.printStackTrace();
 	    public int method562(int i, int k, int l)
     {
         int i1 = (l << 8) + k;
-	int mapNigga2;
-	int mapNigga3;
         for(int j1 = 0; j1 < mapIndices1.length; j1++)
 	{
             if(mapIndices1[j1] == i1)
 	    {
                 if(i == 0) {
-		 	mapNigga2 = mapIndices2[j1] > 3535 ? -1 : mapIndices2[j1];
-				return mapNigga2;
+		 	return mapIndices2[j1];
                  } else {
-		 	mapNigga3 = mapIndices3[j1] > 3535 ? -1 : mapIndices3[j1];
-				return mapNigga3;
+		 	return mapIndices3[j1];
 		}	
 	    }
 	}
@@ -514,7 +518,14 @@ _ex.printStackTrace();
 			{
 				if(abyte0 == null)
 				{
-					aClass19_1368.insertHead(onDemandData);
+					// No jaggrab update server in this package: complete as missing so
+					// method579/region load is not blocked forever on absent models.
+					System.out.println("Cache miss type=" + onDemandData.dataType + " id=" + onDemandData.ID);
+					onDemandData.buffer = null;
+					synchronized(aClass19_1358)
+					{
+						aClass19_1358.insertHead(onDemandData);
+					}
 				} else
 				{
 					onDemandData.buffer = abyte0;
@@ -609,6 +620,12 @@ _ex.printStackTrace();
 		versions = new int[4][];
 		aClass19_1368 = new NodeList();
 		aClass19_1370 = new NodeList();
+		// version lists are unused here; allocate status slots so missing-file
+		// handling never NPEs on fileStatus[type][id].
+		for (int i = 0; i < 4; i++) {
+			fileStatus[i] = new byte[80000];
+			versions[i] = new int[80000];
+		}
 	}
 
 	private int totalFiles;

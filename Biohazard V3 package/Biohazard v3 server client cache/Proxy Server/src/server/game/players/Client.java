@@ -32,6 +32,7 @@ import server.game.minigames.castlewars.CastleWars;
 import server.game.minigames.rangersguild.RangersGuild;
 import server.game.minigames.treasuretrails.TreasureTrails;
 import server.game.players.combat.CombatAssistant;
+import server.game.players.combat.Curse;
 import server.game.shops.ShopAssistant;
 import server.world.Clan;
 import core.net.HostList;
@@ -52,6 +53,7 @@ public class Client extends Player {
 	private TradeAndDuel tradeAndDuel = new TradeAndDuel(this);
 	private PlayerAssistant playerAssistant = new PlayerAssistant(this);
 	private CombatAssistant combatAssistant = new CombatAssistant(this);
+	private Curse curse = new Curse(this);
 	private ActionHandler actionHandler = new ActionHandler(this);
 	private PlayerKilling playerKilling = new PlayerKilling(this);
 	private TreasureTrails treasureTrails = new TreasureTrails(this);
@@ -98,6 +100,10 @@ public class Client extends Player {
 	public boolean healthSkill = false;
 	public boolean posSearchingItem = false;
 	public boolean posSearchingPlayer = false;
+	public boolean itemSpawnSearching = false;
+	public int itemSpawnPendingId = -1;
+	public int[] itemSpawnResults = new int[40];
+	public int itemSpawnResultCount = 0;
 
 	public Client(IoSession s, int _playerId) {
 		super(_playerId);
@@ -344,7 +350,7 @@ public class Client extends Player {
 		server.game.content.PlayerOwnedShop.notifyOnLogin(this);
 		//sendMessage("Join 'help' clan chat for public clan chat.");
 		if(playerRights == 4 || playerRights == 6 || playerRights == 5) {
-			sendMessage("Thank you for contributing to us and enjoy your day playing @blu@Biohazard!");
+			sendMessage("Thank you for contributing to us and enjoy your day playing @blu@"+Config.SERVER_NAME+"!");
 		}
 		getPA().showOption(4, 0,"Follow", 4);
 		getPA().showOption(5, 0,"Trade With", 3);
@@ -996,6 +1002,33 @@ public class Client extends Player {
 
 	public int packetSize = 0, packetType = -1;
 
+
+	/**
+	 * OSRS-style: resolve attacks after this tick's walk step is applied,
+	 * so entering range hits immediately when the weapon is ready.
+	 */
+	public void processCombatAfterMovement() {
+		if (!isActive || isDead) {
+			return;
+		}
+		if (attackTimer == 1) {
+			if (npcIndex > 0 && clickNpcType == 0) {
+				getCombat().attackNpc(npcIndex);
+			}
+			if (playerIndex > 0) {
+				getCombat().attackPlayer(playerIndex);
+			}
+		} else if (attackTimer <= 0 && (npcIndex > 0 || playerIndex > 0)) {
+			if (npcIndex > 0) {
+				attackTimer = 0;
+				getCombat().attackNpc(npcIndex);
+			} else if (playerIndex > 0) {
+				attackTimer = 0;
+				getCombat().attackPlayer(playerIndex);
+			}
+		}
+	}
+
 	public void process() {
 		if(!isResting) {
 			if (playerEnergy < 100 && System.currentTimeMillis() - lastIncrease >= getPA().raiseTimer()) {
@@ -1026,6 +1059,15 @@ public class Client extends Player {
 			getPA().followNpc();
 		}
 		getCombat().handlePrayerDrain(this);
+		if (getCurse() != null) {
+			getCurse().handleProcess();
+		}
+		if (clawDelay > 0) {
+			clawDelay--;
+			if (clawDelay == 1) {
+				getCombat().applyClawFollowup();
+			}
+		}
 		if(System.currentTimeMillis() - singleCombatDelay >  3300) {
 			underAttackBy = 0;
 		}
@@ -1043,6 +1085,9 @@ public class Client extends Player {
 						getPA().refreshSkill(level);
 					}
 				} else if (playerLevel[level] > getLevelForXP(playerXP[level])) {
+					if (curseActive[5] && core.util.Misc.random(100) < 15) {
+						continue;
+					}
 					playerLevel[level] -= 1;
 					getPA().setSkillLevel(level, playerLevel[level], playerXP[level]);
 					getPA().refreshSkill(level);
@@ -1191,23 +1236,7 @@ public class Client extends Player {
 		if(attackTimer > 0) {
 			attackTimer--;
 		}
-
-		if(attackTimer == 1){
-			if(npcIndex > 0 && clickNpcType == 0) {
-				getCombat().attackNpc(npcIndex);
-			}
-			if(playerIndex > 0) {
-				getCombat().attackPlayer(playerIndex);
-			}
-		} else if (attackTimer <= 0 && (npcIndex > 0 || playerIndex > 0)) {
-			if (npcIndex > 0) {
-				attackTimer = 0;
-				getCombat().attackNpc(npcIndex);
-			} else if (playerIndex > 0) {
-				attackTimer = 0;
-				getCombat().attackPlayer(playerIndex);
-			}
-		}
+		// Attack swings run in processCombatAfterMovement() after absX/absY update.
 
 		if(inTrade && tradeResetNeeded){
 			Client o = (Client) PlayerHandler.players[tradeWith];
@@ -1290,6 +1319,10 @@ public class Client extends Player {
 
 	public CombatAssistant getCombat() {
 		return combatAssistant;
+	}
+
+	public Curse getCurse() {
+		return curse;
 	}
 
 	public ActionHandler getActions() {

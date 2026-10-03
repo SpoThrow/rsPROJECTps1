@@ -6,7 +6,6 @@ import server.game.players.Client;
 
 /**
 * Desert treasure
-* @author Acquittal
 */
 
 public class DesertTreasure {

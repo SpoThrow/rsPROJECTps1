@@ -75,7 +75,7 @@ public class Jframe extends client implements ActionListener {
 			loadClientSettings();
 			UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
 			JPopupMenu.setDefaultLightWeightPopupEnabled(false);
-			frame = new JFrame("Biohazard");
+			frame = new JFrame("Soul-Trail");
 			frame.setLayout(new BorderLayout());
 			setFocusTraversalKeysEnabled(false);
 			setFocusable(true);
