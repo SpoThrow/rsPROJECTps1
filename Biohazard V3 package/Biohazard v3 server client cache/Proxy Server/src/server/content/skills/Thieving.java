@@ -137,7 +137,7 @@ public class Thieving {
 	private int failureRate(final Client c, final int npcType) {
 		final pickpocket p = pickpocket.forNpcId(npcType);
 		double npcFactor = p.getRequiredLevel() / 10;
-		double levelFactor = 100 / ((c.playerLevel[Player.playerThieving] + 1) - p.getRequiredLevel());
+		double levelFactor = 100 / ((c.skills.playerLevel[Player.playerThieving] + 1) - p.getRequiredLevel());
 		return (int)Math.floor((levelFactor + npcFactor) / 2);
 	}
 
@@ -150,7 +150,7 @@ public class Thieving {
 
 	private boolean canThieveNpc(final Client c, final int npcType) {
 		final pickpocket p = pickpocket.forNpcId(npcType);
-		if (c.playerLevel[Player.playerThieving] >= p.getRequiredLevel()) {
+		if (c.skills.playerLevel[Player.playerThieving] >= p.getRequiredLevel()) {
 			return true;
 		}
 		c.sendMessage("You need a thieving level of "+ p.getRequiredLevel() +" to pickpocket this "+ p.toString().toLowerCase().replaceAll("_", " "));
@@ -183,7 +183,7 @@ public class Thieving {
 		c.startAnimation(c.getCombat().getBlockEmote());
 		c.setHitDiff(damage);
 		c.setHitUpdateRequired(true);
-		c.playerLevel[3] -= damage;
+		c.skills.playerLevel[3] -= damage;
 		c.getPA().refreshSkill(3);
 		playerIsStunned = true;
 		c.gfx100(80);

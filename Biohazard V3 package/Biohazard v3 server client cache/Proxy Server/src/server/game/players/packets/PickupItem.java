@@ -5,7 +5,6 @@ import server.event.CycleEvent;
 import server.event.CycleEventContainer;
 import server.event.CycleEventHandler;
 import server.game.players.Client;
-import server.game.players.PacketType;
 
 /**
  * Pickup Item

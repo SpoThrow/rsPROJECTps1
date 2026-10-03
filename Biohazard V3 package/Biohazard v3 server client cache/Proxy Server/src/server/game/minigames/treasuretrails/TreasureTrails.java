@@ -547,11 +547,6 @@ public class TreasureTrails {
 			showitem(lvl2(), "The Barbarian gives you another clue!");
 			c.level2 += 1;
 			return true;
-		/*} else if (npc == 5142 && c.getItems().playerHasItem(2694, 1)) {
-			c.getItems().deleteItem2(2694, 1);
-			c.getItems().addItem(2779, 1);
-			showitem(2779, "Uri gives you a casket.");
-			return true;*/ //cauldron
 		} else if (npc == 2060 && c.getItems().playerHasItem(2695, 1)) {
 			c.getItems().deleteItem2(2695, 1);
 			c.getItems().addItem(2779, 1);

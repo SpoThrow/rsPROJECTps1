@@ -504,7 +504,7 @@ public class SmithingInterface {
 	}
 
 	private static String GetForlvl(int i, Client c) {
-		if (c.playerLevel[13] >= i)
+		if (c.skills.playerLevel[13] >= i)
 			return "@whi@";
 		
 			return "@bla@";

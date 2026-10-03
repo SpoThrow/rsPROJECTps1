@@ -54,10 +54,10 @@ public class HiscoresHandler {
         int totalLevel = 0;
         int totalXp = 0;
         for(int i = 0; i <= 22; i++) {
-            totalLevel += player.getLevelForXP(player.playerXP[i]);
+            totalLevel += player.getLevelForXP(player.skills.playerXP[i]);
         }
         for(int i = 0; i <= 22; i++) {
-            totalXp += player.playerXP[i];
+            totalXp += player.skills.playerXP[i];
         }
         return new int[] {totalLevel, totalXp};
     }
@@ -74,10 +74,10 @@ public class HiscoresHandler {
 				for(int i = 0; i < 23; i++) {
 					String lvl = "lvl_"+(i+1);
 					String xp = "xp_"+(i+1);
-					int level = player.getLevelForXP(player.playerXP[i]);
+					int level = player.getLevelForXP(player.skills.playerXP[i]);
 					if(level > 99 && i != 24) 
 						level = 99;
-					query("UPDATE hs SET "+lvl+"='"+level+"', "+xp+"='"+player.playerXP[i]+"' WHERE username='"+player.playerName+"'");
+					query("UPDATE hs SET "+lvl+"='"+level+"', "+xp+"='"+player.skills.playerXP[i]+"' WHERE username='"+player.playerName+"'");
 				}
 				query("UPDATE hs SET total_exp='"+overall[1]+"', total_lvl='"+overall[0]+"' WHERE username='"+player.playerName+"'");
 				System.out.println("Highscores have been updated for "+player.playerName);

@@ -2,7 +2,6 @@ package server.game.players.packets;
 
 import server.Server;
 import server.game.players.Client;
-import server.game.players.PacketType;
 
 public class ChangeRegion implements PacketType {
 

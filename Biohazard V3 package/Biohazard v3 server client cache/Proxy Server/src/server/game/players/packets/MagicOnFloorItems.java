@@ -1,7 +1,6 @@
 package server.game.players.packets;
 import server.Server;
 import server.game.players.Client;
-import server.game.players.PacketType;
 
 
 /**
@@ -34,7 +33,7 @@ public class MagicOnFloorItems implements PacketType {
 			c.teleGrabY = itemY;
 			c.teleGrabItem = itemId;
 			c.turnPlayerTo(itemX, itemY);
-			c.teleGrabDelay = System.currentTimeMillis();
+			c.timers.teleGrabDelay = System.currentTimeMillis();
 			c.startAnimation(c.MAGIC_SPELLS[51][2]);
 			c.gfx100(c.MAGIC_SPELLS[51][3]);
 			c.getPA().createPlayersStillGfx(144, itemX, itemY, 0, 72);

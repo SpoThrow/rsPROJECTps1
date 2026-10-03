@@ -94,23 +94,23 @@ public class Smelting {
 			c.getPA().sendFrame246(bar.getFrame(), 150, bar.getBar());
 		}
         c.getPA().sendFrame164(2400);
-        c.isSmelting = true;
+        c.smelt.active = true;
 	}
 	
 	/**
 	 * Starts Smelting
 	 */
 	public static void startSmelting(Client c,int button,int i1,int i2){
-		c.barType = getType(i1);
-		c.smeltAmount = getAmount(i2);
-		c.bar = Bars.forType(c.barType);
+		c.smelt.barType = getType(i1);
+		c.smelt.amount = getAmount(i2);
+		c.smelt.bar = Bars.forType(c.smelt.barType);
 		boolean hasItems = false;
-		if(c.bar.twoOres())
-			hasItems = hasItems(c,c.bar.getOre1(),c.bar.getOre2(),c.bar.getBar());
+		if(c.smelt.bar.twoOres())
+			hasItems = hasItems(c,c.smelt.bar.getOre1(),c.smelt.bar.getOre2(),c.smelt.bar.getBar());
 		else
-			hasItems = hasItems(c,c.bar.getOre1(),-1,c.bar.getBar());
+			hasItems = hasItems(c,c.smelt.bar.getOre1(),-1,c.smelt.bar.getBar());
 		if(hasItems)
-			if(hasReqLvl(c,c.bar.getReq(),c.bar.getBar()))
+			if(hasReqLvl(c,c.smelt.bar.getReq(),c.smelt.bar.getBar()))
 				startCycle(c);
 	}
 	
@@ -118,10 +118,10 @@ public class Smelting {
 	 * Starts the Smelting cycle
 	 */
 	public static void startCycle(final Client c){
-		CycleEventHandler.addEvent(c.smeltEventId, c, new CycleEvent() {
+		CycleEventHandler.addEvent(c.smelt.eventId, c, new CycleEvent() {
 			public void execute(CycleEventContainer e) {
-				if(c.lastSmelt <= 0 || System.currentTimeMillis() - c.lastSmelt >= 1000){
-				if(c.smeltAmount > 0)
+				if(c.smelt.lastSmelt <= 0 || System.currentTimeMillis() - c.smelt.lastSmelt >= 1000){
+				if(c.smelt.amount > 0)
 						appendDelay(c);
 					else
 						e.stop();
@@ -138,30 +138,30 @@ public class Smelting {
 	 * Applies Smelting delay
 	 */
 	public static void appendDelay(Client c){
-		if(c.smeltAmount > 0){
+		if(c.smelt.amount > 0){
 			boolean hasItems = false;
-			if(c.bar.twoOres())
-				hasItems = hasItems(c,c.bar.getOre1(),c.bar.getOre2(),c.bar.getBar());
+			if(c.smelt.bar.twoOres())
+				hasItems = hasItems(c,c.smelt.bar.getOre1(),c.smelt.bar.getOre2(),c.smelt.bar.getBar());
 			else
-				hasItems = hasItems(c,c.bar.getOre1(),-1,c.bar.getBar());
+				hasItems = hasItems(c,c.smelt.bar.getOre1(),-1,c.smelt.bar.getBar());
 			if(hasItems){
-				if(c.bar.twoOres()){
+				if(c.smelt.bar.twoOres()){
 					c.startAnimation(899);
-					c.getItems().deleteItem(c.bar.getOre1(), 1);
-					c.getItems().deleteItem(c.bar.getOre2(), 1);
-					c.getItems().addItem(c.bar.getBar(), 1);
+					c.getItems().deleteItem(c.smelt.bar.getOre1(), 1);
+					c.getItems().deleteItem(c.smelt.bar.getOre2(), 1);
+					c.getItems().addItem(c.smelt.bar.getBar(), 1);
 					
-					c.getPA().addSkillXP(c.bar.getExp() * Config.SMITHING_EXPERIENCE, Player.playerSmithing);
+					c.getPA().addSkillXP(c.smelt.bar.getExp() * Config.SMITHING_EXPERIENCE, Player.playerSmithing);
 					
-					c.sendMessage("You smelt a "+ItemAssistant.getItemName(c.bar.getBar()));
+					c.sendMessage("You smelt a "+ItemAssistant.getItemName(c.smelt.bar.getBar()));
 				} else {
 					c.startAnimation(899);
-					c.getItems().deleteItem(c.bar.getOre1(), 1);
-					c.getItems().addItem(c.bar.getBar(), 1);
+					c.getItems().deleteItem(c.smelt.bar.getOre1(), 1);
+					c.getItems().addItem(c.smelt.bar.getBar(), 1);
 					
-					c.getPA().addSkillXP(c.bar.getExp() * Config.SMITHING_EXPERIENCE, Player.playerSmithing);
+					c.getPA().addSkillXP(c.smelt.bar.getExp() * Config.SMITHING_EXPERIENCE, Player.playerSmithing);
 					
-					c.sendMessage("You smelt a "+ItemAssistant.getItemName(c.bar.getBar()));
+					c.sendMessage("You smelt a "+ItemAssistant.getItemName(c.smelt.bar.getBar()));
 				}
 			}
 		} else {
@@ -169,8 +169,8 @@ public class Smelting {
 			c.getPA().removeAllWindows();
 			return;
 		}
-		c.lastSmelt = System.currentTimeMillis();
-		c.smeltAmount--;
+		c.smelt.lastSmelt = System.currentTimeMillis();
+		c.smelt.amount--;
 		c.getPA().removeAllWindows();
 	}
 	
@@ -178,19 +178,19 @@ public class Smelting {
 	 * Resets Smelting variables
 	 */
 	public static void resetSmelting(Client c){
-		c.smeltAmount = 0;
-		c.barType = "";
-		c.bar = null;
-		c.isSmelting = false;
-		c.lastSmelt = 0;
-		CycleEventHandler.stopEvents(c, c.smeltEventId);
+		c.smelt.amount = 0;
+		c.smelt.barType = "";
+		c.smelt.bar = null;
+		c.smelt.active = false;
+		c.smelt.lastSmelt = 0;
+		CycleEventHandler.stopEvents(c, c.smelt.eventId);
 	}
 	
 	/**
 	 * Checks if the player has the required level
 	 */
 	public static boolean hasReqLvl(Client c,int req,int bar){
-		int level = c.getPA().getLevelForXP(c.playerXP[Player.playerSmithing]);
+		int level = c.getPA().getLevelForXP(c.skills.playerXP[Player.playerSmithing]);
 		if(level >= req)
 			return true;
 		else

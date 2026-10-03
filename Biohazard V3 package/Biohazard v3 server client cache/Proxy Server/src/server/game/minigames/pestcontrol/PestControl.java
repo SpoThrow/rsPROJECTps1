@@ -8,7 +8,6 @@ import server.game.players.PlayerHandler;
 /**
  * PestControl.java
  *
- * @author Acquittal
  *
  */
 
@@ -162,8 +161,8 @@ public class PestControl {
 						c.sendMessage("You have won the pest control game and have been awarded 4 pest control points.");
 						c.pcPoints += 4;
 						c.getPA().sendFrame126("@red@Pest Control Points: @or2@"+c.pcPoints, 7333);
-						c.playerLevel[3] = c.getLevelForXP(c.playerXP[3]);
-						c.playerLevel[5] = c.getLevelForXP(c.playerXP[5]);
+						c.skills.playerLevel[3] = c.getLevelForXP(c.skills.playerXP[3]);
+						c.skills.playerLevel[5] = c.getLevelForXP(c.skills.playerXP[5]);
 						c.specAmount = 100;
 						c.getItems().addItem(995, c.combatLevel * 50);
 						c.getPA().refreshSkill(3);

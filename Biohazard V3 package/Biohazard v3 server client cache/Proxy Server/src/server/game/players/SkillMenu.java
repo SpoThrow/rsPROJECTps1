@@ -3,7 +3,6 @@ package server.game.players;
 /**
  * 
  * SkillMenu.java
- * @author Acquittal
  *
  */
 

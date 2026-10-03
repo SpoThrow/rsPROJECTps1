@@ -16,7 +16,7 @@ public class GemCutting extends CraftingData {
 		final int itemId = (itemUsed == 1755 ? usedWith : itemUsed);
 		for (final cutGemData g : cutGemData.values()) {
 			if (itemId == g.getUncut()) {
-				if (c.playerLevel[12] < g.getLevel()) {
+				if (c.skills.playerLevel[12] < g.getLevel()) {
 					c.sendMessage("You need a crafting level of "+ g.getLevel() +" to cut this gem.");
 					return;
 				}

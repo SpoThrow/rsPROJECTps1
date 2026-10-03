@@ -37,7 +37,7 @@ public class Clan {
 		}
 
 		paramClient.clan = this;
-		paramClient.lastClanChat = getFounder();
+		paramClient.clanChat.channel = getFounder();
 		this.activeMembers.add(paramClient.playerName);
 		paramClient.getPA().sendFrame126("Leave chat", 50135);
 		paramClient.getPA().sendFrame126(

@@ -135,7 +135,7 @@ public class JewelryMaking extends CraftingData {
 			if(!isRing && !isNeck && !isAmulet) {
 				return;
 			}
-			if(c.playerLevel[Player.playerCrafting] >= lvl) {
+			if(c.skills.playerLevel[Player.playerCrafting] >= lvl) {
 				if(ItemAssistant.getItemName(itemAdd).toLowerCase().contains("gold") && !c.getItems().playerHasItem(GOLD_BAR, 1) || !c.getItems().playerHasItem(GOLD_BAR, 1)) {
 					c.sendMessage("You need a Gold bar to make this.");
 					return;

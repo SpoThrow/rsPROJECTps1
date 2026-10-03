@@ -729,7 +729,7 @@ public class WorldAdventurer {
 		lastGreetPid = near.playerId;
 		lastGreetName = near.playerName;
 		greetDelay = again ? 70 + Misc.random(40) : 36 + Misc.random(24);
-		n.turnNpc(near.absX, near.absY);
+		n.turnNpc(near.position.absX, near.position.absY);
 		String name = near.playerName;
 		int roll = Misc.random(6);
 		if (again) {
@@ -759,10 +759,10 @@ public class WorldAdventurer {
 				continue;
 			}
 			Client p = (Client) PlayerHandler.players[i];
-			if (p.disconnected || p.heightLevel != n.heightLevel) {
+			if (p.disconnected || p.position.heightLevel != n.heightLevel) {
 				continue;
 			}
-			int d = distance(n.absX, n.absY, p.absX, p.absY);
+			int d = distance(n.absX, n.absY, p.position.absX, p.position.absY);
 			if (d < bestD) {
 				bestD = d;
 				best = p;

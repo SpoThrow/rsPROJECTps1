@@ -105,7 +105,7 @@ public class Farming {
 	}
 
 	private void handleFarming(Farming_Data f) {
-		if (c.playerLevel[Player.playerFarming] >= f.getReq()) {
+		if (c.skills.playerLevel[Player.playerFarming] >= f.getReq()) {
 			if (c.getItems().playerHasItem(f.getSeed(), 1)) {
 				c.getItems().deleteItem(f.getSeed(), c.getItems().getItemSlot(f.getSeed()), 1);
 				c.getPA().addSkillXP(f.getPlantXP(), Player.playerFarming);

@@ -12,10 +12,6 @@ import server.game.players.Client;
 import server.game.players.Player;
 import core.util.Misc;
 
-/**
- * @author Acquittal - good system
- **/
-
 public class Mining extends SkillHandler {
 
 	public static void mineEss(final Client c, final int object) {
@@ -111,7 +107,7 @@ public class Mining extends SkillHandler {
 						}
 						if(c.playerSkillProp[14][1] > 0) {
 							c.getPA().addSkillXP(c.playerSkillProp[14][1] * Config.MINING_EXPERIENCE, Player.playerMining);
-							new Object(451, obX, obY, c.heightLevel, 0, 10, 451, -1, 0);
+							new Object(451, obX, obY, c.position.heightLevel, 0, 10, 451, -1, 0);
 						}
 						if(!hasPickaxe(c)) {
 							c.sendMessage("You need a pickaxe to mine this rock.");
@@ -137,7 +133,7 @@ public class Mining extends SkillHandler {
 				CycleEventHandler.addEvent(c, new CycleEvent() {
 					@Override
 					public void execute(CycleEventContainer container) {
-						new Object(object, obX, obY, c.heightLevel, 0, 10, object, -1, 0);
+						new Object(object, obX, obY, c.position.heightLevel, 0, 10, object, -1, 0);
 						container.stop();
 					}
 					@Override
@@ -200,7 +196,7 @@ public class Mining extends SkillHandler {
 							}
 							if(object > 0) {
 								c.getPA().addSkillXP(65 * Config.MINING_EXPERIENCE, Player.playerMining);
-								new Object(451, obX, obY, c.heightLevel, 0, 10, 451, -1, 0);
+								new Object(451, obX, obY, c.position.heightLevel, 0, 10, 451, -1, 0);
 							}
 							if(!hasPickaxe(c)) {
 								c.sendMessage("You need a pickaxe to mine this rock.");
@@ -226,7 +222,7 @@ public class Mining extends SkillHandler {
 					CycleEventHandler.addEvent(c, new CycleEvent() {
 						@Override
 						public void execute(CycleEventContainer container) {
-							new Object(object, obX, obY, c.heightLevel, 0, 10, object, -1, 0);
+							new Object(object, obX, obY, c.position.heightLevel, 0, 10, object, -1, 0);
 							container.stop();
 						}
 						@Override
@@ -271,13 +267,13 @@ public class Mining extends SkillHandler {
 	}
 
 	private static int playerMiningLevel(Client c) {
-		return (10 - (int)Math.floor(c.playerLevel[14] / 10));
+		return (10 - (int)Math.floor(c.skills.playerLevel[14] / 10));
 	}
 
 	private static int getTime(Client c) {
 		for(int i = 0; i < pickaxe.length; i++) {
 			if(c.getItems().playerHasItem(pickaxe[i][0]) || c.playerEquipment[3] == pickaxe[i][0]) {
-				if(c.playerLevel[Player.playerMining] >= pickaxe[i][1]) {
+				if(c.skills.playerLevel[Player.playerMining] >= pickaxe[i][1]) {
 					return pickaxe[i][2];
 				}
 			}

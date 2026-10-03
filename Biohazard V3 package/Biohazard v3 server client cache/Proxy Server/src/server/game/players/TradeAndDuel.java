@@ -12,7 +12,6 @@ import core.util.Misc;
 /**
  * 
  * TradeAndDuel.java
- * @author Acquittal
  *
  */
 
@@ -54,7 +53,7 @@ public class TradeAndDuel{
 			Client o = (Client) PlayerHandler.players[id];
 			if (id == c.playerId)
 				return;
-			c.turnPlayerTo(o.absX, o.absY);
+			c.turnPlayerTo(o.position.absX, o.position.absY);
 			c.tradeWith = id;
 			if(c.playerIsBusy())
 				return;
@@ -878,14 +877,14 @@ public class TradeAndDuel{
 		if(o == null) {
 			duelVictory();
 		}
-		c.headIconHints = 2;
+		c.appearance.headIconHints = 2;
 		
 		if(c.duelRule[7]){
 			for(int p = 0; p < c.PRAYER.length; p++) { // reset prayer glows 
 				c.prayerActive[p] = false;
 				c.getPA().sendFrame36(c.PRAYER_GLOW[p], 0);		
 			}
-			c.headIcon = -1;
+			c.appearance.headIcon = -1;
 			c.getPA().requestUpdates();
 		}		
 		if(c.duelRule[11]) {
@@ -943,7 +942,7 @@ public class TradeAndDuel{
 		c.getPA().createPlayerHints(10, o.playerId);
 		c.getPA().showOption(3, 0, "Attack", 1);
 		for (int i = 0; i < 20; i++) {
-			c.playerLevel[i] = c.getPA().getLevelForXP(c.playerXP[i]);
+			c.skills.playerLevel[i] = c.getPA().getLevelForXP(c.skills.playerXP[i]);
 			c.getPA().refreshSkill(i);
 		}
 		for(GameItem item : o.getTradeAndDuel().stakedItems) {
@@ -966,7 +965,7 @@ public class TradeAndDuel{
 		c.duelStatus = 6;
 		c.getCombat().resetPrayers();
 		for (int i = 0; i < 20; i++) {
-			c.playerLevel[i] = c.getPA().getLevelForXP(c.playerXP[i]);
+			c.skills.playerLevel[i] = c.getPA().getLevelForXP(c.skills.playerXP[i]);
 			c.getPA().refreshSkill(i);
 		}
 		c.getPA().refreshSkill(3);
@@ -1078,7 +1077,7 @@ public class TradeAndDuel{
 
 	public void resetDuel() {
 		c.getPA().showOption(3, 0, "Challenge", 3);
-		c.headIconHints = 0;
+		c.appearance.headIconHints = 0;
 		for (int i = 0; i < c.duelRule.length; i++) { 
 			c.duelRule[i] = false;
 		}

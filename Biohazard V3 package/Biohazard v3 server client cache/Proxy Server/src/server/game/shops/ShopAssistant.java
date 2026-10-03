@@ -10,7 +10,6 @@ import server.world.ShopHandler;
 
 /**
  * Shops rewritten
- * @author Acquittal
  * 
  **/
 
@@ -704,94 +703,11 @@ public class ShopAssistant {
 				}
 			}
 		
-		/*public void openSkillCape() {
-			int capes = get99Count();
-			if (capes > 1)
-				capes = 1;
-			else
-				capes = 0;
-			c.myShopId = 14;
-			setupSkillCapes(capes, get99Count());		
-		}*/
 		
 		
 		
 		/*public int[][] skillCapes = {{0,9747,4319,2679},{1,2683,4329,2685},{2,2680,4359,2682},{3,2701,4341,2703},{4,2686,4351,2688},{5,2689,4347,2691},{6,2692,4343,2691},
 									{7,2737,4325,2733},{8,2734,4353,2736},{9,2716,4337,2718},{10,2728,4335,2730},{11,2695,4321,2697},{12,2713,4327,2715},{13,2725,4357,2727},
 									{14,2722,4345,2724},{15,2707,4339,2709},{16,2704,4317,2706},{17,2710,4361,2712},{18,2719,4355,2721},{19,2737,4331,2739},{20,2698,4333,2700}};*/
-		/*public int[] skillCapes = {9747,9753,9750,9768,9756,9759,9762,9801,9807,9783,9798,9804,9780,9795,9792,9774,9771,9777,9786,9810,9765};
-		public int get99Count() {
-			int count = 0;
-			for (int j = 0; j < c.playerLevel.length; j++) {
-				if (c.getLevelForXP(c.playerXP[j]) >= 99) {
-					count++;				
-				}			
-			}		
-			return count;
-		}
-		
-		public void setupSkillCapes(int capes, int capes2) {
-			synchronized(c) {
-				c.getItems().resetItems(3823);
-				c.isShopping = true;
-				c.myShopId = 14;
-				c.getPA().sendFrame248(3824, 3822);
-				c.getPA().sendFrame126("Skillcape Shop", 3901);
-				
-				int TotalItems = 0;
-				TotalItems = capes2;
-				if (TotalItems > Server.shopHandler.MaxShopItems) {
-					TotalItems = Server.shopHandler.MaxShopItems;
-				}
-				c.getOutStream().createFrameVarSizeWord(53);
-				c.getOutStream().writeWord(3900);
-				c.getOutStream().writeWord(TotalItems);
-				int TotalCount = 0;
-				for (int i = 0; i < 21; i++) {
-					if (c.getLevelForXP(c.playerXP[i]) < 99)
-						continue;
-					c.getOutStream().writeByte(1);
-					c.getOutStream().writeWordBigEndianA(skillCapes[i] + 2);
-					TotalCount++;
-				}
-				c.getOutStream().endFrameVarSizeWord();
-				c.flushOutStream();	
-			}
-		}
-		
-		public void skillBuy(int item) {
-			int nn = get99Count();
-			if (nn > 1)
-				nn = 1;
-			else
-				nn = 0;			
-			for (int j = 0; j < skillCapes.length; j++) {
-				if (skillCapes[j] == item || skillCapes[j]+1 == item) {
-					if (c.getItems().freeSlots() > 1) {
-						if (c.getItems().playerHasItem(995,99000)) {
-							if (c.getLevelForXP(c.playerXP[j]) >= 99) {
-								c.getItems().deleteItem(995, c.getItems().getItemSlot(995), 99000);
-								c.getItems().addItem(skillCapes[j] + nn,1);
-								c.getItems().addItem(skillCapes[j] + 2,1);
-							} else {
-								c.sendMessage("You must have 99 in the skill of the cape you're trying to buy.");
-							}
-						} else {
-							c.sendMessage("You need 99k to buy this item.");
-						}
-					} else {
-						c.sendMessage("You must have at least 1 inventory spaces to buy this item.");					
-					}				
-				}		
-			}
-			c.getItems().resetItems(3823);			
-		}
-		
-		public void openVoid() {
-		}
-
-		public void buyVoid(int item) {
-		}
-		}*/
 }
 

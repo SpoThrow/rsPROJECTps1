@@ -73,7 +73,7 @@ public class ObjectHandler {
 	public void updateObjects(Client c) { 
 		for(Objects o : globalObjects) {
 			if(c != null) {
-				if(c.heightLevel == o.getObjectHeight() && o.objectTicks == 0) {
+				if(c.position.heightLevel == o.getObjectHeight() && o.objectTicks == 0) {
 					if (c.distanceToPoint(o.getObjectX(), o.getObjectY()) <= 60) {
 						c.getPA().object(o.getObjectId(), o.getObjectX(), o.getObjectY(), o.getObjectFace(), o.getObjectType());
 					}
@@ -97,7 +97,7 @@ public class ObjectHandler {
 			if(p != null) {
 			Client person = (Client)p;
 				if(person != null){
-					if(person.heightLevel == o.getObjectHeight() && o.objectTicks == 0) {
+					if(person.position.heightLevel == o.getObjectHeight() && o.objectTicks == 0) {
 						if (person.distanceToPoint(o.getObjectX(), o.getObjectY()) <= 60) {
 							removeAllObjects(o);
 							globalObjects.add(o);
@@ -232,7 +232,7 @@ public class ObjectHandler {
 					if(p != null) {
 						Client person = (Client)p;
 						if(person != null){
-							if(person.heightLevel == doorHeight) {
+							if(person.position.heightLevel == doorHeight) {
 								if (person.distanceToPoint(doorX, doorY) <= 60) {
 									person.getPA().object(-1, doors[i][0], doors[i][1], 0, 0);
 									if(doors[i][3] == 0 && doors[i][4] == 1) {

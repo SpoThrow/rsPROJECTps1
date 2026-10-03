@@ -94,7 +94,7 @@ public class WallSafes {
 	 */
 	public static void appendHit(int damage, Client c) {
 		PlayerHandler.players[c.playerId].setHitDiff(damage);
-		PlayerHandler.players[c.playerId].playerLevel[3] -= damage;
+		PlayerHandler.players[c.playerId].skills.playerLevel[3] -= damage;
 		c.getPA().refreshSkill(3);
 		PlayerHandler.players[c.playerId].setHitUpdateRequired(true);	
 		PlayerHandler.players[c.playerId].updateRequired = true;		
@@ -109,7 +109,7 @@ public class WallSafes {
 	 *  Object ID
 	 */
 		public static void checkWallSafe(Client c) {
-			if (c.playerLevel[17] >= LEVEL_REQUIRED) {
+			if (c.skills.playerLevel[17] >= LEVEL_REQUIRED) {
 				if (System.currentTimeMillis() - c.lastThieve < 2500)
 					return;
 				c.lastThieve = System.currentTimeMillis();

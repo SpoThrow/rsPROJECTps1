@@ -21,7 +21,7 @@ public class Zombie {
 		for (int[] aZombie : zombie) {
 			if(!c.zombieSpawned) {
 				if (c.combatLevel >= aZombie[0] && c.combatLevel <= aZombie[1]) {
-					Server.npcHandler.spawnNpc(c, aZombie[2], c.getX() + Misc.random(1), c.getY() + Misc.random(1), c.heightLevel, 0, aZombie[3], aZombie[4], aZombie[4] * 10, aZombie[4] * 10, true, false);
+					Server.npcHandler.spawnNpc(c, aZombie[2], c.getX() + Misc.random(1), c.getY() + Misc.random(1), c.position.heightLevel, 0, aZombie[3], aZombie[4], aZombie[4] * 10, aZombie[4] * 10, true, false);
 					c.zombieSpawned = true;
 				}
 			}

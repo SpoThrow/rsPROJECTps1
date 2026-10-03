@@ -13,39 +13,39 @@ public class BountyHunter {
 	
 	public static void updateInterface(Client c) {
 		if(playerHasTarget(c)) {
-			c.getPA().sendFrame126(c.targetName, 25350);
+			c.getPA().sendFrame126(c.bountyHunter.targetName, 25350);
 		} else {
 			c.getPA().sendFrame126("No Target", 25350);
 		}
-		if(c.isRogue && c.penaltyTimer && c.safeTimer > 0) {
+		if(c.bountyHunter.isRogue && c.bountyHunter.penaltyTimer && c.bountyHunter.safeTimer > 0) {
 			c.getPA().sendFrame126("Penalty Timer:", 28502);
-		} else if(c.isRogue && !c.penaltyTimer && c.safeTimer > 0) {
+		} else if(c.bountyHunter.isRogue && !c.bountyHunter.penaltyTimer && c.bountyHunter.safeTimer > 0) {
 			c.getPA().sendFrame126("Leave Timer:", 28502);
-		} else if(c.safeTimer <= 0) {
+		} else if(c.bountyHunter.safeTimer <= 0) {
 			c.getPA().sendFrame126("", 28502);
 			c.getPA().sendFrame126("", 28503);
 		}
 	}
 	
 	public static void startPenaltyTimer(Client c) {
-		if(c.inBhArea() && c.isRogue) {
-			c.penaltyTimer = true;
-			c.safeTimer = 180;
+		if(c.inBhArea() && c.bountyHunter.isRogue) {
+			c.bountyHunter.penaltyTimer = true;
+			c.bountyHunter.safeTimer = 180;
 		}
 	}
 	
 	public static void startLeaveTimer(Client c) {
-		if(c.inBhArea() && c.isRogue) {
-			c.safeTimer = 180;
-			c.penaltyTimer = false;
+		if(c.inBhArea() && c.bountyHunter.isRogue) {
+			c.bountyHunter.safeTimer = 180;
+			c.bountyHunter.penaltyTimer = false;
 		}
 	}
 	
 	public static boolean checkReqs(Client c) {
 		if(c == null)
 			return false;
-		if(c.safeTimer > 0) {
-			c.sendMessage("Wait "+c.safeTimer+" more seconds before entering the crater again.");
+		if(c.bountyHunter.safeTimer > 0) {
+			c.sendMessage("Wait "+c.bountyHunter.safeTimer+" more seconds before entering the crater again.");
 			return false;
 		}
 		if(ItemAssistant.getWeaponCount(c) > 4) {
@@ -98,18 +98,18 @@ public class BountyHunter {
 	}
 	
 	public static void leaveCrater(final Client c) {
-		Client target = PlayerHandler.players[c.targetIndex];
-		if(c.safeTimer > 0 && !c.penaltyTimer) {
-			c.sendMessage("Wait "+c.safeTimer+" more seconds before leaving the crater.");
+		Client target = PlayerHandler.players[c.bountyHunter.targetIndex];
+		if(c.bountyHunter.safeTimer > 0 && !c.bountyHunter.penaltyTimer) {
+			c.sendMessage("Wait "+c.bountyHunter.safeTimer+" more seconds before leaving the crater.");
 			return;
 		}
-		if(c.targetIndex > 0 && target.targetIndex > 0)
-			target.targetIndex = 0;
-		if(c.targetIndex > 0)
+		if(c.bountyHunter.targetIndex > 0 && target.bountyHunter.targetIndex > 0)
+			target.bountyHunter.targetIndex = 0;
+		if(c.bountyHunter.targetIndex > 0)
 			resetTarget(c);
-		if(c.isRogue) {
-			c.safeTimer = 180;
-			c.isRogue = false;
+		if(c.bountyHunter.isRogue) {
+			c.bountyHunter.safeTimer = 180;
+			c.bountyHunter.isRogue = false;
 		}
 		assignSkull(c, 0);
 		c.getPA().movePlayer(3179, 3685, 0);
@@ -118,17 +118,17 @@ public class BountyHunter {
 	}
 	
 	public static void checkBHTimer(final Client c) {
-		if(c.safeTimer > 0) {
+		if(c.bountyHunter.safeTimer > 0) {
 			CycleEventHandler.addEvent(c, new CycleEvent() {
 				@Override
 				public void execute(CycleEventContainer container) {
-					if(c.safeTimer > 0) {
-						c.safeTimer--;
-						if(c.inBhArea() && !c.isRogue){
+					if(c.bountyHunter.safeTimer > 0) {
+						c.bountyHunter.safeTimer--;
+						if(c.inBhArea() && !c.bountyHunter.isRogue){
 							c.getPA().walkableInterface(197);
-							c.getPA().sendFrame126("@or1@"+c.safeTimer, 199);
-						} else if(c.inBhArea() && c.isRogue){
-							c.getPA().sendFrame126(""+c.safeTimer, 28503);
+							c.getPA().sendFrame126("@or1@"+c.bountyHunter.safeTimer, 199);
+						} else if(c.inBhArea() && c.bountyHunter.isRogue){
+							c.getPA().sendFrame126(""+c.bountyHunter.safeTimer, 28503);
 						}
 						updateInterface(c);
 					} else {
@@ -138,7 +138,7 @@ public class BountyHunter {
 				}
 				@Override
 				public void stop() {
-					//c.safeTimer = 0;
+					//c.bountyHunter.safeTimer = 0;
 				}
 			}, 2);
 		}
@@ -147,27 +147,35 @@ public class BountyHunter {
 	public static void assignSkull(Client c, int i) {
 		c.isSkulled = i == 1 ? true : false;
 		//c.skullTimer = i == 1 ? Config.SKULL_TIMER : -1;
-		c.headIconPk = i == 1 ? c.getPA().getBhSkull() : -1;
-		c.inBH = i == 1 ? true : false;
+		c.appearance.headIconPk = i == 1 ? c.getPA().getBhSkull() : -1;
+		c.bountyHunter.inBH = i == 1 ? true : false;
 		handleBHTargetTimer(c);
 		updateInterface(c);
 		c.getPA().requestUpdates();
 	}
 	
 	public static boolean playerHasTarget(Client player) {
-		return player.targetIndex != 0 && (player.targetName != "" || player.targetName != null);
+		// Was `targetIndex != 0 && (targetName != "" || targetName != null)`, which was
+		// satisfied by every possible value of targetName: null passed `!= ""`, and ""
+		// passed `!= null`. Both were reference comparisons too. So the whole name half of
+		// the check was dead and this only ever tested targetIndex -- meaning a player left
+		// holding a stale targetIndex with no usable name was never re-assigned a target by
+		// handleBHTargetTimer. Now it actually requires an assigned, non-empty name.
+		return player.bountyHunter.targetIndex != 0
+				&& player.bountyHunter.targetName != null
+				&& !player.bountyHunter.targetName.isEmpty();
 	}
 	
 	public static void resetTarget(Client player) {
-		Client target = PlayerHandler.players[player.targetIndex];
+		Client target = PlayerHandler.players[player.bountyHunter.targetIndex];
 		handleBHTargetTimer(target);
 		target.getPA().createPlayerHints(-1, player.playerId);
-		target.targetIndex = 0;
-		target.targetName = null;
+		target.bountyHunter.targetIndex = 0;
+		target.bountyHunter.targetName = null;
 		updateInterface(target);
-		player.getPA().createPlayerHints(-1, player.targetIndex);
-		player.targetIndex = 0;
-		player.targetName = null;
+		player.getPA().createPlayerHints(-1, player.bountyHunter.targetIndex);
+		player.bountyHunter.targetIndex = 0;
+		player.bountyHunter.targetName = null;
 		updateInterface(player);
 	}
 	
@@ -175,7 +183,7 @@ public class BountyHunter {
 		for (Player players : PlayerHandler.players) {
 			if (players != null) {
 				Client p = (Client)players;
-				if(p != player && p.inBH) {
+				if(p != player && p.bountyHunter.inBH) {
 					if(playerHasTarget(p))
 						return;
 					setTarget(player, p.playerId, p.playerName);
@@ -195,10 +203,10 @@ public class BountyHunter {
 	}
 
 	public static void setTarget(Client player, int targetPlayerId, String targetName) {
-		player.targetIndex = targetPlayerId;
-		player.targetName = targetName;
+		player.bountyHunter.targetIndex = targetPlayerId;
+		player.bountyHunter.targetName = targetName;
 		if (PlayerHandler.players[targetPlayerId] != null) {
-			player.getPA().createPlayerHints(10, player.targetIndex);
+			player.getPA().createPlayerHints(10, player.bountyHunter.targetIndex);
 		}
 		//player.sendMessage("Target: "+targetName);
 	}
@@ -208,7 +216,7 @@ public class BountyHunter {
 				@Override
 				public void execute(CycleEventContainer container) {
 					//System.out.println(""+playerHasTarget(c));
-					if (!playerHasTarget(c) && c.inBH)
+					if (!playerHasTarget(c) && c.bountyHunter.inBH)
 						assignTarget(c);
 					else
 						container.stop();
@@ -219,22 +227,39 @@ public class BountyHunter {
 			}, 1);
 	}
 	
+	/**
+	 * Whether killing {@code dying} earns {@code target} the Bounty Hunter kill credit.
+	 *
+	 * <p>Split out of {@link #handleBHDeath} so both directions can be tested: the award
+	 * branch continues into {@code loadQuests}/{@code assignSkull}/{@code resetTarget},
+	 * which need a real login session, so exercising it end to end is not a unit test.
+	 *
+	 * <p>{@code dying.playerName} is deliberately the receiver: it is always set for a
+	 * logged-in player, whereas {@code target.targetName} is null whenever that player has
+	 * no assigned target (it defaults to null and {@code resetTarget} sets it back), and
+	 * calling {@code equalsIgnoreCase} on it threw out of the death handler.
+	 */
+	static boolean isKillCreditFor(Client target, Client dying) {
+		return dying.playerName != null
+				&& dying.playerName.equalsIgnoreCase(target.bountyHunter.targetName);
+	}
+
 	public static void handleBHDeath(Client c) {
-		Client target = PlayerHandler.players[c.targetIndex];
+		Client target = PlayerHandler.players[c.bountyHunter.targetIndex];
 		Client rogue = PlayerHandler.players[c.killerId];
-		if(c.killerId == c.targetIndex) {
-			target.safeTimer = 0;
-			if(target.targetName.equalsIgnoreCase(c.playerName)) {
-				target.bountyKills++;
-				target.isBounty = true;
+		if(c.killerId == c.bountyHunter.targetIndex) {
+			target.bountyHunter.safeTimer = 0;
+			if(isKillCreditFor(target, c)) {
+				target.bountyHunter.bountyKills++;
+				target.bountyHunter.isBounty = true;
 				target.getPA().loadQuests();
 				assignSkull(c, 0);
 				resetTarget(target);
 				updateInterface(target);
 			}
 		} else {
-			rogue.rogueKills++;
-			rogue.isRogue = true;
+			rogue.bountyHunter.rogueKills++;
+			rogue.bountyHunter.isRogue = true;
 			startPenaltyTimer(rogue);
 			updateInterface(rogue);
 			CycleEventHandler.stopEvents(rogue);
@@ -246,7 +271,7 @@ public class BountyHunter {
 	}
 	
 	public static void handleReward(Client c, int reward) {
-		if(c.bountyKills >= 10 * c.killsMultiplier) {
+		if(c.bountyHunter.bountyKills >= 10 * c.bountyHunter.killsMultiplier) {
 			switch(reward) {
 			case 1:
 				if(c.combatLevel > 2 && c.combatLevel <= 55) {
@@ -276,7 +301,7 @@ public class BountyHunter {
 				}
 				break;
 			}
-			c.killsMultiplier++;
+			c.bountyHunter.killsMultiplier++;
 		} else {
 			c.getDH().sendDialogues(511, c.talkingNpc);
 			return;

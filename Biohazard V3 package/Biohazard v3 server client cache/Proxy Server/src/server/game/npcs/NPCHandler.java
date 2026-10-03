@@ -11,6 +11,7 @@ import java.util.List;
 import server.Config;
 import server.Server;
 import server.clip.region.Region;
+import server.clip.region.SmartPathFinder;
 import server.event.CycleEvent;
 import server.event.CycleEventContainer;
 import server.event.CycleEventHandler;
@@ -21,6 +22,7 @@ import server.game.minigames.randomevents.RockGolem;
 import server.game.minigames.randomevents.SpiritTree;
 import server.game.minigames.randomevents.Zombie;
 import server.game.players.Client;
+import server.game.players.PathFinder;
 import server.game.players.Player;
 import server.game.players.PlayerHandler;
 import server.world.definitions.EntityDef;
@@ -28,7 +30,7 @@ import core.util.Misc;
 
 public class NPCHandler {
 	public static int maxNPCs = 7000;
-	public static int maxListedNPCs = 7000;
+	public static int maxListedNPCs = 32768;
 	public static int maxNPCDrops = 7000;
 	public static NPC npcs[] = new NPC[maxNPCs];
 	public static NPCList NpcList[] = new NPCList[maxListedNPCs];
@@ -49,6 +51,7 @@ public class NPCHandler {
 		loadNPCDrops("./Data/CFG/npc_drops.cfg");
 		loadNPCList("./Data/CFG/npc.cfg");
 		loadAutoSpawn("./Data/CFG/spawn-config.cfg");
+		NpcAnim667.load();
 	}
 
 	public float getRarity(String value) {
@@ -230,9 +233,9 @@ public class NPCHandler {
 		for (int j = 0; j < PlayerHandler.players.length; j++) {
 			if (PlayerHandler.players[j] != null) {
 				Client c = (Client) PlayerHandler.players[j];
-				if (c.heightLevel != npcs[i].heightLevel)
+				if (c.position.heightLevel != npcs[i].heightLevel)
 					continue;
-				if (PlayerHandler.players[j].goodDistance(c.absX, c.absY,
+				if (PlayerHandler.players[j].goodDistance(c.position.absX, c.position.absY,
 						npcs[i].absX, npcs[i].absY, 15)) {
 					int nX = NPCHandler.npcs[i].getX() + offset(i);
 					int nY = NPCHandler.npcs[i].getY() + offset(i);
@@ -261,6 +264,12 @@ public class NPCHandler {
 		case 2565:
 		case 2892:
 		case 2894:
+		case 13447:
+		case 13448:
+		case 13449:
+		case 13450:
+		case 13451:
+		case 13458:
 			return true;
 
 		}
@@ -273,12 +282,12 @@ public class NPCHandler {
 		for (int j = 0; j < PlayerHandler.players.length; j++) {
 			if (PlayerHandler.players[j] != null) {
 				Client c = (Client) PlayerHandler.players[j];
-				if (c.isDead || c.heightLevel != npcs[i].heightLevel)
+				if (c.isDead || c.position.heightLevel != npcs[i].heightLevel)
 					continue;
-				if (PlayerHandler.players[j].goodDistance(c.absX, c.absY,
+				if (PlayerHandler.players[j].goodDistance(c.position.absX, c.position.absY,
 						npcs[i].absX, npcs[i].absY, 15)) {
 					if (npcs[i].attackType == 2) {
-						if (!c.prayerActive[16]) {
+						if (!c.prayerActive[16] && !c.curseActive[7]) {
 							if (Misc.random(500) + 200 > Misc.random(c
 									.getCombat().mageDef())) {
 								int dam = Misc.random(max);
@@ -293,7 +302,7 @@ public class NPCHandler {
 							c.handleHitMask(0);
 						}
 					} else if (npcs[i].attackType == 1) {
-						if (!c.prayerActive[17]) {
+						if (!c.prayerActive[17] && !c.curseActive[8]) {
 							int dam = Misc.random(max);
 							if (Misc.random(500) + 200 > Misc.random(c
 									.getCombat().calculateRangeDefence())) {
@@ -322,14 +331,14 @@ public class NPCHandler {
 			if (PlayerHandler.players[j] != null) {
 				if (j == npcs[i].spawnedBy)
 					return j;
-				if (goodDistance(PlayerHandler.players[j].absX,
-						PlayerHandler.players[j].absY, npcs[i].absX,
+				if (goodDistance(PlayerHandler.players[j].position.absX,
+						PlayerHandler.players[j].position.absY, npcs[i].absX,
 						npcs[i].absY, 2 + distanceRequired(i)
 								+ followDistance(i))
 						|| isFightCaveNpc(i)) {
 					if ((PlayerHandler.players[j].underAttackBy <= 0 && PlayerHandler.players[j].underAttackBy2 <= 0)
 							|| PlayerHandler.players[j].inMulti())
-						if (PlayerHandler.players[j].heightLevel == npcs[i].heightLevel)
+						if (PlayerHandler.players[j].position.heightLevel == npcs[i].heightLevel)
 							return j;
 				}
 			}
@@ -341,14 +350,14 @@ public class NPCHandler {
 		ArrayList<Integer> players = new ArrayList<Integer>();
 		for (int j = 0; j < PlayerHandler.players.length; j++) {
 			if (PlayerHandler.players[j] != null) {
-				if (goodDistance(PlayerHandler.players[j].absX,
-						PlayerHandler.players[j].absY, npcs[i].absX,
+				if (goodDistance(PlayerHandler.players[j].position.absX,
+						PlayerHandler.players[j].position.absY, npcs[i].absX,
 						npcs[i].absY, 2 + distanceRequired(i)
 								+ followDistance(i))
 						|| isFightCaveNpc(i)) {
 					if ((PlayerHandler.players[j].underAttackBy <= 0 && PlayerHandler.players[j].underAttackBy2 <= 0)
 							|| PlayerHandler.players[j].inMulti())
-						if (PlayerHandler.players[j].heightLevel == npcs[i].heightLevel)
+						if (PlayerHandler.players[j].position.heightLevel == npcs[i].heightLevel)
 							players.add(j);
 				}
 			}
@@ -360,13 +369,100 @@ public class NPCHandler {
 	}
 
 	public int npcSize(int i) {
+		if (npcs[i] == null) {
+			return 1;
+		}
 		switch (npcs[i].npcType) {
 		case 2883:
 		case 2882:
 		case 2881:
 			return 3;
+		case 13447:
+		case 13448:
+		case 13449:
+		case 13450:
+		case 13451:
+		case 7133:
+			return 3;
 		}
-		return 0;
+		try {
+			int bound = EntityDef.forID(npcs[i].npcType).boundDim & 0xFF;
+			if (bound > 0) {
+				return bound;
+			}
+		} catch (Exception ignored) {
+		}
+		return 1;
+	}
+
+	/**
+	 * True if the player stands on any tile occupied by the NPC's footprint
+	 * (SW origin + size), not just the origin tile.
+	 */
+	public boolean isPlayerInsideNpc(int playerX, int playerY, int i) {
+		if (npcs[i] == null) {
+			return false;
+		}
+		int size = npcSize(i);
+		if (size < 1) {
+			size = 1;
+		}
+		int nx = npcs[i].absX;
+		int ny = npcs[i].absY;
+		return playerX >= nx && playerX <= nx + size - 1
+				&& playerY >= ny && playerY <= ny + size - 1;
+	}
+
+	/**
+	 * Dynamic NPC position calibration (Elysian / Rune-Server): when a player
+	 * occupies any tile of a multi-tile NPC, step one cardinal tile that
+	 * maximises the distance between the player and the NPC's centre.
+	 *
+	 * @return true if a step was applied
+	 */
+	public boolean calibrateNpcAwayFromPlayer(int i, int playerX, int playerY) {
+		NPC npc = npcs[i];
+		if (npc == null || npc.freezeTimer > 0) {
+			return false;
+		}
+		int size = npcSize(i);
+		if (size < 1) {
+			size = 1;
+		}
+		final int[][] directions = { { -1, 0 }, { 0, 1 }, { 1, 0 }, { 0, -1 } };
+		double bestDist = -1.0;
+		int bestDx = 0;
+		int bestDy = 0;
+		boolean found = false;
+		for (int d = 0; d < directions.length; d++) {
+			int dx = directions[d][0];
+			int dy = directions[d][1];
+			int toX = npc.absX + dx;
+			int toY = npc.absY + dy;
+			if (!Region.canMove(npc.absX, npc.absY, toX, toY, npc.heightLevel, size, size)) {
+				continue;
+			}
+			double centerX = toX + (size / 2.0) - 0.5;
+			double centerY = toY + (size / 2.0) - 0.5;
+			double distX = centerX - playerX;
+			double distY = centerY - playerY;
+			double dist = distX * distX + distY * distY;
+			if (!found || dist > bestDist) {
+				bestDist = dist;
+				bestDx = dx;
+				bestDy = dy;
+				found = true;
+			}
+		}
+		if (!found) {
+			return false;
+		}
+		npc.moveX = bestDx;
+		npc.moveY = bestDy;
+		handleClipping(i);
+		npc.getNextNPCMovement(i);
+		npc.updateRequired = true;
+		return true;
 	}
 
 	public boolean isAggressive(int i) {
@@ -409,6 +505,13 @@ public class NPCHandler {
 		case 97:
 		case 141:
 		case 1558:
+		case 7133:
+		case 13447:
+		case 13448:
+		case 13449:
+		case 13450:
+		case 13451:
+		case 13458:
 			return true;
 		}
 		/*
@@ -468,18 +571,6 @@ public class NPCHandler {
 		if (attackPlayer) {
 			newNPC.underAttack = true;
 			if (c != null) {
-				/*
-				 * if(server.game.minigames.barrows.Barrows.COFFIN_AND_BROTHERS[c
-				 * .randomCoffin][1] != newNPC.npcType) { if(newNPC.npcType ==
-				 * 2025 || newNPC.npcType == 2026 || newNPC.npcType == 2027 ||
-				 * newNPC.npcType == 2028 || newNPC.npcType == 2029 ||
-				 * newNPC.npcType == 2030) {
-				 * newNPC.forceChat("You dare disturb my rest!"); } }
-				 * if(server.game
-				 * .minigames.barrows.Barrows.COFFIN_AND_BROTHERS[c
-				 * .randomCoffin][1] == newNPC.npcType) {
-				 * newNPC.forceChat("You dare steal from us!"); }
-				 */
 
 				newNPC.killerId = c.playerId;
 			}
@@ -642,6 +733,10 @@ public class NPCHandler {
 	 **/
 
 	public static int getAttackEmote(int i) {
+		int packed = NpcAnim667.attack(npcs[i].npcType);
+		if (packed > 0) {
+			return packed;
+		}
 		if (npcs[i].npcType == 3761)
 			return 3880;
 		if (npcs[i].npcType == 3760)
@@ -1341,6 +1436,10 @@ public class NPCHandler {
 	}
 
 	public static int getBlockEmote(int i) {
+		int packed = NpcAnim667.block(npcs[i].npcType);
+		if (packed > 0) {
+			return packed;
+		}
 		if (npcs[i].npcType == 3776)
 			return 3895;
 		if (npcs[i].npcType == 3761)
@@ -1847,31 +1946,6 @@ public class NPCHandler {
 		case 93: // skeleton
 			return 5489;
 
-		/*case 3247: // Hobgoblin
-		case 6270: // Cyclops
-		case 6269: // Ice cyclops
-		case 6219: // Spiritual Warrior
-		case 6255: // Spiritual Warrior
-		case 6229: // Spirtual Warrior arma
-		case 6218: // Gorak
-		case 6212: // Werewolf
-		case 6220: // Spirtual Ranger
-		case 6256: // Spirtual Ranger
-		case 6257: // Spirtual Mage
-		case 6221: // Spirtual Mage
-		case 6276: // Spirtual Ranger
-		case 6278: // Spirtual Mage
-		case 6272: // Ork
-		case 6274: // Ork
-		case 6277: // Spirtual Warrior bandos
-		case 6230: // Spirtual Ranger
-		case 6233: // Aviansie
-		case 6239: // Aviansie
-		case 6232: // Aviansie
-		case 6254: // Saradomin Priest
-		case 6258: // Saradomin Knight
-		case 6231: // Spirtual Mage
-			return -1;*/
 
 		default:
 			return -1;
@@ -1879,6 +1953,10 @@ public class NPCHandler {
 	}
 
 	public static int getDeadEmote(int i) {
+		int packed = NpcAnim667.death(npcs[i].npcType);
+		if (packed > 0) {
+			return packed;
+		}
 		if (npcs[i].npcType == 3761)
 			return 3883;
 		if (npcs[i].npcType == 3760)
@@ -2464,6 +2542,10 @@ public class NPCHandler {
 	 * Attack delays
 	 **/
 	public int getNpcDelay(int i) {
+		int packed = NpcAnim667.delay(npcs[i].npcType);
+		if (packed > 0) {
+			return packed;
+		}
 		switch (npcs[i].npcType) {
 		case 2025:
 		case 2028:
@@ -2542,6 +2624,7 @@ public class NPCHandler {
 		switch (npcs[i].npcType) {
 		case 1158:
 		case 1160:
+		case 13458: // Blood reaver (Nex Soul Split minion)
 			return -1;
 		case 2881:
 		case 2882:
@@ -2706,11 +2789,6 @@ public class NPCHandler {
 			npcs[i].clearUpdateFlags();
 
 		}
-		/*
-		 * if (npcs[i].npcType == 812){ if (Misc.random(10) == 4)
-		 * npcs[i].forceChat
-		 * (guardRandomTalk[Misc.random3(guardRandomTalk.length)]); }
-		 */
 		for (int i = 0; i < maxNPCs; i++) {
 			if (npcs[i] != null) {
 				if (npcs[i].actionTimer > 0) {
@@ -2719,6 +2797,10 @@ public class NPCHandler {
 
 				if (npcs[i].freezeTimer > 0) {
 					npcs[i].freezeTimer--;
+					npcs[i].moveX = 0;
+					npcs[i].moveY = 0;
+					npcs[i].direction = -1;
+					npcs[i].walkingHome = false;
 				}
 
 				if (npcs[i].worldAdventurer) {
@@ -2748,7 +2830,7 @@ public class NPCHandler {
 
 				if (npcs[i].spawnedBy > 0) { // delete summons npc
 					if (PlayerHandler.players[npcs[i].spawnedBy] == null
-							|| PlayerHandler.players[npcs[i].spawnedBy].heightLevel != npcs[i].heightLevel
+							|| PlayerHandler.players[npcs[i].spawnedBy].position.heightLevel != npcs[i].heightLevel
 							|| PlayerHandler.players[npcs[i].spawnedBy].respawnTimer > 0
 							|| !PlayerHandler.players[npcs[i].spawnedBy]
 									.goodDistance(
@@ -2773,6 +2855,16 @@ public class NPCHandler {
 				if (npcs[i] == null)
 					continue;
 
+				if (Nex.isNex(npcs[i].npcType) && !npcs[i].isDead) {
+					Nex.tickPrayers(npcs[i]);
+				}
+				if (Nex.isBloodReaver(npcs[i].npcType)) {
+					Nex.tickBloodReaverLinks(npcs[i]);
+					if (npcs[i] == null) {
+						continue;
+					}
+				}
+
 				/**
 				 * Attacking player
 				 **/
@@ -2796,7 +2888,13 @@ public class NPCHandler {
 							if(npcs[i].npcType == 1532)
 								return;
 							Client c = (Client) PlayerHandler.players[p];
-							followPlayer(i, c.playerId);
+							if (npcs[i].freezeTimer > 0) {
+								npcs[i].moveX = 0;
+								npcs[i].moveY = 0;
+								npcs[i].facePlayer(c.playerId);
+							} else {
+								followPlayer(i, c.playerId);
+							}
 							if (npcs[i] == null)
 								continue;
 							if (npcs[i].attackTimer == 0) {
@@ -2836,8 +2934,7 @@ public class NPCHandler {
 							&& npcs[i].absY == npcs[i].makeY) {
 						npcs[i].walkingHome = false;
 					} else if (npcs[i].walkingHome) {
-						npcs[i].moveX = GetMove(npcs[i].absX, npcs[i].makeX);
-						npcs[i].moveY = GetMove(npcs[i].absY, npcs[i].makeY);
+						applyNpcRouteStep(i, npcs[i].makeX, npcs[i].makeY);
 						handleClipping(i);
 						npcs[i].getNextNPCMovement(i);
 						npcs[i].updateRequired = true;
@@ -2905,12 +3002,6 @@ public class NPCHandler {
 							int x = (npcs[i].absX + npcs[i].moveX);
 							@SuppressWarnings("unused")
 							int y = (npcs[i].absY + npcs[i].moveY);
-							/*
-							 * if (VirtualWorld.I(npcs[i].heightLevel,
-							 * npcs[i].absX, npcs[i].absY, x, y, 0))
-							 * npcs[i].getNextNPCMovement(i); else {
-							 * npcs[i].moveX = 0; npcs[i].moveY = 0; }
-							 */
 							handleClipping(i);
 							npcs[i].getNextNPCMovement(i);
 							npcs[i].updateRequired = true;
@@ -2928,12 +3019,21 @@ public class NPCHandler {
 						npcs[i].animUpdateRequired = true;
 						npcs[i].freezeTimer = 0;
 						npcs[i].applyDead = true;
-						npcs[i].actionTimer = 4; // delete time
+						npcs[i].actionTimer = Nex.isNex(npcs[i].npcType) ? 8 : 4;
+						if (Nex.isNex(npcs[i].npcType)) {
+							Nex.despawnBloodReavers(npcs[i]);
+							Nex.despawnAllBloodReavers();
+							Nex.applyDeathWrath(npcs[i]);
+						}
 						resetPlayersInCombat(i);
 						killedBrother(i);
 					} else if (npcs[i].actionTimer == 0
 							&& npcs[i].applyDead == true
 							&& npcs[i].needRespawn == false) {
+						if (Nex.isBloodReaver(npcs[i].npcType)) {
+							npcs[i] = null;
+							continue;
+						}
 						npcs[i].needRespawn = true;
 						npcs[i].actionTimer = getRespawnTime(i); // respawn time
 						dropItems(i); // npc drops items!
@@ -3202,14 +3302,6 @@ public class NPCHandler {
 				}
 				ringS = false;
 			}
-			/*
-			 * if (Misc.random(4000) == 0) {
-			 * Server.itemHandler.createGroundItem(c, 1050,
-			 * NPCHandler.npcs[i].absX, NPCHandler.npcs[i].absY, 1, c.playerId);
-			 * c
-			 * .sendMessage("@red@Congratulations!! You got the special drop!");
-			 * }
-			 */
 			if (Misc.random(500) == 0) {
 				Server.itemHandler.createGroundItem(c, Misc.random(1) == 0 ? 985 : 987,
 						NPCHandler.npcs[i].absX, NPCHandler.npcs[i].absY, 1,
@@ -3233,11 +3325,6 @@ public class NPCHandler {
 						NPCHandler.npcs[i].absX, NPCHandler.npcs[i].absY, 1,
 						c.playerId);
 			}
-			// if(c.clanId >= 0) {
-			// ClanChatHandler.handleLootShare(c,
-			// ((int[][])NPCDrops.rareDrops.get(Integer.valueOf(npcs[i].npcType)))[random][0],
-			// ((int[][])NPCDrops.rareDrops.get(Integer.valueOf(npcs[i].npcType)))[random][1]);
-			// }
 		}
 	}
 
@@ -3474,6 +3561,66 @@ public class NPCHandler {
 		return true;
 	}
 
+	/**
+	 * Feeds the next SmartPathFinder step into moveX/moveY. Repaths when the
+	 * destination cell changes or the cache is exhausted. Falls back to GetMove
+	 * when no route exists (handleClipping remains the fail-safe).
+	 */
+	private boolean applyNpcRouteStep(int i, int destX, int destY) {
+		NPC n = npcs[i];
+		if (n == null) {
+			return false;
+		}
+		if (n.absX == destX && n.absY == destY) {
+			n.routePath = null;
+			n.routeIndex = 0;
+			n.moveX = 0;
+			n.moveY = 0;
+			return true;
+		}
+		boolean needRoute = n.routePath == null || n.routeIndex >= n.routePath.length
+				|| n.routeDestX != destX || n.routeDestY != destY;
+		if (needRoute) {
+			int[][] path = SmartPathFinder.get().route(n.absX, n.absY, destX, destY,
+					n.heightLevel, true, 1, 1);
+			n.routePath = path;
+			n.routeIndex = 0;
+			n.routeDestX = destX;
+			n.routeDestY = destY;
+		}
+		if (n.routePath == null || n.routePath.length == 0) {
+			n.moveX = GetMove(n.absX, destX);
+			n.moveY = GetMove(n.absY, destY);
+			return false;
+		}
+		int[] step = n.routePath[n.routeIndex];
+		int nx = step[0];
+		int ny = step[1];
+		n.moveX = clampUnit(nx - n.absX);
+		n.moveY = clampUnit(ny - n.absY);
+		if (n.moveX == 0 && n.moveY == 0) {
+			n.routeIndex++;
+			if (n.routeIndex < n.routePath.length) {
+				step = n.routePath[n.routeIndex];
+				n.moveX = clampUnit(step[0] - n.absX);
+				n.moveY = clampUnit(step[1] - n.absY);
+			}
+		} else {
+			n.routeIndex++;
+		}
+		return true;
+	}
+
+	private static int clampUnit(int v) {
+		if (v < -1) {
+			return -1;
+		}
+		if (v > 1) {
+			return 1;
+		}
+		return v;
+	}
+
 	public void followPlayer(int i, int playerId) {
 		if (PlayerHandler.players[playerId] == null) {
 			return;
@@ -3484,17 +3631,28 @@ public class NPCHandler {
 			npcs[i].underAttack = false;
 			return;
 		}
+		// Frozen NPCs stay put (ice barrage / burst).
+		if (npcs[i].freezeTimer > 0) {
+			npcs[i].moveX = 0;
+			npcs[i].moveY = 0;
+			npcs[i].facePlayer(playerId);
+			npcs[i].updateRequired = true;
+			return;
+		}
 
 		if (!followPlayer(i)) {
 			npcs[i].facePlayer(playerId);
 			return;
 		}
 
-		int playerX = PlayerHandler.players[playerId].absX;
-		int playerY = PlayerHandler.players[playerId].absY;
+		int playerX = PlayerHandler.players[playerId].position.absX;
+		int playerY = PlayerHandler.players[playerId].position.absY;
 		npcs[i].randomWalk = false;
-		if (goodDistance(npcs[i].getX(), npcs[i].getY(), playerX, playerY,
-				distanceRequired(i)))
+		// Stay next to the player — never stop while sharing any of its tiles.
+		int stopAt = Nex.isBloodReaver(npcs[i].npcType) ? 1 : distanceRequired(i);
+		boolean insideFootprint = isPlayerInsideNpc(playerX, playerY, i);
+		if (!insideFootprint && goodDistance(npcs[i].getX(), npcs[i].getY(), playerX, playerY,
+				stopAt))
 			return;
 		if ((npcs[i].spawnedBy > 0)
 				|| ((npcs[i].absX < npcs[i].makeX + Config.NPC_FOLLOW_DISTANCE)
@@ -3503,49 +3661,41 @@ public class NPCHandler {
 						&& (npcs[i].absY < npcs[i].makeY
 								+ Config.NPC_FOLLOW_DISTANCE) && (npcs[i].absY > npcs[i].makeY
 						- Config.NPC_FOLLOW_DISTANCE))) {
-			if (npcs[i].heightLevel == PlayerHandler.players[playerId].heightLevel) {
+			if (npcs[i].heightLevel == PlayerHandler.players[playerId].position.heightLevel) {
 				if (PlayerHandler.players[playerId] != null && npcs[i] != null) {
-					if (playerY < npcs[i].absY) {
-						npcs[i].moveX = GetMove(i, npcs[i].absX, playerX);
-						npcs[i].moveY = GetMove(i, npcs[i].absY, playerY);
-					} else if (playerY > npcs[i].absY) {
-						npcs[i].moveX = GetMove(i, npcs[i].absX, playerX);
-						npcs[i].moveY = GetMove(i, npcs[i].absY, playerY);
-					} else if (playerX < npcs[i].absX) {
-						npcs[i].moveX = GetMove(i, npcs[i].absX, playerX);
-						npcs[i].moveY = GetMove(i, npcs[i].absY, playerY);
-					} else if (playerX > npcs[i].absX) {
-						npcs[i].moveX = GetMove(i, npcs[i].absX, playerX);
-						npcs[i].moveY = GetMove(i, npcs[i].absY, playerY);
-					} else if (playerX == npcs[i].absX
-							|| playerY == npcs[i].absY) {
-						int o = Misc.random(3);
-						switch (o) {
-						case 0:
-							npcs[i].moveX = GetMove(i, npcs[i].absX, playerX);
-							npcs[i].moveY = GetMove(i, npcs[i].absY, playerY + 1);
-							break;
-
-						case 1:
-							npcs[i].moveX = GetMove(i, npcs[i].absX, playerX);
-							npcs[i].moveY = GetMove(i, npcs[i].absY, playerY - 1);
-							break;
-
-						case 2:
-							npcs[i].moveX = GetMove(i, npcs[i].absX, playerX + 1);
-							npcs[i].moveY = GetMove(i, npcs[i].absY, playerY);
-							break;
-
-						case 3:
-							npcs[i].moveX = GetMove(i, npcs[i].absX, playerX - 1);
-							npcs[i].moveY = GetMove(i, npcs[i].absY, playerY);
-							break;
+					if (insideFootprint) {
+						// Step off any occupied tile toward the farthest valid centre.
+						npcs[i].facePlayer(playerId);
+						calibrateNpcAwayFromPlayer(i, playerX, playerY);
+						npcs[i].facePlayer(playerId);
+						npcs[i].updateRequired = true;
+						return;
+					} else {
+						// Approach beside the player (not onto their tile).
+						int approachX = playerX;
+						int approachY = playerY;
+						if (npcs[i].absX < playerX) {
+							approachX = playerX - 1;
+						} else if (npcs[i].absX > playerX) {
+							approachX = playerX + 1;
+						} else if (npcs[i].absY < playerY) {
+							approachY = playerY - 1;
+						} else if (npcs[i].absY > playerY) {
+							approachY = playerY + 1;
+						}
+						applyNpcRouteStep(i, approachX, approachY);
+					}
+					int x = (npcs[i].absX + npcs[i].moveX);
+					int y = (npcs[i].absY + npcs[i].moveY);
+					// Never step onto the player's tile — stand beside them instead.
+					if (x == playerX && y == playerY) {
+						if (npcs[i].moveX != 0 && npcs[i].moveY != 0) {
+							npcs[i].moveY = 0; // keep lateral step only
+						} else {
+							npcs[i].moveX = 0;
+							npcs[i].moveY = 0;
 						}
 					}
-					@SuppressWarnings("unused")
-					int x = (npcs[i].absX + npcs[i].moveX);
-					@SuppressWarnings("unused")
-					int y = (npcs[i].absY + npcs[i].moveY);
 					npcs[i].facePlayer(playerId);
 					handleClipping(i);
 					npcs[i].getNextNPCMovement(i);
@@ -3593,6 +3743,13 @@ public class NPCHandler {
 		@SuppressWarnings("unused")
 		Client c = (Client) PlayerHandler.players[npcs[i].oldIndex];
 		switch (npcs[i].npcType) {
+		case 13447:
+		case 13448:
+		case 13449:
+		case 13450:
+		case 13451:
+			Nex.loadSpell(npcs[i]);
+			break;
 		case 6263:
 			npcs[i].attackType = 2; // Magic
 			npcs[i].projectileId = 1203;
@@ -3865,8 +4022,8 @@ public class NPCHandler {
 		case 2745:
 			int r3 = 0;
 			if (goodDistance(npcs[i].absX, npcs[i].absY,
-					PlayerHandler.players[npcs[i].spawnedBy].absX,
-					PlayerHandler.players[npcs[i].spawnedBy].absY, 1))
+					PlayerHandler.players[npcs[i].spawnedBy].position.absX,
+					PlayerHandler.players[npcs[i].spawnedBy].position.absY, 1))
 				r3 = Misc.random(2);
 			else
 				r3 = Misc.random(1);
@@ -3930,6 +4087,14 @@ public class NPCHandler {
 		case 2892:
 		case 2894:
 			return 10;
+		case 13447:
+		case 13448:
+		case 13449:
+		case 13450:
+		case 13451:
+			return npcs[i].attackType == 0 ? 1 : 8;
+		case 13458: // Blood reaver — mage
+			return 8;
 		default:
 			return 1;
 		}
@@ -3947,6 +4112,13 @@ public class NPCHandler {
 		case 2881:
 		case 2882:
 			return 1;
+		case 13447:
+		case 13448:
+		case 13449:
+		case 13450:
+		case 13451:
+		case 13458:
+			return 12;
 
 		}
 		return 0;
@@ -3995,14 +4167,23 @@ public class NPCHandler {
 				npcs[i].killerId = 0;
 				return;
 			}
-			if (npcs[i].heightLevel != c.heightLevel) {
+			if (npcs[i].heightLevel != c.position.heightLevel) {
 				npcs[i].killerId = 0;
+				return;
+			}
+			// Step-under: cannot attack while the player occupies any NPC tile.
+			if (isPlayerInsideNpc(c.getX(), c.getY(), i)) {
+				npcs[i].facePlayer(c.playerId);
 				return;
 			}
 			npcs[i].facePlayer(c.playerId);
 			boolean special = false;// specialCase(c,i);
 			if (goodDistance(npcs[i].getX(), npcs[i].getY(), c.getX(),
 					c.getY(), distanceRequired(i)) || special) {
+				int nSize = npcSize(i);
+				if (!PathFinder.hasLineOfSight(npcs[i].absX, npcs[i].absY, nSize, c.position.absX, c.position.absY, 1, c.position.heightLevel)) {
+					return;
+				}
 				if (c.respawnTimer <= 0) {
 					npcs[i].facePlayer(c.playerId);
 					npcs[i].attackTimer = getNpcDelay(i);
@@ -4012,6 +4193,7 @@ public class NPCHandler {
 						loadSpell2(i);
 					else
 						loadSpell(i);
+					NpcAnim667.applyStyle(npcs[i]);
 					if (npcs[i].attackType == 3)
 						npcs[i].hitDelayTimer += 2;
 					if (multiAttacks(i)) {
@@ -4033,7 +4215,7 @@ public class NPCHandler {
 								65);
 					}
 					c.underAttackBy2 = i;
-					c.singleCombatDelay2 = System.currentTimeMillis();
+					c.timers.singleCombatDelay2 = System.currentTimeMillis();
 					npcs[i].oldIndex = c.playerId;
 					startAnimation(getAttackEmote(i), i);
 					c.getPA().removeAllWindows();
@@ -4180,13 +4362,13 @@ public class NPCHandler {
 																	// from
 																	// melee
 						if (npcs[i].npcType == 2030 || npcs[i].npcType == 1158
-								|| npcs[i].npcType == 1160)
+								|| npcs[i].npcType == 1160 || Nex.isNex(npcs[i].npcType))
 							damage = (damage / 2);
 						else
 							damage = 0;
 					}
-					if (c.playerLevel[3] - damage < 0) {
-						damage = c.playerLevel[3];
+					if (c.skills.playerLevel[3] - damage < 0) {
+						damage = c.skills.playerLevel[3];
 					}
 				}
 
@@ -4198,11 +4380,14 @@ public class NPCHandler {
 							.random(NPCHandler.npcs[i].attack)) {
 						damage = 0;
 					}
-					if (c.prayerActive[17]) { // protect from range
-						damage = 0;
+					if (c.prayerActive[17] || c.curseActive[8]) { // protect from range
+						if (Nex.isNex(npcs[i].npcType))
+							damage = (damage / 2);
+						else
+							damage = 0;
 					}
-					if (c.playerLevel[3] - damage < 0) {
-						damage = c.playerLevel[3];
+					if (c.skills.playerLevel[3] - damage < 0) {
+						damage = c.skills.playerLevel[3];
 					}
 				}
 
@@ -4216,12 +4401,15 @@ public class NPCHandler {
 						damage = 0;
 						magicFailed = true;
 					}
-					if (c.prayerActive[16]) { // protect from magic
-						damage = 0;
+					if (c.prayerActive[16] || c.curseActive[7]) { // protect from magic
+						if (Nex.isNex(npcs[i].npcType))
+							damage = (damage / 2);
+						else
+							damage = 0;
 						magicFailed = true;
 					}
-					if (c.playerLevel[3] - damage < 0) {
-						damage = c.playerLevel[3];
+					if (c.skills.playerLevel[3] - damage < 0) {
+						damage = c.skills.playerLevel[3];
 					}
 					if (npcs[i].endGfx > 0
 							&& (!magicFailed || isFightCaveNpc(i))) {
@@ -4240,15 +4428,29 @@ public class NPCHandler {
 						damage = Misc.random(12);
 					else if (anti == 2)
 						damage = Misc.random(5);
-					if (c.playerLevel[3] - damage < 0)
-						damage = c.playerLevel[3];
+					if (c.skills.playerLevel[3] - damage < 0)
+						damage = c.skills.playerLevel[3];
 					c.gfx100(npcs[i].endGfx);
 				}
 				handleSpecialEffects(c, i, damage);
-				c.logoutDelay = System.currentTimeMillis(); // logout delay
+				if (Nex.isNex(npcs[i].npcType)) {
+					// Freeze can apply even on a 0-damage hit (prayer/splash)
+					Nex.tryFreeze(c, npcs[i]);
+					if (damage > 0) {
+						Nex.applySoulSplitHeal(npcs[i], damage);
+						Nex.hitPlayer(c, npcs[i]);
+					}
+				} else if (Nex.isBloodReaver(npcs[i].npcType)) {
+					if (damage > 0) {
+						Nex.applyReaverHeal(npcs[i], damage);
+					}
+				} else if (damage > 0) {
+					Nex.hitPlayer(c, npcs[i]);
+				}
+				c.timers.logoutDelay = System.currentTimeMillis(); // logout delay
 				// c.setHitDiff(damage);
 				c.handleHitMask(damage);
-				c.playerLevel[3] -= damage;
+				c.skills.playerLevel[3] -= damage;
 				c.getPA().refreshSkill(3);
 				c.updateRequired = true;
 				// c.setHitUpdateRequired(true);
@@ -4261,8 +4463,8 @@ public class NPCHandler {
 				|| npcs[i].npcType == 1158 || npcs[i].npcType == 1160) {
 			if (damage > 0) {
 				if (c != null) {
-					if (c.playerLevel[5] > 0) {
-						c.playerLevel[5]--;
+					if (c.skills.playerLevel[5] > 0) {
+						c.skills.playerLevel[5]--;
 						c.getPA().refreshSkill(5);
 						c.getPA().appendPoison(c, 12);
 					}

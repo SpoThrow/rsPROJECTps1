@@ -8,7 +8,7 @@ import server.game.players.Client;
 public class rspswebstore {
 //Created by Soccerjunki @ rune-server.org // http://rspsdata.org/ Copyright 2013 
 public static String secret = "04025959b191f8f9de3f924f0940515ff56ec2ab97d604832d90f6394e3f341f";//This is found on http://rspsdata.org/system/webstore.php?setup=317
-public static String email = "jordy-474@outlook.com"; //This is the one you use for RSPSDATA
+public static String email = ""; // RSPSData store email
 
 
 //Do not play with any of these voids, changing them could cause potential risk to your server

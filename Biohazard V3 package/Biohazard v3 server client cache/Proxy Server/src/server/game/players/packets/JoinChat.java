@@ -2,7 +2,6 @@ package server.game.players.packets;
 
 import server.Server;
 import server.game.players.Client;
-import server.game.players.PacketType;
 import server.world.Clan;
 import core.util.Misc;
 
@@ -16,6 +15,15 @@ public class JoinChat implements PacketType {
 				paramClient.getBank().applySearch(str);
 			} else {
 				paramClient.getBank().clearSearch();
+			}
+			return;
+		}
+		if (paramClient.itemSpawnSearching) {
+			if (str != null && str.length() > 0) {
+				server.game.content.ItemSpawnSearch.handleSearchString(paramClient, str);
+			} else {
+				paramClient.itemSpawnSearching = false;
+				paramClient.sendMessage("Item search cancelled.");
 			}
 			return;
 		}

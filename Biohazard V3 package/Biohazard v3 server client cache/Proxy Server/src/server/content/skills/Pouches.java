@@ -16,7 +16,7 @@ public class Pouches {
 	public static void fillPouch(final Client c, final int itemId) {
 		for (int index = 0; index < pouchData.length; index++) {
 			if (itemId == pouchData[index][0]) {
-				if (c.playerLevel[Player.playerRunecrafting] >= pouchData[index][1]) {
+				if (c.skills.playerLevel[Player.playerRunecrafting] >= pouchData[index][1]) {
 					while (c.getItems().playerHasItem(1436)) {
 						int spaceAvailable = (pouchData[index][2] - c.pouch[index]);
 						if (spaceAvailable > 0) {

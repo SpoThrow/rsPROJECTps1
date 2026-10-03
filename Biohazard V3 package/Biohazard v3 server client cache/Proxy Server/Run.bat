@@ -1,4 +1,8 @@
 @echo off
-title Acquittal
-java -Xmx4000m -cp bin;deps/poi.jar;deps/mysql.jar;deps/RuneTopListV2.jar;deps/GTLVote.jar;deps/mina.jar;deps/slf4j.jar;deps/slf4j-nop.jar;deps/jython.jar;log4j-1.2.15.jar; server.Server
+title Soul-Trail Server
+cd /d "%~dp0"
+
+rem Compiles if needed, then starts the server on the Java 21 toolchain.
+rem Heap size and main class are set in build.gradle.
+call gradlew.bat --console=plain run
 pause

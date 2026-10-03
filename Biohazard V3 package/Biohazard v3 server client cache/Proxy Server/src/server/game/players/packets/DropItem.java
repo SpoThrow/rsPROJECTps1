@@ -3,7 +3,6 @@ package server.game.players.packets;
 import server.Config;
 import server.Server;
 import server.game.players.Client;
-import server.game.players.PacketType;
 import server.game.players.PlayerSave;
 
 /**
@@ -17,7 +16,7 @@ public class DropItem implements PacketType {
 		c.getInStream().readUnsignedByte();
 		c.getInStream().readUnsignedByte();
 		int slot = c.getInStream().readUnsignedWordA();
-		c.alchDelay = System.currentTimeMillis();
+		c.timers.alchDelay = System.currentTimeMillis();
 		if(!c.getItems().playerHasItem(itemId, 1)) {
 			return;
 		}

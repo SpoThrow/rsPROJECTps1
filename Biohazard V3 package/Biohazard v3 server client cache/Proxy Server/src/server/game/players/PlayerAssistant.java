@@ -27,6 +27,7 @@ import server.game.minigames.bountyhunter.BountyHunter;
 import server.game.minigames.castlewars.CastleWars;
 import server.game.npcs.NPCHandler;
 import server.game.objects.Objects;
+import server.game.players.movement.WalkAdapter;
 import server.world.Clan;
 import core.util.Misc;
 
@@ -215,21 +216,21 @@ public class PlayerAssistant {
 		c.getOutStream().writeByte(i3);
 		c.getOutStream().writeByte(i4);
 		c.updateRequired = true;
-		c.appearanceUpdateRequired = true;
+		c.appearance.appearanceUpdateRequired = true;
 	}
 	
 	public void moveThroughDoor(final Client c, final int obI, boolean n) {
 		final int[] coords = new int[2];
 		final int[] obFace = new int[2];
 		if(n) {
-			if(c.absX > c.objectX) {
+			if(c.position.absX > c.objectX) {
 				coords[0] = -1;
 			} else {
 				coords[0] = 1;
 			}
 			coords[1] = 0;
 		} else {
-			if(c.absY > c.objectY || c.absY == c.objectY) {
+			if(c.position.absY > c.objectY || c.position.absY == c.objectY) {
 				coords[1] = -1;
 			} else {
 				coords[1] = 1;
@@ -293,25 +294,25 @@ public class PlayerAssistant {
 		int xpToAdd = 0;
 		if (manta > 0) {
 			toReturn.add(new GameItem(389, manta));
-			if (c.playerLevel[Player.playerFishing] >= 81) {
+			if (c.skills.playerLevel[Player.playerFishing] >= 81) {
 				xpToAdd += (manta * 46 * Config.FISHING_EXPERIENCE);
 			}
 		}
 		if (turt > 0) {
 			toReturn.add(new GameItem(395, turt));
-			if (c.playerLevel[Player.playerFishing] >= 79) {
+			if (c.skills.playerLevel[Player.playerFishing] >= 79) {
 				xpToAdd += (manta * 38 * Config.FISHING_EXPERIENCE);
 			}
 		}
 		if (lobs > 0) {
 			toReturn.add(new GameItem(377, lobs));
-			if (c.playerLevel[Player.playerFishing] >= 40) {
+			if (c.skills.playerLevel[Player.playerFishing] >= 40) {
 				xpToAdd += (manta * 90 * Config.FISHING_EXPERIENCE);
 			}
 		}
 		if (swordFish > 0) {
 			toReturn.add(new GameItem(371, swordFish));
-			if (c.playerLevel[Player.playerFishing] >= 50) {
+			if (c.skills.playerLevel[Player.playerFishing] >= 50) {
 				xpToAdd += (manta * 100 * Config.FISHING_EXPERIENCE);
 			}
 		}
@@ -404,7 +405,7 @@ public class PlayerAssistant {
 			c.setSidebarInterface(2, 638);
 			c.setSidebarInterface(3, 3213);
 			c.setSidebarInterface(4, 1644);
-			c.setSidebarInterface(5, 5608);
+			c.getPA().setPrayerBook();
 			if(c.playerMagicBook == 0)
 				c.setSidebarInterface(6, 1151); //modern
 			else if (c.playerMagicBook == 1)
@@ -496,6 +497,14 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 		c.outStream.writeDWord(amount);
 		c.outStream.endFrameVarSizeWord();
 	}
+	public void setPrayerBook() {
+		if (c.altarPrayed == 1) {
+			c.setSidebarInterface(5, 22500);
+		} else {
+			c.setSidebarInterface(5, 5608);
+		}
+	}
+
 	public void setSidebarInterfaces(Client c) {
 		int[] inter = { 2434, // Attack
 				3917, // Skill
@@ -515,6 +524,7 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 		for (int i = 0; i < 14; i++) {
 			c.setSidebarInterface(i, inter[i]);
 		}
+		setPrayerBook();
 		if (c.playerMagicBook == 1) {
 			c.setSidebarInterface(6, 12855);
 		} else if (c.playerMagicBook == 2) {
@@ -533,7 +543,7 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 	public int totalLevel() {
 		int total = 0;
 		for (int i = 0; i <= 22; i++) {
-			total += getLevelForXP(c.playerXP[i]);
+			total += getLevelForXP(c.skills.playerXP[i]);
 		}
 		return total;
 	}
@@ -541,7 +551,7 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 	public int xpTotal() {
 		int xp = 0;
 		for (int i = 0; i <= 20; i++) {
-			xp += c.playerXP[i];
+			xp += c.skills.playerXP[i];
 		}
 		return xp;
 	}
@@ -553,48 +563,48 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 
 	public int raiseTimer() {
 		if (!c.isResting)
-			if (c.playerLevel[16] >= 2 && c.playerLevel[16] < 10)
+			if (c.skills.playerLevel[16] >= 2 && c.skills.playerLevel[16] < 10)
 				return 6500;
-		if (c.playerLevel[16] >= 10 && c.playerLevel[16] < 25)
+		if (c.skills.playerLevel[16] >= 10 && c.skills.playerLevel[16] < 25)
 			return 6000;
-		if (c.playerLevel[16] >= 25 && c.playerLevel[16] < 40)
+		if (c.skills.playerLevel[16] >= 25 && c.skills.playerLevel[16] < 40)
 			return 5500;
-		if (c.playerLevel[16] >= 40 && c.playerLevel[16] < 55)
+		if (c.skills.playerLevel[16] >= 40 && c.skills.playerLevel[16] < 55)
 			return 5000;
-		if (c.playerLevel[16] >= 55 && c.playerLevel[16] < 70)
+		if (c.skills.playerLevel[16] >= 55 && c.skills.playerLevel[16] < 70)
 			return 4500;
-		if (c.playerLevel[16] >= 70 && c.playerLevel[16] < 85)
+		if (c.skills.playerLevel[16] >= 70 && c.skills.playerLevel[16] < 85)
 			return 4000;
-		if (c.playerLevel[16] >= 85 && c.playerLevel[16] < 99)
+		if (c.skills.playerLevel[16] >= 85 && c.skills.playerLevel[16] < 99)
 			return 3500;
-		if (c.playerLevel[16] == 99)
+		if (c.skills.playerLevel[16] == 99)
 			return 3000;
 		return 7000;
 	}
 
 	public int raiseTimer2() {
 		if (c.isResting)
-			if (c.playerLevel[16] >= 2 && c.playerLevel[16] < 10)
+			if (c.skills.playerLevel[16] >= 2 && c.skills.playerLevel[16] < 10)
 				return 2250;
-		if (c.playerLevel[16] >= 10 && c.playerLevel[16] < 25)
+		if (c.skills.playerLevel[16] >= 10 && c.skills.playerLevel[16] < 25)
 			return 2000;
-		if (c.playerLevel[16] >= 25 && c.playerLevel[16] < 40)
+		if (c.skills.playerLevel[16] >= 25 && c.skills.playerLevel[16] < 40)
 			return 1750;
-		if (c.playerLevel[16] >= 40 && c.playerLevel[16] < 55)
+		if (c.skills.playerLevel[16] >= 40 && c.skills.playerLevel[16] < 55)
 			return 1500;
-		if (c.playerLevel[16] >= 55 && c.playerLevel[16] < 70)
+		if (c.skills.playerLevel[16] >= 55 && c.skills.playerLevel[16] < 70)
 			return 1250;
-		if (c.playerLevel[16] >= 70 && c.playerLevel[16] < 85)
+		if (c.skills.playerLevel[16] >= 70 && c.skills.playerLevel[16] < 85)
 			return 1000;
-		if (c.playerLevel[16] >= 85 && c.playerLevel[16] < 99)
+		if (c.skills.playerLevel[16] >= 85 && c.skills.playerLevel[16] < 99)
 			return 750;
-		if (c.playerLevel[16] == 99)
+		if (c.skills.playerLevel[16] == 99)
 			return 500;
 		return 2500;
 	}
 
 	public void playerWalk(int x, int y) {
-		PathFinder.getPathFinder().findRoute(c, x, y, true, 1, 1);
+		WalkAdapter.walkAbsolute(c, x, y);
 	}
 
 	int tmpNWCX[] = new int[50];
@@ -770,12 +780,12 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 
 	public void movePlayer(int x, int y, int h) {
 		//castlewars
-		if(c.heightLevel != h)
+		if(c.position.heightLevel != h)
 			c.updateRegion = true;
 		c.resetWalkingQueue();
-		c.teleportToX = x;
-		c.teleportToY = y;
-		c.heightLevel = h;
+		c.position.teleportToX = x;
+		c.position.teleportToY = y;
+		c.position.heightLevel = h;
 		requestUpdates();
 	}
 
@@ -824,8 +834,8 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 
 	public void sendStillGraphics(int id, int heightS, int y, int x, int timeBCS) {
 		c.getOutStream().createFrame(85);
-		c.getOutStream().writeByteC(y - (c.mapRegionY * 8));
-		c.getOutStream().writeByteC(x - (c.mapRegionX * 8));
+		c.getOutStream().writeByteC(y - (c.position.mapRegionY * 8));
+		c.getOutStream().writeByteC(x - (c.position.mapRegionX * 8));
 		c.getOutStream().createFrame(4);
 		c.getOutStream().writeByte(0);// Tiles away (X >> 4 + Y & 7)
 										// //Tiles away from
@@ -873,9 +883,9 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 	 **/
 	public void loadQuests() {
 		// c.getAA2().sendQuestTab();
-				sendFrame126("Biohazard", 640);
+				sendFrame126(Config.SERVER_NAME, 640);
 				sendFrame126("", 13136);
-				sendFrame126("Welcome to Biohazard", 663);
+				sendFrame126("Welcome to " + Config.SERVER_NAME, 663);
 				sendFrame126("", 673);
 				sendFrame126("@red@[@or1@Assault@red@] Points: @or2@"+c.assaultPoints, 7332);
 				sendFrame126("@red@[@or1@Donated@red@] Amount: @or2@"+c.donated, 7333);
@@ -883,30 +893,16 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 			    sendFrame126("@red@[@or1@FM@red@] Points: @or2@"+c.fmPoints, 7336);
 				sendFrame126("@red@[@or1@Slayer@red@] Points: @or2@"+c.slayerPoints, 7383);
 				sendFrame126("@red@[@or1@Vote@red@] Points: @or2@"+c.votePoints, 7339);
-				sendFrame126("@red@[@or1@BH@red@] Bounty Kills: @or2@"+c.bountyKills, 7338);
-				sendFrame126("@red@[@or1@BH@red@] Rogue Kills: @or2@"+c.rogueKills, 7340);
-				sendFrame126("@red@[@or1@BH@red@] Bounty Kills Left: @or2@"+((c.killsMultiplier *10) - c.bountyKills), 7346);
-				/*if(c.cookAss == 0) {
-		        	sendFrame126("Cook's Assistant", 7338);
-				} else if(c.cookAss == 3) {
-					sendFrame126("@gre@Cook's Assistant", 7338);
-				} else {
-					sendFrame126("@yel@Cook's Assistant", 7338);
-				}
-				if(c.RuneMysteries == 0) {
-		        	sendFrame126("Rune Mysteries", 7340);
-				} else if(c.RuneMysteries == 4) {
-					sendFrame126("@gre@Rune Mysteries", 7340);
-				} else {
-					sendFrame126("@yel@Rune Mysteries", 7340);
-				}*/
-				sendFrame126("@red@[@or1@CO@red@] XP: @or1@"+Misc.format(c.playerXP[21]), 7341);
-				sendFrame126("@red@[@or1@CO@red@] Left: @or1@"+Misc.format((getXPForLevel(getLevelForXP(c.playerXP[21]) + 1)-c.playerXP[21])), 7342);
-				if((getXPForLevel(getLevelForXP(c.playerXP[21]) + 1)-c.playerXP[21]) < 0)
+				sendFrame126("@red@[@or1@BH@red@] Bounty Kills: @or2@"+c.bountyHunter.bountyKills, 7338);
+				sendFrame126("@red@[@or1@BH@red@] Rogue Kills: @or2@"+c.bountyHunter.rogueKills, 7340);
+				sendFrame126("@red@[@or1@BH@red@] Bounty Kills Left: @or2@"+((c.bountyHunter.killsMultiplier *10) - c.bountyHunter.bountyKills), 7346);
+				sendFrame126("@red@[@or1@CO@red@] XP: @or1@"+Misc.format(c.skills.playerXP[21]), 7341);
+				sendFrame126("@red@[@or1@CO@red@] Left: @or1@"+Misc.format((getXPForLevel(getLevelForXP(c.skills.playerXP[21]) + 1)-c.skills.playerXP[21])), 7342);
+				if((getXPForLevel(getLevelForXP(c.skills.playerXP[21]) + 1)-c.skills.playerXP[21]) < 0)
 					sendFrame126("@red@[@or1@CO@red@]Left: @or1@0", 7342);
-				sendFrame126("@red@[@or1@HU@red@] XP: @or1@"+Misc.format(c.playerXP[22]), 7337);
-				sendFrame126("@red@[@or1@HU@red@] Left: @or1@"+Misc.format((getXPForLevel(getLevelForXP(c.playerXP[22]) + 1)-c.playerXP[22])), 7343);
-				if((getXPForLevel(getLevelForXP(c.playerXP[22]) + 1)-c.playerXP[22]) < 0)
+				sendFrame126("@red@[@or1@HU@red@] XP: @or1@"+Misc.format(c.skills.playerXP[22]), 7337);
+				sendFrame126("@red@[@or1@HU@red@] Left: @or1@"+Misc.format((getXPForLevel(getLevelForXP(c.skills.playerXP[22]) + 1)-c.skills.playerXP[22])), 7343);
+				if((getXPForLevel(getLevelForXP(c.skills.playerXP[22]) + 1)-c.skills.playerXP[22]) < 0)
 					sendFrame126("@red@[@or1@HU@red@] Left: @or1@0", 7343);
 				switch(c.playerRights) {
 				case 1:
@@ -1038,16 +1034,16 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 	}
 	
 	public void reloadConstructionStrings() {
-		sendFrame126("@red@[@or1@CO@red@] XP: @or1@"+Misc.format(c.playerXP[21]), 7341);
-		sendFrame126("@red@[@or1@CO@red@] Left: @or1@"+Misc.format((getXPForLevel(getLevelForXP(c.playerXP[21]) + 1)-c.playerXP[21])), 7342);
-		if((getXPForLevel(getLevelForXP(c.playerXP[21]) + 1)-c.playerXP[21]) < 0)
+		sendFrame126("@red@[@or1@CO@red@] XP: @or1@"+Misc.format(c.skills.playerXP[21]), 7341);
+		sendFrame126("@red@[@or1@CO@red@] Left: @or1@"+Misc.format((getXPForLevel(getLevelForXP(c.skills.playerXP[21]) + 1)-c.skills.playerXP[21])), 7342);
+		if((getXPForLevel(getLevelForXP(c.skills.playerXP[21]) + 1)-c.skills.playerXP[21]) < 0)
 			sendFrame126("@red@[@or1@CO@red@] Left: @or1@0", 7342);
 	}
 	
 	public void reloadHunterStrings() {
-		sendFrame126("@red@[@or1@HU@red@] XP: @or1@"+Misc.format(c.playerXP[22]), 7337);
-		sendFrame126("@red@[@or1@HU@red@] Left: @or1@"+Misc.format((getXPForLevel(getLevelForXP(c.playerXP[22]) + 1)-c.playerXP[22])), 7343);
-		if((getXPForLevel(getLevelForXP(c.playerXP[22]) + 1)-c.playerXP[22]) < 0)
+		sendFrame126("@red@[@or1@HU@red@] XP: @or1@"+Misc.format(c.skills.playerXP[22]), 7337);
+		sendFrame126("@red@[@or1@HU@red@] Left: @or1@"+Misc.format((getXPForLevel(getLevelForXP(c.skills.playerXP[22]) + 1)-c.skills.playerXP[22])), 7343);
+		if((getXPForLevel(getLevelForXP(c.skills.playerXP[22]) + 1)-c.skills.playerXP[22]) < 0)
 			sendFrame126("@red@[@or1@HU@red@] Left: @or1@0", 7343);
 	}
 	
@@ -1203,8 +1199,50 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 		if (c.getOutStream() != null && c != null) {
 			c.getOutStream().createFrame(200);
 			c.getOutStream().writeWord(MainFrame);
-			c.getOutStream().writeWord(SubFrame);
+			c.getOutStream().writeWord(chatheadEmote(SubFrame));
 			c.flushOutStream();
+		}
+	}
+
+	public static int chatheadEmote(int emote) {
+		if (emote < 588 || emote > 617) {
+			return emote;
+		}
+		switch (emote) {
+		case 588:
+			return 9843;
+		case 589:
+		case 590:
+			return 9847;
+		case 591:
+			return 9850;
+		case 592:
+		case 593:
+		case 594:
+		case 595:
+		case 604:
+			return 9844;
+		case 596:
+		case 597:
+		case 598:
+		case 599:
+		case 610:
+		case 611:
+		case 613:
+			return 9760;
+		case 605:
+		case 606:
+		case 607:
+		case 608:
+		case 609:
+			return 9840;
+		case 614:
+		case 615:
+		case 616:
+		case 617:
+			return 9844;
+		default:
+			return 9850;
 		}
 	}
 
@@ -1431,7 +1469,7 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 			if (person == null || person.getOutStream() == null) {
 				continue;
 			}
-			if (person.heightLevel != c.heightLevel || person.distanceToPoint(objectX, objectY) > 25) {
+			if (person.position.heightLevel != c.position.heightLevel || person.distanceToPoint(objectX, objectY) > 25) {
 				continue;
 			}
 			person.getOutStream().createFrame(85);
@@ -1510,7 +1548,7 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 				if (person != null) {
 					if (person.getOutStream() != null) {
 						if (person.distanceToPoint(x, y) <= 25) {
-							if (p.heightLevel == c.heightLevel)
+							if (p.position.heightLevel == c.position.heightLevel)
 								person.getPA().createProjectile(x, y, offX,
 										offY, angle, speed, gfxMoving,
 										startHeight, endHeight, lockon, time);
@@ -1615,9 +1653,7 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 			int objectType) {
 		if (c.distanceToPoint(objectX, objectY) > 60)
 			return;
-					Region r = Region.getRegion(objectX, objectY);
-					if (r != null)
-						r.realObjects.add(new Objects(objectId, objectX, objectY, 0, face, objectType));
+		clipSpawnedObject(objectId, objectX, objectY, face, objectType);
 		// synchronized(c) {
 		if (c.getOutStream() != null && c != null) {
 			c.getOutStream().createFrame(85);
@@ -1638,13 +1674,32 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 
 	}
 
+	/**
+	 * Custom spawns are drawn by a packet only. Register them in the clip map
+	 * once so pathing cannot walk through altars, banks, doors, and the like.
+	 */
+	private void clipSpawnedObject(int objectId, int objectX, int objectY, int face, int objectType) {
+		if (objectId < 0)
+			return;
+		int height = c.position.heightLevel;
+		int direction = face < 0 ? 0 : (face & 3);
+		Region r = Region.getRegion(objectX, objectY);
+		if (r != null) {
+			for (Objects o : r.realObjects) {
+				if (o.objectId == objectId && o.objectX == objectX && o.objectY == objectY
+						&& o.objectHeight == height && o.objectType == objectType) {
+					return;
+				}
+			}
+		}
+		Region.addObject(objectId, objectX, objectY, height, objectType, direction);
+	}
+
 	public void checkObjectSpawn(int objectId, int objectX, int objectY,
 			int face, int objectType) {
 		if (c.distanceToPoint(objectX, objectY) > 60)
 			return;
-		Region r = Region.getRegion(objectX, objectY);
-		if (r != null)
-			r.realObjects.add(new Objects(objectId, objectX, objectY, 0, face, objectType));
+		clipSpawnedObject(objectId, objectX, objectY, face, objectType);
 		// synchronized(c) {
 		if (c.getOutStream() != null && c != null) {
 			c.getOutStream().createFrame(85);
@@ -1839,11 +1894,11 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 			c.sendMessage("Potions has been disabled in this duel!");
 			return;
 		}
-		if (!c.isDead && System.currentTimeMillis() - c.foodDelay > 2000) {
+		if (!c.isDead && System.currentTimeMillis() - c.timers.foodDelay > 2000) {
 			if (c.getItems().playerHasItem(itemId, 1, itemSlot)) {
 				c.sendMessage("You drink the "
 						+ ItemAssistant.getItemName(itemId).toLowerCase() + ".");
-				c.foodDelay = System.currentTimeMillis();
+				c.timers.foodDelay = System.currentTimeMillis();
 				// Actions
 				if (healType == 1) {
 					// Cures The Poison
@@ -1889,7 +1944,7 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 			break;
 
 		case 1162: // low alch
-			if(System.currentTimeMillis() - c.alchDelay > 1000) {	
+			if(System.currentTimeMillis() - c.timers.alchDelay > 1000) {	
 				if(c.getItems().playerHasItem(itemId, 1, slot)){
 				if(!c.getCombat().checkMagicReqs(49)) {
 					break;
@@ -1902,7 +1957,7 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 				c.getItems().addItem(995, c.getShops().getItemShopValue(itemId)/3);
 				c.startAnimation(c.MAGIC_SPELLS[49][2]);
 				c.gfx100(c.MAGIC_SPELLS[49][3]);
-				c.alchDelay = System.currentTimeMillis();
+				c.timers.alchDelay = System.currentTimeMillis();
 				sendFrame106(6);
 				
 				addSkillXP(c.MAGIC_SPELLS[49][7] * Config.MAGIC_EXP_RATE, 6);
@@ -1914,7 +1969,7 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 			break;
 			
 			case 1178: // high alch
-			if(System.currentTimeMillis() - c.alchDelay > 2000) {	
+			if(System.currentTimeMillis() - c.timers.alchDelay > 2000) {	
 				if(c.getItems().playerHasItem(itemId, 1, slot)){
 				if(!c.getCombat().checkMagicReqs(50)) {
 					break;
@@ -1927,7 +1982,7 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 				c.getItems().addItem(995, (int)(c.getShops().getItemShopValue(itemId)*.75));
 				c.startAnimation(c.MAGIC_SPELLS[50][2]);
 				c.gfx100(c.MAGIC_SPELLS[50][3]);
-				c.alchDelay = System.currentTimeMillis();
+				c.timers.alchDelay = System.currentTimeMillis();
 				sendFrame106(6);
 				
 				addSkillXP(c.MAGIC_SPELLS[50][7] * Config.MAGIC_EXP_RATE, 6);
@@ -1943,24 +1998,6 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 	/**
 	 * Dieing
 	 **/
-	/*
-	 * private int randomKillMessage; public void randomKillMessage() { Client o
-	 * = (Client) Server.playerHandler.players[c.killerId]; switch
-	 * (randomKillMessage) { case 0: o.sendMessage("You have defeated " +
-	 * Misc.capitalize(c.playerName)+" in battle."); break; case 1:
-	 * o.sendMessage("Well done, you've pwned " +
-	 * Misc.capitalize(c.playerName)+"."); break; case 2:
-	 * o.sendMessage(Misc.capitalize
-	 * (c.playerName)+" was clearly no match for you."); break; case 3:
-	 * o.sendMessage("You just made " +
-	 * Misc.capitalize(c.playerName)+" lose the game."); break; case 4:
-	 * o.sendMessage("You have proven your superiority over " +
-	 * Misc.capitalize(c.playerName)+"."); break; case 5:
-	 * o.sendMessage("Let all warriors learn from the fate of " +
-	 * Misc.capitalize(c.playerName)+" and fear you."); break; case 6:
-	 * o.sendMessage("It's official: you are far more awesome than " +
-	 * Misc.capitalize(c.playerName)+" is."); break; } }
-	 */
 
 	public String killMessage() {
 		int a = Misc.random(15);
@@ -2016,68 +2053,6 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 		}
 	}
 
-	/*public void applyDead() {
-		c.respawnTimer = 15;
-		c.isDead = false;
-
-		if (c.duelStatus != 6) {
-			// c.killerId = c.getCombat().getKillerId(c.playerId);
-			c.killerId = findKiller();
-			Client o = (Client) Server.playerHandler.players[c.killerId];
-			Random generator = new Random();
-			// int randomIndex = generator.nextInt(5);
-			int roll = generator.nextInt(6) + 1;
-			if (o != null) {
-                if(!(c.npcIndex > 0) && c.inPits == false){
-                }
-				if (c.killerId != c.playerId)
-					o.sendMessage(killMessage());
-				  if(c.inWild() && c.npcIndex > 0){
-				if (!PlayerKilling.hostOnList(o, c.connectedFrom) && c.inWild() && o.inWild()) {
-					PlayerKilling.addHostToList(o, c.connectedFrom);
-					// o.pkPoints++;
-					o.magePoints += roll;
-					o.sendMessage("You have received " + roll
-							+ " points, you now have " + o.magePoints
-							+ " PvP Points.");
-				}
-				} else {
-					o.sendMessage("You have recently defeated " + c.playerName
-							+ ", you don't receive any PvP Points.");
-				}
-				c.playerKilled = c.playerId;
-				if (o.duelStatus == 5) {
-					o.duelStatus++;
-				}
-			}
-		}
-		c.faceUpdate(0);
-		EventManager.addEvent(new Event() {
-			public void execute(EventContainer b) {
-				c.npcIndex = 0;
-				c.playerIndex = 0;
-				b.stop();
-			}
-		}, 2500);
-		c.stopMovement();
-		if (c.duelStatus <= 4) {
-			c.sendMessage("Oh dear, you are dead!");
-		} else if (c.duelStatus != 6) {
-			Client o = (Client) Server.playerHandler.players[c.killerId];
-			c.sendMessage("You have lost the duel!");
-			PlayerSave.saveGame(o);
-			PlayerSave.saveGame(c);
-		}
-		resetDamageDone();
-		c.specAmount = 10;
-		c.getItems().addSpecialBar(c.playerEquipment[c.playerWeapon]);
-		c.lastVeng = 0;
-		c.vengOn = false;
-		resetFollowers();
-		c.attackTimer = 10;
-	}
-	
-*/   
 	public void sendSong(int id) {
 		if (c.getOutStream() != null && c != null && id != -1) {
 			c.getOutStream().createFrame(74);
@@ -2144,6 +2119,9 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 	        }
 	    }
 	    c.faceUpdate(0);
+		if (c.getCurse() != null) {
+			c.getCurse().applyWrath();
+		}
 		CycleEventHandler.addEvent(c, new CycleEvent() {
 			@Override
 			public void execute(CycleEventContainer container) {
@@ -2220,7 +2198,7 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 
 	public void resetTb() {
 		c.teleBlockLength = 0;
-		c.teleBlockDelay = 0;
+		c.timers.teleBlockDelay = 0;
 	}
 
 	public void giveLife() {
@@ -2275,13 +2253,13 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 		}
 		c.getCombat().resetPrayers();
 		for (int i = 0; i < 20; i++) {
-			c.playerLevel[i] = getLevelForXP(c.playerXP[i]);
+			c.skills.playerLevel[i] = getLevelForXP(c.skills.playerXP[i]);
 			c.getPA().refreshSkill(i);
 		}
 		if (c.pitsStatus == 1) {
 			c.pitsStatus = 0;
 			movePlayer(2399, 5173, 0);
-		} else if(c.inBH) {
+		} else if(c.bountyHunter.inBH) {
 			BountyHunter.handleBHDeath(c);
 			c.getPA().movePlayer(3179, 3685, 0);
 			//castlewars
@@ -2331,7 +2309,7 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 		resetTb();
 		c.isSkulled = false;
 		c.attackedPlayers.clear();
-		c.headIconPk = -1;
+		c.appearance.headIconPk = -1;
 		c.skullTimer = -1;
 		c.damageTaken = new int[Config.MAX_PLAYERS];
 		c.getPA().requestUpdates();
@@ -2459,7 +2437,7 @@ public void underWaterTele() {
 					+ Config.NO_TELEPORT_WILD_LEVEL + " in the wilderness.");
 			return;
 		}
-		if (System.currentTimeMillis() - c.teleBlockDelay < c.teleBlockLength) {
+		if (System.currentTimeMillis() - c.timers.teleBlockDelay < c.teleBlockLength) {
 			c.getPA().closeAllWindows();
 			c.sendMessage("You are teleblocked and can't teleport.");
 			return;
@@ -2517,7 +2495,7 @@ public void underWaterTele() {
 			c.sendMessage("You can't teleport during a duel!");
 			return;
 		}
-		if (System.currentTimeMillis() - c.teleBlockDelay < c.teleBlockLength) {
+		if (System.currentTimeMillis() - c.timers.teleBlockDelay < c.teleBlockLength) {
 			c.sendMessage("You are teleblocked and can't teleport.");
 			return;
 		}
@@ -2539,9 +2517,9 @@ public void underWaterTele() {
 	}
 
 	public void processTeleport() {
-		c.teleportToX = c.teleX;
-		c.teleportToY = c.teleY;
-		c.heightLevel = c.teleHeight;
+		c.position.teleportToX = c.teleX;
+		c.position.teleportToY = c.teleY;
+		c.position.heightLevel = c.teleHeight;
 		if (c.teleEndAnimation > 0) {
 			c.startAnimation(c.teleEndAnimation);
 		}
@@ -2571,147 +2549,7 @@ public void underWaterTele() {
 	 * Following
 	 **/
 
-	/*
-	 * public void Player() { if(Server.playerHandler.players[c.followId] ==
-	 * null || Server.playerHandler.players[c.followId].isDead) {
-	 * c.getPA().resetFollow(); return; } if(c.freezeTimer > 0) { return; } int
-	 * otherX = Server.playerHandler.players[c.followId].getX(); int otherY =
-	 * Server.playerHandler.players[c.followId].getY(); boolean withinDistance =
-	 * c.goodDistance(otherX, otherY, c.getX(), c.getY(), 2); boolean
-	 * hallyDistance = c.goodDistance(otherX, otherY, c.getX(), c.getY(), 2);
-	 * boolean bowDistance = c.goodDistance(otherX, otherY, c.getX(), c.getY(),
-	 * 6); boolean rangeWeaponDistance = c.goodDistance(otherX, otherY,
-	 * c.getX(), c.getY(), 2); boolean sameSpot = (c.absX == otherX && c.absY ==
-	 * otherY); if(!c.goodDistance(otherX, otherY, c.getX(), c.getY(), 25)) {
-	 * c.followId = 0; c.getPA().resetFollow(); return; }
-	 * c.faceUpdate(c.followId+32768); if ((c.usingBow || c.mageFollow ||
-	 * c.autocastId > 0 && (c.npcIndex > 0 || c.playerIndex > 0)) && bowDistance
-	 * && !sameSpot) { c.stopMovement(); return; } if (c.usingRangeWeapon &&
-	 * rangeWeaponDistance && !sameSpot && (c.npcIndex > 0 || c.playerIndex >
-	 * 0)) { c.stopMovement(); return; } if(c.goodDistance(otherX, otherY,
-	 * c.getX(), c.getY(), 1) && !sameSpot) { return; }
-	 * c.outStream.createFrame(174); boolean followPlayer = c.followId > 0; if
-	 * (c.freezeTimer <= 0) if (followPlayer) c.outStream.writeWord(c.followId);
-	 * else c.outStream.writeWord(c.followId2); else c.outStream.writeWord(0);
-	 * 
-	 * if (followPlayer) c.outStream.writeByte(1); else
-	 * c.outStream.writeByte(0); if (c.usingBow && c.playerIndex > 0)
-	 * c.followDistance = 5; else if (c.usingRangeWeapon && c.playerIndex > 0)
-	 * c.followDistance = 3; else if (c.spellId > 0 && c.playerIndex > 0)
-	 * c.followDistance = 5; else c.followDistance = 1;
-	 * c.outStream.writeWord(c.followDistance); }
-	 */
 
-	/*public void followPlayer() {
-		if (PlayerHandler.players[c.followId] == null
-				|| PlayerHandler.players[c.followId].isDead) {
-			resetFollow();
-			return;
-		}
-		if (c.freezeTimer > 0) {
-			return;
-		}
-		if (c.isDead || c.playerLevel[3] <= 0)
-			return;
-
-		int otherX = PlayerHandler.players[c.followId].getX();
-		int otherY = PlayerHandler.players[c.followId].getY();
-
-		boolean sameSpot = (c.absX == otherX && c.absY == otherY);
-
-		boolean hallyDistance = c.goodDistance(otherX, otherY, c.getX(),
-				c.getY(), 2);
-
-		boolean rangeWeaponDistance = c.goodDistance(otherX, otherY, c.getX(),
-				c.getY(), 4);
-		boolean bowDistance = c.goodDistance(otherX, otherY, c.getX(),
-				c.getY(), 6);
-		boolean mageDistance = c.goodDistance(otherX, otherY, c.getX(),
-				c.getY(), 7);
-
-		boolean castingMagic = (c.usingMagic || c.mageFollow || c.autocasting || c.spellId > 0)
-				&& mageDistance;
-		boolean playerRanging = (c.usingRangeWeapon) && rangeWeaponDistance;
-		boolean playerBowOrCross = (c.usingBow) && bowDistance;
-
-		if (!c.goodDistance(otherX, otherY, c.getX(), c.getY(), 25)) {
-			c.followId = 0;
-			resetFollow();
-			return;
-		}
-		c.faceUpdate(c.followId + 32768);
-		if (!sameSpot) {
-			if (c.playerIndex > 0 && !c.usingSpecial && c.inWild()) {
-				if (c.usingSpecial && (playerRanging || playerBowOrCross)) {
-					c.stopMovement();
-					return;
-				}
-				if (castingMagic || playerRanging || playerBowOrCross) {
-					c.stopMovement();
-					return;
-				}
-				if (c.getCombat().usingHally() && hallyDistance) {
-					c.stopMovement();
-					return;
-				}
-			}
-		}
-		if (otherX == c.absX && otherY == c.absY) {
-			/*int r = Misc.random(3);
-			switch (r) {
-			case 0:
-				walkTo(0, -1);
-				break;
-			case 1:
-				walkTo(0, 1);
-				break;
-			case 2:
-				walkTo(1, 0);
-				break;
-			case 3:
-				walkTo(-1, 0);
-				break;
-			}*/
-	      	/*walkClipped(c);
-		} else if (c.isRunning2) {
-			if (otherY > c.getY() && otherX == c.getX()) {
-				playerWalk(otherX, otherY - 1);
-			} else if (otherY < c.getY() && otherX == c.getX()) {
-				playerWalk(otherX, otherY + 1);
-			} else if (otherX > c.getX() && otherY == c.getY()) {
-				playerWalk(otherX - 1, otherY);
-			} else if (otherX < c.getX() && otherY == c.getY()) {
-				playerWalk(otherX + 1, otherY);
-			} else if (otherX < c.getX() && otherY < c.getY()) {
-				playerWalk(otherX + 1, otherY + 1);
-			} else if (otherX > c.getX() && otherY > c.getY()) {
-				playerWalk(otherX - 1, otherY - 1);
-			} else if (otherX < c.getX() && otherY > c.getY()) {
-				playerWalk(otherX + 1, otherY - 1);
-			} else if (otherX > c.getX() && otherY < c.getY()) {
-				playerWalk(otherX + 1, otherY - 1);
-			}
-		} else {
-			if (otherY > c.getY() && otherX == c.getX()) {
-				playerWalk(otherX, otherY - 1);
-			} else if (otherY < c.getY() && otherX == c.getX()) {
-				playerWalk(otherX, otherY + 1);
-			} else if (otherX > c.getX() && otherY == c.getY()) {
-				playerWalk(otherX - 1, otherY);
-			} else if (otherX < c.getX() && otherY == c.getY()) {
-				playerWalk(otherX + 1, otherY);
-			} else if (otherX < c.getX() && otherY < c.getY()) {
-				playerWalk(otherX + 1, otherY + 1);
-			} else if (otherX > c.getX() && otherY > c.getY()) {
-				playerWalk(otherX - 1, otherY - 1);
-			} else if (otherX < c.getX() && otherY > c.getY()) {
-				playerWalk(otherX + 1, otherY - 1);
-			} else if (otherX > c.getX() && otherY < c.getY()) {
-				playerWalk(otherX - 1, otherY + 1);
-			}
-		}
-		c.faceUpdate(c.followId + 32768);
-	}*/
 	
     @SuppressWarnings("unused")
 	public void followPlayer() {
@@ -2728,13 +2566,13 @@ public void underWaterTele() {
 			c.followId = 0;
 		}
         
-        if (c.isDead || c.playerLevel[3] <= 0)
+        if (c.isDead || c.skills.playerLevel[3] <= 0)
                 return;
 
         int otherX = PlayerHandler.players[c.followId].getX();
         int otherY = PlayerHandler.players[c.followId].getY();
 
-        boolean sameSpot = (c.absX == otherX && c.absY == otherY);
+        boolean sameSpot = (c.position.absX == otherX && c.position.absY == otherY);
 
         boolean hallyDistance = c.goodDistance(otherX, otherY, c.getX(),
                         c.getY(), 2);
@@ -2813,22 +2651,7 @@ public void underWaterTele() {
 	    	playerWalk(otherX+1, otherY-1);
 	        break;
         }
-        if (otherX == c.absX && otherY == c.absY) {
-               /* int r = Misc.random(3);
-                switch (r) {
-                case 0:
-                        walkTo(0, -1);
-                        break;
-                case 1:
-                        walkTo(0, 1);
-                        break;
-                case 2:
-                        walkTo(1, 0);
-                        break;
-                case 3:
-                        walkTo(-1, 0);
-                        break;
-                }*/
+        if (otherX == c.position.absX && otherY == c.position.absY) {
         	walkClipped(c);
         } else if (c.isRunning2 && !withinDistance) {
                 if (otherY > c.getY() && otherX == c.getX()) {
@@ -2871,198 +2694,22 @@ public void underWaterTele() {
 }
 	
 	private static void walkClipped(Client c) {
-		if (Region.getClipping(c.getX() - 1, c.getY(), c.heightLevel, -1, 0)) {
+		if (Region.getClipping(c.getX() - 1, c.getY(), c.position.heightLevel, -1, 0)) {
 			c.getPA().walkTo(-1, 0);
 			return;
-		} else if (Region.getClipping(c.getX() + 1, c.getY(), c.heightLevel, 1, 0)) {
+		} else if (Region.getClipping(c.getX() + 1, c.getY(), c.position.heightLevel, 1, 0)) {
 			c.getPA().walkTo(1, 0);
 			return;
-		} else if (Region.getClipping(c.getX(), c.getY() - 1, c.heightLevel, 0, -1)) {
+		} else if (Region.getClipping(c.getX(), c.getY() - 1, c.position.heightLevel, 0, -1)) {
 			c.getPA().walkTo(0, -1);
 			return;
-		} else if (Region.getClipping(c.getX(), c.getY() + 1, c.heightLevel, 0, 1)) {
+		} else if (Region.getClipping(c.getX(), c.getY() + 1, c.position.heightLevel, 0, 1)) {
 			c.getPA().walkTo(0, 1);
 			return;
 		}
 		c.getPA().walkTo(-1, 0);
 	}
 
-	/*public void followNpc() {
-		if (NPCHandler.npcs[c.followId2] == null
-				|| NPCHandler.npcs[c.followId2].isDead) {
-			c.followId2 = 0;
-			return;
-		}
-		if (c.freezeTimer > 0) {
-			return;
-		}
-		if (c.isDead || c.playerLevel[3] <= 0)
-			return;
-
-		int otherX = NPCHandler.npcs[c.followId2].getX();
-		int otherY = NPCHandler.npcs[c.followId2].getY();
-		boolean withinDistance = c.goodDistance(otherX, otherY, c.getX(),
-				c.getY(), 2);
-		@SuppressWarnings("unused")
-		boolean goodDistance = c.goodDistance(otherX, otherY, c.getX(),
-				c.getY(), 1);
-		boolean hallyDistance = c.goodDistance(otherX, otherY, c.getX(),
-				c.getY(), 2);
-		boolean bowDistance = c.goodDistance(otherX, otherY, c.getX(),
-				c.getY(), 8);
-		boolean rangeWeaponDistance = c.goodDistance(otherX, otherY, c.getX(),
-				c.getY(), 4);
-		boolean sameSpot = c.absX == otherX && c.absY == otherY;
-		if (!c.goodDistance(otherX, otherY, c.getX(), c.getY(), 25)) {
-			c.followId2 = 0;
-			return;
-		}
-		if (c.goodDistance(otherX, otherY, c.getX(), c.getY(), 1)) {
-			if (otherX != c.getX() && otherY != c.getY()) {
-				stopDiagonal(otherX, otherY);
-				return;
-			}
-		}
-
-		if ((c.usingBow || c.mageFollow || (c.npcIndex > 0 && c.autocastId > 0))
-				&& bowDistance && !sameSpot) {
-			return;
-		}
-
-		if (c.getCombat().usingHally() && hallyDistance && !sameSpot) {
-			return;
-		}
-
-		if (c.usingRangeWeapon && rangeWeaponDistance && !sameSpot) {
-			return;
-		}
-
-		c.faceUpdate(c.followId2);
-		if (otherX == c.absX && otherY == c.absY) {
-			/*int r = Misc.random(3);
-			switch (r) {
-			case 0:
-				walkTo(0, -1);
-				break;
-			case 1:
-				walkTo(0, 1);
-				break;
-			case 2:
-				walkTo(1, 0);
-				break;
-			case 3:
-				walkTo(-1, 0);
-				break;
-			}*/
-	      	/*walkClipped(c);
-		} else if (c.isRunning2 && !withinDistance) {
-			/*
-			 * if(otherY > c.getY() && otherX == c.getX()) { walkTo(0,
-			 * getMove(c.getY(), otherY - 1) + getMove(c.getY(), otherY - 1)); }
-			 * else if(otherY < c.getY() && otherX == c.getX()) { walkTo(0,
-			 * getMove(c.getY(), otherY + 1) + getMove(c.getY(), otherY + 1)); }
-			 * else if(otherX > c.getX() && otherY == c.getY()) {
-			 * walkTo(getMove(c.getX(), otherX - 1) + getMove(c.getX(), otherX -
-			 * 1), 0); } else if(otherX < c.getX() && otherY == c.getY()) {
-			 * walkTo(getMove(c.getX(), otherX + 1) + getMove(c.getX(), otherX +
-			 * 1), 0); } else if(otherX < c.getX() && otherY < c.getY()) {
-			 * walkTo(getMove(c.getX(), otherX + 1) + getMove(c.getX(), otherX +
-			 * 1), getMove(c.getY(), otherY + 1) + getMove(c.getY(), otherY +
-			 * 1)); } else if(otherX > c.getX() && otherY > c.getY()) {
-			 * walkTo(getMove(c.getX(), otherX - 1) + getMove(c.getX(), otherX -
-			 * 1), getMove(c.getY(), otherY - 1) + getMove(c.getY(), otherY -
-			 * 1)); } else if(otherX < c.getX() && otherY > c.getY()) {
-			 * walkTo(getMove(c.getX(), otherX + 1) + getMove(c.getX(), otherX +
-			 * 1), getMove(c.getY(), otherY - 1) + getMove(c.getY(), otherY -
-			 * 1)); } else if(otherX > c.getX() && otherY < c.getY()) {
-			 * walkTo(getMove(c.getX(), otherX + 1) + getMove(c.getX(), otherX +
-			 * 1), getMove(c.getY(), otherY - 1) + getMove(c.getY(), otherY -
-			 * 1)); } } else { if(otherY > c.getY() && otherX == c.getX()) {
-			 * walkTo(0, getMove(c.getY(), otherY - 1)); } else if(otherY <
-			 * c.getY() && otherX == c.getX()) { walkTo(0, getMove(c.getY(),
-			 * otherY + 1)); } else if(otherX > c.getX() && otherY == c.getY())
-			 * { walkTo(getMove(c.getX(), otherX - 1), 0); } else if(otherX <
-			 * c.getX() && otherY == c.getY()) { walkTo(getMove(c.getX(), otherX
-			 * + 1), 0); } else if(otherX < c.getX() && otherY < c.getY()) {
-			 * walkTo(getMove(c.getX(), otherX + 1), getMove(c.getY(), otherY +
-			 * 1)); } else if(otherX > c.getX() && otherY > c.getY()) {
-			 * walkTo(getMove(c.getX(), otherX - 1), getMove(c.getY(), otherY -
-			 * 1)); } else if(otherX < c.getX() && otherY > c.getY()) {
-			 * walkTo(getMove(c.getX(), otherX + 1), getMove(c.getY(), otherY -
-			 * 1)); } else if(otherX > c.getX() && otherY < c.getY()) {
-			 * walkTo(getMove(c.getX(), otherX - 1), getMove(c.getY(), otherY +
-			 * 1)); }
-			 */
-			/*if (otherY > c.getY() && otherX == c.getX()) {
-				// walkTo(0, getMove(c.getY(), otherY - 1) + getMove(c.getY(),
-				// otherY - 1));
-				playerWalk(otherX, otherY - 1);
-			} else if (otherY < c.getY() && otherX == c.getX()) {
-				// walkTo(0, getMove(c.getY(), otherY + 1) + getMove(c.getY(),
-				// otherY + 1));
-				playerWalk(otherX, otherY + 1);
-			} else if (otherX > c.getX() && otherY == c.getY()) {
-				// walkTo(getMove(c.getX(), otherX - 1) + getMove(c.getX(),
-				// otherX - 1), 0);
-				playerWalk(otherX - 1, otherY);
-			} else if (otherX < c.getX() && otherY == c.getY()) {
-				// walkTo(getMove(c.getX(), otherX + 1) + getMove(c.getX(),
-				// otherX + 1), 0);
-				playerWalk(otherX + 1, otherY);
-			} else if (otherX < c.getX() && otherY < c.getY()) {
-				// walkTo(getMove(c.getX(), otherX + 1) + getMove(c.getX(),
-				// otherX + 1), getMove(c.getY(), otherY + 1) +
-				// getMove(c.getY(), otherY + 1));
-				playerWalk(otherX + 1, otherY + 1);
-			} else if (otherX > c.getX() && otherY > c.getY()) {
-				// walkTo(getMove(c.getX(), otherX - 1) + getMove(c.getX(),
-				// otherX - 1), getMove(c.getY(), otherY - 1) +
-				// getMove(c.getY(), otherY - 1));
-				playerWalk(otherX - 1, otherY - 1);
-			} else if (otherX < c.getX() && otherY > c.getY()) {
-				// walkTo(getMove(c.getX(), otherX + 1) + getMove(c.getX(),
-				// otherX + 1), getMove(c.getY(), otherY - 1) +
-				// getMove(c.getY(), otherY - 1));
-				playerWalk(otherX + 1, otherY - 1);
-			} else if (otherX > c.getX() && otherY < c.getY()) {
-				// walkTo(getMove(c.getX(), otherX + 1) + getMove(c.getX(),
-				// otherX + 1), getMove(c.getY(), otherY - 1) +
-				// getMove(c.getY(), otherY - 1));
-				playerWalk(otherX + 1, otherY - 1);
-			}
-		} else {
-			if (otherY > c.getY() && otherX == c.getX()) {
-				// walkTo(0, getMove(c.getY(), otherY - 1));
-				playerWalk(otherX, otherY - 1);
-			} else if (otherY < c.getY() && otherX == c.getX()) {
-				// walkTo(0, getMove(c.getY(), otherY + 1));
-				playerWalk(otherX, otherY + 1);
-			} else if (otherX > c.getX() && otherY == c.getY()) {
-				// walkTo(getMove(c.getX(), otherX - 1), 0);
-				playerWalk(otherX - 1, otherY);
-			} else if (otherX < c.getX() && otherY == c.getY()) {
-				// walkTo(getMove(c.getX(), otherX + 1), 0);
-				playerWalk(otherX + 1, otherY);
-			} else if (otherX < c.getX() && otherY < c.getY()) {
-				// walkTo(getMove(c.getX(), otherX + 1), getMove(c.getY(),
-				// otherY + 1));
-				playerWalk(otherX + 1, otherY + 1);
-			} else if (otherX > c.getX() && otherY > c.getY()) {
-				// walkTo(getMove(c.getX(), otherX - 1), getMove(c.getY(),
-				// otherY - 1));
-				playerWalk(otherX - 1, otherY - 1);
-			} else if (otherX < c.getX() && otherY > c.getY()) {
-				// walkTo(getMove(c.getX(), otherX + 1), getMove(c.getY(),
-				// otherY - 1));
-				playerWalk(otherX + 1, otherY - 1);
-			} else if (otherX > c.getX() && otherY < c.getY()) {
-				// walkTo(getMove(c.getX(), otherX - 1), getMove(c.getY(),
-				// otherY + 1));
-				playerWalk(otherX - 1, otherY + 1);
-			}
-		}
-		c.faceUpdate(c.followId2);
-	}*/
 	
 	public void followNpc() {
 		if(NPCHandler.npcs[c.followId2] == null || NPCHandler.npcs[c.followId2].isDead) {
@@ -3072,147 +2719,51 @@ public void underWaterTele() {
 		if(c.freezeTimer > 0) {
 			return;
 		}
-		if (c.isDead || c.playerLevel[3] <= 0)
+		if (c.isDead || c.skills.playerLevel[3] <= 0)
 			return;
 		int otherX = NPCHandler.npcs[c.followId2].getX(); //npcs[i].otherx and change when npc walks.
 		int otherY = NPCHandler.npcs[c.followId2].getY();
-		boolean withinDistance = c.goodDistance(otherX, otherY, c.getX(), c.getY(), 2);
-		@SuppressWarnings("unused")
-		boolean goodDistance = c.goodDistance(otherX, otherY, c.getX(), c.getY(), 1);
-		boolean hallyDistance = c.goodDistance(otherX, otherY, c.getX(), c.getY(), 2);
-		boolean bowDistance = c.goodDistance(otherX, otherY, c.getX(), c.getY(), 8);
-		boolean rangeWeaponDistance = c.goodDistance(otherX, otherY, c.getX(), c.getY(), 4);
-		boolean sameSpot = c.absX == otherX && c.absY == otherY;
-		if(!c.goodDistance(otherX, otherY, c.getX(), c.getY(), 25)) {
-			return;
+		int nSize = Server.npcHandler.npcSize(c.followId2);
+		if (nSize < 1) {
+			nSize = 1;
 		}
-		/*if(c.goodDistance(otherX, otherY, c.getX(), c.getY(), 1)) {
-			if (otherX != c.getX() && otherY != c.getY()) {
-				stopDiagonal(otherX, otherY);
-				return;
-			} else {
-				c.followId2 = 0;
-				return;
-			}
-		}*/
-		
-		if((c.usingBow || c.mageFollow || (c.npcIndex > 0 && c.autocastId > 0)) && bowDistance && !sameSpot) {
-			return;
-		}
-
-		if(c.getCombat().usingHally() && hallyDistance && !sameSpot) {
-			return;
-		}
-
-		if(c.usingRangeWeapon && rangeWeaponDistance && !sameSpot) {
+		boolean sameSpot = c.position.absX >= otherX && c.position.absX <= otherX + nSize - 1
+				&& c.position.absY >= otherY && c.position.absY <= otherY + nSize - 1;
+		if(!c.getCombat().withinNpcDistance(c.getX(), c.getY(), otherX, otherY, nSize, 25)) {
 			return;
 		}
 		c.faceUpdate(c.followId2);
-		if (otherX == c.absX && otherY == c.absY) {
-		/*	int r = Misc.random(3);
-			switch (r) {
-				case 0:
-					walkTo(0,-1);
-				break;
-				case 1:
-					walkTo(0,1);
-				break;
-				case 2:
-					walkTo(1,0);
-				break;
-				case 3:
-					walkTo(-1,0);
-				break;			
-			}	*/
+		if (sameSpot) {
 			walkClipped(c);
-		} else if(c.isRunning2 && !withinDistance) {
-			/*if(otherY > c.getY() && otherX == c.getX()) {
-				walkTo(0, getMove(c.getY(), otherY - 1) + getMove(c.getY(), otherY - 1));
-			} else if(otherY < c.getY() && otherX == c.getX()) {
-				walkTo(0, getMove(c.getY(), otherY + 1) + getMove(c.getY(), otherY + 1));
-			} else if(otherX > c.getX() && otherY == c.getY()) {
-				walkTo(getMove(c.getX(), otherX - 1) + getMove(c.getX(), otherX - 1), 0);
-			} else if(otherX < c.getX() && otherY == c.getY()) {
-				walkTo(getMove(c.getX(), otherX + 1) + getMove(c.getX(), otherX + 1), 0);
-			} else if(otherX < c.getX() && otherY < c.getY()) {
-				walkTo(getMove(c.getX(), otherX + 1) + getMove(c.getX(), otherX + 1), getMove(c.getY(), otherY + 1) + getMove(c.getY(), otherY + 1));
-			} else if(otherX > c.getX() && otherY > c.getY()) {
-				walkTo(getMove(c.getX(), otherX - 1) + getMove(c.getX(), otherX - 1), getMove(c.getY(), otherY - 1) + getMove(c.getY(), otherY - 1));
-			} else if(otherX < c.getX() && otherY > c.getY()) {
-				walkTo(getMove(c.getX(), otherX + 1) + getMove(c.getX(), otherX + 1), getMove(c.getY(), otherY - 1) + getMove(c.getY(), otherY - 1));
-			} else if(otherX > c.getX() && otherY < c.getY()) {
-				walkTo(getMove(c.getX(), otherX + 1) + getMove(c.getX(), otherX + 1), getMove(c.getY(), otherY - 1) + getMove(c.getY(), otherY - 1));
-			} 
-		} else {
-			if(otherY > c.getY() && otherX == c.getX()) {
-				walkTo(0, getMove(c.getY(), otherY - 1));
-			} else if(otherY < c.getY() && otherX == c.getX()) {
-				walkTo(0, getMove(c.getY(), otherY + 1));
-			} else if(otherX > c.getX() && otherY == c.getY()) {
-				walkTo(getMove(c.getX(), otherX - 1), 0);
-			} else if(otherX < c.getX() && otherY == c.getY()) {
-				walkTo(getMove(c.getX(), otherX + 1), 0);
-			} else if(otherX < c.getX() && otherY < c.getY()) {
-				walkTo(getMove(c.getX(), otherX + 1), getMove(c.getY(), otherY + 1));
-			} else if(otherX > c.getX() && otherY > c.getY()) {
-				walkTo(getMove(c.getX(), otherX - 1), getMove(c.getY(), otherY - 1));
-			} else if(otherX < c.getX() && otherY > c.getY()) {
-				walkTo(getMove(c.getX(), otherX + 1), getMove(c.getY(), otherY - 1));
-			} else if(otherX > c.getX() && otherY < c.getY()) {
-				walkTo(getMove(c.getX(), otherX - 1), getMove(c.getY(), otherY + 1));
-			}*/
-			if(otherY > c.getY() && otherX == c.getX()) {
-				//walkTo(0, getMove(c.getY(), otherY - 1) + getMove(c.getY(), otherY - 1));
-				playerWalk(otherX, otherY - 1);
-			} else if(otherY < c.getY() && otherX == c.getX()) {
-				//walkTo(0, getMove(c.getY(), otherY + 1) + getMove(c.getY(), otherY + 1));
-				playerWalk(otherX, otherY + 1);
-			} else if(otherX > c.getX() && otherY == c.getY()) {
-				//walkTo(getMove(c.getX(), otherX - 1) + getMove(c.getX(), otherX - 1), 0);
-				playerWalk(otherX - 1, otherY);
-			} else if(otherX < c.getX() && otherY == c.getY()) {
-				//walkTo(getMove(c.getX(), otherX + 1) + getMove(c.getX(), otherX + 1), 0);
-				playerWalk(otherX + 1, otherY);
-			} else if(otherX < c.getX() && otherY < c.getY()) {
-				//walkTo(getMove(c.getX(), otherX + 1) + getMove(c.getX(), otherX + 1), getMove(c.getY(), otherY + 1) + getMove(c.getY(), otherY + 1));
-				playerWalk(otherX + 1, otherY + 1);
-			} else if(otherX > c.getX() && otherY > c.getY()) {
-				//walkTo(getMove(c.getX(), otherX - 1) + getMove(c.getX(), otherX - 1), getMove(c.getY(), otherY - 1) + getMove(c.getY(), otherY - 1));
-				playerWalk(otherX - 1, otherY - 1);
-			} else if(otherX < c.getX() && otherY > c.getY()) {
-				//walkTo(getMove(c.getX(), otherX + 1) + getMove(c.getX(), otherX + 1), getMove(c.getY(), otherY - 1) + getMove(c.getY(), otherY - 1));
-				playerWalk(otherX + 1, otherY - 1);
-			} else if(otherX > c.getX() && otherY < c.getY()) {
-				//walkTo(getMove(c.getX(), otherX + 1) + getMove(c.getX(), otherX + 1), getMove(c.getY(), otherY - 1) + getMove(c.getY(), otherY - 1));
-				playerWalk(otherX + 1, otherY - 1);
-			}
-		} else {
-			if(otherY > c.getY() && otherX == c.getX()) {
-				//walkTo(0, getMove(c.getY(), otherY - 1));
-				playerWalk(otherX, otherY - 1);
-			} else if(otherY < c.getY() && otherX == c.getX()) {
-				//walkTo(0, getMove(c.getY(), otherY + 1));
-				playerWalk(otherX, otherY + 1);
-			} else if(otherX > c.getX() && otherY == c.getY()) {
-				//walkTo(getMove(c.getX(), otherX - 1), 0);
-				playerWalk(otherX - 1, otherY);
-			} else if(otherX < c.getX() && otherY == c.getY()) {
-				//walkTo(getMove(c.getX(), otherX + 1), 0);
-				playerWalk(otherX + 1, otherY);
-			} else if(otherX < c.getX() && otherY < c.getY()) {
-				//walkTo(getMove(c.getX(), otherX + 1), getMove(c.getY(), otherY + 1));
-				playerWalk(otherX + 1, otherY + 1);
-			} else if(otherX > c.getX() && otherY > c.getY()) {
-				//walkTo(getMove(c.getX(), otherX - 1), getMove(c.getY(), otherY - 1));
-				playerWalk(otherX - 1, otherY - 1);
-			} else if(otherX < c.getX() && otherY > c.getY()) {
-				//walkTo(getMove(c.getX(), otherX + 1), getMove(c.getY(), otherY - 1));
-				playerWalk(otherX + 1, otherY - 1);
-			} else if(otherX > c.getX() && otherY < c.getY()) {
-				//walkTo(getMove(c.getX(), otherX - 1), getMove(c.getY(), otherY + 1));
-				playerWalk(otherX - 1, otherY + 1);
+			return;
+		}
+		// Talking or shopping walks up next to the NPC. Combat holds at weapon
+		// range, and only once the target is not behind a wall.
+		boolean talking = c.clickNpcType > 0;
+		int hold = talking ? 1 : c.getCombat().attackRange();
+		boolean inHold = c.getCombat().withinNpcDistance(c.getX(), c.getY(), otherX, otherY, nSize, hold);
+		boolean clearShot = talking || c.npcIndex <= 0
+				|| PathFinder.hasLineOfSight(c.position.absX, c.position.absY, 1, otherX, otherY, nSize, c.position.heightLevel);
+		if (inHold && clearShot) {
+			c.stopMovement();
+			return;
+		}
+		// Behind a wall with a ranged weapon: walk to the nearest peek tile.
+		if (!talking && hold > 1 && !clearShot) {
+			int[] fire = PathFinder.getPathFinder().findShootingTile(c, otherX, otherY, nSize, hold);
+			if (fire != null) {
+				if (fire[0] == c.position.absX && fire[1] == c.position.absY) {
+					c.stopMovement();
+				} else {
+					playerWalk(fire[0], fire[1]);
+				}
+				c.faceUpdate(c.followId2);
+				return;
 			}
 		}
+		// Path to the NPC footprint. moveNear + reach checks go around walls
+		// instead of stopping on the far side of the building.
+		PathFinder.getPathFinder().findRoute(c, otherX, otherY, true, nSize, nSize);
 		c.faceUpdate(c.followId2);
 	}
 
@@ -3232,70 +2783,20 @@ public void underWaterTele() {
 	}
 
 	public void walkTo(int i, int j) {
-		c.newWalkCmdSteps = 0;
-		if (++c.newWalkCmdSteps > 50)
-			c.newWalkCmdSteps = 0;
-		int k = c.getX() + i;
-		k -= c.mapRegionX * 8;
-		c.getNewWalkCmdX()[0] = c.getNewWalkCmdY()[0] = 0;
-		int l = c.getY() + j;
-		l -= c.mapRegionY * 8;
-
-		for (int n = 0; n < c.newWalkCmdSteps; n++) {
-			c.getNewWalkCmdX()[n] += k;
-			c.getNewWalkCmdY()[n] += l;
-		}
+		// Rollback: restore raw newWalkCmd delta injection here.
+		WalkAdapter.walkRelative(c, i, j);
 	}
 
 	public void walkTo2(int i, int j) {
-		if (c.freezeDelay > 0)
-			return;
-		c.newWalkCmdSteps = 0;
-		if (++c.newWalkCmdSteps > 50)
-			c.newWalkCmdSteps = 0;
-		int k = c.getX() + i;
-		k -= c.mapRegionX * 8;
-		c.getNewWalkCmdX()[0] = c.getNewWalkCmdY()[0] = 0;
-		int l = c.getY() + j;
-		l -= c.mapRegionY * 8;
-
-		for (int n = 0; n < c.newWalkCmdSteps; n++) {
-			c.getNewWalkCmdX()[n] += k;
-			c.getNewWalkCmdY()[n] += l;
-		}
+		WalkAdapter.walkRelativeFrozenCheck(c, i, j);
 	}
 
 	public void walkTo3(int i, int j) {
-		c.newWalkCmdSteps = 0;
-		if (++c.newWalkCmdSteps > 50)
-			c.newWalkCmdSteps = 0;
-		int k = c.absX + i;
-		k -= c.mapRegionX * 8;
-		c.getNewWalkCmdX()[0] = c.getNewWalkCmdY()[0] = tmpNWCX[0] = tmpNWCY[0] = 0;
-		int l = c.absY + j;
-		l -= c.mapRegionY * 8;
-		c.isRunning2 = false;
-		c.isRunning = false;
-		c.getNewWalkCmdX()[0] += k;
-		c.getNewWalkCmdY()[0] += l;
-		c.poimiY = l;
-		c.poimiX = k;
+		WalkAdapter.walkRelativeNoRun(c, i, j);
+		c.poimiX = (c.position.absX + i) - c.position.mapRegionX * 8;
+		c.poimiY = (c.position.absY + j) - c.position.mapRegionY * 8;
 	}
 	
-	/*if (Region.getClipping(c.getX() - 1, c.getY(), c.heightLevel, -1, 0)) {
-		c.getPA().walkTo(-1, 0);
-		return;
-	} else if (Region.getClipping(c.getX() + 1, c.getY(), c.heightLevel, 1, 0)) {
-		c.getPA().walkTo(1, 0);
-		return;
-	} else if (Region.getClipping(c.getX(), c.getY() - 1, c.heightLevel, 0, -1)) {
-		c.getPA().walkTo(0, -1);
-		return;
-	} else if (Region.getClipping(c.getX(), c.getY() + 1, c.heightLevel, 0, 1)) {
-		c.getPA().walkTo(0, 1);
-		return;
-	}
-	c.getPA().walkTo(-1, 0);*/
 
 	public void stopDiagonal(int otherX, int otherY) {
 		if (c.freezeDelay > 0)
@@ -3307,10 +2808,10 @@ public void underWaterTele() {
 			yMove = otherY - c.getY();
 
 		int k = c.getX() + xMove;
-		k -= c.mapRegionX * 8;
+		k -= c.position.mapRegionX * 8;
 		c.getNewWalkCmdX()[0] = c.getNewWalkCmdY()[0] = 0;
 		int l = c.getY() + yMove;
-		l -= c.mapRegionY * 8;
+		l -= c.position.mapRegionY * 8;
 
 		for (int n = 0; n < c.newWalkCmdSteps; n++) {
 			c.getNewWalkCmdX()[n] += k;
@@ -3321,21 +2822,7 @@ public void underWaterTele() {
 	}
 
 	public void walkToCheck(int i, int j) {
-		if (c.freezeDelay > 0)
-			return;
-		c.newWalkCmdSteps = 0;
-		if (++c.newWalkCmdSteps > 50)
-			c.newWalkCmdSteps = 0;
-		int k = c.getX() + i;
-		k -= c.mapRegionX * 8;
-		c.getNewWalkCmdX()[0] = c.getNewWalkCmdY()[0] = 0;
-		int l = c.getY() + j;
-		l -= c.mapRegionY * 8;
-
-		for (int n = 0; n < c.newWalkCmdSteps; n++) {
-			c.getNewWalkCmdX()[n] += k;
-			c.getNewWalkCmdY()[n] += l;
-		}
+		WalkAdapter.walkRelativeFrozenCheck(c, i, j);
 	}
 
 	public int getMove(int place1, int place2) {
@@ -3392,7 +2879,7 @@ public void underWaterTele() {
 		switch(skill) {
 			case 0:
 			sendFrame126("Congratulations! You've just advanced a Attack level!", 4268);
-			sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+"!", 4269);
+			sendFrame126("You have now reached level "+getLevelForXP(c.skills.playerXP[skill])+"!", 4269);
 			c.sendMessage("Congratulations! You've just advanced a attack level.");	
 			sendFrame164(6247);
 
@@ -3400,7 +2887,7 @@ public void underWaterTele() {
 			
 			case 1:
             		sendFrame126("Congratulations! You've just advanced a Defence level!", 4268);
-            		sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+".", 4269);
+            		sendFrame126("You have now reached level "+getLevelForXP(c.skills.playerXP[skill])+".", 4269);
             		c.sendMessage("Congratulations! You've just advanced a Defence level.");
 			sendFrame164(6253);
 
@@ -3408,7 +2895,7 @@ public void underWaterTele() {
 			
 			case 2:
             		sendFrame126("Congratulations! You've just advanced a Strength level!", 4268);
-            		sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+".", 4269);
+            		sendFrame126("You have now reached level "+getLevelForXP(c.skills.playerXP[skill])+".", 4269);
             		c.sendMessage("Congratulations! You've just advanced a Strength level.");
 			sendFrame164(6206);
 
@@ -3416,7 +2903,7 @@ public void underWaterTele() {
 			
 			case 3:
             		sendFrame126("Congratulations! You've just advanced a Hitpoints level!", 4268);
-            		sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+".", 4269);
+            		sendFrame126("You have now reached level "+getLevelForXP(c.skills.playerXP[skill])+".", 4269);
             		c.sendMessage("Congratulations! You've just advanced a Hitpoints level.");
 			sendFrame164(6216);
 
@@ -3424,7 +2911,7 @@ public void underWaterTele() {
 			
 			case 4:
             		sendFrame126("Congratulations! You've just advanced a Ranged level!", 4268);
-            		sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+".", 4269);
+            		sendFrame126("You have now reached level "+getLevelForXP(c.skills.playerXP[skill])+".", 4269);
             		c.sendMessage("Congratulations! You've just advanced a Ranging level.");
 			sendFrame164(4443);
 
@@ -3432,7 +2919,7 @@ public void underWaterTele() {
 			
 			case 5:
             		sendFrame126("Congratulations! You've just advanced a Prayer level!", 4268);
-            		sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+".", 4269);
+            		sendFrame126("You have now reached level "+getLevelForXP(c.skills.playerXP[skill])+".", 4269);
             		c.sendMessage("Congratulations! You've just advanced a Prayer level.");
 			sendFrame164(6242);
 
@@ -3440,7 +2927,7 @@ public void underWaterTele() {
 			
 			case 6:
             		sendFrame126("Congratulations! You've just advanced a Magic level!", 4268);
-            		sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+".", 4269);
+            		sendFrame126("You have now reached level "+getLevelForXP(c.skills.playerXP[skill])+".", 4269);
             		c.sendMessage("Congratulations! You've just advanced a Magic level.");
 			sendFrame164(6211);
 
@@ -3448,7 +2935,7 @@ public void underWaterTele() {
 			
 			case 7:
             		sendFrame126("Congratulations! You've just advanced a Cooking level!", 4268);
-            		sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+".", 4269);
+            		sendFrame126("You have now reached level "+getLevelForXP(c.skills.playerXP[skill])+".", 4269);
             		c.sendMessage("Congratulations! You've just advanced a Cooking level.");
 			sendFrame164(6226);
 
@@ -3456,7 +2943,7 @@ public void underWaterTele() {
 			
 			case 8:
 			sendFrame126("Congratulations! You've just advanced a Woodcutting level!", 4268);
-			sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+".", 4269);
+			sendFrame126("You have now reached level "+getLevelForXP(c.skills.playerXP[skill])+".", 4269);
 			c.sendMessage("Congratulations! You've just advanced a Woodcutting level.");
 			sendFrame164(4272);
 
@@ -3464,7 +2951,7 @@ public void underWaterTele() {
 			
             		case 9:
             		sendFrame126("Congratulations! You've just advanced a Fletching level!", 4268);
-            		sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+".", 4269);
+            		sendFrame126("You have now reached level "+getLevelForXP(c.skills.playerXP[skill])+".", 4269);
             		c.sendMessage("Congratulations! You've just advanced a Fletching level.");
 			sendFrame164(6231);
 
@@ -3472,7 +2959,7 @@ public void underWaterTele() {
 			
 			case 10:
             		sendFrame126("Congratulations! You've just advanced a Fishing level!", 4268);
-            		sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+".", 4269);
+            		sendFrame126("You have now reached level "+getLevelForXP(c.skills.playerXP[skill])+".", 4269);
             		c.sendMessage("Congratulations! You've just advanced a Fishing level.");
 			sendFrame164(6258);
 
@@ -3480,7 +2967,7 @@ public void underWaterTele() {
 			
 			case 11:
 			sendFrame126("Congratulations! You've just advanced a Fire making level!", 4268);
-			sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+".", 4269);
+			sendFrame126("You have now reached level "+getLevelForXP(c.skills.playerXP[skill])+".", 4269);
 			c.sendMessage("Congratulations! You've just advanced a Fire making level.");
 			sendFrame164(4282);
 
@@ -3488,7 +2975,7 @@ public void underWaterTele() {
 			
             		case 12:
 			sendFrame126("Congratulations! You've just advanced a Crafting level!", 4268);
-			sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+".", 4269);
+			sendFrame126("You have now reached level "+getLevelForXP(c.skills.playerXP[skill])+".", 4269);
 			c.sendMessage("Congratulations! You've just advanced a Crafting level.");
 			sendFrame164(6263);
 
@@ -3496,7 +2983,7 @@ public void underWaterTele() {
 			
 			case 13:
 			sendFrame126("Congratulations! You've just advanced a Smithing level!", 4268);
-			sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+".", 4269);
+			sendFrame126("You have now reached level "+getLevelForXP(c.skills.playerXP[skill])+".", 4269);
 			c.sendMessage("Congratulations! You've just advanced a Smithing level.");
 			sendFrame164(6221);
 
@@ -3504,7 +2991,7 @@ public void underWaterTele() {
 			
 			case 14:
 			sendFrame126("Congratulations! You've just advanced a Mining level!", 4268);
-			sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+".", 4269);
+			sendFrame126("You have now reached level "+getLevelForXP(c.skills.playerXP[skill])+".", 4269);
 			c.sendMessage("Congratulations! You've just advanced a Mining level.");
 			sendFrame164(4416);
 
@@ -3512,7 +2999,7 @@ public void underWaterTele() {
 			
 			case 15:
             		sendFrame126("Congratulations! You've just advanced a Herblore level!", 4268);
-            		sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+".", 4269);
+            		sendFrame126("You have now reached level "+getLevelForXP(c.skills.playerXP[skill])+".", 4269);
             		c.sendMessage("Congratulations! You've just advanced a Herblore level.");
 			sendFrame164(6237);
 
@@ -3520,7 +3007,7 @@ public void underWaterTele() {
 			
 			case 16:
 			sendFrame126("Congratulations! You've just advanced a Agility level!", 4268);
-			sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+".", 4269);
+			sendFrame126("You have now reached level "+getLevelForXP(c.skills.playerXP[skill])+".", 4269);
 			c.sendMessage("Congratulations! You've just advanced a Agility level.");
 			sendFrame164(4277);
 
@@ -3528,7 +3015,7 @@ public void underWaterTele() {
 			
 			case 17:
 			sendFrame126("Congratulations! You've just advanced a Thieving level!", 4268);
-			sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+".", 4269);
+			sendFrame126("You have now reached level "+getLevelForXP(c.skills.playerXP[skill])+".", 4269);
             		c.sendMessage("Congratulations! You've just advanced a Thieving level.");
 			sendFrame164(4261);
 
@@ -3536,7 +3023,7 @@ public void underWaterTele() {
 			
 			case 18:
 			sendFrame126("Congratulations! You've just advanced a Slayer level!", 4268);
-			sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+".", 4269);
+			sendFrame126("You have now reached level "+getLevelForXP(c.skills.playerXP[skill])+".", 4269);
 			c.sendMessage("Congratulations! You've just advanced a Slayer level.");
 			sendFrame164(12122);
 
@@ -3544,7 +3031,7 @@ public void underWaterTele() {
 
             		case 19:
 			sendFrame126("Congratulations! You've just advanced a Farming level!", 4268);
-			sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+".", 4269);
+			sendFrame126("You have now reached level "+getLevelForXP(c.skills.playerXP[skill])+".", 4269);
 			c.sendMessage("Congratulations! You've just advanced a Farming level.");
 			sendFrame164(5267);
 
@@ -3552,7 +3039,7 @@ public void underWaterTele() {
             
             		case 20:
 			sendFrame126("Congratulations! You've just advanced a Runecrafting level!", 4268);
-			sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+".", 4269);
+			sendFrame126("You have now reached level "+getLevelForXP(c.skills.playerXP[skill])+".", 4269);
 			c.sendMessage("Congratulations! You've just advanced a Runecrafting level.");
 			sendFrame164(4267);
 
@@ -3560,7 +3047,7 @@ public void underWaterTele() {
             		
 			case 21:
 			sendFrame126("Congratulations! You've just advanced a Construction level!", 4268);
-			sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+".", 4269);
+			sendFrame126("You have now reached level "+getLevelForXP(c.skills.playerXP[skill])+".", 4269);
 			c.sendMessage("Congratulations! You've just advanced a Construction level.");
 			sendFrame164(7267);
 
@@ -3568,7 +3055,7 @@ public void underWaterTele() {
             
 			case 22:
 			sendFrame126("Congratulations! You've just advanced a Hunter level!", 4268);
-			sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+".", 4269);
+			sendFrame126("You have now reached level "+getLevelForXP(c.skills.playerXP[skill])+".", 4269);
 			c.sendMessage("Congratulations! You've just advanced a Hunter level.");
 			sendFrame164(8267);
 
@@ -3576,399 +3063,212 @@ public void underWaterTele() {
 
             		case 23:
 			sendFrame126("Congratulations! You've just advanced a Summoning level!", 4268);
-			sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+".", 4269);
+			sendFrame126("You have now reached level "+getLevelForXP(c.skills.playerXP[skill])+".", 4269);
 			c.sendMessage("Congratulations! You've just advanced a Summoning level.");
 			sendFrame164(9267);
             		break;
 
             		case 24:
 			sendFrame126("Congratulations! You've just advanced a Dungeoneering level!", 4268);
-			sendFrame126("You have now reached level "+getLevelForXP(c.playerXP[skill])+".", 4269);
+			sendFrame126("You have now reached level "+getLevelForXP(c.skills.playerXP[skill])+".", 4269);
 			c.sendMessage("Congratulations! You've just advanced a Dungeoneering level.");
 			sendFrame164(10267);
             	break;
 		}
-		AchievementBroadcast.onLevelUp(c, skill, getLevelForXP(c.playerXP[skill]), totalLevel());
+		AchievementBroadcast.onLevelUp(c, skill, getLevelForXP(c.skills.playerXP[skill]), totalLevel());
 		c.dialogueAction = 0;
 		c.nextChat = 0;
         sendFrame126("Click here to continue", 358);
 	}
 
-	/*
-	 * public void levelUp(int skill) { int totalLevel =
-	 * (getLevelForXP(c.playerXP[0]) + getLevelForXP(c.playerXP[1]) +
-	 * getLevelForXP(c.playerXP[2]) + getLevelForXP(c.playerXP[3]) +
-	 * getLevelForXP(c.playerXP[4]) + getLevelForXP(c.playerXP[5]) +
-	 * getLevelForXP(c.playerXP[6]) + getLevelForXP(c.playerXP[7]) +
-	 * getLevelForXP(c.playerXP[8]) + getLevelForXP(c.playerXP[9]) +
-	 * getLevelForXP(c.playerXP[10]) + getLevelForXP(c.playerXP[11]) +
-	 * getLevelForXP(c.playerXP[12]) + getLevelForXP(c.playerXP[13]) +
-	 * getLevelForXP(c.playerXP[14]) + getLevelForXP(c.playerXP[15]) +
-	 * getLevelForXP(c.playerXP[16]) + getLevelForXP(c.playerXP[17]) +
-	 * getLevelForXP(c.playerXP[18]) + getLevelForXP(c.playerXP[19]) +
-	 * getLevelForXP(c.playerXP[20])); sendFrame126("Total Lvl: "+totalLevel,
-	 * 3984); switch(skill) { case 0:
-	 * sendFrame126("Congratulations, you just advanced an attack level!",
-	 * 6248);
-	 * sendFrame126("Your attack level is now "+getLevelForXP(c.playerXP[skill
-	 * ])+".", 6249);
-	 * c.sendMessage("Congratulations, you just advanced an attack level.");
-	 * sendFrame164(6247); for (int HUH = 0; HUH < 25; HUH++) {
-	 * if(getLevelForXP(c.playerXP[0]) == 99) { TutorialIsland.ATTACK(c, HUH);
-	 * return; } } break;
-	 * 
-	 * case 1:
-	 * sendFrame126("Congratulations, you just advanced a defence level!",
-	 * 6254);
-	 * sendFrame126("Your defence level is now "+getLevelForXP(c.playerXP[
-	 * skill])+".", 6255);
-	 * c.sendMessage("Congratulations, you just advanced a defence level.");
-	 * sendFrame164(6253); for (int HUH = 0; HUH < 25; HUH++) {
-	 * if(getLevelForXP(c.playerXP[1]) == 99) { TutorialIsland.DEFENCE(c, HUH);
-	 * return; } } break;
-	 * 
-	 * case 2:
-	 * sendFrame126("Congratulations, you just advanced a strength level!",
-	 * 6207);
-	 * sendFrame126("Your strength level is now "+getLevelForXP(c.playerXP
-	 * [skill])+".", 6208);
-	 * c.sendMessage("Congratulations, you just advanced a strength level.");
-	 * sendFrame164(6206); for (int HUH = 0; HUH < 25; HUH++) {
-	 * if(getLevelForXP(c.playerXP[2]) == 99) { TutorialIsland.STRENGTH(c, HUH);
-	 * return; } } break;
-	 * 
-	 * case 3:
-	 * sendFrame126("Congratulations, you just advanced a hitpoints level!",
-	 * 6217);
-	 * sendFrame126("Your hitpoints level is now "+getLevelForXP(c.playerXP
-	 * [skill])+".", 6218);
-	 * c.sendMessage("Congratulations, you just advanced a hitpoints level.");
-	 * sendFrame164(6216); //hitpoints for (int HUH = 0; HUH < 25; HUH++) {
-	 * if(getLevelForXP(c.playerXP[3]) == 99) { TutorialIsland.HITPOINTS(c,
-	 * HUH); return; } } break;
-	 * 
-	 * case 4:
-	 * sendFrame126("Congratulations, you just advanced a ranged level!", 5453);
-	 * sendFrame126
-	 * ("Your ranged level is now "+getLevelForXP(c.playerXP[skill])+".", 6114);
-	 * c.sendMessage("Congratulations, you just advanced a ranging level.");
-	 * sendFrame164(4443); for (int HUH = 0; HUH < 25; HUH++) {
-	 * if(getLevelForXP(c.playerXP[4]) == 99) { TutorialIsland.RANGING(c, HUH);
-	 * return; } } break;
-	 * 
-	 * case 5:
-	 * sendFrame126("Congratulations, you just advanced a prayer level!", 6243);
-	 * sendFrame126
-	 * ("Your prayer level is now "+getLevelForXP(c.playerXP[skill])+".", 6244);
-	 * c.sendMessage("Congratulations, you just advanced a prayer level.");
-	 * sendFrame164(6242); for (int HUH = 0; HUH < 25; HUH++) {
-	 * if(getLevelForXP(c.playerXP[5]) == 99) { TutorialIsland.PRAYER(c, HUH);
-	 * return; } } break;
-	 * 
-	 * case 6: sendFrame126("Congratulations, you just advanced a magic level!",
-	 * 6212);
-	 * sendFrame126("Your magic level is now "+getLevelForXP(c.playerXP[skill
-	 * ])+".", 6213);
-	 * c.sendMessage("Congratulations, you just advanced a magic level.");
-	 * sendFrame164(6211); for (int HUH = 0; HUH < 25; HUH++) {
-	 * if(getLevelForXP(c.playerXP[6]) == 99) { TutorialIsland.MAGIC(c, HUH);
-	 * return; } } break;
-	 * 
-	 * case 7:
-	 * sendFrame126("Congratulations, you just advanced a cooking level!",
-	 * 6227);
-	 * sendFrame126("Your cooking level is now "+getLevelForXP(c.playerXP[
-	 * skill])+".", 6228);
-	 * c.sendMessage("Congratulations, you just advanced a cooking level.");
-	 * sendFrame164(6226); for (int HUH = 0; HUH < 25; HUH++) {
-	 * if(getLevelForXP(c.playerXP[7]) == 99) { TutorialIsland.COOKING(c, HUH);
-	 * return; } } break;
-	 * 
-	 * case 8:
-	 * sendFrame126("Congratulations, you just advanced a woodcutting level!",
-	 * 4273);
-	 * sendFrame126("Your woodcutting level is now "+getLevelForXP(c.playerXP
-	 * [skill])+".", 4274);
-	 * c.sendMessage("Congratulations, you just advanced a woodcutting level.");
-	 * sendFrame164(4272); for (int HUH = 0; HUH < 25; HUH++) {
-	 * if(getLevelForXP(c.playerXP[8]) == 99) { TutorialIsland.WOODCUTTING(c,
-	 * HUH); return; } } break;
-	 * 
-	 * case 9:
-	 * sendFrame126("Congratulations, you just advanced a fletching level!",
-	 * 6232);
-	 * sendFrame126("Your fletching level is now "+getLevelForXP(c.playerXP
-	 * [skill])+".", 6233);
-	 * c.sendMessage("Congratulations, you just advanced a fletching level.");
-	 * sendFrame164(6231); break;
-	 * 
-	 * case 10:
-	 * sendFrame126("Congratulations, you just advanced a fishing level!",
-	 * 6259);
-	 * sendFrame126("Your fishing level is now "+getLevelForXP(c.playerXP[
-	 * skill])+".", 6260);
-	 * c.sendMessage("Congratulations, you just advanced a fishing level.");
-	 * sendFrame164(6258); break;
-	 * 
-	 * case 11:
-	 * sendFrame126("Congratulations, you just advanced a fire making level!",
-	 * 4283);
-	 * sendFrame126("Your firemaking level is now "+getLevelForXP(c.playerXP
-	 * [skill])+".", 4284);
-	 * c.sendMessage("Congratulations, you just advanced a fire making level.");
-	 * sendFrame164(4282); break;
-	 * 
-	 * case 12:
-	 * sendFrame126("Congratulations, you just advanced a crafting level!",
-	 * 6264);
-	 * sendFrame126("Your crafting level is now "+getLevelForXP(c.playerXP
-	 * [skill])+".", 6265);
-	 * c.sendMessage("Congratulations, you just advanced a crafting level.");
-	 * sendFrame164(6263); break;
-	 * 
-	 * case 13:
-	 * sendFrame126("Congratulations, you just advanced a smithing level!",
-	 * 6222);
-	 * sendFrame126("Your smithing level is now "+getLevelForXP(c.playerXP
-	 * [skill])+".", 6223);
-	 * c.sendMessage("Congratulations, you just advanced a smithing level.");
-	 * sendFrame164(6221); break;
-	 * 
-	 * case 14:
-	 * sendFrame126("Congratulations, you just advanced a mining level!", 4417);
-	 * sendFrame126
-	 * ("Your mining level is now "+getLevelForXP(c.playerXP[skill])+".", 4438);
-	 * c.sendMessage("Congratulations, you just advanced a mining level.");
-	 * sendFrame164(4416); break;
-	 * 
-	 * case 15:
-	 * sendFrame126("Congratulations, you just advanced a herblore level!",
-	 * 6238);
-	 * sendFrame126("Your herblore level is now "+getLevelForXP(c.playerXP
-	 * [skill])+".", 6239);
-	 * c.sendMessage("Congratulations, you just advanced a herblore level.");
-	 * sendFrame164(6237); break;
-	 * 
-	 * case 16:
-	 * sendFrame126("Congratulations, you just advanced a agility level!",
-	 * 4278);
-	 * sendFrame126("Your agility level is now "+getLevelForXP(c.playerXP[
-	 * skill])+".", 4279);
-	 * c.sendMessage("Congratulations, you just advanced an agility level.");
-	 * sendFrame164(4277); break;
-	 * 
-	 * case 17:
-	 * sendFrame126("Congratulations, you just advanced a thieving level!",
-	 * 4263);
-	 * sendFrame126("Your thieving level is now "+getLevelForXP(c.playerXP
-	 * [skill])+".", 4264);
-	 * c.sendMessage("Congratulations, you just advanced a thieving level.");
-	 * sendFrame164(4261); break;
-	 * 
-	 * case 18:
-	 * sendFrame126("Congratulations, you just advanced a slayer level!",
-	 * 12123);
-	 * sendFrame126("Your slayer level is now "+getLevelForXP(c.playerXP[
-	 * skill])+".", 12124);
-	 * c.sendMessage("Congratulations, you just advanced a slayer level.");
-	 * sendFrame164(12122); break;
-	 * 
-	 * case 20:
-	 * sendFrame126("Congratulations, you just advanced a runecrafting level!",
-	 * 4268);
-	 * sendFrame126("Your runecrafting level is now "+getLevelForXP(c.playerXP
-	 * [skill])+".", 4269);
-	 * c.sendMessage("Congratulations, you just advanced a runecrafting level."
-	 * ); sendFrame164(4267); break; } c.dialogueAction = 0; c.nextChat = 0; }
-	 */
 
 	public void refreshSkill(int i) {
 		sendFrame126(""+totalLevel(), 22002);
 		switch (i) {
 		case 0:
-			sendFrame126("" + c.playerLevel[0] + "", 4004);
-			sendFrame126("" + getLevelForXP(c.playerXP[0]) + "", 4005);
-			sendFrame126("" + c.playerXP[0] + "", 4044);
-			sendFrame126("" + getXPForLevel(getLevelForXP(c.playerXP[0]) + 1)
+			sendFrame126("" + c.skills.playerLevel[0] + "", 4004);
+			sendFrame126("" + getLevelForXP(c.skills.playerXP[0]) + "", 4005);
+			sendFrame126("" + c.skills.playerXP[0] + "", 4044);
+			sendFrame126("" + getXPForLevel(getLevelForXP(c.skills.playerXP[0]) + 1)
 					+ "", 4045);
 			break;
 
 		case 1:
-			sendFrame126("" + c.playerLevel[1] + "", 4008);
-			sendFrame126("" + getLevelForXP(c.playerXP[1]) + "", 4009);
-			sendFrame126("" + c.playerXP[1] + "", 4056);
-			sendFrame126("" + getXPForLevel(getLevelForXP(c.playerXP[1]) + 1)
+			sendFrame126("" + c.skills.playerLevel[1] + "", 4008);
+			sendFrame126("" + getLevelForXP(c.skills.playerXP[1]) + "", 4009);
+			sendFrame126("" + c.skills.playerXP[1] + "", 4056);
+			sendFrame126("" + getXPForLevel(getLevelForXP(c.skills.playerXP[1]) + 1)
 					+ "", 4057);
 			break;
 
 		case 2:
-			sendFrame126("" + c.playerLevel[2] + "", 4006);
-			sendFrame126("" + getLevelForXP(c.playerXP[2]) + "", 4007);
-			sendFrame126("" + c.playerXP[2] + "", 4050);
-			sendFrame126("" + getXPForLevel(getLevelForXP(c.playerXP[2]) + 1)
+			sendFrame126("" + c.skills.playerLevel[2] + "", 4006);
+			sendFrame126("" + getLevelForXP(c.skills.playerXP[2]) + "", 4007);
+			sendFrame126("" + c.skills.playerXP[2] + "", 4050);
+			sendFrame126("" + getXPForLevel(getLevelForXP(c.skills.playerXP[2]) + 1)
 					+ "", 4051);
 			break;
 
 		case 3:
-			sendFrame126("" + c.playerLevel[3] + "", 4016);
-			sendFrame126("" + getLevelForXP(c.playerXP[3]) + "", 4017);
-			sendFrame126("" + c.playerXP[3] + "", 4080);
-			sendFrame126("" + getXPForLevel(getLevelForXP(c.playerXP[3]) + 1)
+			sendFrame126("" + c.skills.playerLevel[3] + "", 4016);
+			sendFrame126("" + getLevelForXP(c.skills.playerXP[3]) + "", 4017);
+			sendFrame126("" + c.skills.playerXP[3] + "", 4080);
+			sendFrame126("" + getXPForLevel(getLevelForXP(c.skills.playerXP[3]) + 1)
 					+ "", 4081);
 			break;
 
 		case 4:
-			sendFrame126("" + c.playerLevel[4] + "", 4010);
-			sendFrame126("" + getLevelForXP(c.playerXP[4]) + "", 4011);
-			sendFrame126("" + c.playerXP[4] + "", 4062);
-			sendFrame126("" + getXPForLevel(getLevelForXP(c.playerXP[4]) + 1)
+			sendFrame126("" + c.skills.playerLevel[4] + "", 4010);
+			sendFrame126("" + getLevelForXP(c.skills.playerXP[4]) + "", 4011);
+			sendFrame126("" + c.skills.playerXP[4] + "", 4062);
+			sendFrame126("" + getXPForLevel(getLevelForXP(c.skills.playerXP[4]) + 1)
 					+ "", 4063);
 			break;
 
 		case 5:
-			sendFrame126("" + c.playerLevel[5] + "", 4012);
-			sendFrame126("" + getLevelForXP(c.playerXP[5]) + "", 4013);
-			sendFrame126("" + c.playerXP[5] + "", 4068);
-			sendFrame126("" + getXPForLevel(getLevelForXP(c.playerXP[5]) + 1)
+			sendFrame126("" + c.skills.playerLevel[5] + "", 4012);
+			sendFrame126("" + getLevelForXP(c.skills.playerXP[5]) + "", 4013);
+			sendFrame126("" + c.skills.playerXP[5] + "", 4068);
+			sendFrame126("" + getXPForLevel(getLevelForXP(c.skills.playerXP[5]) + 1)
 					+ "", 4069);
-			sendFrame126("" + c.playerLevel[5] + "/"
-					+ getLevelForXP(c.playerXP[5]) + "", 687);// Prayer frame
+			sendFrame126("" + c.skills.playerLevel[5] + "/"
+					+ getLevelForXP(c.skills.playerXP[5]) + "", 687);// Prayer frame
 			break;
 
 		case 6:
-			sendFrame126("" + c.playerLevel[6] + "", 4014);
-			sendFrame126("" + getLevelForXP(c.playerXP[6]) + "", 4015);
-			sendFrame126("" + c.playerXP[6] + "", 4074);
-			sendFrame126("" + getXPForLevel(getLevelForXP(c.playerXP[6]) + 1)
+			sendFrame126("" + c.skills.playerLevel[6] + "", 4014);
+			sendFrame126("" + getLevelForXP(c.skills.playerXP[6]) + "", 4015);
+			sendFrame126("" + c.skills.playerXP[6] + "", 4074);
+			sendFrame126("" + getXPForLevel(getLevelForXP(c.skills.playerXP[6]) + 1)
 					+ "", 4075);
 			break;
 
 		case 7:
-			sendFrame126("" + c.playerLevel[7] + "", 4034);
-			sendFrame126("" + getLevelForXP(c.playerXP[7]) + "", 4035);
-			sendFrame126("" + c.playerXP[7] + "", 4134);
-			sendFrame126("" + getXPForLevel(getLevelForXP(c.playerXP[7]) + 1)
+			sendFrame126("" + c.skills.playerLevel[7] + "", 4034);
+			sendFrame126("" + getLevelForXP(c.skills.playerXP[7]) + "", 4035);
+			sendFrame126("" + c.skills.playerXP[7] + "", 4134);
+			sendFrame126("" + getXPForLevel(getLevelForXP(c.skills.playerXP[7]) + 1)
 					+ "", 4135);
 			break;
 
 		case 8:
-			sendFrame126("" + c.playerLevel[8] + "", 4038);
-			sendFrame126("" + getLevelForXP(c.playerXP[8]) + "", 4039);
-			sendFrame126("" + c.playerXP[8] + "", 4146);
-			sendFrame126("" + getXPForLevel(getLevelForXP(c.playerXP[8]) + 1)
+			sendFrame126("" + c.skills.playerLevel[8] + "", 4038);
+			sendFrame126("" + getLevelForXP(c.skills.playerXP[8]) + "", 4039);
+			sendFrame126("" + c.skills.playerXP[8] + "", 4146);
+			sendFrame126("" + getXPForLevel(getLevelForXP(c.skills.playerXP[8]) + 1)
 					+ "", 4147);
 			break;
 
 		case 9:
-			sendFrame126("" + c.playerLevel[9] + "", 4026);
-			sendFrame126("" + getLevelForXP(c.playerXP[9]) + "", 4027);
-			sendFrame126("" + c.playerXP[9] + "", 4110);
-			sendFrame126("" + getXPForLevel(getLevelForXP(c.playerXP[9]) + 1)
+			sendFrame126("" + c.skills.playerLevel[9] + "", 4026);
+			sendFrame126("" + getLevelForXP(c.skills.playerXP[9]) + "", 4027);
+			sendFrame126("" + c.skills.playerXP[9] + "", 4110);
+			sendFrame126("" + getXPForLevel(getLevelForXP(c.skills.playerXP[9]) + 1)
 					+ "", 4111);
 			break;
 
 		case 10:
-			sendFrame126("" + c.playerLevel[10] + "", 4032);
-			sendFrame126("" + getLevelForXP(c.playerXP[10]) + "", 4033);
-			sendFrame126("" + c.playerXP[10] + "", 4128);
-			sendFrame126("" + getXPForLevel(getLevelForXP(c.playerXP[10]) + 1)
+			sendFrame126("" + c.skills.playerLevel[10] + "", 4032);
+			sendFrame126("" + getLevelForXP(c.skills.playerXP[10]) + "", 4033);
+			sendFrame126("" + c.skills.playerXP[10] + "", 4128);
+			sendFrame126("" + getXPForLevel(getLevelForXP(c.skills.playerXP[10]) + 1)
 					+ "", 4129);
 			break;
 
 		case 11:
-			sendFrame126("" + c.playerLevel[11] + "", 4036);
-			sendFrame126("" + getLevelForXP(c.playerXP[11]) + "", 4037);
-			sendFrame126("" + c.playerXP[11] + "", 4140);
-			sendFrame126("" + getXPForLevel(getLevelForXP(c.playerXP[11]) + 1)
+			sendFrame126("" + c.skills.playerLevel[11] + "", 4036);
+			sendFrame126("" + getLevelForXP(c.skills.playerXP[11]) + "", 4037);
+			sendFrame126("" + c.skills.playerXP[11] + "", 4140);
+			sendFrame126("" + getXPForLevel(getLevelForXP(c.skills.playerXP[11]) + 1)
 					+ "", 4141);
 			break;
 
 		case 12:
-			sendFrame126("" + c.playerLevel[12] + "", 4024);
-			sendFrame126("" + getLevelForXP(c.playerXP[12]) + "", 4025);
-			sendFrame126("" + c.playerXP[12] + "", 4104);
-			sendFrame126("" + getXPForLevel(getLevelForXP(c.playerXP[12]) + 1)
+			sendFrame126("" + c.skills.playerLevel[12] + "", 4024);
+			sendFrame126("" + getLevelForXP(c.skills.playerXP[12]) + "", 4025);
+			sendFrame126("" + c.skills.playerXP[12] + "", 4104);
+			sendFrame126("" + getXPForLevel(getLevelForXP(c.skills.playerXP[12]) + 1)
 					+ "", 4105);
 			break;
 
 		case 13:
-			sendFrame126("" + c.playerLevel[13] + "", 4030);
-			sendFrame126("" + getLevelForXP(c.playerXP[13]) + "", 4031);
-			sendFrame126("" + c.playerXP[13] + "", 4122);
-			sendFrame126("" + getXPForLevel(getLevelForXP(c.playerXP[13]) + 1)
+			sendFrame126("" + c.skills.playerLevel[13] + "", 4030);
+			sendFrame126("" + getLevelForXP(c.skills.playerXP[13]) + "", 4031);
+			sendFrame126("" + c.skills.playerXP[13] + "", 4122);
+			sendFrame126("" + getXPForLevel(getLevelForXP(c.skills.playerXP[13]) + 1)
 					+ "", 4123);
 			break;
 
 		case 14:
-			sendFrame126("" + c.playerLevel[14] + "", 4028);
-			sendFrame126("" + getLevelForXP(c.playerXP[14]) + "", 4029);
-			sendFrame126("" + c.playerXP[14] + "", 4116);
-			sendFrame126("" + getXPForLevel(getLevelForXP(c.playerXP[14]) + 1)
+			sendFrame126("" + c.skills.playerLevel[14] + "", 4028);
+			sendFrame126("" + getLevelForXP(c.skills.playerXP[14]) + "", 4029);
+			sendFrame126("" + c.skills.playerXP[14] + "", 4116);
+			sendFrame126("" + getXPForLevel(getLevelForXP(c.skills.playerXP[14]) + 1)
 					+ "", 4117);
 			break;
 
 		case 15:
-			sendFrame126("" + c.playerLevel[15] + "", 4020);
-			sendFrame126("" + getLevelForXP(c.playerXP[15]) + "", 4021);
-			sendFrame126("" + c.playerXP[15] + "", 4092);
-			sendFrame126("" + getXPForLevel(getLevelForXP(c.playerXP[15]) + 1)
+			sendFrame126("" + c.skills.playerLevel[15] + "", 4020);
+			sendFrame126("" + getLevelForXP(c.skills.playerXP[15]) + "", 4021);
+			sendFrame126("" + c.skills.playerXP[15] + "", 4092);
+			sendFrame126("" + getXPForLevel(getLevelForXP(c.skills.playerXP[15]) + 1)
 					+ "", 4093);
 			break;
 
 		case 16:
-			sendFrame126("" + c.playerLevel[16] + "", 4018);
-			sendFrame126("" + getLevelForXP(c.playerXP[16]) + "", 4019);
-			sendFrame126("" + c.playerXP[16] + "", 4086);
-			sendFrame126("" + getXPForLevel(getLevelForXP(c.playerXP[16]) + 1)
+			sendFrame126("" + c.skills.playerLevel[16] + "", 4018);
+			sendFrame126("" + getLevelForXP(c.skills.playerXP[16]) + "", 4019);
+			sendFrame126("" + c.skills.playerXP[16] + "", 4086);
+			sendFrame126("" + getXPForLevel(getLevelForXP(c.skills.playerXP[16]) + 1)
 					+ "", 4087);
 			break;
 
 		case 17:
-			sendFrame126("" + c.playerLevel[17] + "", 4022);
-			sendFrame126("" + getLevelForXP(c.playerXP[17]) + "", 4023);
-			sendFrame126("" + c.playerXP[17] + "", 4098);
-			sendFrame126("" + getXPForLevel(getLevelForXP(c.playerXP[17]) + 1)
+			sendFrame126("" + c.skills.playerLevel[17] + "", 4022);
+			sendFrame126("" + getLevelForXP(c.skills.playerXP[17]) + "", 4023);
+			sendFrame126("" + c.skills.playerXP[17] + "", 4098);
+			sendFrame126("" + getXPForLevel(getLevelForXP(c.skills.playerXP[17]) + 1)
 					+ "", 4099);
 			break;
 
 		case 18:
-			sendFrame126("" + c.playerLevel[18] + "", 12166);
-			sendFrame126("" + getLevelForXP(c.playerXP[18]) + "", 12167);
-			sendFrame126("" + c.playerXP[18] + "", 12171);
-			sendFrame126("" + getXPForLevel(getLevelForXP(c.playerXP[18]) + 1)
+			sendFrame126("" + c.skills.playerLevel[18] + "", 12166);
+			sendFrame126("" + getLevelForXP(c.skills.playerXP[18]) + "", 12167);
+			sendFrame126("" + c.skills.playerXP[18] + "", 12171);
+			sendFrame126("" + getXPForLevel(getLevelForXP(c.skills.playerXP[18]) + 1)
 					+ "", 12172);
 			break;
 
 		case 19:
-			sendFrame126("" + c.playerLevel[19] + "", 13926);
-			sendFrame126("" + getLevelForXP(c.playerXP[19]) + "", 13927);
-			sendFrame126("" + c.playerXP[19] + "", 13921);
-			sendFrame126("" + getXPForLevel(getLevelForXP(c.playerXP[19]) + 1)
+			sendFrame126("" + c.skills.playerLevel[19] + "", 13926);
+			sendFrame126("" + getLevelForXP(c.skills.playerXP[19]) + "", 13927);
+			sendFrame126("" + c.skills.playerXP[19] + "", 13921);
+			sendFrame126("" + getXPForLevel(getLevelForXP(c.skills.playerXP[19]) + 1)
 					+ "", 13922);
 			break;
 
 		case 20:
-			sendFrame126("" + c.playerLevel[20] + "", 4152);
-			sendFrame126("" + getLevelForXP(c.playerXP[20]) + "", 4153);
-			sendFrame126("" + c.playerXP[20] + "", 4157);
-			sendFrame126("" + getXPForLevel(getLevelForXP(c.playerXP[20]) + 1)
+			sendFrame126("" + c.skills.playerLevel[20] + "", 4152);
+			sendFrame126("" + getLevelForXP(c.skills.playerXP[20]) + "", 4153);
+			sendFrame126("" + c.skills.playerXP[20] + "", 4157);
+			sendFrame126("" + getXPForLevel(getLevelForXP(c.skills.playerXP[20]) + 1)
 					+ "", 4155);
 			break;
 		case 21:
-			sendFrame126("" + c.playerLevel[21] + "", 22000);
+			sendFrame126("" + c.skills.playerLevel[21] + "", 22000);
 			//sendFrame126("" + getLevelForXP(c.playerXP[21]) + "", 22001);
 			//sendFrame126("" + c.playerXP[21] + "", 18806);
 			//sendFrame126("" + getXPForLevel(getLevelForXP(c.playerXP[21]) + 1) + "", 18807);
 			break;
 			case 22:
-			sendFrame126("" + c.playerLevel[22] + "", 22001);
+			sendFrame126("" + c.skills.playerLevel[22] + "", 22001);
 			//sendFrame126("" + getLevelForXP(c.playerXP[22]) + "", 18800);
 			//sendFrame126("" + c.playerXP[22] + "", 18820);
 			//sendFrame126("" + getXPForLevel(getLevelForXP(c.playerXP[22]) + 1) + "", 18821);
 			break;
 		}
-		if (i >= 0 && i < c.playerLevel.length) {
-			setSkillLevel(i, c.playerLevel[i], c.playerXP[i]);
+		if (i >= 0 && i < c.skills.playerLevel.length) {
+			setSkillLevel(i, c.skills.playerLevel[i], c.skills.playerXP[i]);
 		}
 	}
 
@@ -4006,24 +3306,24 @@ public void underWaterTele() {
 		if(c.lockedEXP == 1) {
 			return false;
 			}
-		if (amount + c.playerXP[skill] < 0 || c.playerXP[skill] > 200000000) {
-			if (c.playerXP[skill] > 200000000) {
-				c.playerXP[skill] = 200000000;
+		if (amount + c.skills.playerXP[skill] < 0 || c.skills.playerXP[skill] > 200000000) {
+			if (c.skills.playerXP[skill] > 200000000) {
+				c.skills.playerXP[skill] = 200000000;
 			}
 			return false;
 		}
 		amount *= Config.SERVER_EXP_BONUS * (c.rubbedLamp ? 1 : c.expModifier);
-		int oldLevel = getLevelForXP(c.playerXP[skill]);
-		c.playerXP[skill] += amount;
-		if (oldLevel < getLevelForXP(c.playerXP[skill])) {
-			if (c.playerLevel[skill] < c.getLevelForXP(c.playerXP[skill])
+		int oldLevel = getLevelForXP(c.skills.playerXP[skill]);
+		c.skills.playerXP[skill] += amount;
+		if (oldLevel < getLevelForXP(c.skills.playerXP[skill])) {
+			if (c.skills.playerLevel[skill] < c.getLevelForXP(c.skills.playerXP[skill])
 					&& skill != 3 && skill != 5)
-				c.playerLevel[skill] = c.getLevelForXP(c.playerXP[skill]);
+				c.skills.playerLevel[skill] = c.getLevelForXP(c.skills.playerXP[skill]);
 			levelUp(skill);
 			c.gfx100(199);
 			requestUpdates();
 		}
-		setSkillLevel(skill, c.playerLevel[skill], c.playerXP[skill]);
+		setSkillLevel(skill, c.skills.playerLevel[skill], c.skills.playerXP[skill]);
 		refreshSkill(skill);
 		return true;
 	}
@@ -4033,24 +3333,24 @@ public void underWaterTele() {
 				 || c.golemSpawned) {
 			return false;
 			}
-		if (amount + c.playerXP[skill] < 0 || c.playerXP[skill] > 200000000) {
-			if (c.playerXP[skill] > 200000000) {
-				c.playerXP[skill] = 200000000;
+		if (amount + c.skills.playerXP[skill] < 0 || c.skills.playerXP[skill] > 200000000) {
+			if (c.skills.playerXP[skill] > 200000000) {
+				c.skills.playerXP[skill] = 200000000;
 			}
 			return false;
 		}
 		amount *= Config.SERVER_EXP_BONUS * (c.rubbedLamp ? 1 : c.expModifier);
-		int oldLevel = getLevelForXP(c.playerXP[skill]);
-		c.playerXP[skill] += amount;
-		if (oldLevel < getLevelForXP(c.playerXP[skill])) {
-			if (c.playerLevel[skill] < c.getLevelForXP(c.playerXP[skill])
+		int oldLevel = getLevelForXP(c.skills.playerXP[skill]);
+		c.skills.playerXP[skill] += amount;
+		if (oldLevel < getLevelForXP(c.skills.playerXP[skill])) {
+			if (c.skills.playerLevel[skill] < c.getLevelForXP(c.skills.playerXP[skill])
 					&& skill != 3 && skill != 5)
-				c.playerLevel[skill] = c.getLevelForXP(c.playerXP[skill]);
+				c.skills.playerLevel[skill] = c.getLevelForXP(c.skills.playerXP[skill]);
 			levelUp(skill);
 			c.gfx100(199);
 			requestUpdates();
 		}
-		setSkillLevel(skill, c.playerLevel[skill], c.playerXP[skill]);
+		setSkillLevel(skill, c.skills.playerLevel[skill], c.skills.playerXP[skill]);
 		refreshSkill(skill);
 		if(skill == 21)
 			c.getPA().reloadConstructionStrings();
@@ -4182,7 +3482,7 @@ public void underWaterTele() {
 			c.duelStatus = 0;
 		c.usingGlory = false;
 		c.smeltInterface = false;
-		//c.smeltAmount = 0;
+		//c.smelt.amount = 0;
 		if(c.dialogueAction > -1)
 			c.dialogueAction = -1;
 		if(c.teleAction > -1)
@@ -4353,13 +3653,13 @@ public void underWaterTele() {
 		Connection.addIpToStarterList1(PlayerHandler.players[c.playerId].connectedFrom);
 		Connection.addIpToStarter1(PlayerHandler.players[c.playerId].connectedFrom);
 		//c.sendMessage("@red@Thanks for joining! You have received a special item: Whip.");
-		c.sendMessage("@red@Thanks for joining Biohazard!");
+		c.sendMessage("@red@Thanks for joining " + Config.SERVER_NAME + "!");
 		c.sendMessage("@red@Rub the lamp to advance a level to 70!");
 		c.sendMessage("@red@Type ::train to train instantly.");
 		for (int j = 0; j < PlayerHandler.players.length; j++) {
 			if (PlayerHandler.players[j] != null) {
 				Client c2 = (Client)PlayerHandler.players[j];
-				c2.sendMessage("@cr1@@red@[Biohazard] @dre@"+c.playerName+" has joined Biohazard for the first time!");
+				c2.sendMessage("@cr1@@red@[" + Config.SERVER_NAME + "] @dre@"+c.playerName+" has joined " + Config.SERVER_NAME + " for the first time!");
 			}
 		}
 	} else if (Connection.hasRecieved1stStarter(PlayerHandler.players[c.playerId].connectedFrom) && !Connection.hasRecieved2ndStarter(PlayerHandler.players[c.playerId].connectedFrom)) {
@@ -4470,8 +3770,8 @@ public void underWaterTele() {
 	}
 
 	public void getSpeared(int otherX, int otherY) {
-		int x = c.absX - otherX;
-		int y = c.absY - otherY;
+		int x = c.position.absX - otherX;
+		int y = c.position.absY - otherY;
 		if (x > 0)
 			x = 1;
 		else if (x < 0)
@@ -4485,7 +3785,7 @@ public void underWaterTele() {
 	}
 
 	public void moveCheck(int xMove, int yMove) {
-		movePlayer(c.absX + xMove, c.absY + yMove, c.heightLevel);
+		movePlayer(c.position.absX + xMove, c.position.absY + yMove, c.position.heightLevel);
 	}
 
 	public int findKiller() {
@@ -4496,14 +3796,14 @@ public void underWaterTele() {
 				continue;
 			if (j == c.playerId)
 				continue;
-			if (c.goodDistance(c.absX, c.absY, PlayerHandler.players[j].absX,
-					PlayerHandler.players[j].absY, 40)
-					|| c.goodDistance(c.absX, c.absY + 9400,
-							PlayerHandler.players[j].absX,
-							PlayerHandler.players[j].absY, 40)
-					|| c.goodDistance(c.absX, c.absY,
-							PlayerHandler.players[j].absX,
-							PlayerHandler.players[j].absY + 9400, 40))
+			if (c.goodDistance(c.position.absX, c.position.absY, PlayerHandler.players[j].position.absX,
+					PlayerHandler.players[j].position.absY, 40)
+					|| c.goodDistance(c.position.absX, c.position.absY + 9400,
+							PlayerHandler.players[j].position.absX,
+							PlayerHandler.players[j].position.absY, 40)
+					|| c.goodDistance(c.position.absX, c.position.absY,
+							PlayerHandler.players[j].position.absX,
+							PlayerHandler.players[j].position.absY + 9400, 40))
 				if (c.damageTaken[j] > damage) {
 					damage = c.damageTaken[j];
 					killer = j;
@@ -4519,14 +3819,6 @@ public void underWaterTele() {
 		c.getPA().movePlayer(2438, 5168, 0);
 	}
 
-	/*
-	 * public void enterCaves() { c.getPA().movePlayer(2413,5117, c.playerId *
-	 * 4); c.waveId = 0; c.tzhaarToKill = -1; c.tzhaarKilled = -1;
-	 * EventManager.addEvent(new Event() { public void
-	 * execute(EventContainer e) {
-	 * Server.fightCaves.spawnNextWave((Client)Server
-	 * .playerHandler.players[c.playerId]); e.stop(); } }, 10000); }
-	 */
 
 	public void enterCaves() {
 		c.getPA().movePlayer(2413, 5117, c.playerId * 4);
@@ -4696,17 +3988,6 @@ public void underWaterTele() {
 		}
 	}
 
-	/*public void handleWeaponStyle() {
-		if (c.fightMode == 0) {
-			c.getPA().sendFrame36(43, c.fightMode);
-		} else if (c.fightMode == 1) {
-			c.getPA().sendFrame36(43, 3);
-		} else if (c.fightMode == 2) {
-			c.getPA().sendFrame36(43, 1);
-		} else if (c.fightMode == 3) {
-			c.getPA().sendFrame36(43, 2);
-		}
-	}*/
 
 	public void hitPlayers(int x, int xx, int y, int yy, int damage) {
 		if(c.inArea(x, xx, y, yy)) {
@@ -4798,35 +4079,35 @@ public void underWaterTele() {
 			return true;
 		}
 		if (posClick(buttonId, 44900)) {
-			c.posSortMode = 1;
+			c.pos.sortMode = 1;
 			refreshPOSBrowse();
 			return true;
 		}
 		if (posClick(buttonId, 44901)) {
-			c.posSortMode = 0;
+			c.pos.sortMode = 0;
 			refreshPOSBrowse();
 			return true;
 		}
 		if (posClick(buttonId, 44902)) {
-			c.posSortMode = 2;
+			c.pos.sortMode = 2;
 			refreshPOSBrowse();
 			return true;
 		}
 		for (int i = 0; i < 20; i++) {
 			if (posClick(buttonId, 44100 + i, 44800 + i, 44160 + i)) {
-				startPOSBuy(c.posBuyListingIds[i]);
+				startPOSBuy(c.pos.buyListingIds[i]);
 				return true;
 			}
 			if (posClick(buttonId, 44120 + i)) {
-				buyPOSAmount(c.posBuyListingIds[i], 1);
+				buyPOSAmount(c.pos.buyListingIds[i], 1);
 				return true;
 			}
 			if (posClick(buttonId, 44140 + i)) {
-				buyPOSAmount(c.posBuyListingIds[i], 10);
+				buyPOSAmount(c.pos.buyListingIds[i], 10);
 				return true;
 			}
 			if (posClick(buttonId, 44180 + i)) {
-				buyPOSAmount(c.posBuyListingIds[i], Integer.MAX_VALUE);
+				buyPOSAmount(c.pos.buyListingIds[i], Integer.MAX_VALUE);
 				return true;
 			}
 		}
@@ -4861,9 +4142,9 @@ public void underWaterTele() {
 			c.sendMessage("You can't buy from your own shop.");
 			return;
 		}
-		c.posBuying = true;
-		c.posBuyListingId = listingId;
-		c.posBuyMax = listing.amount;
+		c.pos.buying = true;
+		c.pos.buyListingId = listingId;
+		c.pos.buyMax = listing.amount;
 		c.xInterfaceId = 44000;
 		c.sendMessage("How many? 1 is unnoted, 2+ is noted. Stock " + listing.amount + " @ " + listing.price + "gp each.");
 		if (c.getOutStream() != null) {
@@ -4885,9 +4166,9 @@ public void underWaterTele() {
 	}
 
 	private void startPOSList() {
-		c.posSelling = true;
-		c.posSellStep = 1;
-		c.posEditListingId = 0;
+		c.pos.selling = true;
+		c.pos.sellStep = 1;
+		c.pos.editListingId = 0;
 		c.sendMessage("Click the item in your inventory. Noted items list as the real item.");
 		c.sendMessage("You will enter amount, then price each. Coins cannot be listed.");
 	}
@@ -4898,14 +4179,14 @@ public void underWaterTele() {
 			return;
 		}
 		server.game.content.PlayerOwnedShop.ShopListing listing = shop.listings.get(index);
-		c.posConfirmRemoveId = listing.listingId;
+		c.pos.confirmRemoveId = listing.listingId;
 		c.dialogueAction = 8801;
 		c.getDH().sendOption2("Yes, remove this listing", "Never mind");
 	}
 
 	public void finishPOSRemove(boolean confirmed) {
-		long id = c.posConfirmRemoveId;
-		c.posConfirmRemoveId = 0;
+		long id = c.pos.confirmRemoveId;
+		c.pos.confirmRemoveId = 0;
 		c.dialogueAction = 0;
 		if (!confirmed || id <= 0) {
 			openPlayerOwnedShop();
@@ -4921,7 +4202,7 @@ public void underWaterTele() {
 			return;
 		}
 		server.game.content.PlayerOwnedShop.ShopListing listing = shop.listings.get(index);
-		c.posEditListingId = listing.listingId;
+		c.pos.editListingId = listing.listingId;
 		c.xInterfaceId = 43002;
 		c.sendMessage("Enter the new price EACH for " + server.game.content.PlayerOwnedShop.getItemName(listing.itemId) + ".");
 		c.sendMessage(server.game.content.PlayerOwnedShop.priceHint(listing.itemId));
@@ -4933,9 +4214,9 @@ public void underWaterTele() {
 
 	private void clearPOSBuySlots() {
 		for (int i = 0; i < 20; i++) {
-			c.posBuySellers[i] = null;
-			c.posBuyIndexes[i] = -1;
-			c.posBuyListingIds[i] = 0;
+			c.pos.buySellers[i] = null;
+			c.pos.buyIndexes[i] = -1;
+			c.pos.buyListingIds[i] = 0;
 		}
 	}
 
@@ -5010,8 +4291,8 @@ public void underWaterTele() {
 	}
 
 	private void displayPOSBuyList(String title, java.util.List<server.game.content.PlayerOwnedShop.ShopListing> results) {
-		c.posBrowseTitle = title;
-		results = server.game.content.PlayerOwnedShop.sortedListings(results, c.posSortMode);
+		c.pos.browseTitle = title;
+		results = server.game.content.PlayerOwnedShop.sortedListings(results, c.pos.sortMode);
 		showInterface(POS_BUY_INTERFACE);
 		sendFrame126("Player Owned Shop", 44001);
 		sendFrame126("", 44002);
@@ -5026,9 +4307,9 @@ public void underWaterTele() {
 			sendFrame126("10", 44140 + i);
 			sendFrame126("X", 44160 + i);
 			sendFrame126("All", 44180 + i);
-			c.posBuySellers[i] = listing.ownerName;
-			c.posBuyIndexes[i] = server.game.content.PlayerOwnedShop.indexOfListing(listing.ownerName, listing);
-			c.posBuyListingIds[i] = listing.listingId;
+			c.pos.buySellers[i] = listing.ownerName;
+			c.pos.buyIndexes[i] = server.game.content.PlayerOwnedShop.indexOfListing(listing.ownerName, listing);
+			c.pos.buyListingIds[i] = listing.listingId;
 			showPOSItem(44200 + i, listing.itemId, listing.amount);
 		}
 		for (int i = shown; i < 20; i++) {
@@ -5053,8 +4334,8 @@ public void underWaterTele() {
 			}
 			return;
 		}
-		c.posBrowseType = 1;
-		c.posBrowseQuery = itemName;
+		c.pos.browseType = 1;
+		c.pos.browseQuery = itemName;
 		java.util.List<server.game.content.PlayerOwnedShop.ShopListing> results = server.game.content.PlayerOwnedShop.searchByItemName(itemName);
 		if (results.isEmpty()) {
 			c.sendMessage("No items found matching: " + itemName + ". Try again.");
@@ -5070,8 +4351,8 @@ public void underWaterTele() {
 	}
 
 	public void searchPOSByItem(int itemId) {
-		c.posBrowseType = 1;
-		c.posBrowseQuery = Integer.toString(itemId);
+		c.pos.browseType = 1;
+		c.pos.browseQuery = Integer.toString(itemId);
 		java.util.List<server.game.content.PlayerOwnedShop.ShopListing> results = server.game.content.PlayerOwnedShop.searchByItem(itemId);
 		if (results.isEmpty()) {
 			c.sendMessage("No listings found for that item.");
@@ -5091,8 +4372,8 @@ public void underWaterTele() {
 			}
 			return;
 		}
-		c.posBrowseType = 2;
-		c.posBrowseQuery = playerName;
+		c.pos.browseType = 2;
+		c.pos.browseQuery = playerName;
 		java.util.List<server.game.content.PlayerOwnedShop.ShopListing> results = server.game.content.PlayerOwnedShop.searchByOwner(playerName);
 		if (results.isEmpty()) {
 			c.sendMessage("No shop listings found for " + playerName + ".");
@@ -5108,16 +4389,16 @@ public void underWaterTele() {
 	}
 
 	public void openPOSBuyInterface() {
-		c.posBrowseType = 0;
-		c.posBrowseQuery = "";
+		c.pos.browseType = 0;
+		c.pos.browseQuery = "";
 		displayPOSBuyList("Recent Listings", server.game.content.PlayerOwnedShop.getRecentListings());
 	}
 
 	public void refreshPOSBrowse() {
-		if (c.posBrowseType == 1 && c.posBrowseQuery != null && c.posBrowseQuery.length() > 0) {
-			displayPOSBuyList("Search: " + c.posBrowseQuery, server.game.content.PlayerOwnedShop.searchByItemName(c.posBrowseQuery));
-		} else if (c.posBrowseType == 2 && c.posBrowseQuery != null && c.posBrowseQuery.length() > 0) {
-			displayPOSBuyList("Shop: " + c.posBrowseQuery, server.game.content.PlayerOwnedShop.searchByOwner(c.posBrowseQuery));
+		if (c.pos.browseType == 1 && c.pos.browseQuery != null && c.pos.browseQuery.length() > 0) {
+			displayPOSBuyList("Search: " + c.pos.browseQuery, server.game.content.PlayerOwnedShop.searchByItemName(c.pos.browseQuery));
+		} else if (c.pos.browseType == 2 && c.pos.browseQuery != null && c.pos.browseQuery.length() > 0) {
+			displayPOSBuyList("Shop: " + c.pos.browseQuery, server.game.content.PlayerOwnedShop.searchByOwner(c.pos.browseQuery));
 		} else {
 			displayPOSBuyList("Recent Listings", server.game.content.PlayerOwnedShop.getRecentListings());
 		}

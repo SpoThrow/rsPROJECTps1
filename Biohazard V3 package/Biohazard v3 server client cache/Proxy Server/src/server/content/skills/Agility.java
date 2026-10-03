@@ -9,7 +9,6 @@ import server.game.players.Player;
 /**
  * Agility.java
  * 
- * @author Acquittal
  *
  *
  **/
@@ -26,11 +25,11 @@ public class Agility {
 	
 	public void brimhavenMonkeyBars(Client c, String Object, int level, int x, int y, int a, int b, int xp)
 	{
-		if (c.playerLevel[Player.playerAgility] < level) {
+		if (c.skills.playerLevel[Player.playerAgility] < level) {
 			c.sendMessage("You need a Agility level of "+ level +" to pass this " + Object + ".");
 			return;
 		}
-		if (c.absX == a && c.absY == b) { 
+		if (c.position.absX == a && c.position.absY == b) { 
 			c.getPA().walkTo3(x, y);
 			
 			c.getPA().addSkillXP(xp, Player.playerAgility);
@@ -44,11 +43,11 @@ public class Agility {
 	 */
 	
 	public void wildernessEntrance(Client c, String Object, int level, int x, int y, int a, int b, int xp) {
-		if (c.playerLevel[Player.playerAgility] < level) {
+		if (c.skills.playerLevel[Player.playerAgility] < level) {
 			c.sendMessage("You need a Agility level of "+ level +" to pass this " + Object + ".");
 			return;
 		}
-		if (c.absX == a && c.absY == b) { 
+		if (c.position.absX == a && c.position.absY == b) { 
 			c.getPA().walkTo3(x, y);
 			
 			c.getPA().addSkillXP(xp, Player.playerAgility);
@@ -58,16 +57,16 @@ public class Agility {
 	}
 	
 	public void doWildernessEntrance(final Client c) {
-		if (System.currentTimeMillis() - c.foodDelay < 2000) {
+		if (System.currentTimeMillis() - c.timers.foodDelay < 2000) {
 			return;
 		}
 			c.stopMovement();
 			c.freezeTimer = 16;
 			c.playerWalkIndex = 762;
 			c.updateRequired = true;
-			c.appearanceUpdateRequired = true;
+			c.appearance.appearanceUpdateRequired = true;
 			c.getAgil().wildernessEntrance(c, "Door", 1, 0, +15, 2998, 3917, 40 * Config.AGILITY_EXPERIENCE);
-			c.foodDelay = System.currentTimeMillis();
+			c.timers.foodDelay = System.currentTimeMillis();
 			CycleEventHandler.addEvent(c, new CycleEvent() {
 				@Override
 				public void execute(CycleEventContainer container) {
@@ -79,7 +78,7 @@ public class Agility {
 					c.playerTurn90CCWIndex = 0x336;
 					c.playerRunIndex = 0x338;
 					c.updateRequired = true;
-					c.appearanceUpdateRequired = true;
+					c.appearance.appearanceUpdateRequired = true;
 					container.stop();
 				}
 				@Override
@@ -95,11 +94,11 @@ public class Agility {
 	
 	public void gnomeLog(Client c, String Object, int level, int x, int y, int a, int b, int xp)
 	{
-		if (c.playerLevel[Player.playerAgility] < level) {
+		if (c.skills.playerLevel[Player.playerAgility] < level) {
 			c.sendMessage("You need a Agility level of "+ level +" to pass this " + Object + ".");
 			return;
 		}
-		if (c.absX == a && c.absY == b) { 
+		if (c.position.absX == a && c.position.absY == b) { 
 			c.getPA().walkTo3(x, y);
 			
 			c.getPA().addSkillXP(xp, Player.playerAgility);
@@ -110,16 +109,16 @@ public class Agility {
 
 	public void gnomeNet(Client c, String net, int level, int a, int b, int h, int x, int y, int emote, int xp)
 	{
-		if (c.playerLevel[Player.playerAgility] < level) {
+		if (c.skills.playerLevel[Player.playerAgility] < level) {
 			c.sendMessage("You need a Agility level of "+ level +" to pass this " + net + ".");
 			return;
 		}
-		if (c.absX == a && c.absY == b) {
-			c.teleportToX = x;
-			c.teleportToY = y;
-			c.heightLevel = h;
+		if (c.position.absX == a && c.position.absY == b) {
+			c.position.teleportToX = x;
+			c.position.teleportToY = y;
+			c.position.heightLevel = h;
 			c.updateRequired = true;
-			c.appearanceUpdateRequired = true;
+			c.appearance.appearanceUpdateRequired = true;
 			
 			c.getPA().addSkillXP(xp, Player.playerAgility);
 			c.getPA().refreshSkill(Player.playerAgility);
@@ -130,14 +129,14 @@ public class Agility {
 
 	public void gnomeBranch(Client c, String branch, int level, int x, int y, int h, int a, int b, int emote, int xp)
 	{
-		if (c.playerLevel[Player.playerAgility] < level) {
+		if (c.skills.playerLevel[Player.playerAgility] < level) {
 			c.sendMessage("You need a Agility level of "+ level +" to pass this " + branch + ".");
 			return;
 		}
-		if (c.absX == a && c.absY == b) {
-			c.teleportToX = x;
-			c.teleportToY = y;
-			c.heightLevel = h;
+		if (c.position.absX == a && c.position.absY == b) {
+			c.position.teleportToX = x;
+			c.position.teleportToY = y;
+			c.position.heightLevel = h;
 			
 			c.getPA().addSkillXP(xp, Player.playerAgility);
 			c.getPA().refreshSkill(Player.playerAgility);
@@ -150,11 +149,11 @@ public class Agility {
 	public void gnomePipe(Client c, String pipe, int level, int a, int b, int x, int y, int add, int amount, int xp)
 	{
 
-		if (c.playerLevel[Player.playerAgility] < level) {
+		if (c.skills.playerLevel[Player.playerAgility] < level) {
 			c.sendMessage("You need a Agility level of "+ level +" to pass this " + pipe + ".");
 			return;
 		}
-		if (c.absX == a && c.absY == b)
+		if (c.position.absX == a && c.position.absY == b)
 		{
 			if (bonus && c.ag1 == 1 && c.ag2 >= 1 
 					&& c.ag3 >= 1 && c.ag4 >= 1 
@@ -197,17 +196,17 @@ public class Agility {
 	}
 	
 	public void doGnomeLog(final Client c) {
-			if (System.currentTimeMillis() - c.foodDelay < 2000) {
+			if (System.currentTimeMillis() - c.timers.foodDelay < 2000) {
 				return;
 			}
 				c.stopMovement();
 				c.freezeTimer = 8;
 				c.playerWalkIndex = 762;
 				c.updateRequired = true;
-				c.appearanceUpdateRequired = true;
+				c.appearance.appearanceUpdateRequired = true;
 				c.getAgil().gnomeLog(c, "Log", 1, 0, -7, 2474, 3436, 8 * Config.AGILITY_EXPERIENCE);
 				c.ag1 = 1;
-				c.foodDelay = System.currentTimeMillis();
+				c.timers.foodDelay = System.currentTimeMillis();
 				CycleEventHandler.addEvent(c, new CycleEvent() {
 					@Override
 					public void execute(CycleEventContainer container) {
@@ -219,7 +218,7 @@ public class Agility {
 						c.playerTurn90CCWIndex = 0x336;
 						c.playerRunIndex = 0x338;
 						c.updateRequired = true;
-						c.appearanceUpdateRequired = true;
+						c.appearance.appearanceUpdateRequired = true;
 						container.stop();
 					}
 					@Override
@@ -229,7 +228,7 @@ public class Agility {
 	}
 	
 	public void doGnomeNet1(final Client c) {
-		if (System.currentTimeMillis() - c.foodDelay < 2000) {
+		if (System.currentTimeMillis() - c.timers.foodDelay < 2000) {
 		return;
 		}
 			c.stopMovement();
@@ -241,11 +240,11 @@ public class Agility {
 			c.getAgil().gnomeNet(c, "Net", 1, 2475, 3426, 1, 2475, 3424, 828,8 * Config.AGILITY_EXPERIENCE);
 			c.getAgil().gnomeNet(c, "Net", 1, 2476, 3426, 1, 2476, 3424, 828, 8 * Config.AGILITY_EXPERIENCE);
 			c.ag2 = 1;
-			c.foodDelay = System.currentTimeMillis();
+			c.timers.foodDelay = System.currentTimeMillis();
 	}
 	
 	public void doGnomeBranch1(final Client c) {
-		if (System.currentTimeMillis() - c.foodDelay < 2000) {
+		if (System.currentTimeMillis() - c.timers.foodDelay < 2000) {
 			return;
 			}
 				c.stopMovement();
@@ -254,11 +253,11 @@ public class Agility {
 				c.getAgil().gnomeBranch(c, "Branch", 1, 2473, 3420, 2, 2474, 3422, 828, 5 * Config.AGILITY_EXPERIENCE);
 				c.getAgil().gnomeBranch(c, "Branch", 1, 2473, 3420, 2, 2472, 3422, 828, 5 * Config.AGILITY_EXPERIENCE);
 				c.ag3 = 1;
-				c.foodDelay = System.currentTimeMillis();
+				c.timers.foodDelay = System.currentTimeMillis();
 	}
 	
 	public void doGnomeBranch2(final Client c) {
-		if (System.currentTimeMillis() - c.foodDelay < 2000) {
+		if (System.currentTimeMillis() - c.timers.foodDelay < 2000) {
 			return;
 			}
 				c.stopMovement();
@@ -268,11 +267,11 @@ public class Agility {
 				c.getAgil().gnomeBranch(c, "Branch", 1, 2486, 3420, 0, 2485, 3420, 828, 5 * Config.AGILITY_EXPERIENCE);
 				c.getAgil().gnomeBranch(c, "Branch", 1, 2486, 3420, 0, 2486, 3420, 828, 5 * Config.AGILITY_EXPERIENCE);
 				c.ag5 = 1;
-				c.foodDelay = System.currentTimeMillis();
+				c.timers.foodDelay = System.currentTimeMillis();
 	}
 	
 	public void doGnomeNet2(final Client c) {
-		if (System.currentTimeMillis() - c.foodDelay < 2000) {
+		if (System.currentTimeMillis() - c.timers.foodDelay < 2000) {
 			return;
 			}
 				c.stopMovement();
@@ -285,21 +284,21 @@ public class Agility {
 				c.getAgil().gnomeNet(c, "Net", 1, 2488, 3425, 0, 2488, 3427, 828, 8 * Config.AGILITY_EXPERIENCE);
 				c.ag6 = 1;
 				c.getAgil().bonus = true;
-				c.foodDelay = System.currentTimeMillis();
+				c.timers.foodDelay = System.currentTimeMillis();
 	}
 	
 	public void doGnomeRope(final Client c) {
-				if (System.currentTimeMillis() - c.foodDelay < 2000) {
+				if (System.currentTimeMillis() - c.timers.foodDelay < 2000) {
 					return;
 					}
 				c.stopMovement();
 				c.freezeTimer = 8;
 				c.playerWalkIndex = 762;
 				c.updateRequired = true;
-				c.appearanceUpdateRequired = true;
+				c.appearance.appearanceUpdateRequired = true;
 				c.getAgil().gnomeLog(c, "Log", 1, +6, 0, 2477, 3420, 7 * Config.AGILITY_EXPERIENCE);
 				c.ag4 = 1;
-				c.foodDelay = System.currentTimeMillis();
+				c.timers.foodDelay = System.currentTimeMillis();
 				CycleEventHandler.addEvent(c, new CycleEvent() {
 					@Override
 					public void execute(CycleEventContainer container) {
@@ -311,7 +310,7 @@ public class Agility {
 						c.playerTurn90CCWIndex = 0x336;
 						c.playerRunIndex = 0x338;
 						c.updateRequired = true;
-						c.appearanceUpdateRequired = true;
+						c.appearance.appearanceUpdateRequired = true;
 						container.stop();
 					}
 					@Override
@@ -321,16 +320,16 @@ public class Agility {
 	}
 		
 	public void doGnomePipe1(final Client c) {
-			if (System.currentTimeMillis() - c.foodDelay < 2000) {
+			if (System.currentTimeMillis() - c.timers.foodDelay < 2000) {
 				return;
 			}
 			c.stopMovement();
 			c.freezeTimer = 8;
 			c.playerWalkIndex = 746;
 			c.updateRequired = true;
-			c.appearanceUpdateRequired = true;
+			c.appearance.appearanceUpdateRequired = true;
 			c.getAgil().gnomePipe(c, "Pipe", 1, 2484, 3430, 0, +7, 2996, 10, 47 * Config.AGILITY_EXPERIENCE);
-			c.foodDelay = System.currentTimeMillis();
+			c.timers.foodDelay = System.currentTimeMillis();
 			CycleEventHandler.addEvent(c, new CycleEvent() {
 				@Override
 				public void execute(CycleEventContainer container) {
@@ -342,7 +341,7 @@ public class Agility {
 					c.playerTurn90CCWIndex = 0x336;
 					c.playerRunIndex = 0x338;
 					c.updateRequired = true;
-					c.appearanceUpdateRequired = true;
+					c.appearance.appearanceUpdateRequired = true;
 					c.startAnimation(748);
 					container.stop();
 				}
@@ -353,16 +352,16 @@ public class Agility {
 	}
 	
 	public void doGnomePipe2(final Client c) {
-		if (System.currentTimeMillis() - c.foodDelay < 2000) {
+		if (System.currentTimeMillis() - c.timers.foodDelay < 2000) {
 			return;
 		}
 		c.stopMovement();
 		c.freezeTimer = 8;
 		c.playerWalkIndex = 746;
 		c.updateRequired = true;
-		c.appearanceUpdateRequired = true;
+		c.appearance.appearanceUpdateRequired = true;
 		c.getAgil().gnomePipe(c, "Pipe", 1, 2487, 3430, 0, +7, 2996, 10, 47 * Config.AGILITY_EXPERIENCE);
-		c.foodDelay = System.currentTimeMillis();
+		c.timers.foodDelay = System.currentTimeMillis();
 		CycleEventHandler.addEvent(c, new CycleEvent() {
 			@Override
 			public void execute(CycleEventContainer container) {
@@ -374,7 +373,7 @@ public class Agility {
 				c.playerTurn90CCWIndex = 0x336;
 				c.playerRunIndex = 0x338;
 				c.updateRequired = true;
-				c.appearanceUpdateRequired = true;
+				c.appearance.appearanceUpdateRequired = true;
 				c.startAnimation(748);
 				container.stop();
 			}

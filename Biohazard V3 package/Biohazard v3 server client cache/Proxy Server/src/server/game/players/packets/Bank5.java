@@ -3,7 +3,6 @@ package server.game.players.packets;
 import server.content.skills.JewelryMaking;
 import server.content.skills.Smithing;
 import server.game.players.Client;
-import server.game.players.PacketType;
 import server.game.players.Player;
 /**
  * Bank 5 Items
@@ -68,7 +67,7 @@ public class Bank5 implements PacketType {
 			case 1121:
 			case 1122:
 			case 1123:
-				Smithing.readInput(c.playerLevel[Player.playerSmithing], Integer.toString(removeId), c, 5);
+				Smithing.readInput(c.skills.playerLevel[Player.playerSmithing], Integer.toString(removeId), c, 5);
 			break;
 			
 		}

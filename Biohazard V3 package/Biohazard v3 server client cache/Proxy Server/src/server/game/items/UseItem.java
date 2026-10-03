@@ -63,12 +63,6 @@ public class UseItem {
 			}
 			break;
 		
-		/*case 8151:
-		case 8389:
-		case 8132:
-		case 7848: ///flower patch catherby
-			Farming.checkItemOnObject(c, itemId);
-			break;*/
 		case 8151:
 		case 8389:
 		case 8174:
@@ -158,7 +152,7 @@ public class UseItem {
 		}
 		//DFS making
 		if ((itemUsed == 1540 && useWith == 11286) || (itemUsed == 11286 && useWith == 1540)) {
-			if (c.playerLevel[Player.playerSmithing] >= 90) {
+			if (c.skills.playerLevel[Player.playerSmithing] >= 90) {
 				c.getItems().deleteItem(1540, c.getItems().getItemSlot(1540), 1);
 				c.getItems().deleteItem(11286, c.getItems().getItemSlot(11286), 1);
 				c.getItems().addItem(11284,1);

@@ -37,7 +37,7 @@ public class SkillHandler {
 
 	public static boolean hasRequiredLevel(final Client c, int id, int lvlReq,
 			String skill, String event) {
-		if (c.playerLevel[id] < lvlReq) {
+		if (c.skills.playerLevel[id] < lvlReq) {
 			c.getPA().closeAllWindows();
 			c.sendMessage("You don't have a high enough " + skill + " level to " + event + ".");
 			return false;

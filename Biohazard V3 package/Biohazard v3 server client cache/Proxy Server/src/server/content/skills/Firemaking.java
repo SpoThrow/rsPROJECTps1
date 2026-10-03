@@ -10,10 +10,6 @@ import server.game.objects.Object;
 import server.game.players.Client;
 import server.world.Tile;
 
-/**
- * @author Acquittal - Done
- **/
-
 public class Firemaking {
 
 	Client c;
@@ -76,11 +72,11 @@ public class Firemaking {
 
 	public static void grabData(final Client c, final int useWith, final int withUse) {
 		final int[] coords = new int[2];
-		coords[0] = c.absX;
-		coords[1] = c.absY;
+		coords[0] = c.position.absX;
+		coords[1] = c.position.absY;
 		for(int i = 0; i < logsdata.length; i++) {
 			if((requiredItem(c, useWith) && withUse == logsdata[i][0] || useWith == logsdata[i][0] && requiredItem(c, withUse))) {
-				if(c.playerLevel[11] < logsdata[i][1]) {
+				if(c.skills.playerLevel[11] < logsdata[i][1]) {
 					c.sendMessage("You need a higher firemaking level to light this log!");
 					return;
 				}
@@ -113,7 +109,7 @@ public class Firemaking {
 					CycleEventHandler.addEvent(c, new CycleEvent() {
 						@Override
 						public void execute(CycleEventContainer container) {
-							new Object(fire, coords[0], coords[1], c.heightLevel, 0, 10, fire, -1, 1);
+							new Object(fire, coords[0], coords[1], c.position.heightLevel, 0, 10, fire, -1, 1);
 							Server.itemHandler.removeGroundItem(c, log, coords[0], coords[1], false);
 							c.playerIsFiremaking = false;
 							c.fmPoints++;
@@ -126,15 +122,15 @@ public class Firemaking {
 						}
 					}, time[0]);
 
-					currentTile = new Tile(c.absX - 1, c.absY, c.heightLevel);
+					currentTile = new Tile(c.position.absX - 1, c.position.absY, c.position.heightLevel);
 
-					if (Region.getClipping(c.getX() - 1, c.getY(), c.heightLevel, -1, 0)) {
+					if (Region.getClipping(c.getX() - 1, c.getY(), c.position.heightLevel, -1, 0)) {
 						c.getPA().walkTo(-1, 0);
-					} else if (Region.getClipping(c.getX() + 1, c.getY(), c.heightLevel, 1, 0)) {
+					} else if (Region.getClipping(c.getX() + 1, c.getY(), c.position.heightLevel, 1, 0)) {
 						c.getPA().walkTo(1, 0);
-					} else if (Region.getClipping(c.getX(), c.getY() - 1, c.heightLevel, 0, -1)) {
+					} else if (Region.getClipping(c.getX(), c.getY() - 1, c.position.heightLevel, 0, -1)) {
 						c.getPA().walkTo(0, -1);
-					} else if (Region.getClipping(c.getX(), c.getY() + 1, c.heightLevel, 0, 1)) {
+					} else if (Region.getClipping(c.getX(), c.getY() + 1, c.position.heightLevel, 0, 1)) {
 						c.getPA().walkTo(0, 1);
 					}
 					c.sendMessage("You light the logs.");
@@ -167,7 +163,7 @@ public class Firemaking {
 					}, 120);
 					c.getPA().addSkillXP(logsdata[i][2] * Config.FIREMAKING_EXPERIENCE, 11);
 					c.getItems().deleteItem(logsdata[i][0], c.getItems().getItemSlot(logsdata[i][0]), 1);
-					c.turnPlayerTo(c.absX+1, c.absY);
+					c.turnPlayerTo(c.position.absX+1, c.position.absY);
 					c.lastFire = System.currentTimeMillis();
 				}
 			}

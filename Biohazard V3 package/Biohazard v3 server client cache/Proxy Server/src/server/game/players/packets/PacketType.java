@@ -1,4 +1,6 @@
-package server.game.players;
+package server.game.players.packets;
+
+import server.game.players.Client;
 
 
 	

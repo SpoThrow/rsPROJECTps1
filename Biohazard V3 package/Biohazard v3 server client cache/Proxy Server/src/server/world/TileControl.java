@@ -25,11 +25,11 @@ public class TileControl {
 		Tile[] tiles = new Tile[size * size];
 		
 		if (tiles.length == 1) 
-			tiles[0] = generate(client.absX, client.absY, client.heightLevel);
+			tiles[0] = generate(client.position.absX, client.position.absY, client.position.heightLevel);
 		else {
 			for (int x = 0; x < size; x++) 
 				for (int y = 0; y < size; y++) 
-					tiles[tileCount++] = generate(client.absX + x, client.absY + y, client.heightLevel);
+					tiles[tileCount++] = generate(client.position.absX + x, client.position.absY + y, client.position.heightLevel);
 		}	
 		return tiles;
 	}
@@ -121,8 +121,8 @@ public static int calculateDistance(NPC npc, Client following) {
 	
 	
 	public static int calculateDistance(Tile location, Client other) {
-		int X = Math.abs(location.getTile()[0] - other.absX);
-		int Y = Math.abs(location.getTile()[1] - other.absY);
+		int X = Math.abs(location.getTile()[0] - other.position.absX);
+		int Y = Math.abs(location.getTile()[1] - other.position.absY);
 		return X > Y ? X : Y;
 	}
 	
@@ -141,9 +141,9 @@ public static int calculateDistance(NPC npc, Client following) {
 	public static int[] currentLocation(Client client) {
 		int[] currentLocation = new int[3];
 		if(client != null) {
-			currentLocation[0] = client.absX;
-			currentLocation[1] = client.absY;
-			currentLocation[2] = client.heightLevel;
+			currentLocation[0] = client.position.absX;
+			currentLocation[1] = client.position.absY;
+			currentLocation[2] = client.position.heightLevel;
 		}
 		return currentLocation;
 	}

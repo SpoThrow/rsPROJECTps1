@@ -5,7 +5,6 @@ import server.game.players.Client;
 
 /**
 * Recipe for Disaster
-* @author Acquittal
 */
 
 public class RecipeForDisaster {

@@ -92,7 +92,7 @@ public class Fishing {
 	}
 
 	public static void setupFishing(Client c, Spot s) {
-		if (c.playerLevel[Player.playerFishing] >= s.getLevelReq()[0]) {
+		if (c.skills.playerLevel[Player.playerFishing] >= s.getLevelReq()[0]) {
 			if (c.getItems().playerHasItem(s.getEquipment())) {
 				if (s.getBait() != -1) {
 					if (c.getItems().playerHasItem(s.getBait(), 1)) {
@@ -155,7 +155,7 @@ public class Fishing {
 	public static int getMax(Client c, int[] reqs) {
 		int tempInt = -1;
 		for (int i : reqs) {
-			if (c.playerLevel[Player.playerFishing] >= i) {
+			if (c.skills.playerLevel[Player.playerFishing] >= i) {
 				tempInt++;
 			}
 		}

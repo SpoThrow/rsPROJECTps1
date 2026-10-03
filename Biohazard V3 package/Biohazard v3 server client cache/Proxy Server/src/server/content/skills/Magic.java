@@ -197,7 +197,7 @@ public class Magic {
 		if (enc == null || ens == null) {
 			return;
 		}
-		if (c.playerLevel[Player.playerMagic] >= enc.getLevelReq()) {
+		if (c.skills.playerLevel[Player.playerMagic] >= enc.getLevelReq()) {
 			if (c.getItems().playerHasItem(enc.getUnenchanted(), 1)) {
 				if (hasRunes(c, spellID)) {
 					if (getEnchantmentLevel(spellID) == enc.getELevel()) {

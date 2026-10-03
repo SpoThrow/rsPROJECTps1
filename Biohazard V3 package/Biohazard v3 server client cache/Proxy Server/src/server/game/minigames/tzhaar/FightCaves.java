@@ -6,7 +6,6 @@ import server.game.players.Client;
 /**
  * FightCaves.java
  *
- * @author Acquittal
  *
  */
 
@@ -33,7 +32,7 @@ public class FightCaves {
 				int npc = WAVES[c.waveId][j];
 				int X = coordinates[j][0];
 				int Y = coordinates[j][1];
-				int H = c.heightLevel;
+				int H = c.position.heightLevel;
 				int hp = getHp(npc);
 				int max = getMax(npc);
 				int atk = getAtk(npc);

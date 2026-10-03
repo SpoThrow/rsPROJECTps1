@@ -5,6 +5,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * @deprecated Orphaned legacy clip helper. Live clipping uses
+ * {@link server.clip.region.Region} + {@link server.clip.region.SmartPathFinder}.
+ * Dynamic objects go through {@link server.world.ObjectManager} which calls
+ * {@link server.clip.region.Region#addObject}. Do not delete yet (rollback safety);
+ * do not wire new code here.
+ */
+@Deprecated
 public class ObjectManager {
 
 	private static List<StateObject> stateChanges = new ArrayList<StateObject>();

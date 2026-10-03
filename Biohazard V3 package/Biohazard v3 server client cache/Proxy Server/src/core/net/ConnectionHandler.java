@@ -16,21 +16,6 @@ public class ConnectionHandler implements IoHandler {
 		arg1.printStackTrace();
 	}
 
-	/*public void messageReceived(IoSession arg0, Object arg1) throws Exception {
-		if (arg0.getAttachment() != null) {
-			Packet packet = (Packet)arg1;
-			Client client = (Client) arg0.getAttachment();
-			if(packet.getId() == 41) {
-				client.timeOutCounter = 2;
-			       client.wearId = packet.readUnsignedWord();
-				client.wearSlot = packet.readUnsignedWordA();
-				client.interfaceId = packet.readUnsignedWordA();
-				client.getItems().wearItem(client.wearId, client.wearSlot);
-			} else {
-				client.queueMessage((Packet) arg1);
-			}
-		}
-	}*/
 
 	@Override
 	public void messageReceived(IoSession arg0, Object arg1) throws Exception {

@@ -1,0 +1,83 @@
+plugins {
+    id 'application'
+}
+
+group = 'com.soultrail'
+version = '3.0'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+sourceSets {
+    main {
+        java {
+            srcDirs = ['src']
+        }
+        resources {
+            srcDirs = []
+        }
+    }
+    test {
+        java {
+            srcDirs = ['test']
+        }
+        resources {
+            srcDirs = []
+        }
+    }
+}
+
+dependencies {
+    // Only the jars the server actually loads. poi, xstream, log4j, RuneTopListV2
+    // and jython are unreferenced by the sources and stay off the classpath.
+    implementation files(
+        'deps/mina.jar',
+        'deps/slf4j.jar',
+        'deps/slf4j-nop.jar',
+        'deps/mysql.jar',
+        'deps/GTLVote.jar'
+    )
+
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    // Sources are UTF-8; Compile.bat left this at the platform default (Cp1252).
+    options.encoding = 'UTF-8'
+}
+
+application {
+    mainClass = 'server.Server'
+}
+
+tasks.named('run', JavaExec) {
+    // The server resolves ./Data and ./deps relative to the working directory.
+    workingDir = projectDir
+    standardInput = System.in
+    jvmArgs = ['-Xmx4000m']
+}
+
+// PlayerSave resolves "./Data/characters/" against the working directory, so tests
+// run in a throwaway tree under build/ rather than against real character files.
+def testWorkDir = layout.buildDirectory.dir('testwork').get().asFile
+
+tasks.named('test', Test) {
+    useJUnitPlatform()
+    workingDir = testWorkDir
+    doFirst {
+        delete testWorkDir
+        new File(testWorkDir, 'Data/characters').mkdirs()
+    }
+    testLogging {
+        events 'passed', 'failed', 'skipped'
+        exceptionFormat 'full'
+    }
+}

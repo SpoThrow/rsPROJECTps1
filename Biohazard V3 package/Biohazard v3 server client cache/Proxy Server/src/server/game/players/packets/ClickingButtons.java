@@ -9,7 +9,6 @@ import server.content.skills.Fletching;
 import server.content.skills.Herblore;
 import server.content.skills.LeatherMaking;
 import server.content.skills.SkillMasters;
-import server.content.skills.Smelting;
 import server.content.skills.Tanning;
 import server.event.CycleEvent;
 import server.event.CycleEventContainer;
@@ -23,10 +22,10 @@ import server.game.minigames.pestcontrol.PestControlRewards;
 import server.game.minigames.sailing.Sailing;
 import server.game.npcs.WorldAdventurer;
 import server.game.players.Client;
-import server.game.players.PacketType;
 import server.game.players.Player;
 import server.game.players.PlayerHandler;
 import server.game.players.SkillcapeData;
+import server.game.players.packets.buttons.ButtonHandler;
 import core.util.Misc;
 
 /**
@@ -84,6 +83,18 @@ public class ClickingButtons implements PacketType {
 		if (c.getPA().handlePOSButton(actionButtonId)) {
 			return;
 		}
+		if (server.game.content.ItemSpawnSearch.handleButton(c, actionButtonId)) {
+			return;
+		}
+		if (handleCurseButton(c, actionButtonId)) {
+			return;
+		}
+		
+		// Migrated button families. Consulted before the switch below so that a
+		// family can be moved out of it without the two ever both running.
+		if (ButtonHandler.dispatch(c, actionButtonId)) {
+			return;
+		}
 		
 		switch (actionButtonId){
 		// Custom Shop Interface button
@@ -101,7 +112,7 @@ public class ClickingButtons implements PacketType {
 			c.setSidebarInterface(2, 638);
 			c.setSidebarInterface(3, 3213);
 			c.setSidebarInterface(4, 1644);
-			c.setSidebarInterface(5, 5608);
+			c.getPA().setPrayerBook();
 			if(c.playerMagicBook == 0) {
 				c.setSidebarInterface(6, 1151);
 			} else if (c.playerMagicBook == 1) {
@@ -122,105 +133,9 @@ public class ClickingButtons implements PacketType {
 			c.isNpc = false;
 			c.canWalk = true;
 			c.updateRequired = true;
-			c.appearanceUpdateRequired = true;
+			c.appearance.appearanceUpdateRequired = true;
 			break;
 			
-		case 15147://Bronze, 1
-			Smelting.startSmelting(c, actionButtonId, 0, 0);
-			break;
-		case 15146://Bronze, 5
-			Smelting.startSmelting(c, actionButtonId, 0, 1);
-			break;
-		case 10247://Bronze, 10
-			Smelting.startSmelting(c, actionButtonId, 0, 2);
-			break;
-		case 9110://Bronze, 28
-			Smelting.startSmelting(c, actionButtonId, 0, 3);
-			break;
-		case 15151://Iron, 1
-			Smelting.startSmelting(c, actionButtonId, 1, 0);
-			break;
-		case 15150://Iron, 5
-			Smelting.startSmelting(c, actionButtonId, 1, 1);
-			break;
-		case 15149://Iron, 10
-			Smelting.startSmelting(c, actionButtonId, 1, 2);
-			break;
-		case 15148://Iron, 28
-			Smelting.startSmelting(c, actionButtonId, 1, 3);
-			break;
-		case 15155://silver, 1
-			Smelting.startSmelting(c, actionButtonId, 2, 0);
-			break;
-		case 15154://silver, 5
-			Smelting.startSmelting(c, actionButtonId, 2, 1);
-			break;
-		case 15153://silver, 10
-			Smelting.startSmelting(c, actionButtonId, 2, 2);
-			break;
-		case 15152://silver, 28
-			Smelting.startSmelting(c, actionButtonId, 2, 3);
-			break;
-		case 15159://steel, 1
-			Smelting.startSmelting(c, actionButtonId, 3, 0);
-			break;
-		case 15158://steel, 5
-			Smelting.startSmelting(c, actionButtonId, 3, 1);
-			break;
-		case 15157://steel, 10
-			Smelting.startSmelting(c, actionButtonId, 3, 2);
-			break;
-		case 15156://steel, 28
-			Smelting.startSmelting(c, actionButtonId, 3, 3);
-			break;
-		case 15163://gold, 1
-			Smelting.startSmelting(c, actionButtonId, 4, 0);
-			break;
-		case 15162://gold, 5
-			Smelting.startSmelting(c, actionButtonId, 4, 1);
-			break;
-		case 15161://gold, 10
-			Smelting.startSmelting(c, actionButtonId, 4, 2);
-			break;
-		case 15160://gold, 28
-			Smelting.startSmelting(c, actionButtonId, 4, 3);
-			break;
-		case 29017://mithril, 1
-			Smelting.startSmelting(c, actionButtonId, 5, 0);
-			break;
-		case 29016://mithril, 5
-			Smelting.startSmelting(c, actionButtonId, 5, 1);
-			break;
-		case 24253://mithril, 10
-			Smelting.startSmelting(c, actionButtonId, 5, 2);
-			break;
-		case 16062://mithril, 28
-			Smelting.startSmelting(c, actionButtonId, 5, 3);
-			break;
-		case 29022://addy, 1
-			Smelting.startSmelting(c, actionButtonId, 6, 0);
-			break;
-		case 29021://addy, 5
-			Smelting.startSmelting(c, actionButtonId, 6, 1);
-			break;
-		case 29019://addy, 10
-			Smelting.startSmelting(c, actionButtonId, 6, 2);
-			break;
-		case 29018://addy, 28
-			Smelting.startSmelting(c, actionButtonId, 6, 3);
-			break;
-		case 29026://rune, 1
-			Smelting.startSmelting(c, actionButtonId, 7, 0);
-			break;
-		case 29025://rune, 5
-			Smelting.startSmelting(c, actionButtonId, 7, 1);
-			break;
-		case 29024://rune, 10
-			Smelting.startSmelting(c, actionButtonId, 7, 2);
-			break;
-		case 29023://rune, 28
-			Smelting.startSmelting(c, actionButtonId, 7, 3);
-			break;
 		case 108006: // items kept on death
 			c.StartBestItemScan(c);
 			c.EquipStatus = 0;
@@ -322,87 +237,6 @@ public class ClickingButtons implements PacketType {
 			c.ResetKeepItems();
 			c.getPA().showInterface(17100);
 			break;
-			
-			/**Prayers**/
-		case 21233: // thick skin
-			c.getCombat().activatePrayer(0);
-			break;	
-		case 21234: // burst of str
-			c.getCombat().activatePrayer(1);
-			break;	
-		case 21235: // charity of thought
-			c.getCombat().activatePrayer(2);
-			break;	
-		case 70080: // range
-			c.getCombat().activatePrayer(3);
-			break;
-		case 70082: // mage
-			c.getCombat().activatePrayer(4);
-			break;
-		case 21236: // rockskin
-			c.getCombat().activatePrayer(5);
-			break;
-		case 21237: // super human
-			c.getCombat().activatePrayer(6);
-			break;
-		case 21238:	// improved reflexes
-			c.getCombat().activatePrayer(7);
-			break;
-		case 21239: //hawk eye
-			c.getCombat().activatePrayer(8);
-			break;
-		case 21240:
-			c.getCombat().activatePrayer(9);
-			break;
-		case 21241: // protect Item
-			c.getCombat().activatePrayer(10);
-			break;			
-		case 70084: // 26 range
-			c.getCombat().activatePrayer(11);
-			break;
-		case 70086: // 27 mage
-			c.getCombat().activatePrayer(12);
-			break;	
-		case 21242: // steel skin
-			c.getCombat().activatePrayer(13);
-			break;
-		case 21243: // ultimate str
-			c.getCombat().activatePrayer(14);
-			break;
-		case 21244: // incredible reflex
-			c.getCombat().activatePrayer(15);
-			break;	
-		case 21245: // protect from magic
-			c.getCombat().activatePrayer(16);
-			break;					
-		case 21246: // protect from range
-			c.getCombat().activatePrayer(17);
-			break;
-		case 21247: // protect from melee
-			c.getCombat().activatePrayer(18);
-			break;
-		case 70088: // 44 range
-			c.getCombat().activatePrayer(19);
-			break;	
-		case 70090: // 45 mystic
-			c.getCombat().activatePrayer(20);
-			break;				
-		case 2171: // retrui
-			c.getCombat().activatePrayer(21);
-			break;					
-		case 2172: // redem
-			c.getCombat().activatePrayer(22);
-			break;					
-		case 2173: // smite
-			c.getCombat().activatePrayer(23);
-			break;
-		case 70092: // chiv
-			c.getCombat().activatePrayer(24);
-			break;
-		case 70094: // piety
-			c.getCombat().activatePrayer(25);
-			break;
-
 			
         case 164034:
             c.removedTasks[0] = -1;
@@ -576,15 +410,15 @@ public class ClickingButtons implements PacketType {
 						return;
 					}
 				if(c.antiqueSelect == 3) {
-					c.playerXP[3] = (c.getPA().getXPForLevel(10)+ 1);
-					c.playerLevel[3] = c.getPA().getLevelForXP(c.playerXP[3]);
+					c.skills.playerXP[3] = (c.getPA().getXPForLevel(10)+ 1);
+					c.skills.playerLevel[3] = c.getPA().getLevelForXP(c.skills.playerXP[3]);
 					c.getPA().refreshSkill(3);
 					c.getPA().closeAllWindows();
 					c.isResetting = false;
 					return;
 				} else {
-					c.playerXP[c.antiqueSelect] = (c.getPA().getXPForLevel(1)+ 1);
-					c.playerLevel[c.antiqueSelect] = c.getPA().getLevelForXP(c.playerXP[c.antiqueSelect]);
+					c.skills.playerXP[c.antiqueSelect] = (c.getPA().getXPForLevel(1)+ 1);
+					c.skills.playerLevel[c.antiqueSelect] = c.getPA().getLevelForXP(c.skills.playerXP[c.antiqueSelect]);
 					c.getPA().refreshSkill(c.antiqueSelect);
 					c.getPA().closeAllWindows();
 					c.isResetting = false;
@@ -616,111 +450,6 @@ public class ClickingButtons implements PacketType {
 		case 53149:
 			Cooking.getAmount(c, 28);
 			break;
-	/*	case 33206:
-if (c.inWild()) {
-c.sendMessage("You can't use this in the wilderness!");
-break;
-}
-c.outStream.createFrame(27);
-c.attackSkill = true;
-c.usingLevel = true;
-				c.defenceSkill = false;
-				c.strengthSkill = false;
-				c.healthSkill = false;
-				c.rangeSkill = false;
-				c.prayerSkill = false;
-				c.mageSkill = false;
-break;
-case 33209:
-if (c.inWild()) {
-c.sendMessage("You can't use this in the wilderness!");
-break;
-}
-c.outStream.createFrame(27);
-c.strengthSkill = true;
-c.usingLevel = true;
-c.attackSkill = false;
-				c.defenceSkill = false;
-				c.healthSkill = false;
-				c.rangeSkill = false;
-				c.prayerSkill = false;
-				c.mageSkill = false;
-break;
-case 33212:
-if (c.inWild()) {
-c.sendMessage("You can't use this in the wilderness!");
-break;
-}
-c.outStream.createFrame(27);
-c.attackSkill = false;
-				c.strengthSkill = false;
-				c.healthSkill = false;
-				c.rangeSkill = false;
-				c.prayerSkill = false;
-				c.mageSkill = false;
-c.defenceSkill = true;
-c.usingLevel = true;
-break;
-case 33215:
-if (c.inWild()) {
-c.sendMessage("You can't use this in the wilderness!");
-break;
-}
-c.outStream.createFrame(27);
-c.attackSkill = false;
-				c.defenceSkill = false;
-				c.strengthSkill = false;
-				c.healthSkill = false;
-				c.prayerSkill = false;
-				c.mageSkill = false;
-c.rangeSkill = true;
-c.usingLevel = true;
-break;
-case 33218:
-if (c.inWild()) {
-c.sendMessage("You can't use this in the wilderness!");
-break;
-}
-c.outStream.createFrame(27);
-c.prayerSkill = true;
-c.usingLevel = true;
-c.attackSkill = false;
-				c.defenceSkill = false;
-				c.strengthSkill = false;
-				c.healthSkill = false;
-				c.rangeSkill = false;
-				c.mageSkill = false;
-break;
-case 33221:
-if (c.inWild()) {
-c.sendMessage("You can't use this in the wilderness!");
-break;
-}
-c.outStream.createFrame(27);
-c.mageSkill = true;
-c.usingLevel = true;
-c.attackSkill = false;
-				c.defenceSkill = false;
-				c.strengthSkill = false;
-				c.healthSkill = false;
-				c.rangeSkill = false;
-				c.prayerSkill = false;
-break;
-case 33207:
-if (c.inWild()) {
-c.sendMessage("You can't use this in the wilderness!");
-break;
-}
-c.outStream.createFrame(27);
-c.attackSkill = false;
-				c.defenceSkill = false;
-				c.strengthSkill = false;
-				c.rangeSkill = false;
-				c.prayerSkill = false;
-				c.mageSkill = false;
-c.healthSkill = true;
-c.usingLevel = true;
-break;*/
 		case 33224: // runecrafting
 			c.getSI().runecraftingComplex(1);
 			c.getSI().selected = 6;
@@ -873,7 +602,7 @@ break;*/
 					c.playerRights = 4;
 					c.logout();
 				} else {
-					c.sendMessage("You have to be a donator of Biohazard to display this rank.");
+					c.sendMessage("You have to be a donator of " + Config.SERVER_NAME + " to display this rank.");
 					c.getPA().closeAllWindows();
 				}
 				break;
@@ -985,7 +714,7 @@ break;*/
 					c.playerRights = 5;
 					c.logout();
 				} else {
-					c.sendMessage("You have to donate $40+ to Biohazard to display this rank.");
+					c.sendMessage("You have to donate $40+ to " + Config.SERVER_NAME + " to display this rank.");
 					c.getPA().closeAllWindows();
 				}
 				break;
@@ -1099,7 +828,7 @@ break;*/
 					c.playerRights = 6;
 					c.logout();
 				} else {
-					c.sendMessage("You have to donate $80+ to Biohazard to display this rank.");
+					c.sendMessage("You have to donate $80+ to " + Config.SERVER_NAME + " to display this rank.");
 					c.getPA().closeAllWindows();
 				}
 				break;
@@ -1385,15 +1114,6 @@ break;*/
 			c.dialogueAction = -1;
 			break;
 
-		/*case 71074:
-			if (c.clanId >= 0) {
-				if (Server.clanChat.clans[c.clanId].owner.equalsIgnoreCase(c.playerName)) {
-					Server.clanChat.sendLootShareMessage(c.clanId, "Lootshare has been toggled to " + (!Server.clanChat.clans[c.clanId].lootshare ? "on" : "off") + " by the clan leader.");
-					Server.clanChat.clans[c.clanId].lootshare = !Server.clanChat.clans[c.clanId].lootshare;
-				} else
-					c.sendMessage("Only the owner of the clan has the power to do that.");
-			}	
-			break;*/
 			
 		case 62137:
 			if (c.clanId >= 0) {
@@ -1416,22 +1136,6 @@ break;*/
 			c.getPA().removeAllWindows();
 			break;
 
-		/*case 70212:
-			if (c.clanId > -1)
-				Server.clanChat.leaveClan(c.playerId, c.clanId);
-			else
-				c.sendMessage("You are not in a clan.");
-			break;*/
-		/*case 70209:
-			if (c.clanId >= 0) {
-				c.sendMessage("You are already in a clan.");
-				break;
-			}
-			if (c.getOutStream() != null) {
-				c.getOutStream().createFrame(187);
-				c.flushOutStream();
-			}	
-			break;*/
 
 		case 9178:
 			if (c.dialogueAction == 8801) {
@@ -1966,6 +1670,12 @@ break;*/
 			break;
 
 		case 9157:
+			if (c.dialogueAction == 8810) {
+				c.getBank().releaseAllPlaceholders();
+				c.dialogueAction = -1;
+				c.getPA().openUpBank();
+				return;
+			}
 			if (c.dialogueAction == 8801) {
 				c.getPA().finishPOSRemove(true);
 				return;
@@ -1998,8 +1708,8 @@ break;*/
 							c.nextChat = 0;
 							return;
 						}
-						c.playerXP[21] = (c.getPA().getXPForLevel(1)+ 1);
-						c.playerLevel[21] = c.getPA().getLevelForXP(c.playerXP[21]);
+						c.skills.playerXP[21] = (c.getPA().getXPForLevel(1)+ 1);
+						c.skills.playerLevel[21] = c.getPA().getLevelForXP(c.skills.playerXP[21]);
 						c.getPA().refreshSkill(21);
 						c.getPA().closeAllWindows();
 						c.getPA().reloadConstructionStrings();
@@ -2043,7 +1753,7 @@ break;*/
 			}
 			if(c.dialogueAction == 14) {
 				c.getPA().showInterface(3559); 
-				c.canChangeAppearance = true;
+				c.appearance.canChangeAppearance = true;
 			}
 			if(c.dialogueAction == 15) {
 				c.getShops().openShop(10);
@@ -2161,7 +1871,7 @@ break;*/
 				break;
 				
 			case 441:
-				if(c.getPA().getLevelForXP(c.playerXP[Player.playerStrength]) >= 99) {
+				if(c.getPA().getLevelForXP(c.skills.playerXP[Player.playerStrength]) >= 99) {
 					c.getShops().openShop(69);
 				} else {
 					c.getDH().sendStatement("You need a strength level of 99 to open this shop.");
@@ -2170,7 +1880,7 @@ break;*/
 				break;
 				
 			case 446:
-				if(c.getPA().getLevelForXP(c.playerXP[Player.playerAttack]) >= 99) {
+				if(c.getPA().getLevelForXP(c.skills.playerXP[Player.playerAttack]) >= 99) {
 					c.getShops().openShop(70);
 				} else {
 					c.getDH().sendStatement("You need an attack level of 99 to open this shop.");
@@ -2183,7 +1893,7 @@ break;*/
 				break;
 				
 			case 450:
-				if(c.getPA().getLevelForXP(c.playerXP[Player.playerDefence]) >= 99) {
+				if(c.getPA().getLevelForXP(c.skills.playerXP[Player.playerDefence]) >= 99) {
 					c.getShops().openShop(67);
 				} else {
 					c.getDH().sendStatement("You need a defence level of 99 to open this shop.");
@@ -2351,7 +2061,7 @@ break;*/
 				break;
 				
 			case 29:
-				c.getPA().sendFrame126("www.biohazard-rsps.com/vote/", 12000);
+				c.getPA().sendFrame126("www." + Config.FORUMS + "/vote/", 12000);
 				c.getPA().closeAllWindows();
 				break;
 				
@@ -2364,6 +2074,11 @@ break;*/
 			break;
 
 		case 9158:  
+			if (c.dialogueAction == 8810) {
+				c.dialogueAction = -1;
+				c.getPA().openUpBank();
+				return;
+			}
 			if (c.dialogueAction == 8801) {
 				c.getPA().finishPOSRemove(false);
 				return;
@@ -2385,8 +2100,8 @@ break;*/
 							c.isResetting = false;
 							return;
 						}
-						c.playerXP[22] = (c.getPA().getXPForLevel(1)+ 1);
-						c.playerLevel[22] = c.getPA().getLevelForXP(c.playerXP[22]);
+						c.skills.playerXP[22] = (c.getPA().getXPForLevel(1)+ 1);
+						c.skills.playerLevel[22] = c.getPA().getLevelForXP(c.skills.playerXP[22]);
 						c.getPA().refreshSkill(22);
 						c.getPA().closeAllWindows();
 						c.getPA().reloadHunterStrings();
@@ -2458,32 +2173,8 @@ break;*/
 			break;
 
 			/**Specials**/
-		case 29188:
-			c.specBarId = 7636; // the special attack text - sendframe126(S P E C I A L  A T T A C K, c.specBarId);
-			c.usingSpecial = !c.usingSpecial;
-			c.getItems().updateSpecialBar();
-			break;
-
-		case 29163:
-			c.specBarId = 7611;
-			c.usingSpecial = !c.usingSpecial;
-			c.getItems().updateSpecialBar();
-			break;
-
-		case 33033:
-			c.specBarId = 8505;
-			c.usingSpecial = !c.usingSpecial;
-			c.getItems().updateSpecialBar();
-			break;
-
 		case 29038:
 			c.specBarId = 7486;
-			/*if (c.specAmount >= 5) {
-				c.attackTimer = 0;
-				c.getCombat().attackPlayer(c.playerIndex);
-				c.usingSpecial = true;
-				c.specAmount -= 5;
-			}*/
 			c.getCombat().handleGmaulPlayer();
 			c.getItems().updateSpecialBar();
 			break;
@@ -2493,158 +2184,12 @@ break;*/
 				c.gfx0(246);
 				c.forcedChat("Raarrrrrgggggghhhhhhh!");
 				c.startAnimation(1056);
-				c.playerLevel[2] = c.getLevelForXP(c.playerXP[2]) + (c.getLevelForXP(c.playerXP[2]) * 15 / 100);
+				c.skills.playerLevel[2] = c.getLevelForXP(c.skills.playerXP[2]) + (c.getLevelForXP(c.skills.playerXP[2]) * 15 / 100);
 				c.getPA().refreshSkill(2);
 				c.getItems().updateSpecialBar();
 			} else {
 				c.sendMessage("You don't have the required special energy to use this attack.");
 			}
-			break;
-
-		case 48023:
-			c.specBarId = 12335;
-			c.usingSpecial = !c.usingSpecial;
-			c.getItems().updateSpecialBar();
-			break;
-
-		case 29138:
-			c.specBarId = 7586;
-			c.usingSpecial = !c.usingSpecial;
-			c.getItems().updateSpecialBar();
-			break;
-
-		case 29113:
-			c.specBarId = 7561;
-			c.usingSpecial = !c.usingSpecial;
-			c.getItems().updateSpecialBar();
-			break;
-
-		case 29238:
-			c.specBarId = 7686;
-			c.usingSpecial = !c.usingSpecial;
-			c.getItems().updateSpecialBar();
-			break;
-
-			/**Dueling**/			
-		case 26065: // no forfeit
-		case 26040:
-			c.duelSlot = -1;
-			c.getTradeAndDuel().selectRule(0);
-			break;
-
-		case 26066: // no movement
-		case 26048:
-			c.duelSlot = -1;
-			c.getTradeAndDuel().selectRule(1);
-			break;
-
-		case 26069: // no range
-		case 26042:
-			c.duelSlot = -1;
-			c.getTradeAndDuel().selectRule(2);
-			break;
-
-		case 26070: // no melee
-		case 26043:
-			c.duelSlot = -1;
-			c.getTradeAndDuel().selectRule(3);
-			break;				
-
-		case 26071: // no mage
-		case 26041:
-			c.duelSlot = -1;
-			c.getTradeAndDuel().selectRule(4);
-			break;
-
-		case 26072: // no drinks
-		case 26045:
-			c.duelSlot = -1;
-			c.getTradeAndDuel().selectRule(5);
-			break;
-
-		case 26073: // no food
-		case 26046:
-			c.duelSlot = -1;
-			c.getTradeAndDuel().selectRule(6);
-			break;
-
-		case 26074: // no prayer
-		case 26047:	
-			c.duelSlot = -1;
-			c.getTradeAndDuel().selectRule(7);
-			break;
-
-		case 26076: // obsticals
-		case 26075:
-			c.duelSlot = -1;
-			c.getTradeAndDuel().selectRule(8);
-			break;
-
-		case 2158: // fun weapons
-		case 2157:
-			c.duelSlot = -1;
-			c.getTradeAndDuel().selectRule(9);
-			break;
-
-		case 30136: // sp attack
-		case 30137:
-			c.duelSlot = -1;
-			c.getTradeAndDuel().selectRule(10);
-			break;	
-
-		case 53245: //no helm
-			c.duelSlot = 0;
-			c.getTradeAndDuel().selectRule(11);
-			break;
-
-		case 53246: // no cape
-			c.duelSlot = 1;
-			c.getTradeAndDuel().selectRule(12);
-			break;
-
-		case 53247: // no ammy
-			c.duelSlot = 2;
-			c.getTradeAndDuel().selectRule(13);
-			break;
-
-		case 53249: // no weapon.
-			c.duelSlot = 3;
-			c.getTradeAndDuel().selectRule(14);
-			break;
-
-		case 53250: // no body
-			c.duelSlot = 4;
-			c.getTradeAndDuel().selectRule(15);
-			break;
-
-		case 53251: // no shield
-			c.duelSlot = 5;
-			c.getTradeAndDuel().selectRule(16);
-			break;
-
-		case 53252: // no legs
-			c.duelSlot = 7;
-			c.getTradeAndDuel().selectRule(17);
-			break;
-
-		case 53255: // no gloves
-			c.duelSlot = 9;
-			c.getTradeAndDuel().selectRule(18);
-			break;
-
-		case 53254: // no boots
-			c.duelSlot = 10;
-			c.getTradeAndDuel().selectRule(19);
-			break;
-
-		case 53253: // no rings
-			c.duelSlot = 12;
-			c.getTradeAndDuel().selectRule(20);
-			break;
-
-		case 53248: // no arrows
-			c.duelSlot = 13;
-			c.getTradeAndDuel().selectRule(21);
 			break;
 
 
@@ -2703,10 +2248,10 @@ break;*/
 				CycleEventHandler.addEvent(c, new CycleEvent() {
 					@Override
 					public void execute(CycleEventContainer container) {
-						if(System.currentTimeMillis() - c.duelDelay > 800 && c.duelCount > 0) {
+						if(System.currentTimeMillis() - c.timers.duelDelay > 800 && c.duelCount > 0) {
 							if(c.duelCount != 1) {
 								c.forcedChat(""+(--c.duelCount));
-								c.duelDelay = System.currentTimeMillis();
+								c.timers.duelDelay = System.currentTimeMillis();
 							} else {
 								c.damageTaken = new int[Config.MAX_PLAYERS];
 								c.forcedChat("FIGHT!");
@@ -2724,10 +2269,10 @@ break;*/
 				CycleEventHandler.addEvent(c, new CycleEvent() {
 					@Override
 					public void execute(CycleEventContainer container) {
-						if(System.currentTimeMillis() - o1.duelDelay > 800 && o1.duelCount > 0) {
+						if(System.currentTimeMillis() - o1.timers.duelDelay > 800 && o1.duelCount > 0) {
 							if(o1.duelCount != 1) {
 								o1.forcedChat(""+(--o1.duelCount));
-								o1.duelDelay = System.currentTimeMillis();
+								o1.timers.duelDelay = System.currentTimeMillis();
 							} else {
 								o1.damageTaken = new int[Config.MAX_PLAYERS];
 								o1.forcedChat("FIGHT!");
@@ -2742,8 +2287,8 @@ break;*/
 					public void stop() {
 					}
 				}, 1);
-				c.duelDelay = System.currentTimeMillis();
-				o1.duelDelay = System.currentTimeMillis();
+				c.timers.duelDelay = System.currentTimeMillis();
+				o1.timers.duelDelay = System.currentTimeMillis();
 			} else {
 				c.getPA().sendFrame126("Waiting for other player...", 6571);
 				o1.getPA().sendFrame126("Other player has accepted", 6571);
@@ -2757,11 +2302,11 @@ break;*/
 				break;
 			}
 
-			if(System.currentTimeMillis() - c.godSpellDelay < Config.GOD_SPELL_CHARGE) {
+			if(System.currentTimeMillis() - c.timers.godSpellDelay < Config.GOD_SPELL_CHARGE) {
 				c.sendMessage("You still feel the charge in your body!");
 				break;
 			}
-			c.godSpellDelay	= System.currentTimeMillis();
+			c.timers.godSpellDelay	= System.currentTimeMillis();
 			c.sendMessage("You feel charged with a magical power!");
 			c.gfx100(c.MAGIC_SPELLS[48][3]);
 			c.startAnimation(c.MAGIC_SPELLS[48][2]);
@@ -2780,67 +2325,6 @@ break;*/
 			c.isRunning2 = !c.isRunning2;
 			int frame = c.isRunning2 == true ? 1 : 0;
 			c.getPA().sendFrame36(173,frame);
-			break;
-		case 906:
-			c.brightness = 1;
-			c.getPA().sendFrame36(166, 1);
-			break;
-		case 908:
-			c.brightness = 2;
-			c.getPA().sendFrame36(166, 2);
-			break;
-		case 910:
-			c.brightness = 3;
-			c.getPA().sendFrame36(166, 3);
-			break;
-		case 912:
-			c.brightness = 4;
-			c.getPA().sendFrame36(166, 4);
-			break;
-		case 930:
-			c.musicVolume = 4;
-			c.musicEnabled = false;
-			c.getPA().sendFrame36(168, 4);
-			break;
-		case 931:
-			c.musicVolume = 3;
-			c.musicEnabled = true;
-			c.getPA().sendFrame36(168, 3);
-			break;
-		case 932:
-			c.musicVolume = 2;
-			c.musicEnabled = true;
-			c.getPA().sendFrame36(168, 2);
-			break;
-		case 933:
-			c.musicVolume = 1;
-			c.musicEnabled = true;
-			c.getPA().sendFrame36(168, 1);
-			break;
-		case 934:
-			c.musicVolume = 0;
-			c.musicEnabled = true;
-			c.getPA().sendFrame36(168, 0);
-			break;
-		case 941:
-			c.soundEffectVolume = 4;
-			c.getPA().sendFrame36(169, 4);
-			break;
-		case 942:
-			c.soundEffectVolume = 3;
-			c.getPA().sendFrame36(169, 3);
-			break;
-		case 943:
-			c.soundEffectVolume = 2;
-			c.getPA().sendFrame36(169, 2);
-			break;
-		case 944:
-			c.soundEffectVolume = 1;
-			c.getPA().sendFrame36(169, 1);
-			break;
-		case 945:
-			c.soundEffectVolume = 0;
-			c.getPA().sendFrame36(169, 0);
 			break;
 		case 913:
 			c.mouseButton = !c.mouseButton;
@@ -2919,38 +2403,13 @@ break;*/
 			break;
 		case 26012:
 			if (c.isBanking) {
-				for (int i = 0; i < c.playerItems.length; i++) {
-					if (c.playerItems[i] > 0) {
-						c.getItems().bankItem(c.playerItems[i], i, c.playerItemsN[i]);
-					}
-				}
+				c.getItems().bankInventory();
 			}
 			break;
 		case 26016:
 			if (c.isBanking) {
-				for (int i = 0; i < c.playerEquipment.length; i++) {
-					if (c.playerEquipment[i] > 0 && c.playerEquipmentN[i] > 0) {
-						c.getItems().addItemToBank(c.playerEquipment[i], c.playerEquipmentN[i]);
-						c.getItems().replaceEquipment(i, -1);
-					}
-				}
+				c.getItems().bankEquipment();
 			}
-			break;
-		case 26020:
-			c.sendMessage("You have no beast of burden to deposit.");
-			break;
-		case 10324:
-			c.getBank().openTab(0);
-			break;
-		case 10325:
-		case 10326:
-		case 10327:
-		case 10328:
-		case 10329:
-		case 10330:
-		case 10331:
-		case 10332:
-			c.getBank().openTab(actionButtonId - 10324);
 			break;
 		case 26030:
 			c.getBank().setQuantity(1, false);
@@ -2966,11 +2425,6 @@ break;*/
 			break;
 		case 26034:
 			c.getBank().setQuantity(0, false);
-			break;
-		case 26035:
-			if (c.isBanking) {
-				c.getBank().togglePlaceholders();
-			}
 			break;
 			//home teleports
 		case 4171:
@@ -3039,7 +2493,7 @@ break;*/
 
 		case 72038:
 			if (System.currentTimeMillis() - c.lastTeleport > 5000) {
-				if (c.playerLevel[6] >= 64) {
+				if (c.skills.playerLevel[6] >= 64) {
 					if (c.getItems().playerHasItem(555, 2) && c.getItems().playerHasItem(563, 2) && c.getItems().playerHasItem(554, 2) && c.getItems().playerHasItem(1963, 1)) {
 						c.getPA().spellTeleport(2760 + Misc.random(3), 2782 +  Misc.random(2), 0);
 						c.getItems().deleteItem(555, 2);
@@ -3057,71 +2511,6 @@ break;*/
 			}
 			break;
 
-
-		case 9125: //Accurate
-		case 6221: // range accurate
-		case 22230: //punch (unarmed)
-		case 48010: //flick (whip)
-		case 21200: //spike (pickaxe)
-		case 1080: //bash (staff)
-		case 6168: //chop (axe)
-		case 6236: //accurate (long bow)
-		case 17102: //accurate (darts)
-		case 8234: //stab (dagger)
-			c.fightMode = 0;
-			if (c.autocasting) {
-				c.getPA().resetAutocast();
-			}
-			break;
-
-		case 9126: //Defensive
-		case 48008: //deflect (whip)
-		case 22228: //block (unarmed)
-		case 21201: //block (pickaxe)
-		case 1078: //focus - block (staff)
-		case 6169: //block (axe)
-		case 33019: //fend (hally)
-		case 18078: //block (spear)
-		case 8235: //block (dagger)
-			c.fightMode = 1;
-			if (c.autocasting) {
-				c.getPA().resetAutocast();
-			}
-			break;
-
-		case 9127: // Controlled
-		case 48009: //lash (whip)
-		case 33018: //jab (hally)
-		case 6234: //longrange (long bow)
-		case 6219: //longrange
-		case 18077: //lunge (spear)
-		case 18080: //swipe (spear)
-		case 18079: //pound (spear)
-		case 17100: //longrange (darts)
-			c.fightMode = 3;
-			if (c.autocasting) {
-				c.getPA().resetAutocast();
-			}
-			break;
-
-		case 9128: //Aggressive
-		case 6220: // range rapid
-		case 22229: //kick (unarmed)
-		case 21203: //impale (pickaxe)
-		case 21202: //smash (pickaxe)
-		case 1079: //pound (staff)
-		case 6171: //hack (axe)
-		case 6170: //smash (axe)
-		case 33020: //swipe (hally)
-		case 6235: //rapid (long bow)
-		case 17101: //repid (darts)
-		case 8237: //lunge (dagger)
-		case 8236: //slash (dagger)
-			c.fightMode = 2;
-			if (c.autocasting) {
-				c.getPA().resetAutocast();
-			}
-			break;
 
 		case 13092:
 			 if (System.currentTimeMillis() - c.lastButton < 400) {
@@ -3469,7 +2858,7 @@ break;*/
 				c.sendMessage("You need a hammer to do that.");
 				return;
 			}
-			if(c.playerLevel[21] < 1) {
+			if(c.skills.playerLevel[21] < 1) {
 				c.sendMessage("You need a level 1 Construction to do that.");
 				return;
 			}
@@ -3479,7 +2868,7 @@ break;*/
 				c.sendMessage("You build a Fern.");
 				c.getPA().closeAllWindows();
 				c.getPA().addSkillXP(31 * Config.CONSTRUCTION_EXPERIENCE, 21);
-				c.getPA().checkObjectSpawn(13432, c.absX, c.absY, c.heightLevel, 10);
+				c.getPA().checkObjectSpawn(13432, c.position.absX, c.position.absY, c.position.heightLevel, 10);
 				} else {
 				c.sendMessage("You don't have the required materials.");
 				}
@@ -3490,7 +2879,7 @@ break;*/
 				c.sendMessage("You need a hammer to do that.");
 				return;
 			}
-			if(c.playerLevel[21] < 5) {
+			if(c.skills.playerLevel[21] < 5) {
 				c.sendMessage("You need a level 5 Construction to do that.");
 				return;
 			}
@@ -3501,7 +2890,7 @@ break;*/
 				c.sendMessage("You build a Tree.");
 				c.getPA().closeAllWindows();
 				c.getPA().addSkillXP(31 * Config.CONSTRUCTION_EXPERIENCE, 21);
-				c.getPA().checkObjectSpawn(13411, c.absX, c.absY, c.heightLevel, 10);
+				c.getPA().checkObjectSpawn(13411, c.position.absX, c.position.absY, c.position.heightLevel, 10);
 				} else {
 				c.sendMessage("You don't have the required materials.");
 				}
@@ -3512,7 +2901,7 @@ break;*/
 				c.sendMessage("You need a hammer to do that.");
 				return;
 			}
-			if(c.playerLevel[21] < 19) {
+			if(c.skills.playerLevel[21] < 19) {
 				c.sendMessage("You need a level 19 Construction to do that.");
 				return;
 			}
@@ -3523,7 +2912,7 @@ break;*/
 				c.sendMessage("You build a Chair.");
 				c.getPA().closeAllWindows();
 				c.getPA().addSkillXP(180 * Config.CONSTRUCTION_EXPERIENCE, 21);
-				c.getPA().checkObjectSpawn(13584, c.absX, c.absY, c.heightLevel, 10);
+				c.getPA().checkObjectSpawn(13584, c.position.absX, c.position.absY, c.position.heightLevel, 10);
 				} else {
 				c.sendMessage("You don't have the required materials.");
 				}
@@ -3535,7 +2924,7 @@ break;*/
 				c.sendMessage("You need a hammer to do that.");
 				return;
 			}
-			if(c.playerLevel[21] < 29) {
+			if(c.skills.playerLevel[21] < 29) {
 				c.sendMessage("You need a level 29 Construction to do that.");
 				return;
 			}
@@ -3547,7 +2936,7 @@ break;*/
 				c.sendMessage("You build a Bookcase.");
 				c.getPA().closeAllWindows();
 				c.getPA().addSkillXP(180 * Config.CONSTRUCTION_EXPERIENCE, 21);
-				c.getPA().checkObjectSpawn(13598, c.absX, c.absY, c.heightLevel, 10);
+				c.getPA().checkObjectSpawn(13598, c.position.absX, c.position.absY, c.position.heightLevel, 10);
 				} else {
 				c.sendMessage("You don't have the required materials.");
 				}
@@ -3559,7 +2948,7 @@ break;*/
 				c.sendMessage("You need a hammer to do that.");
 				return;
 			}
-			if(c.playerLevel[21] < 26) {
+			if(c.skills.playerLevel[21] < 26) {
 				c.sendMessage("You need a level 26 Construction to do that.");
 				return;
 			}
@@ -3570,7 +2959,7 @@ break;*/
 				c.sendMessage("You build a Greenman's ale.");
 				c.getPA().closeAllWindows();
 				c.getPA().addSkillXP(184 * Config.CONSTRUCTION_EXPERIENCE, 21);
-				c.getPA().checkObjectSpawn(13571, c.absX, c.absY, c.heightLevel, 10);
+				c.getPA().checkObjectSpawn(13571, c.position.absX, c.position.absY, c.position.heightLevel, 10);
 				} else {
 				c.sendMessage("You don't have the required materials.");
 				}
@@ -3582,7 +2971,7 @@ break;*/
 				c.sendMessage("You need a hammer to do that.");
 				return;
 			}
-			if(c.playerLevel[21] < 24) {
+			if(c.skills.playerLevel[21] < 24) {
 				c.sendMessage("You need a level 24 Construction to do that.");
 				return;
 			}
@@ -3592,7 +2981,7 @@ break;*/
 				c.sendMessage("You build a Small oven.");
 				c.getPA().closeAllWindows();
 				c.getPA().addSkillXP(80 * Config.CONSTRUCTION_EXPERIENCE, 21);
-				c.getPA().checkObjectSpawn(13533, c.absX, c.absY, c.heightLevel, 10);
+				c.getPA().checkObjectSpawn(13533, c.position.absX, c.position.absY, c.position.heightLevel, 10);
 				} else {
 				c.sendMessage("You don't have the required materials.");
 				}
@@ -3604,7 +2993,7 @@ break;*/
 				c.sendMessage("You need a hammer to do that.");
 				return;
 			}
-			if(c.playerLevel[21] < 31) {
+			if(c.skills.playerLevel[21] < 31) {
 				c.sendMessage("You need a level 31 Construction to do that.");
 				return;
 			}
@@ -3616,7 +3005,7 @@ break;*/
 				c.sendMessage("You build a Carved oak bench.");
 				c.getPA().closeAllWindows();
 				c.getPA().addSkillXP(240 * Config.CONSTRUCTION_EXPERIENCE, 21);
-				c.getPA().checkObjectSpawn(13302, c.absX, c.absY, c.heightLevel, 10);
+				c.getPA().checkObjectSpawn(13302, c.position.absX, c.position.absY, c.position.heightLevel, 10);
 				} else {
 				c.sendMessage("You don't have the required materials.");
 				}
@@ -3628,7 +3017,7 @@ break;*/
 				c.sendMessage("You need a hammer to do that.");
 				return;
 			}
-			if(c.playerLevel[21] < 41) {
+			if(c.skills.playerLevel[21] < 41) {
 				c.sendMessage("You need a level 41 Construction to do that.");
 				return;
 			}
@@ -3639,7 +3028,7 @@ break;*/
 				c.sendMessage("You build a Painting stand.");
 				c.getPA().closeAllWindows();
 				c.getPA().addSkillXP(240 * Config.CONSTRUCTION_EXPERIENCE, 21);
-				c.getPA().checkObjectSpawn(13717, c.absX, c.absY, c.heightLevel, 10);
+				c.getPA().checkObjectSpawn(13717, c.position.absX, c.position.absY, c.position.heightLevel, 10);
 				} else {
 				c.sendMessage("You don't have the required materials.");
 				}
@@ -3651,7 +3040,7 @@ break;*/
 				c.sendMessage("You need a hammer to do that.");
 				return;
 			}
-			if(c.playerLevel[21] < 40) {
+			if(c.skills.playerLevel[21] < 40) {
 				c.sendMessage("You need a level 40 Construction to do that.");
 				return;
 			}
@@ -3663,7 +3052,7 @@ break;*/
 				c.sendMessage("You build a Bed.");
 				c.getPA().closeAllWindows();
 				c.getPA().addSkillXP(300 * Config.CONSTRUCTION_EXPERIENCE, 21);
-				c.getPA().checkObjectSpawn(13151, c.absX, c.absY, c.heightLevel, 10);
+				c.getPA().checkObjectSpawn(13151, c.position.absX, c.position.absY, c.position.heightLevel, 10);
 				} else {
 				c.sendMessage("You don't have the required materials.");
 				}
@@ -3675,7 +3064,7 @@ break;*/
 				c.sendMessage("You need a hammer to do that.");
 				return;
 			}
-			if(c.playerLevel[21] < 51) {
+			if(c.skills.playerLevel[21] < 51) {
 				c.sendMessage("You need a level 51 Construction to do that.");
 				return;
 			}
@@ -3686,7 +3075,7 @@ break;*/
 				c.sendMessage("You build a Teak drawers.");
 				c.getPA().closeAllWindows();
 				c.getPA().addSkillXP(180 * Config.CONSTRUCTION_EXPERIENCE, 21);
-				c.getPA().checkObjectSpawn(13158, c.absX, c.absY, c.heightLevel, 10);
+				c.getPA().checkObjectSpawn(13158, c.position.absX, c.position.absY, c.position.heightLevel, 10);
 				} else {
 				c.sendMessage("You don't have the required materials.");
 				}
@@ -3698,11 +3087,11 @@ break;*/
 				c.sendMessage("You need a hammer to do that.");
 				return;
 			}
-			if(c.playerLevel[21] < 28) {
+			if(c.skills.playerLevel[21] < 28) {
 				c.sendMessage("You need a level 28 Construction to do that.");
 				return;
 			}
-			if(c.playerLevel[13] < 68) {
+			if(c.skills.playerLevel[13] < 68) {
 				c.sendMessage("You need a level 68 Smithing to do that.");
 				return;
 			}
@@ -3714,7 +3103,7 @@ break;*/
 				c.getPA().closeAllWindows();
 				c.getPA().addSkillXP(135 * Config.CONSTRUCTION_EXPERIENCE, 21);
 				c.getPA().addSkillXP(25 * Config.SMITHING_EXPERIENCE, 13);
-				c.getPA().checkObjectSpawn(13491, c.absX, c.absY, c.heightLevel, 10);
+				c.getPA().checkObjectSpawn(13491, c.position.absX, c.position.absY, c.position.heightLevel, 10);
 				} else {
 				c.sendMessage("You don't have the required materials.");
 				}
@@ -3726,11 +3115,11 @@ break;*/
 				c.sendMessage("You need a hammer to do that.");
 				return;
 			}
-			if(c.playerLevel[21] < 28) {
+			if(c.skills.playerLevel[21] < 28) {
 				c.sendMessage("You need a level 28 Construction to do that.");
 				return;
 			}
-			if(c.playerLevel[13] < 88) {
+			if(c.skills.playerLevel[13] < 88) {
 				c.sendMessage("You need a level 88 Smithing to do that.");
 				return;
 			}
@@ -3742,7 +3131,7 @@ break;*/
 				c.getPA().closeAllWindows();
 				c.getPA().addSkillXP(150 * Config.CONSTRUCTION_EXPERIENCE, 21);
 				c.getPA().addSkillXP(25 * Config.SMITHING_EXPERIENCE, 13);
-				c.getPA().checkObjectSpawn(13492, c.absX, c.absY, c.heightLevel, 10);
+				c.getPA().checkObjectSpawn(13492, c.position.absX, c.position.absY, c.position.heightLevel, 10);
 				} else {
 				c.sendMessage("You don't have the required materials.");
 				}
@@ -3754,11 +3143,11 @@ break;*/
 				c.sendMessage("You need a hammer to do that.");
 				return;
 			}
-			if(c.playerLevel[21] < 28) {
+			if(c.skills.playerLevel[21] < 28) {
 				c.sendMessage("You need a level 28 Construction to do that.");
 				return;
 			}
-			if(c.playerLevel[13] < 99) {
+			if(c.skills.playerLevel[13] < 99) {
 				c.sendMessage("You need a level 99 Smithing to do that.");
 				return;
 			}
@@ -3770,7 +3159,7 @@ break;*/
 				c.getPA().closeAllWindows();
 				c.getPA().addSkillXP(165 * Config.CONSTRUCTION_EXPERIENCE, 21);
 				c.getPA().addSkillXP(25 * Config.SMITHING_EXPERIENCE, 13);
-				c.getPA().checkObjectSpawn(13493, c.absX, c.absY, c.heightLevel, 10);
+				c.getPA().checkObjectSpawn(13493, c.position.absX, c.position.absY, c.position.heightLevel, 10);
 				} else {
 				c.sendMessage("You don't have the required materials.");
 				}
@@ -3783,11 +3172,11 @@ break;*/
 				c.sendMessage("You need a hammer to do that.");
 				return;
 			}
-			if(c.playerLevel[21] < 28) {
+			if(c.skills.playerLevel[21] < 28) {
 				c.sendMessage("You need a level 28 Construction to do that.");
 				return;
 			}
-			if(c.playerLevel[20] < 44) {
+			if(c.skills.playerLevel[20] < 44) {
 				c.sendMessage("You need a level 44 Runecrafting to do that.");
 				return;
 			}
@@ -3799,7 +3188,7 @@ break;*/
 				c.getPA().closeAllWindows();
 				c.getPA().addSkillXP(212 * Config.CONSTRUCTION_EXPERIENCE, 21);
 				c.getPA().addSkillXP(44 * Config.RUNECRAFTING_EXPERIENCE, 20);
-				c.getPA().checkObjectSpawn(13508, c.absX, c.absY, c.heightLevel, 10);
+				c.getPA().checkObjectSpawn(13508, c.position.absX, c.position.absY, c.position.heightLevel, 10);
 				} else {
 				c.sendMessage("You don't have the required materials.");
 				}
@@ -3811,7 +3200,7 @@ break;*/
 				c.sendMessage("You need a hammer to do that.");
 				return;
 			}
-			if(c.playerLevel[21] < 81) {
+			if(c.skills.playerLevel[21] < 81) {
 				c.sendMessage("You need a level 81 Construction to do that.");
 				return;
 			}
@@ -3823,7 +3212,7 @@ break;*/
 				c.sendMessage("You build an Archery target.");
 				c.getPA().closeAllWindows();
 				c.getPA().addSkillXP(600 * Config.CONSTRUCTION_EXPERIENCE, 21);
-				c.getPA().checkObjectSpawn(13402, c.absX, c.absY, c.heightLevel, 10);
+				c.getPA().checkObjectSpawn(13402, c.position.absX, c.position.absY, c.position.heightLevel, 10);
 				} else {
 				c.sendMessage("You don't have the required materials.");
 				}
@@ -3835,7 +3224,7 @@ break;*/
 				c.sendMessage("You need a hammer to do that.");
 				return;
 			}
-			if(c.playerLevel[21] < 59) {
+			if(c.skills.playerLevel[21] < 59) {
 				c.sendMessage("You need a level 59 Construction to do that.");
 				return;
 			}
@@ -3847,8 +3236,8 @@ break;*/
 				c.sendMessage("You build a Combat stone.");
 				c.getPA().closeAllWindows();
 				c.getPA().addSkillXP(200 * Config.CONSTRUCTION_EXPERIENCE, 21);
-				c.getPA().checkObjectSpawn(-1, c.absX, c.absY, c.heightLevel, 10);
-				Server.npcHandler.spawnNpc(c, 4162, c.absX, c.absY, c.heightLevel, 0, 100, 5, 50, 50, false, true);
+				c.getPA().checkObjectSpawn(-1, c.position.absX, c.position.absY, c.position.heightLevel, 10);
+				Server.npcHandler.spawnNpc(c, 4162, c.position.absX, c.position.absY, c.position.heightLevel, 0, 100, 5, 50, 50, false, true);
 				} else {
 				c.sendMessage("You don't have the required materials.");
 				}
@@ -3860,7 +3249,7 @@ break;*/
 				c.sendMessage("You need a hammer to do that.");
 				return;
 			}
-			if(c.playerLevel[21] < 77) {
+			if(c.skills.playerLevel[21] < 77) {
 				c.sendMessage("You need a level 77 Construction to do that.");
 				return;
 			}
@@ -3872,8 +3261,8 @@ break;*/
 				c.sendMessage("You build an Elemental balance.");
 				c.getPA().closeAllWindows();
 				c.getPA().addSkillXP(356 * Config.CONSTRUCTION_EXPERIENCE, 21);
-				c.getPA().checkObjectSpawn(-1, c.absX, c.absY, c.heightLevel, 10);
-				Server.npcHandler.spawnNpc(c, 4095, c.absX, c.absY, c.heightLevel, 0, 100, 5, 50, 50, false, true);
+				c.getPA().checkObjectSpawn(-1, c.position.absX, c.position.absY, c.position.heightLevel, 10);
+				Server.npcHandler.spawnNpc(c, 4095, c.position.absX, c.position.absY, c.position.heightLevel, 0, 100, 5, 50, 50, false, true);
 				} else {
 				c.sendMessage("You don't have the required materials.");
 				}
@@ -3885,7 +3274,7 @@ break;*/
 				c.sendMessage("You need a hammer to do that.");
 				return;
 			}
-			if(c.playerLevel[21] < 54) {
+			if(c.skills.playerLevel[21] < 54) {
 				c.sendMessage("You need a level 54 Construction to do that.");
 				return;
 			}
@@ -3896,7 +3285,7 @@ break;*/
 				c.sendMessage("You build a Mahogany prize chest.");
 				c.getPA().closeAllWindows();
 				c.getPA().addSkillXP(860 * Config.CONSTRUCTION_EXPERIENCE, 21);
-				c.getPA().checkObjectSpawn(13389, c.absX, c.absY, c.heightLevel, 10);
+				c.getPA().checkObjectSpawn(13389, c.position.absX, c.position.absY, c.position.heightLevel, 10);
 				} else {
 				c.sendMessage("You don't have the required materials.");
 				}
@@ -3908,7 +3297,7 @@ break;*/
 				c.sendMessage("You need a hammer to do that.");
 				return;
 			}
-			if(c.playerLevel[21] < 67) {
+			if(c.skills.playerLevel[21] < 67) {
 				c.sendMessage("You need a level 67 Construction to do that.");
 				return;
 			}
@@ -3919,7 +3308,7 @@ break;*/
 				c.sendMessage("You build a Lectern.");
 				c.getPA().closeAllWindows();
 				c.getPA().addSkillXP(580 * Config.CONSTRUCTION_EXPERIENCE, 21);
-				c.getPA().checkObjectSpawn(13648, c.absX, c.absY, c.heightLevel, 10);
+				c.getPA().checkObjectSpawn(13648, c.position.absX, c.position.absY, c.position.heightLevel, 10);
 				} else {
 				c.sendMessage("You don't have the required materials.");
 				}
@@ -3931,7 +3320,7 @@ break;*/
 				c.sendMessage("You need a hammer to do that.");
 				return;
 			}
-			if(c.playerLevel[21] < 66) {
+			if(c.skills.playerLevel[21] < 66) {
 				c.sendMessage("You need a level 66 Construction to do that.");
 				return;
 			}
@@ -3943,7 +3332,7 @@ break;*/
 				c.sendMessage("You build a Crystal of power.");
 				c.getPA().closeAllWindows();
 				c.getPA().addSkillXP(890 * Config.CONSTRUCTION_EXPERIENCE, 21);
-				c.getPA().checkObjectSpawn(13661, c.absX, c.absY, c.heightLevel, 10);
+				c.getPA().checkObjectSpawn(13661, c.position.absX, c.position.absY, c.position.heightLevel, 10);
 				} else {
 				c.sendMessage("You don't have the required materials.");
 				}
@@ -3955,7 +3344,7 @@ break;*/
 				c.sendMessage("You need a hammer to do that.");
 				return;
 			}
-			if(c.playerLevel[21] < 64) {
+			if(c.skills.playerLevel[21] < 64) {
 				c.sendMessage("You need a level 64 Construction to do that.");
 				return;
 			}
@@ -3967,7 +3356,7 @@ break;*/
 				c.sendMessage("You build an Altar.");
 				c.getPA().closeAllWindows();
 				c.getPA().addSkillXP(910 * Config.CONSTRUCTION_EXPERIENCE, 21);
-				c.getPA().checkObjectSpawn(13191, c.absX, c.absY, c.heightLevel, 10);
+				c.getPA().checkObjectSpawn(13191, c.position.absX, c.position.absY, c.position.heightLevel, 10);
 				} else {
 				c.sendMessage("You don't have the required materials.");
 				}
@@ -3979,7 +3368,7 @@ break;*/
 				c.sendMessage("You need a hammer to do that.");
 				return;
 			}
-			if(c.playerLevel[21] < 61) {
+			if(c.skills.playerLevel[21] < 61) {
 				c.sendMessage("You need a level 61 Construction to do that.");
 				return;
 			}
@@ -3991,7 +3380,7 @@ break;*/
 				c.sendMessage("You build an Intense burners.");
 				c.getPA().closeAllWindows();
 				c.getPA().addSkillXP(280 * Config.CONSTRUCTION_EXPERIENCE, 21);
-				c.getPA().checkObjectSpawn(13210, c.absX, c.absY, c.heightLevel, 10);
+				c.getPA().checkObjectSpawn(13210, c.position.absX, c.position.absY, c.position.heightLevel, 10);
 				} else {
 				c.sendMessage("You don't have the required materials.");
 				}
@@ -4003,7 +3392,7 @@ break;*/
 				c.sendMessage("You need a hammer to do that.");
 				return;
 			}
-			if(c.playerLevel[21] < 80) {
+			if(c.skills.playerLevel[21] < 80) {
 				c.sendMessage("You need a level 80 Construction to do that.");
 				return;
 			}
@@ -4015,7 +3404,7 @@ break;*/
 				c.sendMessage("You build a Hedge.");
 				c.getPA().closeAllWindows();
 				c.getPA().addSkillXP(316 * Config.CONSTRUCTION_EXPERIENCE, 21);
-				c.getPA().checkObjectSpawn(13476, c.absX, c.absY, c.heightLevel, 10);
+				c.getPA().checkObjectSpawn(13476, c.position.absX, c.position.absY, c.position.heightLevel, 10);
 				} else {
 				c.sendMessage("You don't have the required materials.");
 				}
@@ -4027,7 +3416,7 @@ break;*/
 				c.sendMessage("You need a hammer to do that.");
 				return;
 			}
-			if(c.playerLevel[21] < 83) {
+			if(c.skills.playerLevel[21] < 83) {
 				c.sendMessage("You need a level 83 Construction to do that.");
 				return;
 			}
@@ -4039,7 +3428,7 @@ break;*/
 				c.sendMessage("You build a Rocnar.");
 				c.getPA().closeAllWindows();
 				c.getPA().addSkillXP(387 * Config.CONSTRUCTION_EXPERIENCE, 21);
-				c.getPA().checkObjectSpawn(13373, c.absX, c.absY, c.heightLevel, 10);
+				c.getPA().checkObjectSpawn(13373, c.position.absX, c.position.absY, c.position.heightLevel, 10);
 				} else {
 				c.sendMessage("You don't have the required materials.");
 				}
@@ -4051,7 +3440,7 @@ break;*/
 				c.sendMessage("You need a hammer to do that.");
 				return;
 			}
-			if(c.playerLevel[21] < 92) {
+			if(c.skills.playerLevel[21] < 92) {
 				c.sendMessage("You need a level 92 Construction to do that.");
 				return;
 			}
@@ -4063,7 +3452,7 @@ break;*/
 				c.sendMessage("You build a Bank chest.");
 				c.getPA().closeAllWindows();
 				c.getPA().addSkillXP(800 * Config.CONSTRUCTION_EXPERIENCE, 21);
-				c.getPA().checkObjectSpawn(3193, c.absX, c.absY, c.heightLevel, 10);
+				c.getPA().checkObjectSpawn(3193, c.position.absX, c.position.absY, c.position.heightLevel, 10);
 				} else {
 				c.sendMessage("You don't have the required materials.");
 				}
@@ -4080,6 +3469,28 @@ break;*/
 		}
 		if (c.isAutoButton(actionButtonId))
 			c.assignAutocast(actionButtonId);
+	}
+
+	/**
+	 * The only handler for the curse-prayer buttons. It claims them by range and
+	 * returns true, which returns out of processPacket before the switch -- the 20
+	 * curse cases that used to sit in that switch were unreachable duplicates of the
+	 * mapping below and have been deleted. Removing this method leaves curses dead.
+	 */
+	private boolean handleCurseButton(Client c, int actionButtonId) {
+		int curse = -1;
+		if (actionButtonId >= 22503 && actionButtonId <= 22541 && (actionButtonId - 22503) % 2 == 0) {
+			curse = (actionButtonId - 22503) / 2;
+		} else if (actionButtonId >= 87231 && actionButtonId <= 87255 && (actionButtonId - 87231) % 2 == 0) {
+			curse = (actionButtonId - 87231) / 2;
+		} else if (actionButtonId >= 88001 && actionButtonId <= 88013 && (actionButtonId - 88001) % 2 == 0) {
+			curse = 13 + (actionButtonId - 88001) / 2;
+		}
+		if (curse < 0 || curse > 19) {
+			return false;
+		}
+		c.getCurse().activateCurse(curse);
+		return true;
 	}
 
 }

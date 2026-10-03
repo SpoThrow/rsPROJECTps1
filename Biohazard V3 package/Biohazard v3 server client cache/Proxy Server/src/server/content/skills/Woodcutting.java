@@ -38,48 +38,50 @@ public class Woodcutting {
 		{5553, 7399, 30, 68, 1519, 11, 8} //Willow
 	};
 
-	static int a = -1;
-	
 	public static void startWoodcutting(final Client c, final int j, final int x, final int y, final int type) {
-		if (c.isWc)
+		if (c.woodcutting.active)
 			return;
-		if (c.wcing)
-			return;
-		int wcLevel = c.playerLevel[8];
-		a = -1;
+		int wcLevel = c.skills.playerLevel[8];
 		c.turnPlayerTo(x, y);
 		if (Tree_Settings[j][2] > wcLevel) {
 			c.sendMessage("You need a Woodcutting level of " + Tree_Settings[j][2] + " to cut this tree.");
 			return;
 		}
+		// Local, not a field: this used to be `static int a`, i.e. one selected axe index
+		// shared by every player on the server. Two players chopping overwrote each
+		// other's axe, and a player who failed this check left it at -1 for everybody, so
+		// the next execution of another player's running event threw
+		// ArrayIndexOutOfBoundsException on Axe_Settings[a][3]. `final` so the two event
+		// closures below capture it safely.
+		int axeIndex = -1;
 		for (int i = 0; i < Axe_Settings.length; i++) {
 			if (c.getItems().playerHasItem(Axe_Settings[i][0]) || c.playerEquipment[c.playerWeapon] == Axe_Settings[i][0]) {
 				if (Axe_Settings[i][1] <= wcLevel) {
-					a = i;
+					axeIndex = i;
 				}
 			}
 		}
-		if (a == -1) {
+		if (axeIndex == -1) {
 			c.sendMessage("You need an axe to cut this tree.");
 			return;
 		}
+		final int a = axeIndex;
 		if (c.getItems().freeSlots() < 1) {
 			c.sendMessage("You do not have enough inventory slots to do that.");
 			return;
 		}
 		c.startAnimation(Axe_Settings[a][3]);
-		c.isWc = true;
-		c.treeX = x;
-		c.treeY = y;
-		c.wcing = true;
+		c.woodcutting.active = true;
+		c.woodcutting.treeX = x;
+		c.woodcutting.treeY = y;
 		CycleEventHandler.addEvent(c, new CycleEvent() {
 			@Override
 			public void execute(CycleEventContainer container) {
-				if (!c.isWc) {
+				if (!c.woodcutting.active) {
 					container.stop();
 					return;
 				}
-				if (c.isWc)
+				if (c.woodcutting.active)
 					c.startAnimation(Axe_Settings[a][3]);
 				if (c.getItems().freeSlots() < 1) {
 					c.sendMessage("You have ran out of inventory slots.");
@@ -98,7 +100,7 @@ public class Woodcutting {
 				if (c.getItems().playerHasEquipped(10941)) {
 					xp = (int)(xp * 1.004);
 				}
-				if (c.isWc) {
+				if (c.woodcutting.active) {
 					c.getItems().addItem(Tree_Settings[j][4], 1);
 					c.getPA().addSkillXP(xp, 8);
 				}
@@ -110,7 +112,7 @@ public class Woodcutting {
 					c.sendMessage("You have ran out of inventory slots.");
 					container.stop();
 				}
-				if (c.isWc)
+				if (c.woodcutting.active)
 					birdNests(c);
 				if (c.getItems().freeSlots() < 1) {
 					c.sendMessage("You have ran out of inventory slots.");
@@ -124,21 +126,20 @@ public class Woodcutting {
 			@Override
 			public void stop() {
 				c.startAnimation(65535);
-				c.isWc = false;
-				c.treeX = 0;
-				c.treeY = 0;
-				c.wcing = false;
+				c.woodcutting.active = false;
+				c.woodcutting.treeX = 0;
+				c.woodcutting.treeY = 0;
 				return;
 			}
 		}, getTimer(j, a, wcLevel));
 		CycleEventHandler.addEvent(c, new CycleEvent() {
 			@Override
 			public void execute(CycleEventContainer container) {
-				if (!c.isWc) {
+				if (!c.woodcutting.active) {
 					container.stop();
 					return;
 				}
-				if (c.isWc) {
+				if (c.woodcutting.active) {
 					c.startAnimation(Axe_Settings[a][3]);
 				}
 			}
@@ -169,11 +170,11 @@ public class Woodcutting {
 		new Object(j, x, y, 0, 0, 10, i, respawnTime);
 		for (int t = 0; t < PlayerHandler.players.length; t++) {
 			if (PlayerHandler.players[t] != null) {
-				if (PlayerHandler.players[t].treeX == x && PlayerHandler.players[t].treeY == y) {
-					PlayerHandler.players[t].isWc = false;
+				if (PlayerHandler.players[t].woodcutting.treeX == x && PlayerHandler.players[t].woodcutting.treeY == y) {
+					PlayerHandler.players[t].woodcutting.active = false;
 					PlayerHandler.players[t].startAnimation(65535);
-					PlayerHandler.players[t].treeX = 0;
-					PlayerHandler.players[t].treeY = 0;
+					PlayerHandler.players[t].woodcutting.treeX = 0;
+					PlayerHandler.players[t].woodcutting.treeY = 0;
 				}
 			}
 		}

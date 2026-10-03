@@ -29,12 +29,6 @@ public class TrawlerWaitingRoom extends WaitingRoom {
 	@Override
 	public void onStart() {
 		trawler.players.clear();
-		/*for(Iterator<Player> i = waiting.iterator(); i.hasNext();) {
-		    Player p = i.next(); 
-		    if(!boat.playerInArea(p)) {
-		        i.remove(); // Allowed with an iterator
-		    }
-		}*/
 	
 		for(Player p : waiting) {
 			trawler.players.add(p);

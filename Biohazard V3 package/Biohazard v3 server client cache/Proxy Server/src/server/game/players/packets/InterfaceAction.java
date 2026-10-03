@@ -1,7 +1,6 @@
 package server.game.players.packets;
 
 import server.game.players.Client;
-import server.game.players.PacketType;
 import server.game.players.PlayerSave;
 import server.world.Clan;
 import core.util.Misc;
@@ -110,14 +109,14 @@ public class InterfaceAction implements PacketType {
 						} else {
 							if (player.clan.canKick(player.playerName)) {
 								long now = System.currentTimeMillis();
-								if (player.pendingClanKick != null
-										&& player.pendingClanKick.equalsIgnoreCase(member)
-										&& now - player.pendingClanKickAt < 8000L) {
-									player.pendingClanKick = "";
+								if (player.clanChat.pendingKick != null
+										&& player.clanChat.pendingKick.equalsIgnoreCase(member)
+										&& now - player.clanChat.pendingKickAt < 8000L) {
+									player.clanChat.pendingKick = "";
 									player.clan.kickMember(member);
 								} else {
-									player.pendingClanKick = member;
-									player.pendingClanKickAt = now;
+									player.clanChat.pendingKick = member;
+									player.clanChat.pendingKickAt = now;
 									player.sendMessage("Click Kick again within 8 seconds to confirm kicking " + member + ".");
 								}
 							} else {

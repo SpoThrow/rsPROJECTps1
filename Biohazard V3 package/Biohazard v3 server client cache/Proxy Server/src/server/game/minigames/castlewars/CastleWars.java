@@ -247,7 +247,7 @@ public class CastleWars {
         player.playerEquipment[player.playerWeapon] = -1;
         player.playerEquipmentN[player.playerWeapon] = 0;
         player.getItems().updateSlot(3);
-        player.appearanceUpdateRequired = true;
+        player.appearance.appearanceUpdateRequired = true;
         player.updateRequired = true;
         player.getItems().resetItems(3214);
     }
@@ -287,7 +287,7 @@ public class CastleWars {
         player.playerEquipment[player.playerWeapon] = flagId;
         player.playerEquipmentN[player.playerWeapon] = 1;
         player.getItems().updateSlot(player.playerWeapon);
-        player.appearanceUpdateRequired = true;
+        player.appearance.appearanceUpdateRequired = true;
         player.updateRequired = true;
     }
     
@@ -349,9 +349,9 @@ public class CastleWars {
 		player.playerEquipment[player.playerWeapon] = -1;
 		player.playerEquipmentN[player.playerWeapon] = 0;
 		player.getItems().updateSlot(player.playerWeapon);
-		player.appearanceUpdateRequired = true;
+		player.appearance.appearanceUpdateRequired = true;
 		player.updateRequired = true;
-		new Object(object, player.getX(), player.getY(), player.heightLevel, 0, 10, object, -1, 1);
+		new Object(object, player.getX(), player.getY(), player.position.heightLevel, 0, 10, object, -1, 1);
     }
 
     /**
@@ -403,7 +403,7 @@ public class CastleWars {
         while (iterator.hasNext()) {
             Client teamPlayer = (Client) iterator.next();
             teamPlayer.getPA().createObjectHints(player.objectX, player.objectY, 170, -1);
-            new Object(-1, player.objectX, player.objectY, player.heightLevel, 0, 10, -1, -1, 1);
+            new Object(-1, player.objectX, player.objectY, player.position.heightLevel, 0, 10, -1, -1, 1);
         }
         return;
     }
@@ -802,7 +802,7 @@ public class CastleWars {
                 continue;
             }
     		for (int i = 0; i < 7; i++) {
-    			player.playerLevel[i] = player.getLevelForXP(player.playerXP[i]);
+    			player.skills.playerLevel[i] = player.getLevelForXP(player.skills.playerXP[i]);
     			player.getPA().refreshSkill(i);
     		}
     		player.isDead = false;
@@ -894,7 +894,7 @@ public class CastleWars {
         player.playerEquipment[player.playerCape] = capeId;
         player.playerEquipmentN[player.playerCape] = 1;
         player.getItems().updateSlot(player.playerCape);
-        player.appearanceUpdateRequired = true;
+        player.appearance.appearanceUpdateRequired = true;
         player.updateRequired = true;
     }
     
@@ -902,7 +902,7 @@ public class CastleWars {
         player.playerEquipment[player.playerHat] = hatId;
         player.playerEquipmentN[player.playerHat] = 1;
         player.getItems().updateSlot(player.playerHat);
-        player.appearanceUpdateRequired = true;
+        player.appearance.appearanceUpdateRequired = true;
         player.updateRequired = true;
         player.setAppearanceUpdateRequired(true);
     }
@@ -919,7 +919,7 @@ public class CastleWars {
 				player.playerEquipment[3] = -1;
 				player.playerEquipmentN[3] = 0;	 
 				player.getItems().updateSlot(player.playerWeapon);
-				player.appearanceUpdateRequired = true;
+				player.appearance.appearanceUpdateRequired = true;
 				player.updateRequired = true;
                 System.out.println("removed weapon:" + player.playerEquipment[3]);
                 break;
@@ -930,7 +930,7 @@ public class CastleWars {
 				player.playerEquipment[0] = -1;
 				player.playerEquipmentN[0] = 0;	 
 				player.getItems().updateSlot(player.playerHat);
-				player.appearanceUpdateRequired = true;
+				player.appearance.appearanceUpdateRequired = true;
 				player.updateRequired = true;
 				player.setAppearanceUpdateRequired(true);
 	            //player.getItems().removeItem(player.playerEquipment[0], 0);
@@ -944,7 +944,7 @@ public class CastleWars {
 				player.playerEquipment[1] = -1;
 				player.playerEquipmentN[1] = 0;	 
 				player.getItems().updateSlot(player.playerCape);
-				player.appearanceUpdateRequired = true;
+				player.appearance.appearanceUpdateRequired = true;
 				player.updateRequired = true;
                 System.out.println("removed cape:" + player.playerEquipment[1]);
                 break;

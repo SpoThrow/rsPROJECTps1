@@ -2,7 +2,6 @@ package server.game.players.packets;
 
 import server.Server;
 import server.game.players.Client;
-import server.game.players.PacketType;
 import server.game.players.PlayerSave;
 import server.world.Clan;
 import core.util.Misc;
@@ -19,7 +18,7 @@ public class ReceiveString implements PacketType {
 		case 0:
 			if (player.clan != null) {
 				player.clan.removeMember(player);
-				player.lastClanChat = "";
+				player.clanChat.channel = "";
 			}
 			break;
 		case 1:
@@ -88,6 +87,9 @@ public class ReceiveString implements PacketType {
 			}
 			break;
 		case 4:
+			if (server.game.content.ItemSpawnSearch.handleSearchString(player, string)) {
+				break;
+			}
 			if (player.posSearchingItem) {
 				player.posSearchingItem = false;
 				player.posSearchingPlayer = false;
@@ -97,6 +99,12 @@ public class ReceiveString implements PacketType {
 				player.posSearchingPlayer = false;
 				player.getPA().searchPOSByPlayer(string);
 			}
+			break;
+		case 5:
+			server.game.players.HiscoresLookup.lookup(player, string);
+			break;
+		case 6:
+			server.game.content.ItemSpawnSearch.handleSelect(player, string);
 			break;
 		default:
 			System.out.println("Received string: identifier=" + id

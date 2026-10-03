@@ -1,7 +1,6 @@
 package server.game.players.packets;
 
 import server.game.players.Client;
-import server.game.players.PacketType;
 /**
  * Bank X Items
  **/
@@ -9,11 +8,11 @@ public class BankX2 implements PacketType {
 	
 	// Helper method to reset POS sell state
 	private void resetSellState(Client c) {
-		c.posSelling = false;
-		c.posSellStep = 0;
-		c.posSellItemId = 0;
-		c.posSellAmount = 0;
-		c.posSellPrice = 0;
+		c.pos.selling = false;
+		c.pos.sellStep = 0;
+		c.pos.sellItemId = 0;
+		c.pos.sellAmount = 0;
+		c.pos.sellPrice = 0;
 	}
 	@Override
 	public void processPacket(Client c, int packetType, int packetSize) {
@@ -25,28 +24,32 @@ public class BankX2 implements PacketType {
 		if (Xamount == 0) {
 			Xamount = 1;
 		}
+
+		if (server.game.content.ItemSpawnSearch.handleAmount(c, Xamount)) {
+			return;
+		}
 		
-		if (c.posEditListingId > 0 && c.xInterfaceId == 43002) {
+		if (c.pos.editListingId > 0 && c.xInterfaceId == 43002) {
 			int price = Xamount;
-			long id = c.posEditListingId;
-			c.posEditListingId = 0;
+			long id = c.pos.editListingId;
+			c.pos.editListingId = 0;
 			server.game.content.PlayerOwnedShop.editListingPrice(c, id, price);
 			c.getPA().openPlayerOwnedShop();
 			return;
 		}
 
-		if (c.posBuying && c.xInterfaceId == 44000) {
-			c.posBuying = false;
+		if (c.pos.buying && c.xInterfaceId == 44000) {
+			c.pos.buying = false;
 			int amount = Xamount;
 			if (amount < 1) {
 				amount = 1;
 			}
-			if (c.posBuyMax > 0 && amount > c.posBuyMax) {
-				amount = c.posBuyMax;
+			if (c.pos.buyMax > 0 && amount > c.pos.buyMax) {
+				amount = c.pos.buyMax;
 			}
-			long listingId = c.posBuyListingId;
-			c.posBuyListingId = 0;
-			c.posBuyMax = 0;
+			long listingId = c.pos.buyListingId;
+			c.pos.buyListingId = 0;
+			c.pos.buyMax = 0;
 			if (server.game.content.PlayerOwnedShop.buyListing(c, listingId, amount)) {
 				c.getPA().refreshPOSBrowse();
 			} else {
@@ -56,9 +59,9 @@ public class BankX2 implements PacketType {
 		}
 
 		// Handle POS sell flow - amount input (step 2)
-		if (c.posSelling && c.posSellStep == 2 && c.xInterfaceId == 43000) {
+		if (c.pos.selling && c.pos.sellStep == 2 && c.xInterfaceId == 43000) {
 			if (Xamount > 0) {
-				int owned = server.game.content.PlayerOwnedShop.ownedCount(c, c.posSellItemId);
+				int owned = server.game.content.PlayerOwnedShop.ownedCount(c, c.pos.sellItemId);
 				if (Xamount > owned) {
 					Xamount = owned;
 				}
@@ -68,32 +71,32 @@ public class BankX2 implements PacketType {
 					c.getPA().openPlayerOwnedShop();
 					return;
 				}
-				c.posSellAmount = Xamount;
-				c.posSellStep = 3;
+				c.pos.sellAmount = Xamount;
+				c.pos.sellStep = 3;
 				c.xInterfaceId = 43001;
 				c.sendMessage("Enter price EACH. " + Xamount + " x "
-						+ server.game.content.PlayerOwnedShop.getItemName(c.posSellItemId) + ".");
-				c.sendMessage(server.game.content.PlayerOwnedShop.priceHint(c.posSellItemId));
+						+ server.game.content.PlayerOwnedShop.getItemName(c.pos.sellItemId) + ".");
+				c.sendMessage(server.game.content.PlayerOwnedShop.priceHint(c.pos.sellItemId));
 				c.getOutStream().createFrame(27);
 			} else {
 				c.sendMessage("Invalid amount. Please enter a positive number.");
-				c.posSelling = false;
-				c.posSellStep = 0;
+				c.pos.selling = false;
+				c.pos.sellStep = 0;
 				c.getPA().openPlayerOwnedShop();
 			}
 			return;
 		}
 		
 		// Handle POS sell flow - price input (step 3)
-		if (c.posSelling && c.posSellStep == 3 && c.xInterfaceId == 43001) {
+		if (c.pos.selling && c.pos.sellStep == 3 && c.xInterfaceId == 43001) {
 			if (Xamount >= 0) {
-				c.posSellPrice = Xamount;
-				boolean success = server.game.content.PlayerOwnedShop.listItem(c, c.posSellItemId, c.posSellAmount, c.posSellPrice);
+				c.pos.sellPrice = Xamount;
+				boolean success = server.game.content.PlayerOwnedShop.listItem(c, c.pos.sellItemId, c.pos.sellAmount, c.pos.sellPrice);
 				if (success) {
-					long total = (long) c.posSellAmount * (long) c.posSellPrice;
-					c.sendMessage("Listed " + c.posSellAmount + " x "
-							+ server.game.content.PlayerOwnedShop.getItemName(c.posSellItemId) + " @ "
-							+ c.posSellPrice + "gp each (" + total + "gp total).");
+					long total = (long) c.pos.sellAmount * (long) c.pos.sellPrice;
+					c.sendMessage("Listed " + c.pos.sellAmount + " x "
+							+ server.game.content.PlayerOwnedShop.getItemName(c.pos.sellItemId) + " @ "
+							+ c.pos.sellPrice + "gp each (" + total + "gp total).");
 				}
 				resetSellState(c);
 				c.getPA().openPlayerOwnedShop();
@@ -122,8 +125,8 @@ public class BankX2 implements PacketType {
 					level = 99;
 				else if (level < 0)
 					level = 1;
-				c.playerXP[skill] = c.getPA().getXPForLevel(level)+5;
-				c.playerLevel[skill] = c.getPA().getLevelForXP(c.playerXP[skill]);
+				c.skills.playerXP[skill] = c.getPA().getXPForLevel(level)+5;
+				c.skills.playerLevel[skill] = c.getPA().getLevelForXP(c.skills.playerXP[skill]);
 				c.getPA().refreshSkill(skill);
 				c.attackSkill = false;
 				c.defenceSkill = false;
@@ -150,8 +153,8 @@ public class BankX2 implements PacketType {
 					level = 99;
 				else if (level < 0)
 					level = 1;
-				c.playerXP[skill] = c.getPA().getXPForLevel(level)+5;
-				c.playerLevel[skill] = c.getPA().getLevelForXP(c.playerXP[skill]);
+				c.skills.playerXP[skill] = c.getPA().getXPForLevel(level)+5;
+				c.skills.playerLevel[skill] = c.getPA().getLevelForXP(c.skills.playerXP[skill]);
 				c.getPA().refreshSkill(skill);
 				c.attackSkill = false;
 				c.defenceSkill = false;
@@ -178,8 +181,8 @@ public class BankX2 implements PacketType {
 					level = 99;
 				else if (level < 0)
 					level = 1;
-				c.playerXP[skill] = c.getPA().getXPForLevel(level)+5;
-				c.playerLevel[skill] = c.getPA().getLevelForXP(c.playerXP[skill]);
+				c.skills.playerXP[skill] = c.getPA().getXPForLevel(level)+5;
+				c.skills.playerLevel[skill] = c.getPA().getLevelForXP(c.skills.playerXP[skill]);
 				c.getPA().refreshSkill(skill);
 				c.attackSkill = false;
 				c.defenceSkill = false;
@@ -206,8 +209,8 @@ public class BankX2 implements PacketType {
 					level = 99;
 				else if (level < 0)
 					level = 1;
-				c.playerXP[skill] = c.getPA().getXPForLevel(level)+5;
-				c.playerLevel[skill] = c.getPA().getLevelForXP(c.playerXP[skill]);
+				c.skills.playerXP[skill] = c.getPA().getXPForLevel(level)+5;
+				c.skills.playerLevel[skill] = c.getPA().getLevelForXP(c.skills.playerXP[skill]);
 				c.getPA().refreshSkill(skill);
 				c.attackSkill = false;
 				c.defenceSkill = false;
@@ -234,8 +237,8 @@ public class BankX2 implements PacketType {
 					level = 99;
 				else if (level < 0)
 					level = 1;
-				c.playerXP[skill] = c.getPA().getXPForLevel(level)+5;
-				c.playerLevel[skill] = c.getPA().getLevelForXP(c.playerXP[skill]);
+				c.skills.playerXP[skill] = c.getPA().getXPForLevel(level)+5;
+				c.skills.playerLevel[skill] = c.getPA().getLevelForXP(c.skills.playerXP[skill]);
 				c.getPA().refreshSkill(skill);
 				c.attackSkill = false;
 				c.defenceSkill = false;
@@ -262,8 +265,8 @@ public class BankX2 implements PacketType {
 					level = 99;
 				else if (level < 0)
 					level = 1;
-				c.playerXP[skill] = c.getPA().getXPForLevel(level)+5;
-				c.playerLevel[skill] = c.getPA().getLevelForXP(c.playerXP[skill]);
+				c.skills.playerXP[skill] = c.getPA().getXPForLevel(level)+5;
+				c.skills.playerLevel[skill] = c.getPA().getLevelForXP(c.skills.playerXP[skill]);
 				c.getPA().refreshSkill(skill);
 				c.attackSkill = false;
 				c.defenceSkill = false;
@@ -290,8 +293,8 @@ public class BankX2 implements PacketType {
 					level = 99;
 				else if (level < 0)
 					level = 1;
-				c.playerXP[skill] = c.getPA().getXPForLevel(level)+5;
-				c.playerLevel[skill] = c.getPA().getLevelForXP(c.playerXP[skill]);
+				c.skills.playerXP[skill] = c.getPA().getXPForLevel(level)+5;
+				c.skills.playerLevel[skill] = c.getPA().getLevelForXP(c.skills.playerXP[skill]);
 				c.getPA().refreshSkill(skill);
 				c.attackSkill = false;
 				c.defenceSkill = false;

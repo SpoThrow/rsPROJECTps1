@@ -115,7 +115,7 @@ public class Fletching {
 	public static void makeArrows(Client c, int item1, int item2) {
 		Arrows arr = forArrow(getPrimary(item1, item2));
 		if (arr != null) {
-			if (c.playerLevel[Player.playerFletching] >= arr.getLevelReq()) {
+			if (c.skills.playerLevel[Player.playerFletching] >= arr.getLevelReq()) {
 				System.out.println(arr.getItem1()+", "+ c.getItems().getItemCount(arr.getItem1()));
 				System.out.println(arr.getItem2()+", "+ c.getItems().getItemCount(arr.getItem2()));
 				if (c.getItems().getItemCount(arr.getItem1()) >= 15 && c.getItems().getItemCount(arr.getItem2()) >= 15) {
@@ -139,7 +139,7 @@ public class Fletching {
 	public static void makeBolts(Client c, int item1, int item2) {
 		Bolts bolts = forBolts(item1);
 		if (bolts != null) {
-			if (c.playerLevel[Player.playerFletching] >= bolts.getLevelReq()) {
+			if (c.skills.playerLevel[Player.playerFletching] >= bolts.getLevelReq()) {
 				System.out.println(bolts.getItem1()+", "+ c.getItems().getItemCount(bolts.getItem1()));
 				System.out.println(bolts.getItem2()+", "+ c.getItems().getItemCount(bolts.getItem2()));
 				if (c.getItems().getItemCount(bolts.getItem1()) >= 10 && c.getItems().getItemCount(bolts.getItem2()) >= 10) {
@@ -439,7 +439,7 @@ public class Fletching {
 					}
 			} else {
 				if (c.getItems().playerHasItem(fle.getLogID())) {
-					if (c.playerLevel[Player.playerFletching] >= fle.getLevelReq()) {
+					if (c.skills.playerLevel[Player.playerFletching] >= fle.getLevelReq()) {
 						c.getItems().deleteItem2(fle.getLogID(), amount2);
 						c.getItems().addItem(fle.getBowID(), amount2);
 						
@@ -537,7 +537,7 @@ public class Fletching {
 		for (int i = 0; i < boltTips.length; i++) {
 			if ((itemUsed == boltTips[i][0] || itemUsed == 1755)
 					&& (useWith == boltTips[i][0] || useWith == 1755)) {
-				if (System.currentTimeMillis() - c.alchDelay > 1400) {
+				if (System.currentTimeMillis() - c.timers.alchDelay > 1400) {
 					if (c.getItems().playerHasItem(boltTips[i][0], DELETE)) {
 						c.getItems().deleteItem(boltTips[i][0], DELETE);
 						c.getItems().addItem(boltTips[i][1], AMOUNT);
@@ -545,7 +545,7 @@ public class Fletching {
 						c.sendMessage("You carefully craft the "
 								+ ItemAssistant.getItemName(boltTips[i][0])
 								+ " into bolt tips.");
-						c.alchDelay = System.currentTimeMillis();
+						c.timers.alchDelay = System.currentTimeMillis();
 					} else {
 						c.sendMessage("You need at least "
 								+ DELETE
@@ -570,8 +570,8 @@ public class Fletching {
 		for (int i = 0; i < craftingVariables.length; i++) {
 			if ((itemUsed == craftingVariables[i][0] || itemUsed == craftingVariables[i][1])
 					&& (useWith == craftingVariables[i][0] || useWith == craftingVariables[i][1])) {
-				if (c.playerLevel[Player.playerFletching] >= craftingVariables[i][3]) {
-					if (System.currentTimeMillis() - c.alchDelay > 1200) {
+				if (c.skills.playerLevel[Player.playerFletching] >= craftingVariables[i][3]) {
+					if (System.currentTimeMillis() - c.timers.alchDelay > 1200) {
 						if (c.getItems().playerHasItem(craftingVariables[i][0],
 								AMOUNT)
 								&& c.getItems().playerHasItem(
@@ -593,7 +593,7 @@ public class Fletching {
 									Player.playerFletching);
 							
 							c.sendMessage("You carefully craft some gem tipped bolts.");
-							c.alchDelay = System.currentTimeMillis();
+							c.timers.alchDelay = System.currentTimeMillis();
 						} else {
 							c.sendMessage("You need at least "
 									+ AMOUNT

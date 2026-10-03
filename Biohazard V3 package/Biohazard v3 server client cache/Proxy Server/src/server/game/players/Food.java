@@ -72,18 +72,18 @@ public class Food {
 			c.sendMessage("You may not eat in this duel.");
 			return;
 		}
-		if (System.currentTimeMillis() - c.foodDelay >= 1500 && c.playerLevel[3] > 0) {
+		if (System.currentTimeMillis() - c.timers.foodDelay >= 1500 && c.skills.playerLevel[3] > 0) {
 			c.getCombat().resetPlayerAttack();
 			c.attackTimer += 2;
 			c.startAnimation(829);
 			c.getItems().deleteItem(id,slot,1);
 			FoodToEat f = FoodToEat.food.get(id);
-			if (c.playerLevel[3] < c.getLevelForXP(c.playerXP[3])) {
-				c.playerLevel[3] += f.getHeal();
-				if (c.playerLevel[3] > c.getLevelForXP(c.playerXP[3]))
-					c.playerLevel[3] = c.getLevelForXP(c.playerXP[3]);
+			if (c.skills.playerLevel[3] < c.getLevelForXP(c.skills.playerXP[3])) {
+				c.skills.playerLevel[3] += f.getHeal();
+				if (c.skills.playerLevel[3] > c.getLevelForXP(c.skills.playerXP[3]))
+					c.skills.playerLevel[3] = c.getLevelForXP(c.skills.playerXP[3]);
 			}
-			c.foodDelay = System.currentTimeMillis();
+			c.timers.foodDelay = System.currentTimeMillis();
 			c.getPA().refreshSkill(3);
 			c.sendMessage("You eat the " + f.getName().toLowerCase() + ".");
 		}		

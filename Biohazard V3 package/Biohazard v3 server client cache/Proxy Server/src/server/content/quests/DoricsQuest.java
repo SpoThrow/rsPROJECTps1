@@ -4,7 +4,6 @@ import server.game.players.Client;
 
 /**
 * Doric's Quest
-* @author Acquittal
 */
 
 public class DoricsQuest {

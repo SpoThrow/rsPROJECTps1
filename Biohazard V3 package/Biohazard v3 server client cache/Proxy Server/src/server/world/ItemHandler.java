@@ -132,23 +132,6 @@ public class ItemHandler {
 			GroundItem i = toRemove.get(j);
 			removeGlobalItem(i, i.getItemId(), i.getItemX(), i.getItemY(), i.getItemAmount());	
 		}
-		/*for(GroundItem i : items) {
-			if(i.hideTicks > 0) {
-				i.hideTicks--;
-			}
-			if(i.hideTicks == 1) { // item can now be seen by others
-				i.hideTicks = 0;
-				createGlobalItem(i);
-				i.removeTicks = HIDE_TICKS;
-			}
-			if(i.removeTicks > 0) {
-				i.removeTicks--;
-			}
-			if(i.removeTicks == 1) {
-				i.removeTicks = 0;
-				removeGlobalItem(i, i.getItemId(), i.getItemX(), i.getItemY(), i.getItemAmount());
-			}
-		}*/
 	}
 	
 	
@@ -223,7 +206,7 @@ public class ItemHandler {
 			if(i.getItemId() == itemId && i.getItemX() == itemX && i.getItemY() == itemY) {
 				if(i.hideTicks > 0 && i.getName().equalsIgnoreCase(c.playerName)) {
 					if(add) {
-						if(c.safeTimer > 0 && c.isRogue && c.inBhArea())
+						if(c.bountyHunter.safeTimer > 0 && c.bountyHunter.isRogue && c.inBhArea())
 							BountyHunter.startLeaveTimer(c);
 						if (!c.getItems().specialCase(itemId)) {
 							if(c.getItems().addItem(i.getItemId(), i.getItemAmount())) {   
@@ -241,7 +224,7 @@ public class ItemHandler {
 					}
 				} else if (i.hideTicks <= 0) {
 					if(add) {
-						if(c.safeTimer > 0 && c.isRogue && c.inBhArea())
+						if(c.bountyHunter.safeTimer > 0 && c.bountyHunter.isRogue && c.inBhArea())
 							BountyHunter.startLeaveTimer(c);
 						if(c.getItems().addItem(i.getItemId(), i.getItemAmount())) {  
 							removeGlobalItem(i, i.getItemId(), i.getItemX(), i.getItemY(), i.getItemAmount());
@@ -296,7 +279,7 @@ public class ItemHandler {
 		// first, search for a free slot
 		int slot = ItemId;
 
-		if(slot == -1) return;		// no free slot found
+		if(slot < 0 || slot >= ItemList.length) return;
 		ItemList newItemList = new ItemList(ItemId);
 		newItemList.itemName = ItemName;
 		newItemList.itemDescription = ItemDescription;
@@ -875,10 +858,10 @@ public class ItemHandler {
 				token2_2 = token2_2.replaceAll("\t\t", "\t");
 				token2_2 = token2_2.replaceAll("\t\t", "\t");
 				token3 = token2_2.split("\t");
-				if (token.equals("item")) {
+				if (token.equals("item") && token3.length > 6) {
 					int[] Bonuses = new int[12];
 					for (int i = 0; i < 12; i++) {
-						if (token3[(6 + i)] != null) {
+						if (token3.length > (6 + i) && token3[(6 + i)] != null && token3[(6 + i)].length() > 0) {
 							Bonuses[i] = Integer.parseInt(token3[(6 + i)]);
 						} else {
 							break;

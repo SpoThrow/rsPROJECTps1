@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import server.Config;
-import server.content.skills.Smelting;
 import server.game.items.Item;
 import server.game.items.ItemAssistant;
 import server.game.minigames.barrows.BarrowsData;
@@ -21,14 +20,12 @@ public abstract class Player {
 
 	
 	/**
-	 * Music
+	 * Client sound and display preferences, moved off {@link Player} in Phase 4.4. Read
+	 * them as {@code c.settings.musicVolume} rather than {@code c.musicVolume}; the leaf
+	 * names were kept because four of the six double as save-file keys (see
+	 * {@link ClientSettings}).
 	 */
-	public boolean isLoopingMusic = true;
-	public int auto = 1;
-	public int musicVolume = 0; // 0-4, 0 = loudest (matches client config 168)
-	public int soundEffectVolume = 0; // 0-4, 0 = loudest (matches client config 169)
-	public boolean musicEnabled = true;
-	public int brightness = 3;
+	public final ClientSettings settings = new ClientSettings();
 	
 	/**
 	 * coop
@@ -42,11 +39,12 @@ public abstract class Player {
 	public boolean adventurerPid = false, pkerPid = false, skillerPid = false;
 	
 	/**
-	 * Bounty Hunter
+	 * Bounty Hunter state, moved off {@link Player} in Phase 4.6: who this player is
+	 * hunting, whether they are in the crater, and their BH tallies and timers. Read it as
+	 * {@code c.bountyHunter.targetIndex} rather than {@code c.targetIndex}. The leaf names
+	 * are unchanged because five of them are also save-file keys.
 	 */
-	public int targetIndex, bountyKills = 0, rogueKills = 0, killsMultiplier = 1;
-	public String targetName;
-	public boolean inBH = false, isRogue = false, isBounty = false, penaltyTimer = false;
+	public final BountyHunterState bountyHunter = new BountyHunterState();
 	
 	public int donated = 0, donator = 0, respected = 0, veteran = 0, fmod = 0;
 	
@@ -65,24 +63,24 @@ public abstract class Player {
 	public Clan clan;
 	public boolean rubbedLamp = false;
 	public boolean isResetting = false;
-	public String lastClanChat = "";
-	public String pendingClanKick = "";
-	public long pendingClanKickAt;
+	/**
+	 * Clan-chat state, moved off {@link Player} in Phase 4.3. Read it as
+	 * {@code c.clanChat.channel} rather than {@code c.lastClanChat}.
+	 */
+	public final ClanChatState clanChat = new ClanChatState();
 	public boolean maxTotalBroadcast;
-	public boolean isWc;
-	public boolean wcing;
-	public int treeX, treeY;
+	/**
+	 * Woodcutting session state, moved off {@link Player} in Phase 4.5. Read it as
+	 * {@code c.woodcutting.active} rather than {@code c.isWc}. Nothing here is persisted,
+	 * so unlike 4.3/4.4 there is no on-disk key to keep in step.
+	 */
+	public final WoodcuttingSession woodcutting = new WoodcuttingSession();
 	public int log = -1;
-	public int
-		smeltAmount = 0,smeltEventId = 5567;
-	public String
-		barType = "";
-	public Smelting.Bars
-		bar = null;
-	public boolean
-		isSmelting = false;
-	public long
-		lastSmelt = 0;
+	/**
+	 * Smelting session state, moved off {@link Player} in Phase 4.2. Read it as
+	 * {@code c.smelt.amount} rather than {@code c.smeltAmount}.
+	 */
+	public final SmeltingSession smelt = new SmeltingSession();
 	public boolean underWater = false;
 	public boolean prevRunning2;
 	public int prevPrevPlayerRunIndex;
@@ -96,23 +94,12 @@ public abstract class Player {
 	public boolean isDoingEmote;
 	public long skillcapeDelay;
 	public int slayerPoints;
-	public boolean posSelling;
-	public int posSellItemId;
-	public int posSellAmount;
-	public int posSellPrice;
-	public int posSellStep;
-	public String[] posBuySellers = new String[20];
-	public int[] posBuyIndexes = new int[20];
-	public long[] posBuyListingIds = new long[20];
-	public boolean posBuying;
-	public long posBuyListingId;
-	public int posBuyMax;
-	public int posSortMode;
-	public int posBrowseType;
-	public String posBrowseQuery = "";
-	public String posBrowseTitle = "Recent Listings";
-	public long posConfirmRemoveId;
-	public long posEditListingId;
+	/**
+	 * Player Owned Shop session state. These 17 fields were moved into
+	 * {@link PosSession} in Phase 4; read them as {@code c.pos.sellStep} rather than
+	 * {@code c.posSellStep}. The names lost their redundant {@code pos} prefix on the way.
+	 */
+	public final PosSession pos = new PosSession();
 	public long buySlayerTimer;
 	public boolean needsNewTask = false;
 	public int leatherType = -1;
@@ -129,7 +116,7 @@ public abstract class Player {
 	public boolean playerStun;
 	public int[] removedTasks = new int[4];
 	public int level1 = 0, level2 = 0, level3 = 0;
-	public int totalLevel, xpTotal;
+
 	public int overloadcounter = 0;
 	public int timer = 0;
 	public boolean craftDialogue;
@@ -258,7 +245,6 @@ public abstract class Player {
 	magicLevelReq,
 	followId, 
 	skullTimer,
-	safeTimer = 0,
 	votingPoints,
 	nextChat = 0,
 	talkingNpc = -1,
@@ -343,8 +329,10 @@ public abstract class Player {
 	public double specDamage = 1;
 	public double prayerPoint = 1.0;
 	public int teleGrabItem, teleGrabX, teleGrabY, duelCount, underAttackBy, underAttackBy2, wildLevel, teleTimer, respawnTimer, saveTimer = 0, teleBlockLength, poisonDelay;
-	public long lastPlayerMove,lastPoison,lastPoisonSip,poisonImmune,lastSpear,lastProtItem, dfsDelay, lastVeng,lastYell,teleGrabDelay, protMageDelay, protMeleeDelay, protRangeDelay, lastAction, lastThieve,lastLockPick, alchDelay, specDelay = System.currentTimeMillis(), duelDelay, teleBlockDelay, godSpellDelay, singleCombatDelay, singleCombatDelay2, reduceStat, restoreStatsDelay, logoutDelay, buryDelay, foodDelay, potDelay;
-	public boolean canChangeAppearance = false;
+	public long lastPlayerMove,lastPoison,lastPoisonSip,poisonImmune,lastSpear,lastProtItem, lastVeng,lastYell, lastAction, lastThieve,lastLockPick, specDelay = System.currentTimeMillis(), reduceStat, restoreStatsDelay;
+	/** This player's per-action availability clocks. */
+	public final Timers timers = new Timers();
+
 	public boolean mageAllowed;
 	public int poisonMask = 0;
 	public boolean[] curseActive = {
@@ -353,6 +341,24 @@ public abstract class Player {
 		false,false,false,false,false,
 		false,false,false,false,false
 	};
+	public int altarPrayed = 0;
+	public final int[] CURSE_LEVEL_REQUIRED = { 50, 50, 52, 54, 56, 59, 62, 65,
+			68, 71, 74, 76, 78, 80, 82, 84, 86, 89, 92, 95 };
+	public final String[] CURSE_NAME = { "Protect Item", "Sap Warrior",
+			"Sap Ranger", "Sap Mage", "Sap Spirit", "Berserker",
+			"Deflect Summoning", "Deflect Magic", "Deflect Missiles",
+			"Deflect Melee", "Leech Attack", "Leech Ranged", "Leech Magic",
+			"Leech Defence", "Leech Strength", "Leech Energy",
+			"Leech Special Attack", "Wrath", "Soul Split", "Turmoil" };
+	public final int[] CURSE_GLOW = { 610, 611, 612, 613, 614, 615, 616, 617,
+			618, 619, 620, 621, 622, 623, 624, 625, 626, 627, 628, 629 };
+	public final int[] CURSE_HEAD_ICONS = { -1, -1, -1, -1, -1, -1, 12, 10, 11,
+			9, -1, -1, -1, -1, -1, -1, -1, 16, 17, -1 };
+	public final double[] CURSE_DRAIN = { 0.6, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4, 5 };
+	public int clawDamage, clawIndex, clawType;
+	public boolean usingClaws;
+	public int getatt, getstr, getdef;
+	public int ssHeal, ssTarget, ssTargetNpc;
 	public int focusPointX = -1, focusPointY = -1;
 	public int questPoints = 0;	
 	public int cooksA;
@@ -362,7 +368,7 @@ public abstract class Player {
 	public int desertT;
 	public long lastChat, lastRandom, lastCaught = 0, lastAttacked, homeTeleTime, lastDagChange = -1, reportDelay, lastPlant, objectTimer, npcTimer, lastEss, lastClanMessage;
 	public int DirectionCount = 0;
-	public boolean appearanceUpdateRequired = true;	
+
 	public int hitDiff2;
 	public int hitDiff = 0;
 	public boolean hitUpdateRequired2;
@@ -417,7 +423,7 @@ public abstract class Player {
 	public final int[] BOWS = 	{9185,839,845,847,851,855,859,841,843,849,853,857,861,4212,4214,4215,11235,4216,4217,4218,4219,4220,4221,4222,4223,6724,4734,4934,4935,4936,4937};
 	public final int[] ARROWS = {5627,882,884,886,888,890,892,4740,11212,9140,9141,4142,4160,9143,9144,9240,9241,9242,9243,9244,9245};
 	public final int[] NO_ARROW_DROP = {4212,4214,4215,4216,4217,4218,4219,4220,4221,4222,4223,4734,4934,4935,4936,4937};
-	public final int[] OTHER_RANGE_WEAPONS = 	{863,864,865,866,867,868,869,806,807,808,809,810,811,825,826,827,828,829,830,800,801,802,803,804,805,6522};
+	public final int[] OTHER_RANGE_WEAPONS = 	{863,864,865,866,867,868,869,806,807,808,809,810,811,825,826,827,828,829,830,800,801,802,803,804,805,6522,13879,13883};
 	
 	public final int[][] MAGIC_SPELLS = { 
 	// example {magicId, level req, animation, startGFX, projectile Id, endGFX, maxhit, exp gained, rune 1, rune 1 amount, rune 2, rune 2 amount, rune 3, rune 3 amount, rune 4, rune 4 amount}
@@ -889,15 +895,13 @@ public abstract class Player {
 	
 	public int reduceSpellId;
 	public final int[] REDUCE_SPELL_TIME = {250000, 250000, 250000, 500000,500000,500000}; // how long does the other player stay immune to the spell
-	public long[] reduceSpellDelay = new long[6];
 	public final int[] REDUCE_SPELLS = {1153,1157,1161,1542,1543,1562};
 	public boolean[] canUseReducingSpell = {true, true, true, true, true, true};
 	
 	public int slayerTask,taskAmount;
 	
 	public int prayerId = -1;
-	public int headIcon = -1;
-	public int bountyIcon = 0;
+
 	public long stopPrayerDelay, prayerDelay;
 	public boolean usingPrayer;
 	public final int[] PRAYER_DRAIN_RATE = 		{1,1,1,1,1,2,2,2,1,1,1,2,2,4,4,4,4,4,4,4,4,1,2,5,6,6};
@@ -913,7 +917,7 @@ public abstract class Player {
 	public boolean[] prayerActive = 			{false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false};
 	
 	public int duelTimer, duelTeleX, duelTeleY, duelSlot, duelSpaceReq, duelOption, duelingWith, duelStatus;
-	public int headIconPk = -1, headIconHints;
+
 	public boolean duelRequested;
 	public boolean[] duelRule = new boolean[22];
 	public final int[] DUEL_RULE_ID = {1, 2, 16, 32, 64, 128, 256, 512, 1024, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 2097152, 8388608, 16777216, 67108864, 134217728};
@@ -938,7 +942,8 @@ public abstract class Player {
 	public boolean settingBankX;
 	public int combatLevel;
 	public boolean saveFile = false;
-	public int playerAppearance[] = new int[13];
+	/** How this player looks, and the flags that drive the appearance block. */
+	public final Appearance appearance = new Appearance();
 	public int apset;
 	public int actionID;
 	public int wearItemTimer, wearId, wearSlot, interfaceId;
@@ -976,7 +981,7 @@ public abstract class Player {
 	 */
 	
 	public boolean isInTut() {		
-		if(absX >= 2625 && absX <= 2687 && absY >= 4670 && absY <= 4735) {
+		if(position.absX >= 2625 && position.absX <= 2687 && position.absY >= 4670 && position.absY <= 4735) {
 			return true;
 		}
 		return false;
@@ -984,14 +989,14 @@ public abstract class Player {
 
 	
 	public boolean inArea(int x, int y, int x1, int y1) {
-		if (absX > x && absX < x1 && absY < y && absY > y1) {
+		if (position.absX > x && position.absX < x1 && position.absY < y && position.absY > y1) {
 			return true;
 		}
 		return false;
 	}
 	
 	public boolean inBhArea() {
-		if(absX > 3083 && absX < 3197 && absY > 3660 && absY < 3762)
+		if(position.absX > 3083 && position.absX < 3197 && position.absY > 3660 && position.absY < 3762)
 			return true;
 		return false;
 	}
@@ -1001,51 +1006,51 @@ public abstract class Player {
 			return true;
 		if(inBhArea())
 			return false;
-		if(absX > 2941 && absX < 3392 && absY > 3518 && absY < 3966 ||
-			absX > 2941 && absX < 3392 && absY > 9918 && absY < 10366) {	
+		if(position.absX > 2941 && position.absX < 3392 && position.absY > 3518 && position.absY < 3966 ||
+			position.absX > 2941 && position.absX < 3392 && position.absY > 9918 && position.absY < 10366) {	
 			return true;
 		}
 		return false;
 	}
 	
 	public boolean arenas() {
-		if(absX > 3331 && absX < 3391 && absY > 3242 && absY < 3260) {	
+		if(position.absX > 3331 && position.absX < 3391 && position.absY > 3242 && position.absY < 3260) {	
 			return true;
 		}
 		return false;
 	}
 	
 	public boolean inDuelArena() {
-		if((absX > 3322 && absX < 3394 && absY > 3195 && absY < 3291) ||
-		(absX > 3311 && absX < 3323 && absY > 3223 && absY < 3248)) {
+		if((position.absX > 3322 && position.absX < 3394 && position.absY > 3195 && position.absY < 3291) ||
+		(position.absX > 3311 && position.absX < 3323 && position.absY > 3223 && position.absY < 3248)) {
 			return true;
 		}
 		return false;
 	}
 	
 	public boolean gwdCoords() {
-		if (absX >= 2800 && absX <= 2950 && absY >= 5200 && absY <= 5400) {
+		if (position.absX >= 2800 && position.absX <= 2950 && position.absY >= 5200 && position.absY <= 5400) {
 				return true;
 			}
 		return false;
 	}
 	
 	public boolean inMulti() {
-		if((absX >= 3136 && absX <= 3327 && absY >= 3519 && absY <= 3607) || 
-			(absX >= 3190 && absX <= 3327 && absY >= 3648 && absY <= 3839) ||  
-			(absX >= 3200 && absX <= 3390 && absY >= 3840 && absY <= 3967) || 
-			(absX >= 2992 && absX <= 3007 && absY >= 3912 && absY <= 3967) || 
-			(absX >= 2946 && absX <= 2959 && absY >= 3816 && absY <= 3831) || 
-			(absX >= 3467 && absX <= 3506 && absY >= 9477 && absY <= 9513) ||
-			(absX >= 3008 && absX <= 3199 && absY >= 3856 && absY <= 3903) || 
-			(absX >= 3008 && absX <= 3071 && absY >= 3600 && absY <= 3711) || 
-			(absX >= 3072 && absX <= 3327 && absY >= 3608 && absY <= 3647) ||
-			(absX >= 2624 && absX <= 2690 && absY >= 2550 && absY <= 2619) ||
-			(absX >= 2800 && absX <= 2950 && absY >= 5200 && absY <= 5400) ||
-			(absX >= 2371 && absX <= 2422 && absY >= 5062 && absY <= 5117) ||
-			(absX >= 2896 && absX <= 2927 && absY >= 3595 && absY <= 3630) ||
-			(absX >= 2892 && absX <= 2932 && absY >= 4435 && absY <= 4464) ||
-			(absX >= 2256 && absX <= 2287 && absY >= 4680 && absY <= 4711)) {
+		if((position.absX >= 3136 && position.absX <= 3327 && position.absY >= 3519 && position.absY <= 3607) || 
+			(position.absX >= 3190 && position.absX <= 3327 && position.absY >= 3648 && position.absY <= 3839) ||  
+			(position.absX >= 3200 && position.absX <= 3390 && position.absY >= 3840 && position.absY <= 3967) || 
+			(position.absX >= 2992 && position.absX <= 3007 && position.absY >= 3912 && position.absY <= 3967) || 
+			(position.absX >= 2946 && position.absX <= 2959 && position.absY >= 3816 && position.absY <= 3831) || 
+			(position.absX >= 3467 && position.absX <= 3506 && position.absY >= 9477 && position.absY <= 9513) ||
+			(position.absX >= 3008 && position.absX <= 3199 && position.absY >= 3856 && position.absY <= 3903) || 
+			(position.absX >= 3008 && position.absX <= 3071 && position.absY >= 3600 && position.absY <= 3711) || 
+			(position.absX >= 3072 && position.absX <= 3327 && position.absY >= 3608 && position.absY <= 3647) ||
+			(position.absX >= 2624 && position.absX <= 2690 && position.absY >= 2550 && position.absY <= 2619) ||
+			(position.absX >= 2800 && position.absX <= 2950 && position.absY >= 5200 && position.absY <= 5400) ||
+			(position.absX >= 2371 && position.absX <= 2422 && position.absY >= 5062 && position.absY <= 5117) ||
+			(position.absX >= 2896 && position.absX <= 2927 && position.absY >= 3595 && position.absY <= 3630) ||
+			(position.absX >= 2892 && position.absX <= 2932 && position.absY >= 4435 && position.absY <= 4464) ||
+			(position.absX >= 2256 && position.absX <= 2287 && position.absY >= 4680 && position.absY <= 4711)) {
 			return true;
 		}
 		return false;
@@ -1053,11 +1058,11 @@ public abstract class Player {
 	
 	public boolean inFightCaves()
     {
-        return absX >= 2360 && absX <= 2445 && absY >= 5045 && absY <= 5125;
+        return position.absX >= 2360 && position.absX <= 2445 && position.absY >= 5045 && position.absY <= 5125;
     }
 	
 	public boolean inPirateHouse() {
-		return absX >= 3038 && absX <= 3044 && absY >= 3949 && absY <= 3959;
+		return position.absX >= 3038 && position.absX <= 3044 && position.absY >= 3949 && position.absY <= 3959;
 	}
 	
 	
@@ -1130,8 +1135,8 @@ public abstract class Player {
 	
     public int[] playerEquipment = new int[14];
 	public int[] playerEquipmentN = new int[14];
-	public int[] playerLevel = new int[25];
-	public int[] playerXP = new int[25];
+	/** This player's skill levels and experience. */
+	public final Skills skills = new Skills();
 	
 	public void updateshop(int i){
 		Client p = (Client) PlayerHandler.players[playerId];
@@ -1155,19 +1160,19 @@ public abstract class Player {
 			playerItemsN[i] = 0;
 		}
 
-		for (int i=0; i<playerLevel.length; i++) {
+		for (int i=0; i<skills.playerLevel.length; i++) {
 			if (i == 3) {
-				playerLevel[i] = 10;
+				skills.playerLevel[i] = 10;
 			} else {
-				playerLevel[i] = 1;
+				skills.playerLevel[i] = 1;
 			}
 		}
 
-		for (int i=0; i<playerXP.length; i++) {
+		for (int i=0; i<skills.playerXP.length; i++) {
 			if (i == 3) {
-				playerXP[i] = 1300;
+				skills.playerXP[i] = 1300;
 			} else {
-				playerXP[i] = 0;
+				skills.playerXP[i] = 0;
 			}
 		}
 		for (int i=0; i < Config.BANK_SIZE; i++) {
@@ -1178,19 +1183,19 @@ public abstract class Player {
 			bankItemsN[i] = 0;
 		}
 		
-		playerAppearance[0] = 0; // gender
-		playerAppearance[1] = 7; // head
-		playerAppearance[2] = 25;// Torso
-		playerAppearance[3] = 29; // arms
-		playerAppearance[4] = 35; // hands
-		playerAppearance[5] = 39; // legs
-		playerAppearance[6] = 44; // feet
-		playerAppearance[7] = 14; // beard
-		playerAppearance[8] = 7; // hair colour
-		playerAppearance[9] = 8; // torso colour
-		playerAppearance[10] = 9; // legs colour
-		playerAppearance[11] = 5; // feet colour
-		playerAppearance[12] = 0; // skin colour	
+		appearance.playerAppearance[0] = 0; // gender
+		appearance.playerAppearance[1] = 7; // head
+		appearance.playerAppearance[2] = 25;// Torso
+		appearance.playerAppearance[3] = 29; // arms
+		appearance.playerAppearance[4] = 35; // hands
+		appearance.playerAppearance[5] = 39; // legs
+		appearance.playerAppearance[6] = 44; // feet
+		appearance.playerAppearance[7] = 14; // beard
+		appearance.playerAppearance[8] = 7; // hair colour
+		appearance.playerAppearance[9] = 8; // torso colour
+		appearance.playerAppearance[10] = 9; // legs colour
+		appearance.playerAppearance[11] = 5; // feet colour
+		appearance.playerAppearance[12] = 0; // skin colour	
 		
 		apset = 0;
 		actionID = 0;
@@ -1207,15 +1212,15 @@ public abstract class Player {
 		playerEquipment[playerArrows]=-1;
 		playerEquipment[playerWeapon]=-1;
 		
-		heightLevel = 0;
+		position.heightLevel = 0;
 		
-		teleportToX = Config.START_LOCATION_X;
-		teleportToY = Config.START_LOCATION_Y;
+		position.teleportToX = Config.START_LOCATION_X;
+		position.teleportToY = Config.START_LOCATION_Y;
 
 		
-		absX = absY = -1;
-		mapRegionX = mapRegionY = -1;
-		currentX = currentY = 0;
+		position.absX = position.absY = -1;
+		position.mapRegionX = position.mapRegionY = -1;
+		position.currentX = position.currentY = 0;
 		resetWalkingQueue();
 	}
 
@@ -1223,9 +1228,9 @@ public abstract class Player {
 		playerListSize = 0;
 		for(int i = 0; i < maxPlayerListSize; i++) 
 			playerList[i] = null;
-		absX = absY = -1;
-		mapRegionX = mapRegionY = -1;
-		currentX = currentY = 0;
+		position.absX = position.absY = -1;
+		position.mapRegionX = position.mapRegionY = -1;
+		position.currentX = position.currentY = 0;
 		resetWalkingQueue();
 	}
 	
@@ -1242,7 +1247,7 @@ public abstract class Player {
 	public int barrowsKill;
 	public int hiddenBrother;
 	public boolean inBarrows() {
-		return (absX >= BarrowsData.BARROW_CAVE[0] && absX <= BarrowsData.BARROW_CAVE[2] & absY >= BarrowsData.BARROW_CAVE[1] && absY <= BarrowsData.BARROW_CAVE[3]);
+		return (position.absX >= BarrowsData.BARROW_CAVE[0] && position.absX <= BarrowsData.BARROW_CAVE[2] & position.absY >= BarrowsData.BARROW_CAVE[1] && position.absY <= BarrowsData.BARROW_CAVE[3]);
 	}
 	
 	
@@ -1258,15 +1263,23 @@ public abstract class Player {
 	
 	
 	public boolean withinDistance(Player otherPlr) {
-		if(heightLevel != otherPlr.heightLevel) return false;
-		int deltaX = otherPlr.absX-absX, deltaY = otherPlr.absY-absY;
+		if(position.heightLevel != otherPlr.position.heightLevel) return false;
+		int deltaX = otherPlr.position.absX-position.absX, deltaY = otherPlr.position.absY-position.absY;
 		return deltaX <= 15 && deltaX >= -16 && deltaY <= 15 && deltaY >= -16;
 	}
 
 	public boolean withinDistance(NPC npc) {
-		if (heightLevel != npc.heightLevel) return false;
+		if (npc == null) {
+			return false;
+		}
+		if (position.heightLevel != npc.heightLevel) return false;
 		if (npc.needRespawn == true) return false;
-		int deltaX = npc.absX-absX, deltaY = npc.absY-absY;
+		// Removed from the world (e.g. Blood reavers after Nex dies) — drop from local list.
+		if (npc.npcId < 0 || npc.npcId >= NPCHandler.maxNPCs
+				|| NPCHandler.npcs[npc.npcId] != npc) {
+			return false;
+		}
+		int deltaX = npc.absX-position.absX, deltaY = npc.absY-position.absY;
 		return deltaX <= 15 && deltaX >= -16 && deltaY <= 15 && deltaY >= -16;
 	}
 	
@@ -1283,14 +1296,14 @@ public abstract class Player {
 	}
 
 	public int distanceToPoint(int pointX,int pointY) {
-		return (int) Math.sqrt(Math.pow(absX - pointX, 2) + Math.pow(absY - pointY, 2));
+		return (int) Math.sqrt(Math.pow(position.absX - pointX, 2) + Math.pow(position.absY - pointY, 2));
 	}
 
-	public int mapRegionX, mapRegionY;		
-	public int absX, absY;				
-	public int currentX, currentY;			
-	
-	public int heightLevel;		
+	/** Where this player is, and where it is about to be moved to. */
+	public final Position position = new Position();
+	/** Last walk destination, and the guard that stops its silent repath re-entering. */
+	public final WalkRepath walkRepath = new WalkRepath();
+
 	public int playerSE = 0x328; 
 	public int playerSEW = 0x333; 
 	public int playerSER = 0x334; 
@@ -1303,25 +1316,26 @@ public abstract class Player {
 	public int wQueueReadPtr = 0;		
 	public int wQueueWritePtr = 0;		
 	public boolean isRunning = true;
-	public int teleportToX = -1, teleportToY = -1;	
+
+
+
+
 
 	public void resetWalkingQueue() {
 		wQueueReadPtr = wQueueWritePtr = 0;
 		
 		for(int i = 0; i < walkingQueueSize; i++) {
-			walkingQueueX[i] = currentX;
-			walkingQueueY[i] = currentY;
+			walkingQueueX[i] = position.currentX;
+			walkingQueueY[i] = position.currentY;
 		}
 	}
 
 	public void addToWalkingQueue(int x, int y) {
-		//if (VirtualWorld.I(heightLevel, absX, absY, x, y, 0)) {
-			int next = (wQueueWritePtr+1) % walkingQueueSize;
-			if(next == wQueueWritePtr) return;		
-			walkingQueueX[wQueueWritePtr] = x;
-			walkingQueueY[wQueueWritePtr] = y;
-			wQueueWritePtr = next; 
-		//}
+		int next = (wQueueWritePtr+1) % walkingQueueSize;
+		if(next == wQueueWritePtr) return;
+		walkingQueueX[wQueueWritePtr] = x;
+		walkingQueueY[wQueueWritePtr] = y;
+		wQueueWritePtr = next;
 	}
 
 	public boolean goodDistance(int objectX, int objectY, int playerX, int playerY, int distance) {
@@ -1357,7 +1371,7 @@ public abstract class Player {
 			return -1;	
 		int dir;
 		do {
-			dir = Misc.direction(currentX, currentY, walkingQueueX[wQueueReadPtr], walkingQueueY[wQueueReadPtr]);
+			dir = Misc.direction(position.currentX, position.currentY, walkingQueueX[wQueueReadPtr], walkingQueueY[wQueueReadPtr]);
 			if (dir != -1 && otherDirection != dir) {
 				otherDirection = dir;
 		        }
@@ -1375,16 +1389,30 @@ public abstract class Player {
 		//castlewars
 		Client c = (Client) PlayerHandler.players[this.playerId]; 
 		if(CastleWars.isInCw(c)) {
-				int tempabsX = absX+Misc.directionDeltaX[dir];
-				int tempabsY = absY+Misc.directionDeltaY[dir];
-				if(checkBarricade(tempabsX,tempabsY,heightLevel)){
+				int tempabsX = position.absX+Misc.directionDeltaX[dir];
+				int tempabsY = position.absY+Misc.directionDeltaY[dir];
+				if(checkBarricade(tempabsX,tempabsY,position.heightLevel)){
 					return -1;
 				}
 			  }
-		currentX += Misc.directionDeltaX[dir];
-		currentY += Misc.directionDeltaY[dir];
-		absX += Misc.directionDeltaX[dir];
-		absY += Misc.directionDeltaY[dir];
+		int stepX = Misc.directionDeltaX[dir];
+		int stepY = Misc.directionDeltaY[dir];
+		if (!server.clip.region.SmartPathFinder.canStep(position.absX, position.absY, stepX, stepY, position.heightLevel)) {
+			// Soft fail: drop remaining queue. One silent repath toward last click
+			// dest if available (avoids permanent soft-lock on a single bad step).
+			resetWalkingQueue();
+			if (!walkRepath.walkRepathPending && walkRepath.lastWalkDestX > 0 && walkRepath.lastWalkDestY > 0
+					&& (position.absX != walkRepath.lastWalkDestX || position.absY != walkRepath.lastWalkDestY) && c != null) {
+				walkRepath.walkRepathPending = true;
+				PathFinder.getPathFinder().findRoute(c, walkRepath.lastWalkDestX, walkRepath.lastWalkDestY, true, 1, 1);
+				walkRepath.walkRepathPending = false;
+			}
+			return -1;
+		}
+		position.currentX += stepX;
+		position.currentY += stepY;
+		position.absX += stepX;
+		position.absY += stepY;
 		walkedTiles++;
 		if (walkedTiles >= 2 && isRunning()) {
 			if (playerEnergy > 0) {
@@ -1420,26 +1448,30 @@ public abstract class Player {
 			didTeleport = false;
 			dir1 = dir2 = -1;
 	
-			if(teleportToX != -1 && teleportToY != -1) {
+			if(position.teleportToX != -1 && position.teleportToY != -1) {
 				mapRegionDidChange = true;
-				if(mapRegionX != -1 && mapRegionY != -1) {
-					int relX = teleportToX-mapRegionX*8, relY = teleportToY-mapRegionY*8;
+				if(position.mapRegionX != -1 && position.mapRegionY != -1) {
+					int relX = position.teleportToX-position.mapRegionX*8, relY = position.teleportToY-position.mapRegionY*8;
 					if(relX >= 2*8 && relX < 11*8 && relY >= 2*8 && relY < 11*8)
 						mapRegionDidChange = false;
 				}
 				if(mapRegionDidChange) {
-					mapRegionX = (teleportToX>>3)-6;
-					mapRegionY = (teleportToY>>3)-6;
+					position.mapRegionX = (position.teleportToX>>3)-6;
+					position.mapRegionY = (position.teleportToY>>3)-6;
 				}
-				currentX = teleportToX - 8*mapRegionX;
-				currentY = teleportToY - 8*mapRegionY;
-				absX = teleportToX;
-				absY = teleportToY;
+				position.currentX = position.teleportToX - 8*position.mapRegionX;
+				position.currentY = position.teleportToY - 8*position.mapRegionY;
+				position.absX = position.teleportToX;
+				position.absY = position.teleportToY;
 				resetWalkingQueue();
 				
-				teleportToX = teleportToY = -1;
+				position.teleportToX = position.teleportToY = -1;
 				didTeleport = true;
-			} else {			
+			} else {
+				if (freezeTimer > 0) {
+					resetWalkingQueue();
+					return;
+				}
 				dir1 = getNextWalkingDirection();
 				if(dir1 == -1) 
 					return;
@@ -1451,27 +1483,27 @@ public abstract class Player {
 				}
 				//c.sendMessage("Cycle Ended");	
 				int deltaX = 0, deltaY = 0;
-				if(currentX < 2*8) {
+				if(position.currentX < 2*8) {
 					deltaX = 4*8;
-					mapRegionX -= 4;
+					position.mapRegionX -= 4;
 					mapRegionDidChange = true;
-				} else if(currentX >= 11*8) {
+				} else if(position.currentX >= 11*8) {
 					deltaX = -4*8;
-					mapRegionX += 4;
+					position.mapRegionX += 4;
 					mapRegionDidChange = true;
 				}
-				if(currentY < 2*8) {
+				if(position.currentY < 2*8) {
 					deltaY = 4*8;
-					mapRegionY -= 4;
+					position.mapRegionY -= 4;
 					mapRegionDidChange = true;
-				} else if(currentY >= 11*8) {
+				} else if(position.currentY >= 11*8) {
 					deltaY = -4*8;
-					mapRegionY += 4;
+					position.mapRegionY += 4;
 					mapRegionDidChange = true;
 				}
 				if(mapRegionDidChange/* && VirtualWorld.I(heightLevel, currentX, currentY, currentX + deltaX, currentY + deltaY, 0)*/) {
-					currentX += deltaX;
-					currentY += deltaY;
+					position.currentX += deltaX;
+					position.currentY += deltaY;
 					for(int i = 0; i < walkingQueueSize; i++) {
 						walkingQueueX[i] += deltaX;
 						walkingQueueY[i] += deltaY;
@@ -1487,8 +1519,8 @@ public abstract class Player {
 		//synchronized(this) {
 			if(mapRegionDidChange) {
 				str.createFrame(73);
-				str.writeWordA(mapRegionX+6);	
-				str.writeWord(mapRegionY+6);
+				str.writeWordA(position.mapRegionX+6);	
+				str.writeWord(position.mapRegionY+6);
 			}
 
 			if(didTeleport) {
@@ -1496,11 +1528,11 @@ public abstract class Player {
 				str.initBitAccess();
 				str.writeBits(1, 1);
 				str.writeBits(2, 3);			
-				str.writeBits(2, heightLevel);
+				str.writeBits(2, position.heightLevel);
 				str.writeBits(1, 1);			
 				str.writeBits(1, (updateRequired) ? 1 : 0);
-				str.writeBits(7, currentY);
-				str.writeBits(7, currentX);
+				str.writeBits(7, position.currentY);
+				str.writeBits(7, position.currentX);
 				return ;
 			}
 			
@@ -1585,10 +1617,10 @@ public abstract class Player {
 	
 			str.writeBits(14, id);	
 			
-			int z = npc.absY-absY;
+			int z = npc.absY-position.absY;
 			if(z < 0) z += 32;
 			str.writeBits(5, z);	
-			z = npc.absX-absX;
+			z = npc.absX-position.absX;
 			if(z < 0) z += 32;
 			str.writeBits(5, z);	
 	
@@ -1621,10 +1653,10 @@ public abstract class Player {
 			plr.setAppearanceUpdateRequired(savedFlag);
 			plr.updateRequired = savedUpdateRequired;
 			str.writeBits(1, 1);							
-			int z = plr.absY-absY;
+			int z = plr.position.absY-position.absY;
 			if(z < 0) z += 32;
 			str.writeBits(5, z);	
-			z = plr.absX-absX;
+			z = plr.position.absX-position.absX;
 			if(z < 0) z += 32;
 			str.writeBits(5, z);
 		}
@@ -1634,137 +1666,15 @@ public abstract class Player {
 	static {
 		playerProps = new Stream(new byte[100]);
 	}
-	/*protected void appendPlayerAppearance(Stream str) {
-		//synchronized(this) {
-			playerProps.currentOffset = 0;
-	
-			playerProps.writeByte(playerAppearance[0]);		
-			
-			playerProps.writeByte(headIcon);
-			playerProps.writeByte(headIconPk);
-			//playerProps.writeByte(headIconHints);
-			//playerProps.writeByte(bountyIcon);
-			
-			if (playerEquipment[playerHat] > 1) {
-				playerProps.writeWord(0x200 + playerEquipment[playerHat]);
-			} else {
-				playerProps.writeByte(0);
-			}
-	
-			if (playerEquipment[playerCape] > 1) {
-				playerProps.writeWord(0x200 + playerEquipment[playerCape]);
-			} else {
-				playerProps.writeByte(0);
-			}
-	
-			if (playerEquipment[playerAmulet] > 1) {
-				playerProps.writeWord(0x200 + playerEquipment[playerAmulet]);
-			} else {
-				playerProps.writeByte(0);
-			}
-	
-			if (playerEquipment[playerWeapon] > 1) {
-				playerProps.writeWord(0x200 + playerEquipment[playerWeapon]);
-			} else {
-				playerProps.writeByte(0);
-			}
-	
-			if (playerEquipment[playerChest] > 1) {
-				playerProps.writeWord(0x200 + playerEquipment[playerChest]);
-			} else {
-				playerProps.writeWord(0x100+playerAppearance[2]);
-			}
-			
-			if (playerEquipment[playerShield] > 1) {
-				playerProps.writeWord(0x200 + playerEquipment[playerShield]);
-			} else {
-				playerProps.writeByte(0);
-			}
-			
-			if (!Item.isFullBody(playerEquipment[playerChest])) {
-				playerProps.writeWord(0x100+playerAppearance[3]);
-			} else {
-				playerProps.writeByte(0);
-			}
-			
-			if (playerEquipment[playerLegs] > 1) {
-				playerProps.writeWord(0x200 + playerEquipment[playerLegs]);
-			} else {
-				playerProps.writeWord(0x100+playerAppearance[5]);
-			}
-			
-			if (!Item.isFullHelm(playerEquipment[playerHat]) && !Item.isFullMask(playerEquipment[playerHat])) {
-				playerProps.writeWord(0x100 + playerAppearance[1]);		
-			} else {
-				playerProps.writeByte(0);
-			}
-	
-			if (playerEquipment[playerHands] > 1) {
-				playerProps.writeWord(0x200 + playerEquipment[playerHands]);
-			} else {
-				playerProps.writeWord(0x100+playerAppearance[4]);
-			}
-			
-			if (playerEquipment[playerFeet] > 1) {
-				playerProps.writeWord(0x200 + playerEquipment[playerFeet]);
-			} else {
-				 playerProps.writeWord(0x100+playerAppearance[6]);
-			}
-				 
-			if (playerAppearance[0] != 1 && !Item.isFullMask(playerEquipment[playerHat])) {
-				playerProps.writeWord(0x100 + playerAppearance[7]);
-			} else {
-				playerProps.writeByte(0);
-			}
-			
-			playerProps.writeByte(playerAppearance[8]);	
-			playerProps.writeByte(playerAppearance[9]);	
-			playerProps.writeByte(playerAppearance[10]);	
-			playerProps.writeByte(playerAppearance[11]);	
-			playerProps.writeByte(playerAppearance[12]);	
-			playerProps.writeWord(playerStandIndex);		// standAnimIndex
-			playerProps.writeWord(playerTurnIndex);		// standTurnAnimIndex
-			playerProps.writeWord(playerWalkIndex);		// walkAnimIndex
-			playerProps.writeWord(playerTurn180Index);		// turn180AnimIndex
-			playerProps.writeWord(playerTurn90CWIndex);		// turn90CWAnimIndex
-			playerProps.writeWord(playerTurn90CCWIndex);		// turn90CCWAnimIndex
-			playerProps.writeWord(playerRunIndex);		// runAnimIndex	
-	
-			playerProps.writeQWord(Misc.playerNameToInt64(playerName));
-	
-			int mag = (int) ((getLevelForXP(playerXP[6])) * 1.5);
-			int ran = (int) ((getLevelForXP(playerXP[4])) * 1.5);
-			int attstr = (int) ((double) (getLevelForXP(playerXP[0])) + (double) (getLevelForXP(playerXP[2])));
-	
-			combatLevel = 0;
-			if (ran > attstr) {
-				combatLevel = (int) (((getLevelForXP(playerXP[1])) * 0.25)
-						+ ((getLevelForXP(playerXP[3])) * 0.25)
-						+ ((getLevelForXP(playerXP[5])) * 0.125) + ((getLevelForXP(playerXP[4])) * 0.4875));
-			} else if (mag > attstr) {
-				combatLevel = (int) (((getLevelForXP(playerXP[1])) * 0.25)
-						+ ((getLevelForXP(playerXP[3])) * 0.25)
-						+ ((getLevelForXP(playerXP[5])) * 0.125) + ((getLevelForXP(playerXP[6])) * 0.4875));
-			} else {
-				combatLevel = (int) (((getLevelForXP(playerXP[1])) * 0.25)
-						+ ((getLevelForXP(playerXP[3])) * 0.25)
-						+ ((getLevelForXP(playerXP[5])) * 0.125)
-						+ ((getLevelForXP(playerXP[0])) * 0.325) + ((getLevelForXP(playerXP[2])) * 0.325));
-			}
-			playerProps.writeByte(combatLevel);		// combat level		
-			playerProps.writeWord(0);		
-			str.writeByteC(playerProps.currentOffset);		
-			str.writeBytes(playerProps.buffer, playerProps.currentOffset, 0);
-		}*/
 	protected void appendPlayerAppearance(Stream str) {
 		//synchronized(this) {
 			playerProps.currentOffset = 0;
 	
-			playerProps.writeByte(playerAppearance[0]);		
+			playerProps.writeByte(appearance.playerAppearance[0]);		
 			
 			//playerProps.writeByte(0);
-			playerProps.writeByte(headIcon);
-			playerProps.writeByte(headIconPk);
+			playerProps.writeByte(appearance.headIcon);
+			playerProps.writeByte(appearance.headIconPk);
 			//playerProps.writeByte(headIconHints);
 			//playerProps.writeByte(bountyIcon);
 			if (isNpc == false) {
@@ -1795,7 +1705,7 @@ public abstract class Player {
 			if (playerEquipment[playerChest] > 1) {
 				playerProps.writeWord(0x200 + playerEquipment[playerChest]);
 			} else {
-				playerProps.writeWord(0x100+playerAppearance[2]);
+				playerProps.writeWord(0x100+appearance.playerAppearance[2]);
 			}
 			
 			if (playerEquipment[playerShield] > 1) {
@@ -1806,7 +1716,7 @@ public abstract class Player {
 			
 			//if (!isFullBody) {
 			if (!Item.isFullBody(playerEquipment[playerChest])) {
-				playerProps.writeWord(0x100+playerAppearance[3]);
+				playerProps.writeWord(0x100+appearance.playerAppearance[3]);
 			} else {
 				playerProps.writeByte(0);
 			}
@@ -1814,12 +1724,12 @@ public abstract class Player {
 			if (playerEquipment[playerLegs] > 1) {
 				playerProps.writeWord(0x200 + playerEquipment[playerLegs]);
 			} else {
-				playerProps.writeWord(0x100+playerAppearance[5]);
+				playerProps.writeWord(0x100+appearance.playerAppearance[5]);
 			}
 			
 			//if (!isFullHelm && !isFullMask) {
 			if (!Item.isFullHelm(playerEquipment[playerHat]) && !Item.isFullMask(playerEquipment[playerHat])) {
-				playerProps.writeWord(0x100 + playerAppearance[1]);		
+				playerProps.writeWord(0x100 + appearance.playerAppearance[1]);		
 			} else {
 				playerProps.writeByte(0);
 			}
@@ -1827,18 +1737,18 @@ public abstract class Player {
 			if (playerEquipment[playerHands] > 1) {
 				playerProps.writeWord(0x200 + playerEquipment[playerHands]);
 			} else {
-				playerProps.writeWord(0x100+playerAppearance[4]);
+				playerProps.writeWord(0x100+appearance.playerAppearance[4]);
 			}
 			
 			if (playerEquipment[playerFeet] > 1) {
 				playerProps.writeWord(0x200 + playerEquipment[playerFeet]);
 			} else {
-				 playerProps.writeWord(0x100+playerAppearance[6]);
+				 playerProps.writeWord(0x100+appearance.playerAppearance[6]);
 			}
 				 
 			//if (playerAppearance[0] != 1 && !isFullMask) {
-			if (playerAppearance[0] != 1 && !Item.isFullMask(playerEquipment[playerHat])) {
-				playerProps.writeWord(0x100 + playerAppearance[7]);
+			if (appearance.playerAppearance[0] != 1 && !Item.isFullMask(playerEquipment[playerHat])) {
+				playerProps.writeWord(0x100 + appearance.playerAppearance[7]);
 			} else {
 			playerProps.writeByte(0);
 		}
@@ -1846,11 +1756,11 @@ public abstract class Player {
   playerProps.writeWord(-1);
   playerProps.writeWord(npcId2);
 	}
-			playerProps.writeByte(playerAppearance[8]);	
-			playerProps.writeByte(playerAppearance[9]);	
-			playerProps.writeByte(playerAppearance[10]);	
-			playerProps.writeByte(playerAppearance[11]);	
-			playerProps.writeByte(playerAppearance[12]);	
+			playerProps.writeByte(appearance.playerAppearance[8]);	
+			playerProps.writeByte(appearance.playerAppearance[9]);	
+			playerProps.writeByte(appearance.playerAppearance[10]);	
+			playerProps.writeByte(appearance.playerAppearance[11]);	
+			playerProps.writeByte(appearance.playerAppearance[12]);	
 			playerProps.writeWord(playerStandIndex);		// standAnimIndex
 			playerProps.writeWord(playerTurnIndex);		// standTurnAnimIndex
 			playerProps.writeWord(playerWalkIndex);		// walkAnimIndex
@@ -1869,13 +1779,13 @@ public abstract class Player {
 	}
 	
 	public int calculateCombatLevel() {
-		int j = getLevelForXP(playerXP[playerAttack]);
-		int k = getLevelForXP(playerXP[playerDefence]);
-		int l = getLevelForXP(playerXP[playerStrength]);
-		int i1 = getLevelForXP(playerXP[playerHitpoints]);
-		int j1 = getLevelForXP(playerXP[playerPrayer]);
-		int k1 = getLevelForXP(playerXP[playerRanged]);
-		int l1 = getLevelForXP(playerXP[playerMagic]);
+		int j = getLevelForXP(skills.playerXP[playerAttack]);
+		int k = getLevelForXP(skills.playerXP[playerDefence]);
+		int l = getLevelForXP(skills.playerXP[playerStrength]);
+		int i1 = getLevelForXP(skills.playerXP[playerHitpoints]);
+		int j1 = getLevelForXP(skills.playerXP[playerPrayer]);
+		int k1 = getLevelForXP(skills.playerXP[playerRanged]);
+		int l1 = getLevelForXP(skills.playerXP[playerMagic]);
 		int combatLevel = (int) (((k + i1) + Math.floor(j1 / 2)) * 0.25D) + 1;
 		double d = (j + l) * 0.32500000000000001D;
 		double d1 = Math.floor(k1 * 1.5D) * 0.32500000000000001D;
@@ -2049,12 +1959,12 @@ public abstract class Player {
 			} else {
 				str.writeByteA(0); // 0: red hitting - 1: blue hitting
 			}
-			if (playerLevel[3] <= 0) {
-				playerLevel[3] = 0;
+			if (skills.playerLevel[3] <= 0) {
+				skills.playerLevel[3] = 0;
 				isDead = true;	
 			}
-			str.writeByteC(playerLevel[3]); // Their current hp, for HP bar
-			str.writeByte(getLevelForXP(playerXP[3])); // Their max hp, for HP bar
+			str.writeByteC(skills.playerLevel[3]); // Their current hp, for HP bar
+			str.writeByte(getLevelForXP(skills.playerXP[3])); // Their max hp, for HP bar
 		
 	}
 	
@@ -2070,12 +1980,12 @@ public abstract class Player {
 			} else {
 				str.writeByteS(0); // 0: red hitting - 1: blue hitting
 			}
-			if (playerLevel[3] <= 0) {
-				playerLevel[3] = 0;
+			if (skills.playerLevel[3] <= 0) {
+				skills.playerLevel[3] = 0;
 				isDead = true;	
 			}
-			str.writeByte(playerLevel[3]); // Their current hp, for HP bar
-			str.writeByteC(getLevelForXP(playerXP[3])); // Their max hp, for HP bar
+			str.writeByte(skills.playerLevel[3]); // Their current hp, for HP bar
+			str.writeByteC(getLevelForXP(skills.playerXP[3])); // Their max hp, for HP bar
 		
 	}
 	
@@ -2169,14 +2079,17 @@ public abstract class Player {
 	}
 
 	public void stopMovement() {
-        if(teleportToX <= 0 && teleportToY <= 0) {
-            teleportToX = absX;
-            teleportToY = absY;
-        }
+		// Clear the path only. Setting teleportToX/Y and running movement here
+		// marks didTeleport, and combat calls this after the tick's walk is
+		// already computed, so the client receives a teleport instead of a step.
+		if (position.teleportToX != -1 || position.teleportToY != -1) {
+			newWalkCmdSteps = 0;
+			return;
+		}
+		resetWalkingQueue();
 		newWalkCmdSteps = 0;
-        getNewWalkCmdX()[0] = getNewWalkCmdY()[0] = travelBackX[0] = travelBackY[0] = 0;
-        getNextPlayerMovement();
-    }
+		getNewWalkCmdX()[0] = getNewWalkCmdY()[0] = travelBackX[0] = travelBackY[0] = 0;
+	}
 
 
 	private int newWalkCmdX[] = new int[walkingQueueSize];
@@ -2191,10 +2104,17 @@ public abstract class Player {
 		newWalkCmdSteps = 0;
 	}
 
+	public void processCombatAfterMovement() {}
+
 	public abstract void process();
 	public abstract boolean processQueuedPackets();
 	
 	public synchronized void postProcessing() {
+		if (freezeTimer > 0) {
+			newWalkCmdSteps = 0;
+			resetWalkingQueue();
+			return;
+		}
 		if(newWalkCmdSteps > 0) {
 			int firstX = getNewWalkCmdX()[0], firstY = getNewWalkCmdY()[0];	
 
@@ -2202,7 +2122,7 @@ public abstract class Player {
 			boolean found = false;
 			numTravelBackSteps = 0;
 			int ptr = wQueueReadPtr;
-			int dir = Misc.direction(currentX, currentY, firstX, firstY);
+			int dir = Misc.direction(position.currentX, position.currentY, firstX, firstY);
 			if(dir != -1 && (dir&1) != 0) {				
 				do {
 					lastDir = dir;
@@ -2226,7 +2146,7 @@ public abstract class Player {
 			} else {
 				wQueueWritePtr = wQueueReadPtr;		
 
-				addToWalkingQueue(currentX, currentY);	
+				addToWalkingQueue(position.currentX, position.currentY);	
 
 				if(dir != -1 && (dir&1) != 0) {
 					
@@ -2237,8 +2157,8 @@ public abstract class Player {
 					int wayPointX2 = travelBackX[numTravelBackSteps-1], wayPointY2 = travelBackY[numTravelBackSteps-1];
 					int wayPointX1, wayPointY1;
 					if(numTravelBackSteps == 1) {
-						wayPointX1 = currentX;
-						wayPointY1 = currentY;
+						wayPointX1 = position.currentX;
+						wayPointY1 = position.currentY;
 					}
 					else {
 						wayPointX1 = travelBackX[numTravelBackSteps-2];
@@ -2288,18 +2208,18 @@ public abstract class Player {
 	}
 	
 	public int getMapRegionX() {
-		return mapRegionX;
+		return position.mapRegionX;
 	}
 	public int getMapRegionY() {
-		return mapRegionY;
+		return position.mapRegionY;
 	}
 	
 	public int getX() {
-		return absX;
+		return position.absX;
 	}
 	
 	public int getY() {
-		return absY;
+		return position.absY;
 	}
 	
 	public int getId() {
@@ -2307,11 +2227,11 @@ public abstract class Player {
 	}
 	
 	public boolean inPcBoat() {
-		return absX >= 2660 && absX <= 2663 && absY >= 2638 && absY <= 2643;
+		return position.absX >= 2660 && position.absX <= 2663 && position.absY >= 2638 && position.absY <= 2643;
 	}
 	
 	public boolean inPcGame() {
-		return absX >= 2624 && absX <= 2690 && absY >= 2550 && absY <= 2619;
+		return position.absX >= 2624 && position.absX <= 2690 && position.absY >= 2550 && position.absY <= 2619;
 	}
 
 
@@ -2352,12 +2272,12 @@ public abstract class Player {
 
 
 	public void setAppearanceUpdateRequired(boolean appearanceUpdateRequired) {
-		this.appearanceUpdateRequired = appearanceUpdateRequired;
+		this.appearance.appearanceUpdateRequired = appearanceUpdateRequired;
 	}
 
 
 	public boolean isAppearanceUpdateRequired() {
-		return appearanceUpdateRequired;
+		return appearance.appearanceUpdateRequired;
 	}
 
 
@@ -2467,13 +2387,13 @@ public abstract class Player {
 	
 	public void putInCombat(int attacker) {
 		underAttackBy = attacker;
-		logoutDelay = System.currentTimeMillis();
-		singleCombatDelay = System.currentTimeMillis();	
+		timers.logoutDelay = System.currentTimeMillis();
+		timers.singleCombatDelay = System.currentTimeMillis();	
 	}
 	
 	public void dealDamage(int damage) {
 		if (teleTimer <= 0) {
-			playerLevel[3] -= damage;
+			skills.playerLevel[3] -= damage;
 			if (pendingHitpoints > 0) {
 				pendingHitpoints -= damage;
 				if (pendingHitpoints < 0) {

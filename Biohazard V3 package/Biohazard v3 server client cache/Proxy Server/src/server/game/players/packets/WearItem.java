@@ -3,7 +3,6 @@ package server.game.players.packets;
 import core.util.Misc;
 import server.content.skills.Pouches;
 import server.game.players.Client;
-import server.game.players.PacketType;
 
 
 /**

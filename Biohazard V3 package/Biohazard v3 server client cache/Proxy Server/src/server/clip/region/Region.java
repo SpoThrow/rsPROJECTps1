@@ -1,6 +1,6 @@
 package server.clip.region;
 
-import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -68,41 +68,73 @@ public class Region {
 		return false;
 	}
 	
-	public static boolean blockedShot(int x, int y, int height, int moveTypeX, int moveTypeY)
-	{
+	/** Projectile-impenetrable bit set when ObjectDef.solid() is true at load. */
+	private static final int PROJECTILE = 0x20000;
+
+	/**
+	 * True when a projectile can take one step (dx,dy) from (fromX,fromY).
+	 * Uses projectile flags only — walk-blocked water/low fences do not block.
+	 * @param ignoreDestSolid when true, destination tile solid does not block
+	 *        (shoot AT a target standing on/near solid scenery).
+	 */
+	public static boolean canProjectileStep(int fromX, int fromY, int dx, int dy, int height,
+			boolean ignoreDestSolid) {
 		try {
-			if(height > 3)
+			if (height > 3) {
 				height = 0;
-			int checkX = (x + moveTypeX);
-			int checkY = (y + moveTypeY);
-			if(moveTypeX == -1 && moveTypeY == 0)
-				return (getClipping(x, y, height) & 0x20000) == 0;
-			else	
-				if(moveTypeX == 1 && moveTypeY == 0)
-					return (getClipping(x, y, height) & 0x20000) == 0;
-				else
-					if(moveTypeX == 0 && moveTypeY == -1)
-						return (getClipping(x, y, height) & 0x20000) == 0;
-					else
-						if(moveTypeX == 0 && moveTypeY == 1)
-							return (getClipping(x, y, height) & 0x20000) == 0;
-						else
-							if(moveTypeX == -1 && moveTypeY == -1)
-								return ((getClipping(x, y, height) & 0x20000) == 0 && (getClipping(checkX - 1, checkY, height) & 0x20000) == 0 && (getClipping(checkX - 1, checkY, height) & 0x20000) == 0);
-							else
-								if(moveTypeX == 1 && moveTypeY == -1)
-									return ((getClipping(x, y, height) & 0x20000) == 0 && (getClipping(checkX + 1, checkY, height) & 0x20000) == 0 && (getClipping(checkX, checkY - 1, height) & 0x20000) == 0);
-								else
-									if(moveTypeX == -1 && moveTypeY == 1)
-										return ((getClipping(x, y, height) & 0x20000) == 0 && (getClipping(checkX - 1, checkY, height) & 0x20000) == 0 && (getClipping(checkX, checkY + 1, height) & 0x20000) == 0);
-									else
-										if(moveTypeX == 1 && moveTypeY == 1)
-											return ((getClipping(x, y, height) & 0x20000) == 0 && (getClipping(checkX + 1, checkY, height) & 0x20000) == 0 && (getClipping(checkX, checkY + 1, height) & 0x20000) == 0);
-										else
-										{
-											return false;
-										}
-		} catch (Exception e) { return true; }
+			}
+			if (dx < -1 || dx > 1 || dy < -1 || dy > 1 || (dx == 0 && dy == 0)) {
+				return false;
+			}
+			int toX = fromX + dx;
+			int toY = fromY + dy;
+			int to = getClipping(toX, toY, height);
+			int sideX = getClipping(toX, fromY, height);
+			int sideY = getClipping(fromX, toY, height);
+			if (ignoreDestSolid) {
+				to &= ~PROJECTILE;
+			}
+			if (dx == -1 && dy == 0) {
+				return (to & PROJECTILE) == 0;
+			}
+			if (dx == 1 && dy == 0) {
+				return (to & PROJECTILE) == 0;
+			}
+			if (dx == 0 && dy == -1) {
+				return (to & PROJECTILE) == 0;
+			}
+			if (dx == 0 && dy == 1) {
+				return (to & PROJECTILE) == 0;
+			}
+			// Diagonals: dest + both adjacent sides (same geometry as walk canStep).
+			if (dx == -1 && dy == -1) {
+				return (to & PROJECTILE) == 0 && (sideX & PROJECTILE) == 0 && (sideY & PROJECTILE) == 0;
+			}
+			if (dx == 1 && dy == -1) {
+				return (to & PROJECTILE) == 0 && (sideX & PROJECTILE) == 0 && (sideY & PROJECTILE) == 0;
+			}
+			if (dx == -1 && dy == 1) {
+				return (to & PROJECTILE) == 0 && (sideX & PROJECTILE) == 0 && (sideY & PROJECTILE) == 0;
+			}
+			if (dx == 1 && dy == 1) {
+				return (to & PROJECTILE) == 0 && (sideX & PROJECTILE) == 0 && (sideY & PROJECTILE) == 0;
+			}
+			return false;
+		} catch (Exception e) {
+			return false;
+		}
+	}
+
+	public static boolean canProjectileStep(int fromX, int fromY, int dx, int dy, int height) {
+		return canProjectileStep(fromX, fromY, dx, dy, height, false);
+	}
+
+	/**
+	 * Legacy name: returns true when the shot is NOT blocked (passable).
+	 * Prefer {@link #canProjectileStep(int, int, int, int, int)}.
+	 */
+	public static boolean blockedShot(int x, int y, int height, int moveTypeX, int moveTypeY) {
+		return canProjectileStep(x, y, moveTypeX, moveTypeY, height, false);
 	}
 
 	public static void addClippingForVariableObject(int x, int y, int height, int type, int direction, boolean flag) {
@@ -220,17 +252,19 @@ public class Region {
 
 	public static void addObject(int objectId, int x, int y, int height, int type, int direction) {
 		Region r = Region.getRegion(x, y);
-		if (r != null && !startup) {
-			for (Objects o : r.realObjects) {
-				if (o.objectId >= 0) {
-					if (o.objectX == x && o.objectY == y && o.objectHeight == height) {
-						o.objectId = -1;
-						break;
+		if (r != null) {
+			if (!startup) {
+				for (Objects o : r.realObjects) {
+					if (o.objectId >= 0) {
+						if (o.objectX == x && o.objectY == y && o.objectHeight == height) {
+							o.objectId = -1;
+							break;
+						}
 					}
 				}
 			}
+			r.realObjects.add(new Objects(objectId, x, y, height, direction, type));
 		}
-		r.realObjects.add(new Objects(objectId, x, y, height, direction, type));
 		if(objectId < 0)
 			return;
 		ObjectDef def = ObjectDef.getObjectDef(objectId);
@@ -248,20 +282,43 @@ public class Region {
 			xLength = def.yLength();
 			yLength = def.xLength();
 		}
+		// Chaos, Guthix, and ancient altars are 2x2. A missing size leaves three tiles open.
+		if (objectId == 409 || objectId == 410 || objectId == 6552) {
+			if (xLength < 2)
+				xLength = 2;
+			if (yLength < 2)
+				yLength = 2;
+		}
+		boolean blocksWalk = def.aBoolean767()
+				|| objectId == 409 || objectId == 410 || objectId == 6552;
+		// Projectile solid from ObjectDef.solid(); short-object overrides strip 0x20000 only.
+		boolean blocksProjectiles = def.solid() && !projectileSolidOverride(objectId);
 		if (type == 22) {
-			if (def.hasActions() && def.aBoolean767()) {
+			if (def.hasActions() && blocksWalk) {
 				addClipping(x, y, height, 0x200000);
 			}
 		} else if (type >= 9) {
-			if(def.aBoolean767())
+			if(blocksWalk)
 			{
-				addClippingForSolidObject(x, y, height, xLength, yLength, def.solid());
+				addClippingForSolidObject(x, y, height, xLength, yLength, blocksProjectiles);
 			}
 		} else if (type >= 0 && type <= 3) {
 			if(def.aBoolean767())
 			{
-				addClippingForVariableObject(x, y, height, type, direction, def.solid());
+				addClippingForVariableObject(x, y, height, type, direction, blocksProjectiles);
 			}
+		}
+	}
+
+	/**
+	 * Short scenery that walks-block but must not block shots (OSRS-style).
+	 * Empty until a concrete object fails in-game tests — add IDs here only.
+	 */
+	private static boolean projectileSolidOverride(int objectId) {
+		switch (objectId) {
+		// Example (disabled): case 1234: return true;
+		default:
+			return false;
 		}
 	}
 
@@ -354,14 +411,58 @@ public class Region {
 				try {
 					loadMaps(regionIds[i], new ByteStream(file1), new ByteStream(file2));
 				} catch(Exception e) {
-					System.out.println("Error loading map region: " + regionIds[i]);
+					System.out.println("Error loading map region: " + regionIds[i] + " (" + e.getClass().getSimpleName() + ")");
 				}
 			}
 			System.out.println("[Region] DONE LOADING REGION CONFIGURATIONS");
+			verifyClippingConsistency();
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
 		startup = false;
+	}
+
+	/**
+	 * Ownership: Region holds the clip matrix; SmartPathFinder.canStep is the
+	 * sole step API used by player/NPC movement. WalkingCheck/ClipMap.bin is
+	 * intentionally unused (would duplicate this source of truth).
+	 * Samples a few known solid tiles and checks Region.getClipping vs
+	 * SmartPathFinder.canStep agreement for cardinal steps.
+	 */
+	public static void verifyClippingConsistency() {
+		int mismatches = 0;
+		int samples = 0;
+		// Lumbridge castle courtyard / bank area samples (z=0).
+		int[][] points = new int[][] {
+			{ 3222, 3218 }, { 3205, 3209 }, { 3094, 3491 }, { 2949, 3371 },
+			{ 3080, 3503 }, { 3253, 3420 }, { 3363, 3275 }, { 2662, 3305 }
+		};
+		int[][] deltas = new int[][] {
+			{ 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 }
+		};
+		for (int p = 0; p < points.length; p++) {
+			int x = points[p][0];
+			int y = points[p][1];
+			if (getRegion(x, y) == null) {
+				continue;
+			}
+			for (int d = 0; d < deltas.length; d++) {
+				int dx = deltas[d][0];
+				int dy = deltas[d][1];
+				boolean regionOk = getClipping(x + dx, y + dy, 0, dx, dy);
+				boolean smartOk = SmartPathFinder.canStep(x, y, dx, dy, 0);
+				samples++;
+				if (regionOk != smartOk) {
+					mismatches++;
+				}
+			}
+		}
+		if (mismatches == 0) {
+			System.out.println("[Region] Clip verify OK (" + samples + " samples, Region vs SmartPathFinder)");
+		} else {
+			System.out.println("[Region] Clip verify: " + mismatches + "/" + samples
+					+ " Region.getClipping(dx,dy) vs SmartPathFinder.canStep mismatches (informational)");
+		}
 	}
 
 	private static void loadMaps(int regionId, ByteStream str1, ByteStream str2) {
@@ -434,27 +535,17 @@ public class Region {
 	{
 		if(!f.exists())
 			return null;
-		byte[] buffer = new byte[(int) f.length()];
-		DataInputStream dis = new DataInputStream(new FileInputStream(f));
-		dis.readFully(buffer);
-		dis.close();
-		byte[] gzipInputBuffer = new byte[999999];
-		int bufferlength = 0;
-		GZIPInputStream gzip = new GZIPInputStream(new ByteArrayInputStream(buffer));
-		do {
-			if(bufferlength == gzipInputBuffer.length)
-			{
-				System.out.println("Error inflating data.\nGZIP buffer overflow.");
-				break;
-			}
-			int readByte = gzip.read(gzipInputBuffer, bufferlength, gzipInputBuffer.length - bufferlength);
-			if(readByte == -1)
-				break;
-			bufferlength += readByte;
-		} while(true);
-		byte[] inflated = new byte[bufferlength];
-		System.arraycopy(gzipInputBuffer, 0, inflated, 0, bufferlength);
-		buffer = inflated;
+		FileInputStream fis = new FileInputStream(f);
+		GZIPInputStream gzip = new GZIPInputStream(fis);
+		ByteArrayOutputStream bos = new ByteArrayOutputStream();
+		byte[] tmp = new byte[4096];
+		int n;
+		while ((n = gzip.read(tmp)) != -1) {
+			bos.write(tmp, 0, n);
+		}
+		gzip.close();
+		fis.close();
+		byte[] buffer = bos.toByteArray();
 		if(buffer.length < 10)
 			return null;
 		return buffer;
@@ -591,21 +682,5 @@ public class Region {
 		}
 	}
 	
-	/*public static boolean isMembers(int x, int y, int height)
-	{
-		if(x >= 3272 && x <= 3320 && y >= 2752 && y <= 2809)
-			return false;
-		if(x >= 2640 && x <= 2677 && y >= 2638 && y <= 2679)
-			return false;
-		int regionX = x >> 3;
-		int regionY = y >> 3;
-		int regionId = ((regionX / 8) << 8) + (regionY / 8);
-		for (Region r : regions) {
-			if (r.id() == regionId) {
-				return r.members();
-			}
-		}
-		return false;
-	}*/
 
 }

@@ -7,12 +7,18 @@ public class BankTabs {
 
 	public static final int TAB_COUNT = 9;
 	public static final int COLUMNS = 10;
-	public static final int DISPLAY_SIZE = 500;
+	public static final int DISPLAY_SIZE = 1200;
 	public static final int MAIN_BUTTON = 10324;
+	public static final int MAIN_TAB_DROP = 10334;
 	public static final int TAB_ITEM_START = 10335;
 	public static final int USED_COUNT_ID = 19995;
 	public static final int MAX_COUNT_ID = 19996;
 	public static final int SEARCH_CONFIG = 116;
+	public static final int QTY_SEL_1_CONFIG = 117;
+	public static final int QTY_SEL_5_CONFIG = 118;
+	public static final int QTY_SEL_10_CONFIG = 119;
+	public static final int QTY_SEL_X_CONFIG = 120;
+	public static final int QTY_SEL_ALL_CONFIG = 121;
 	public static final int VIEW_TAB_CONFIG = 160;
 	public static final int QTY_1 = 26030;
 	public static final int QTY_5 = 26031;
@@ -288,6 +294,44 @@ public class BankTabs {
 		refresh();
 	}
 
+	public int tabForDisplaySlot(int displaySlot) {
+		if (displaySlot < 0 || displaySlot >= DISPLAY_SIZE) {
+			return -1;
+		}
+		if (c.bankingTab > 0) {
+			return c.bankingTab;
+		}
+		int d = 0;
+		boolean started = false;
+		int lastTab = 0;
+		for (int tab = 0; tab < TAB_COUNT; tab++) {
+			int n = c.tabAmounts[tab];
+			if (n <= 0) {
+				continue;
+			}
+			if (started) {
+				if (d % COLUMNS != 0) {
+					int pad = COLUMNS - (d % COLUMNS);
+					if (displaySlot >= d && displaySlot < d + pad) {
+						return lastTab;
+					}
+					d += pad;
+				}
+				if (displaySlot >= d && displaySlot < d + COLUMNS) {
+					return lastTab;
+				}
+				d += COLUMNS;
+			}
+			started = true;
+			lastTab = tab;
+			if (displaySlot >= d && displaySlot < d + n) {
+				return tab;
+			}
+			d += n;
+		}
+		return lastTab;
+	}
+
 	public void moveToTab(int absSlot, int destTab) {
 		ensureInitialized();
 		if (absSlot < 0 || absSlot >= Config.BANK_SIZE || !slotUsed(absSlot)) {
@@ -296,7 +340,7 @@ public class BankTabs {
 		if (destTab < 0 || destTab >= TAB_COUNT) {
 			return;
 		}
-		if (c.tabAmounts[destTab] <= 0) {
+		if (destTab > 0 && c.tabAmounts[destTab] <= 0) {
 			int empty = firstEmptyTab();
 			if (empty == -1) {
 				c.sendMessage("You already have the maximum number of bank tabs.");
@@ -333,7 +377,9 @@ public class BankTabs {
 		c.bankItems[destSlot] = id;
 		c.bankItemsN[destSlot] = amt;
 		c.tabAmounts[destTab]++;
-		c.bankingTab = destTab;
+		if (c.bankingTab != 0) {
+			c.bankingTab = destTab;
+		}
 		refresh();
 	}
 
@@ -358,7 +404,11 @@ public class BankTabs {
 		String xText = c.lastBankX > 1 ? "X:" + c.lastBankX : "X";
 		c.getPA().sendFrame126(qtyLabel(xText, c.bankQuantity < 0), QTY_X);
 		c.getPA().sendFrame126(qtyLabel("All", c.bankQuantity == 0), QTY_ALL);
-		c.getPA().sendFrame126(c.placeholders ? "@yel@PH" : "PH", QTY_PLACEHOLDERS);
+		c.getPA().sendFrame36(QTY_SEL_1_CONFIG, c.bankQuantity == 1 ? 1 : 0);
+		c.getPA().sendFrame36(QTY_SEL_5_CONFIG, c.bankQuantity == 5 ? 1 : 0);
+		c.getPA().sendFrame36(QTY_SEL_10_CONFIG, c.bankQuantity == 10 ? 1 : 0);
+		c.getPA().sendFrame36(QTY_SEL_X_CONFIG, c.bankQuantity < 0 ? 1 : 0);
+		c.getPA().sendFrame36(QTY_SEL_ALL_CONFIG, c.bankQuantity == 0 ? 1 : 0);
 	}
 
 	private String qtyLabel(String text, boolean selected) {
@@ -386,19 +436,60 @@ public class BankTabs {
 		refreshQuantityUi();
 	}
 
-	public void togglePlaceholders() {
-		c.placeholders = !c.placeholders;
-		if (!c.placeholders) {
-			for (int i = Config.BANK_SIZE - 1; i >= 0; i--) {
-				if (c.bankItems[i] > 0 && c.bankItemsN[i] <= 0) {
-					c.bankItems[i] = 0;
-					c.bankItemsN[i] = 0;
-					onEmptiedSlot(i);
-				}
+	public boolean isPlaceholder(int absSlot) {
+		return absSlot >= 0 && absSlot < Config.BANK_SIZE && c.bankItems[absSlot] > 0 && c.bankItemsN[absSlot] <= 0;
+	}
+
+	public void releasePlaceholder(int absSlot) {
+		if (!c.isBanking || !isPlaceholder(absSlot)) {
+			return;
+		}
+		c.bankItems[absSlot] = 0;
+		c.bankItemsN[absSlot] = 0;
+		onEmptiedSlot(absSlot);
+		refresh();
+	}
+
+	public void promptReleaseAllPlaceholders() {
+		if (!c.isBanking) {
+			return;
+		}
+		boolean any = false;
+		for (int i = 0; i < Config.BANK_SIZE; i++) {
+			if (isPlaceholder(i)) {
+				any = true;
+				break;
+			}
+		}
+		if (!any) {
+			c.sendMessage("You have no placeholders to release.");
+			return;
+		}
+		c.dialogueAction = 8810;
+		c.getDH().sendOption2("Yes, release all placeholders.", "No, keep them.");
+	}
+
+	public void releaseAllPlaceholders() {
+		for (int i = Config.BANK_SIZE - 1; i >= 0; i--) {
+			if (isPlaceholder(i)) {
+				c.bankItems[i] = 0;
+				c.bankItemsN[i] = 0;
+				onEmptiedSlot(i);
 			}
 		}
 		refresh();
-		c.sendMessage(c.placeholders ? "Bank placeholders on." : "Bank placeholders off.");
+		c.sendMessage("Released all bank placeholders.");
+	}
+
+	public void togglePlaceholders() {
+		c.placeholders = !c.placeholders;
+		if (!c.placeholders) {
+			releaseAllPlaceholders();
+			c.sendMessage("Bank placeholders off.");
+			return;
+		}
+		refresh();
+		c.sendMessage("Bank placeholders on.");
 	}
 
 	public void sendTabIcons() {
@@ -417,11 +508,20 @@ public class BankTabs {
 	public void swapOrInsert(int fromDisplay, int toDisplay, boolean insert) {
 		ensureInitialized();
 		int from = toAbsolute(fromDisplay);
-		int to = toAbsolute(toDisplay);
-		if (from < 0 || to < 0 || from >= Config.BANK_SIZE || to >= Config.BANK_SIZE) {
+		if (from < 0 || from >= Config.BANK_SIZE || !slotUsed(from)) {
 			return;
 		}
-		if (!slotUsed(from)) {
+		if (c.bankingTab == 0 && !c.bankSearching) {
+			int destTab = tabForDisplaySlot(toDisplay);
+			int srcTab = tabForSlot(from);
+			if (destTab >= 0 && destTab != srcTab) {
+				moveToTab(from, destTab);
+				return;
+			}
+		}
+		int to = toAbsolute(toDisplay);
+		if (to < 0 || to >= Config.BANK_SIZE) {
+			refresh();
 			return;
 		}
 		if (c.bankingTab > 0) {
@@ -431,6 +531,7 @@ public class BankTabs {
 				return;
 			}
 		} else if (insert && tabForSlot(from) != tabForSlot(to)) {
+			moveToTab(from, tabForSlot(to));
 			return;
 		}
 		if (insert) {

@@ -4,7 +4,6 @@ import server.game.items.UseItem;
 import server.game.npcs.NPC;
 import server.game.npcs.NPCHandler;
 import server.game.players.Client;
-import server.game.players.PacketType;
 
 
 public class ItemOnNpc implements PacketType {

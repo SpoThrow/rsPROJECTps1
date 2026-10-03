@@ -17,6 +17,7 @@ import server.game.players.Client;
 import server.game.players.PlayerHandler;
 import server.game.players.PlayerSave;
 import core.util.ISAACRandomGen;
+import core.util.Misc;
 
 /**
  * Login protocol decoder.
@@ -213,23 +214,9 @@ public class RS2LoginProtocolDecoder extends CumulativeProtocolDecoder {
 			returnCode = 7;
 		}
 		
-//		Login Limit Exceeded
-//		if() {
-//			returnCode = 9;
-//		}
-		
 		if(Server.UpdateServer) {
 			returnCode = 14;
 		}
-		
-//		if(Connection.checkLoginList(loginIp)) {
-//			returnCode = 16;
-//		}
-		
-//		Just Left World Login Delay Included
-//		if() {
-//			returnCode = 21;
-//		}
 		
 		if(returnCode == 2) {
 			int load = PlayerSave.loadGame(cl, cl.playerName, cl.playerPass);
@@ -246,7 +233,14 @@ public class RS2LoginProtocolDecoder extends CumulativeProtocolDecoder {
 					}
 				}
 				if(!Server.playerHandler.newPlayerClient(cl)) {
-					returnCode = 7;
+					returnCode = PlayerHandler.isPlayerOn(cl.playerName) ? 5 : 7;
+					cl.saveFile = false;
+				} else if(load == 13) {
+					// No [EOF] means the file is truncated. Let the player in on the
+					// partial state, but never write it back: that would replace the
+					// damaged file and its .bak, which are all that is left to
+					// recover the character from.
+					Misc.println(cl.playerName+": save file is truncated (no [EOF]) - saving disabled for this session.");
 					cl.saveFile = false;
 				} else {
 					cl.saveFile = true;

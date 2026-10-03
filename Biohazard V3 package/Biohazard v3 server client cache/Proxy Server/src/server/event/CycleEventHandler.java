@@ -32,7 +32,20 @@ public class CycleEventHandler {
 	                    c.execute();
 	                } catch (Exception e) {
 	                    e.printStackTrace();
-	                    c.setRunning(false);
+	                    // Stop through stop(), not setRunning(false): stop() is what invokes
+	                    // the event's own stop() callback, and that callback is where events
+	                    // release their state. Using setRunning(false) here silently skipped
+	                    // that cleanup on a throw -- for a woodcutting event, which clears its
+	                    // active/tree flags in stop(), one crashed tick left the player
+	                    // permanently unable to chop again.
+	                    // The callback itself is guarded because it is third-party code: a
+	                    // throw inside it must not escape into the tick loop.
+	                    try {
+	                        c.stop();
+	                    } catch (Exception stopException) {
+	                        stopException.printStackTrace();
+	                        c.setRunning(false);
+	                    }
 	                }
 	            }
     		}

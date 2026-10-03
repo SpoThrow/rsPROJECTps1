@@ -1,8 +1,7 @@
 package server.game.players;
 
-import java.util.LinkedList;
-
 import server.clip.region.Region;
+import server.clip.region.SmartPathFinder;
 import server.game.npcs.NPC;
 import server.world.TileControl;
 
@@ -17,10 +16,11 @@ public class PathFinder {
 	public PathFinder() {
 	}
 	
+/** @deprecated Walk-mask geometric LoS; unused. Prefer {@link #hasLineOfSight}. */
 public static boolean pathBlocked(NPC attacker, Client victim) {
 		
-		double offsetX = Math.abs(attacker.absX - victim.absX);
-		double offsetY = Math.abs(attacker.absY - victim.absY);
+		double offsetX = Math.abs(attacker.absX - victim.position.absX);
+		double offsetY = Math.abs(attacker.absY - victim.position.absY);
 		
 		int distance = TileControl.calculateDistance(attacker, victim);
 		
@@ -46,14 +46,14 @@ public static boolean pathBlocked(NPC attacker, Client victim) {
 			distance--;
 			nextMoveX = 0;
 			nextMoveY = 0;
-			if (curX > victim.absX) {
+			if (curX > victim.position.absX) {
 				currentTileXCount += offsetX;
 				if (currentTileXCount >= 1.0) {
 					nextMoveX--;
 					curX--;	
 					currentTileXCount -= offsetX;
 				}		
-			} else if (curX < victim.absX) {
+			} else if (curX < victim.position.absX) {
 				currentTileXCount += offsetX;
 				if (currentTileXCount >= 1.0) {
 					nextMoveX++;
@@ -61,14 +61,14 @@ public static boolean pathBlocked(NPC attacker, Client victim) {
 					currentTileXCount -= offsetX;
 				}
 			}
-			if (curY > victim.absY) {
+			if (curY > victim.position.absY) {
 				currentTileYCount += offsetY;
 				if (currentTileYCount >= 1.0) {
 					nextMoveY--;
 					curY--;	
 					currentTileYCount -= offsetY;
 				}	
-			} else if (curY < victim.absY) {
+			} else if (curY < victim.position.absY) {
 				currentTileYCount += offsetY;
 				if (currentTileYCount >= 1.0) {
 					nextMoveY++;
@@ -94,8 +94,8 @@ public static boolean pathBlocked(NPC attacker, Client victim) {
 	// Clipping
 		public static boolean pathBlocked(Client attacker, Client victim) {
 			
-			double offsetX = Math.abs(attacker.absX - victim.absX);
-			double offsetY = Math.abs(attacker.absY - victim.absY);
+			double offsetX = Math.abs(attacker.position.absX - victim.position.absX);
+			double offsetY = Math.abs(attacker.position.absY - victim.position.absY);
 			
 			int distance = TileControl.calculateDistance(attacker, victim);
 			
@@ -108,8 +108,8 @@ public static boolean pathBlocked(NPC attacker, Client victim) {
 
 			int[][] path = new int[distance][5];
 			
-			int curX = attacker.absX;
-			int curY = attacker.absY;
+			int curX = attacker.position.absX;
+			int curY = attacker.position.absY;
 			int next = 0;
 			int nextMoveX = 0;
 			int nextMoveY = 0;
@@ -121,14 +121,14 @@ public static boolean pathBlocked(NPC attacker, Client victim) {
 				distance--;
 				nextMoveX = 0;
 				nextMoveY = 0;
-				if (curX > victim.absX) {
+				if (curX > victim.position.absX) {
 					currentTileXCount += offsetX;
 					if (currentTileXCount >= 1.0) {
 						nextMoveX--;
 						curX--;	
 						currentTileXCount -= offsetX;
 					}		
-				} else if (curX < victim.absX) {
+				} else if (curX < victim.position.absX) {
 					currentTileXCount += offsetX;
 					if (currentTileXCount >= 1.0) {
 						nextMoveX++;
@@ -136,14 +136,14 @@ public static boolean pathBlocked(NPC attacker, Client victim) {
 						currentTileXCount -= offsetX;
 					}
 				}
-				if (curY > victim.absY) {
+				if (curY > victim.position.absY) {
 					currentTileYCount += offsetY;
 					if (currentTileYCount >= 1.0) {
 						nextMoveY--;
 						curY--;	
 						currentTileYCount -= offsetY;
 					}	
-				} else if (curY < victim.absY) {
+				} else if (curY < victim.position.absY) {
 					currentTileYCount += offsetY;
 					if (currentTileYCount >= 1.0) {
 						nextMoveY++;
@@ -153,7 +153,7 @@ public static boolean pathBlocked(NPC attacker, Client victim) {
 				}
 				path[next][0] = curX;
 				path[next][1] = curY;
-				path[next][2] = attacker.heightLevel;//getHeightLevel();
+				path[next][2] = attacker.position.heightLevel;//getHeightLevel();
 				path[next][3] = nextMoveX;
 				path[next][4] = nextMoveY;
 				next++;	
@@ -166,197 +166,180 @@ public static boolean pathBlocked(NPC attacker, Client victim) {
 			return false;
 		}
 
-	public void findRoute(Client c, int destX, int destY, boolean moveNear,
-			int xLength, int yLength) {
-		if (destX == c.getLocalX() && destY == c.getLocalY() && !moveNear) {
-			c.sendMessage("ERROR!");
-			return;
+	/**
+	 * True when a projectile-solid wall/object sits between the two tiles.
+	 * Uses {@link Region#canProjectileStep} (0x20000), not walk masks — water and
+	 * low barriers do not block. The final step onto the target ignores dest solid
+	 * so you can shoot AT a target on/near scenery, but intervening solids still block.
+	 */
+	public static boolean lineBlocked(int x1, int y1, int x2, int y2, int z) {
+		if (x1 == x2 && y1 == y2) {
+			return false;
 		}
-		destX = destX - 8 * c.getMapRegionX();
-		destY = destY - 8 * c.getMapRegionY();
-		int[][] via = new int[104][104];
-		int[][] cost = new int[104][104];
-		LinkedList<Integer> tileQueueX = new LinkedList<Integer>();
-		LinkedList<Integer> tileQueueY = new LinkedList<Integer>();
-		for (int xx = 0; xx < 104; xx++) {
-			for (int yy = 0; yy < 104; yy++) {
-				cost[xx][yy] = 99999999;
+		int dx = Math.abs(x2 - x1);
+		int dy = Math.abs(y2 - y1);
+		int sx = x1 < x2 ? 1 : -1;
+		int sy = y1 < y2 ? 1 : -1;
+		int err = dx - dy;
+		int x = x1;
+		int y = y1;
+		int guard = dx + dy + 2;
+		while (guard-- > 0) {
+			if (x == x2 && y == y2) {
+				return false;
 			}
+			int e2 = 2 * err;
+			int stepX = 0;
+			int stepY = 0;
+			if (e2 > -dy) {
+				err -= dy;
+				stepX = sx;
+			}
+			if (e2 < dx) {
+				err += dx;
+				stepY = sy;
+			}
+			if (stepX == 0 && stepY == 0) {
+				return true;
+			}
+			int nx = x + stepX;
+			int ny = y + stepY;
+			boolean lastStep = (nx == x2 && ny == y2);
+			if (!Region.canProjectileStep(x, y, stepX, stepY, z, lastStep)) {
+				return true;
+			}
+			x = nx;
+			y = ny;
 		}
-		int curX = c.getLocalX();
-		int curY = c.getLocalY();
-		via[curX][curY] = 99;
-		cost[curX][curY] = 0;
-		int tail = 0;
-		tileQueueX.add(curX);
-		tileQueueY.add(curY);
-		boolean foundPath = false;
-		int pathLength = 4000;
-		while (tail != tileQueueX.size() && tileQueueX.size() < pathLength) {
-			curX = tileQueueX.get(tail);
-			curY = tileQueueY.get(tail);
-			int curAbsX = c.getMapRegionX() * 8 + curX;
-			int curAbsY = c.getMapRegionY() * 8 + curY;
-			if (curX == destX && curY == destY) {
-				foundPath = true;
-				break;
-			}
-			tail = (tail + 1) % pathLength;
-			int thisCost = cost[curX][curY] + 1;
-			if (curY > 0
-					&& via[curX][curY - 1] == 0
-					&& (Region.getClipping(curAbsX, curAbsY - 1, c.heightLevel) & 0x1280102) == 0) {
-				tileQueueX.add(curX);
-				tileQueueY.add(curY - 1);
-				via[curX][curY - 1] = 1;
-				cost[curX][curY - 1] = thisCost;
-			}
-			if (curX > 0
-					&& via[curX - 1][curY] == 0
-					&& (Region.getClipping(curAbsX - 1, curAbsY, c.heightLevel) & 0x1280108) == 0) {
-				tileQueueX.add(curX - 1);
-				tileQueueY.add(curY);
-				via[curX - 1][curY] = 2;
-				cost[curX - 1][curY] = thisCost;
-			}
-			if (curY < 104 - 1
-					&& via[curX][curY + 1] == 0
-					&& (Region.getClipping(curAbsX, curAbsY + 1, c.heightLevel) & 0x1280120) == 0) {
-				tileQueueX.add(curX);
-				tileQueueY.add(curY + 1);
-				via[curX][curY + 1] = 4;
-				cost[curX][curY + 1] = thisCost;
-			}
-			if (curX < 104 - 1
-					&& via[curX + 1][curY] == 0
-					&& (Region.getClipping(curAbsX + 1, curAbsY, c.heightLevel) & 0x1280180) == 0) {
-				tileQueueX.add(curX + 1);
-				tileQueueY.add(curY);
-				via[curX + 1][curY] = 8;
-				cost[curX + 1][curY] = thisCost;
-			}
-			if (curX > 0
-					&& curY > 0
-					&& via[curX - 1][curY - 1] == 0
-					&& (Region.getClipping(curAbsX - 1, curAbsY - 1,
-							c.heightLevel) & 0x128010e) == 0
-					&& (Region.getClipping(curAbsX - 1, curAbsY, c.heightLevel) & 0x1280108) == 0
-					&& (Region.getClipping(curAbsX, curAbsY - 1, c.heightLevel) & 0x1280102) == 0) {
-				tileQueueX.add(curX - 1);
-				tileQueueY.add(curY - 1);
-				via[curX - 1][curY - 1] = 3;
-				cost[curX - 1][curY - 1] = thisCost;
-			}
-			if (curX > 0
-					&& curY < 104 - 1
-					&& via[curX - 1][curY + 1] == 0
-					&& (Region.getClipping(curAbsX - 1, curAbsY + 1,
-							c.heightLevel) & 0x1280138) == 0
-					&& (Region.getClipping(curAbsX - 1, curAbsY, c.heightLevel) & 0x1280108) == 0
-					&& (Region.getClipping(curAbsX, curAbsY + 1, c.heightLevel) & 0x1280120) == 0) {
-				tileQueueX.add(curX - 1);
-				tileQueueY.add(curY + 1);
-				via[curX - 1][curY + 1] = 6;
-				cost[curX - 1][curY + 1] = thisCost;
-			}
-			if (curX < 104 - 1
-					&& curY > 0
-					&& via[curX + 1][curY - 1] == 0
-					&& (Region.getClipping(curAbsX + 1, curAbsY - 1,
-							c.heightLevel) & 0x1280183) == 0
-					&& (Region.getClipping(curAbsX + 1, curAbsY, c.heightLevel) & 0x1280180) == 0
-					&& (Region.getClipping(curAbsX, curAbsY - 1, c.heightLevel) & 0x1280102) == 0) {
-				tileQueueX.add(curX + 1);
-				tileQueueY.add(curY - 1);
-				via[curX + 1][curY - 1] = 9;
-				cost[curX + 1][curY - 1] = thisCost;
-			}
-			if (curX < 104 - 1
-					&& curY < 104 - 1
-					&& via[curX + 1][curY + 1] == 0
-					&& (Region.getClipping(curAbsX + 1, curAbsY + 1,
-							c.heightLevel) & 0x12801e0) == 0
-					&& (Region.getClipping(curAbsX + 1, curAbsY, c.heightLevel) & 0x1280180) == 0
-					&& (Region.getClipping(curAbsX, curAbsY + 1, c.heightLevel) & 0x1280120) == 0) {
-				tileQueueX.add(curX + 1);
-				tileQueueY.add(curY + 1);
-				via[curX + 1][curY + 1] = 12;
-				cost[curX + 1][curY + 1] = thisCost;
-			}
+		return true;
+	}
+
+	/** True when any tile of the attacker can see any tile of the target. */
+	public static boolean hasLineOfSight(int fromX, int fromY, int fromSize, int toX, int toY, int toSize, int height) {
+		if (fromSize < 1) {
+			fromSize = 1;
 		}
-		if (!foundPath) {
-			if (moveNear) {
-				int i_223_ = 1000;
-				int thisCost = 100;
-				int i_225_ = 10;
-				for (int x = destX - i_225_; x <= destX + i_225_; x++) {
-					for (int y = destY - i_225_; y <= destY + i_225_; y++) {
-						if (x >= 0 && y >= 0 && x < 104 && y < 104
-								&& cost[x][y] < 100) {
-							int i_228_ = 0;
-							if (x < destX) {
-								i_228_ = destX - x;
-							} else if (x > destX + xLength - 1) {
-								i_228_ = x - (destX + xLength - 1);
-							}
-							int i_229_ = 0;
-							if (y < destY) {
-								i_229_ = destY - y;
-							} else if (y > destY + yLength - 1) {
-								i_229_ = y - (destY + yLength - 1);
-							}
-							int i_230_ = i_228_ * i_228_ + i_229_ * i_229_;
-							if (i_230_ < i_223_
-									|| (i_230_ == i_223_ && (cost[x][y] < thisCost))) {
-								i_223_ = i_230_;
-								thisCost = cost[x][y];
-								curX = x;
-								curY = y;
-							}
+		if (toSize < 1) {
+			toSize = 1;
+		}
+		for (int fx = 0; fx < fromSize; fx++) {
+			for (int fy = 0; fy < fromSize; fy++) {
+				for (int tx = 0; tx < toSize; tx++) {
+					for (int ty = 0; ty < toSize; ty++) {
+						if (!lineBlocked(fromX + fx, fromY + fy, toX + tx, toY + ty, height)) {
+							return true;
 						}
 					}
 				}
-				if (i_223_ == 1000) {
-					return;
+			}
+		}
+		return false;
+	}
+
+	public void findRoute(Client c, int destX, int destY, boolean moveNear,
+			int xLength, int yLength) {
+		if (c == null) {
+			return;
+		}
+		if (destX == c.position.absX && destY == c.position.absY && !moveNear) {
+			return;
+		}
+		if (!c.walkRepath.walkRepathPending) {
+			c.walkRepath.lastWalkDestX = destX;
+			c.walkRepath.lastWalkDestY = destY;
+		}
+		int[][] path = SmartPathFinder.get().route(c.position.absX, c.position.absY, destX, destY, c.position.heightLevel,
+				moveNear, xLength, yLength);
+		applyRoute(c, path);
+	}
+
+	/**
+	 * Shortest walk to a tile within {@code range} that has line of sight to the
+	 * target footprint. Used when a wall blocks the current firing position.
+	 */
+	public int[] findShootingTile(Client c, int destX, int destY, int destSize, int range) {
+		if (c == null || range < 1) {
+			return null;
+		}
+		if (destSize < 1) {
+			destSize = 1;
+		}
+		if (hasLineOfSight(c.position.absX, c.position.absY, 1, destX, destY, destSize, c.position.heightLevel)
+				&& inChebyshevRange(c.position.absX, c.position.absY, destX, destY, destSize, range)) {
+			return new int[] { c.position.absX, c.position.absY };
+		}
+		final int limit = 64;
+		boolean[][] seen = new boolean[limit * 2 + 1][limit * 2 + 1];
+		int[] qx = new int[limit * limit];
+		int[] qy = new int[limit * limit];
+		int read = 0;
+		int write = 0;
+		qx[write] = c.position.absX;
+		qy[write] = c.position.absY;
+		write++;
+		seen[limit][limit] = true;
+		while (read < write) {
+			int x = qx[read];
+			int y = qy[read];
+			read++;
+			for (int dx = -1; dx <= 1; dx++) {
+				for (int dy = -1; dy <= 1; dy++) {
+					if (dx == 0 && dy == 0) {
+						continue;
+					}
+					int nx = x + dx;
+					int ny = y + dy;
+					int sx = nx - c.position.absX + limit;
+					int sy = ny - c.position.absY + limit;
+					if (sx < 0 || sy < 0 || sx >= seen.length || sy >= seen[0].length || seen[sx][sy]) {
+						continue;
+					}
+					if (!SmartPathFinder.canStep(x, y, dx, dy, c.position.heightLevel)) {
+						continue;
+					}
+					seen[sx][sy] = true;
+					if (inChebyshevRange(nx, ny, destX, destY, destSize, range)
+							&& hasLineOfSight(nx, ny, 1, destX, destY, destSize, c.position.heightLevel)) {
+						return new int[] { nx, ny };
+					}
+					if (write < qx.length) {
+						qx[write] = nx;
+						qy[write] = ny;
+						write++;
+					}
 				}
-			} else {
-				return;
 			}
 		}
-		tail = 0;
-		tileQueueX.set(tail, curX);
-		tileQueueY.set(tail++, curY);
-		int l5;
-		for (int j5 = l5 = via[curX][curY]; curX != c.getLocalX()
-				|| curY != c.getLocalY(); j5 = via[curX][curY]) {
-			if (j5 != l5) {
-				l5 = j5;
-				tileQueueX.set(tail, curX);
-				tileQueueY.set(tail++, curY);
-			}
-			if ((j5 & 2) != 0) {
-				curX++;
-			} else if ((j5 & 8) != 0) {
-				curX--;
-			}
-			if ((j5 & 1) != 0) {
-				curY++;
-			} else if ((j5 & 4) != 0) {
-				curY--;
-			}
+		return null;
+	}
+
+	private static boolean inChebyshevRange(int px, int py, int nx, int ny, int size, int range) {
+		int closestX = px;
+		if (px < nx) {
+			closestX = nx;
+		} else if (px > nx + size - 1) {
+			closestX = nx + size - 1;
 		}
+		int closestY = py;
+		if (py < ny) {
+			closestY = ny;
+		} else if (py > ny + size - 1) {
+			closestY = ny + size - 1;
+		}
+		return Math.abs(px - closestX) <= range && Math.abs(py - closestY) <= range;
+	}
+
+	private void applyRoute(Client c, int[][] path) {
+		// Replace the queue. Appending onto an in-progress route leaves the
+		// previous steps (often toward an NPC) in front of the new click, so
+		// the server keeps walking at the enemy while the client runs away.
 		c.resetWalkingQueue();
-		int size = tail--;
-		int pathX = c.getMapRegionX() * 8 + tileQueueX.get(tail);
-		int pathY = c.getMapRegionY() * 8 + tileQueueY.get(tail);
-		c.addToWalkingQueue(localize(pathX, c.getMapRegionX()),
-				localize(pathY, c.getMapRegionY()));
-		for (int i = 1; i < size; i++) {
-			tail--;
-			pathX = c.getMapRegionX() * 8 + tileQueueX.get(tail);
-			pathY = c.getMapRegionY() * 8 + tileQueueY.get(tail);
-			c.addToWalkingQueue(localize(pathX, c.getMapRegionX()),
-					localize(pathY, c.getMapRegionY()));
+		if (path == null || path.length == 0) {
+			return;
+		}
+		for (int i = 0; i < path.length; i++) {
+			c.addToWalkingQueue(localize(path[i][0], c.getMapRegionX()),
+					localize(path[i][1], c.getMapRegionY()));
 		}
 	}
 

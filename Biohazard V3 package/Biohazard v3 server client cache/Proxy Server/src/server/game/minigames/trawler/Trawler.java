@@ -498,7 +498,7 @@ public class Trawler extends GroupMinigame {
 				return;
 			}
 			p.startAnimation(net_interaction);
-			if (skillCheck(p.playerLevel[Player.playerCrafting], 1, 0)) {
+			if (skillCheck(p.skills.playerLevel[Player.playerCrafting], 1, 0)) {
 				p.asClient().getItems().deleteItem(rope, 1);
 				net_ripped = false;
 				playerUpdates();
@@ -623,9 +623,9 @@ public class Trawler extends GroupMinigame {
 					players.get(j)
 							.asClient()
 							.getPA()
-							.movePlayer(players.get(j).absX + 128,
-									players.get(j).absY,
-									players.get(j).heightLevel);
+							.movePlayer(players.get(j).position.absX + 128,
+									players.get(j).position.absY,
+									players.get(j).position.heightLevel);
 				}
 			}
 		}
@@ -637,9 +637,9 @@ public class Trawler extends GroupMinigame {
 					players.get(j)
 							.asClient()
 							.getPA()
-							.movePlayer(players.get(j).absX - 128,
-									players.get(j).absY,
-									players.get(j).heightLevel);
+							.movePlayer(players.get(j).position.absX - 128,
+									players.get(j).position.absY,
+									players.get(j).position.heightLevel);
 				}
 			}
 		}
@@ -679,24 +679,24 @@ public class Trawler extends GroupMinigame {
 	public int chanceByLevel(Player p, int fish) {
 		switch (fish) {
 		case 381:
-			if (p.asClient().playerLevel[Player.playerFishing] >= 81
-					&& p.asClient().playerLevel[Player.playerFishing] < 90) {
+			if (p.asClient().skills.playerLevel[Player.playerFishing] >= 81
+					&& p.asClient().skills.playerLevel[Player.playerFishing] < 90) {
 				return 5;
-			} else if (p.asClient().playerLevel[Player.playerFishing] >= 90
-					&& p.asClient().playerLevel[Player.playerFishing] < 99) {
+			} else if (p.asClient().skills.playerLevel[Player.playerFishing] >= 90
+					&& p.asClient().skills.playerLevel[Player.playerFishing] < 99) {
 				return 9;
-			} else if (p.asClient().playerLevel[Player.playerFishing] == 99) {
+			} else if (p.asClient().skills.playerLevel[Player.playerFishing] == 99) {
 				return 13;
 			}
 			return 0;
 		case 395:
-			if (p.asClient().playerLevel[Player.playerFishing] >= 79
-					&& p.asClient().playerLevel[Player.playerFishing] < 85) {
+			if (p.asClient().skills.playerLevel[Player.playerFishing] >= 79
+					&& p.asClient().skills.playerLevel[Player.playerFishing] < 85) {
 				return 8;
-			} else if (p.asClient().playerLevel[Player.playerFishing] >= 85
-					&& p.asClient().playerLevel[Player.playerFishing] < 95) {
+			} else if (p.asClient().skills.playerLevel[Player.playerFishing] >= 85
+					&& p.asClient().skills.playerLevel[Player.playerFishing] < 95) {
 				return 13;
-			} else if (p.asClient().playerLevel[Player.playerFishing] >= 95) {
+			} else if (p.asClient().skills.playerLevel[Player.playerFishing] >= 95) {
 				return 17;
 			}
 			return 0;
@@ -799,25 +799,25 @@ public class Trawler extends GroupMinigame {
 		int xpToAdd = 0;
 		if (manta > 0) {
 			toReturn.add(new GameItem(389, manta));
-			if (p.playerLevel[Player.playerFishing] >= 81) {
+			if (p.skills.playerLevel[Player.playerFishing] >= 81) {
 				xpToAdd += (manta * 46 * Config.FISHING_EXPERIENCE);
 			}
 		}
 		if (turt > 0) {
 			toReturn.add(new GameItem(395, turt));
-			if (p.playerLevel[Player.playerFishing] >= 79) {
+			if (p.skills.playerLevel[Player.playerFishing] >= 79) {
 				xpToAdd += (manta * 38 * Config.FISHING_EXPERIENCE);
 			}
 		}
 		if (lobs > 0) {
 			toReturn.add(new GameItem(377, lobs));
-			if (p.playerLevel[Player.playerFishing] >= 40) {
+			if (p.skills.playerLevel[Player.playerFishing] >= 40) {
 				xpToAdd += (manta * 90 * Config.FISHING_EXPERIENCE);
 			}
 		}
 		if (swordFish > 0) {
 			toReturn.add(new GameItem(371, swordFish));
-			if (p.playerLevel[Player.playerFishing] >= 50) {
+			if (p.skills.playerLevel[Player.playerFishing] >= 50) {
 				xpToAdd += (manta * 100 * Config.FISHING_EXPERIENCE);
 			}
 		}

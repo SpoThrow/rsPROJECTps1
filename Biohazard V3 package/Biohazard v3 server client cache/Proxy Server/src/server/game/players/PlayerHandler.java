@@ -41,23 +41,34 @@ public class PlayerHandler{
 
 	public boolean newPlayerClient(Client client1)
 	{
-		int slot = -1;
-		for(int i = 1; i < Config.MAX_PLAYERS; i++) {
-			if((players[i] == null) || players[i].disconnected) {
-				slot = i;
-				break;
+		// Called from a Mina I/O thread. Slot discovery and publication must be atomic
+		// against process(), otherwise two concurrent logins can claim the same slot.
+		synchronized (PlayerHandler.players) {
+			for(int i = 1; i < Config.MAX_PLAYERS; i++) {
+				if(players[i] != null && !players[i].disconnected
+						&& players[i].playerName != null
+						&& players[i].playerName.equalsIgnoreCase(client1.playerName)) {
+					return false;
+				}
 			}
+			int slot = -1;
+			for(int i = 1; i < Config.MAX_PLAYERS; i++) {
+				if((players[i] == null) || players[i].disconnected) {
+					slot = i;
+					break;
+				}
+			}
+			if(slot == -1)
+				return false;
+			client1.handler = this;
+			client1.playerId = slot;
+			players[slot] = client1;
+			players[slot].isActive = true;
+			players[slot].connectedFrom = ((InetSocketAddress) client1.getSession().getRemoteAddress()).getAddress().getHostAddress();
+			if(Config.SERVER_DEBUG)	
+				Misc.println("Player Slot "+slot+" slot 0 "+players[0]+" Player Hit "+players[slot]);
+			return true;
 		}
-		if(slot == -1)
-			return false;
-		client1.handler = this;
-		client1.playerId = slot;
-		players[slot] = client1;
-		players[slot].isActive = true;
-		players[slot].connectedFrom = ((InetSocketAddress) client1.getSession().getRemoteAddress()).getAddress().getHostAddress();
-		if(Config.SERVER_DEBUG)	
-			Misc.println("Player Slot "+slot+" slot 0 "+players[0]+" Player Hit "+players[slot]);
-		return true;
 	}
 
 	public void destruct() {
@@ -103,7 +114,7 @@ public class PlayerHandler{
 				if(players[i] == null || !players[i].isActive) continue;
 				try {					
 
-					if(players[i].disconnected && (System.currentTimeMillis() - players[i].logoutDelay > 10000 || players[i].properLogout || kickAllPlayers)) {
+					if(players[i].disconnected && (System.currentTimeMillis() - players[i].timers.logoutDelay > 10000 || players[i].properLogout || kickAllPlayers)) {
 						if(players[i].inTrade) {
 							Client o = (Client) PlayerHandler.players[players[i].tradeWith];
 							if(o != null) {
@@ -123,7 +134,6 @@ public class PlayerHandler{
 						}
 						Client o = (Client) PlayerHandler.players[i];
 						if(PlayerSave.saveGame(o)) { 
-							PlayerSave.saveGame(o);
 							System.out.println("Game saved for player "+players[i].playerName); 
 						} else { 
 							System.out.println("Could not save for "+players[i].playerName); 
@@ -133,11 +143,13 @@ public class PlayerHandler{
 						continue;
 					}
 
+					// Order: packets → process(timers/hits) → merge walk → step → follow+swing
 					players[i].preProcessing();			
 					while(players[i].processQueuedPackets());
 					players[i].process();
 					players[i].postProcessing();
 					players[i].getNextPlayerMovement();
+					players[i].processCombatAfterMovement();
 
 				} catch(Exception e) {
 					e.printStackTrace();
@@ -148,7 +160,7 @@ public class PlayerHandler{
 			for(int i = 0; i < Config.MAX_PLAYERS; i++) {
 				if(players[i] == null || !players[i].isActive) continue;
 				try {
-					if(players[i].disconnected && (System.currentTimeMillis() - players[i].logoutDelay > 10000 || players[i].properLogout || kickAllPlayers)) {
+					if(players[i].disconnected && (System.currentTimeMillis() - players[i].timers.logoutDelay > 10000 || players[i].properLogout || kickAllPlayers)) {
 						if(players[i].inTrade) {
 							Client o = (Client) PlayerHandler.players[players[i].tradeWith];
 							if(o != null) {
@@ -169,7 +181,6 @@ public class PlayerHandler{
 
 						Client o1 = (Client) PlayerHandler.players[i];
 						if(PlayerSave.saveGame(o1)){ 
-							PlayerSave.saveGame(o1);
 							System.out.println("Game saved for player "+players[i].playerName); 
 						} else { 
 							System.out.println("Could not save for "+players[i].playerName); 

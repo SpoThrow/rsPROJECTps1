@@ -6,7 +6,6 @@ import server.game.players.Client;
 import server.game.players.Player;
 
 /**
- * @author Acquittal
  **/
  
 public class Smithing {
@@ -54,7 +53,7 @@ public class Smithing {
 		for (int j = 0; j < SMELT_BARS.length; j++) {
 			if (barType == SMELT_BARS[j]) {
 				//c.sendMessage("" + c.playerLevel + " bar: " + BAR_REQS[j]);
-				return c.playerLevel[Player.playerSmithing] >= BAR_REQS[j];
+				return c.skills.playerLevel[Player.playerSmithing] >= BAR_REQS[j];
 			}
 		}
 		return false;

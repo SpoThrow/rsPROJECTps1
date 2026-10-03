@@ -45,7 +45,7 @@ public class RangersGuild {
 		if(isFiringTarget) {
 			return;
 		}
-		hitChance = Misc.random(HIT_CHANCE)+Misc.random(c.playerLevel[RANGED_LV]);
+		hitChance = Misc.random(HIT_CHANCE)+Misc.random(c.skills.playerLevel[RANGED_LV]);
 		if (arrowsLeft != 0) {
 			for (int bowId : c.BOWS) {
 				if(c.playerEquipment[c.playerWeapon] == bowId) {
@@ -303,7 +303,7 @@ public class RangersGuild {
 	}
 
 	public boolean isInTargetArea() {
-		if (c.absX >= 2669 && c.absX <= 2674 && c.absY >= 3415 && c.absY <= 3421) {
+		if (c.position.absX >= 2669 && c.position.absX <= 2674 && c.position.absY >= 3415 && c.position.absY <= 3421) {
 			return true;
 		}
 		return false;

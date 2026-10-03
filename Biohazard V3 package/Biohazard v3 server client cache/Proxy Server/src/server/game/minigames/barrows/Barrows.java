@@ -48,7 +48,7 @@ public class Barrows {
 					return;
 				}
 				c.spawnedBrother[i] = true;
-				Server.npcHandler.spawnNpc(c, BarrowsData.BARROW_BROTHER[i][0], BarrowsData.BROTHER_SPAWN[i][0], BarrowsData.BROTHER_SPAWN[i][1], c.heightLevel, 0, BarrowsData.BARROW_BROTHER[i][1], BarrowsData.BARROW_BROTHER[i][2], BarrowsData.BARROW_BROTHER[i][3], BarrowsData.BARROW_BROTHER[i][4], true, true);
+				Server.npcHandler.spawnNpc(c, BarrowsData.BARROW_BROTHER[i][0], BarrowsData.BROTHER_SPAWN[i][0], BarrowsData.BROTHER_SPAWN[i][1], c.position.heightLevel, 0, BarrowsData.BARROW_BROTHER[i][1], BarrowsData.BARROW_BROTHER[i][2], BarrowsData.BARROW_BROTHER[i][3], BarrowsData.BARROW_BROTHER[i][4], true, true);
 				c.sendMessage("You woken up the ancient beast!");
 				return;
 			}
@@ -62,15 +62,15 @@ public class Barrows {
 
 	public static void teleportUnderground(Client c) {
 		int i = Misc.random(BarrowsData.UNDERGROUND_SPAWN.length-1);
-		c.teleportToX = BarrowsData.UNDERGROUND_SPAWN[i][0];
-		c.teleportToY = BarrowsData.UNDERGROUND_SPAWN[i][1];
-		c.heightLevel = 0;
+		c.position.teleportToX = BarrowsData.UNDERGROUND_SPAWN[i][0];
+		c.position.teleportToY = BarrowsData.UNDERGROUND_SPAWN[i][1];
+		c.position.heightLevel = 0;
 	}
 
 	public static void digToBrother(final Client c) {
 		c.startAnimation(830);
 		for(int i = 0; i < BarrowsData.BROTHER_AREA.length; i++) {
-			if(c.absX >= BarrowsData.BROTHER_AREA[i][0] && c.absX <= BarrowsData.BROTHER_AREA[i][2] && c.absY >= BarrowsData.BROTHER_AREA[i][1] && c.absY <= BarrowsData.BROTHER_AREA[i][3]) {
+			if(c.position.absX >= BarrowsData.BROTHER_AREA[i][0] && c.position.absX <= BarrowsData.BROTHER_AREA[i][2] && c.position.absY >= BarrowsData.BROTHER_AREA[i][1] && c.position.absY <= BarrowsData.BROTHER_AREA[i][3]) {
 				teleport(c, i);
 				c.stopMovement();
 				break;
@@ -117,9 +117,9 @@ public class Barrows {
 		CycleEventHandler.addEvent(c, new CycleEvent() {
 			@Override
 			public void execute(CycleEventContainer container) {
-				c.teleportToX = BarrowsData.PLAYER_ENTRE[i][0];
-				c.teleportToY = BarrowsData.PLAYER_ENTRE[i][1];
-				c.heightLevel = 3;
+				c.position.teleportToX = BarrowsData.PLAYER_ENTRE[i][0];
+				c.position.teleportToY = BarrowsData.PLAYER_ENTRE[i][1];
+				c.position.heightLevel = 3;
 				c.getPA().sendFrame99(2);
 				giveHiddenBrother(c);
 				container.stop();
@@ -137,7 +137,7 @@ public class Barrows {
 				c.sendMessage("You have already spawned the hidden brother.");
 				return;
 			}
-			Server.npcHandler.spawnNpc(c, BarrowsData.BARROW_BROTHER[c.hiddenBrother][0], c.absX, c.absY+ Misc.random(1), c.heightLevel, 0, BarrowsData.BARROW_BROTHER[c.hiddenBrother][1], BarrowsData.BARROW_BROTHER[c.hiddenBrother][2], BarrowsData.BARROW_BROTHER[c.hiddenBrother][3], BarrowsData.BARROW_BROTHER[c.hiddenBrother][4], true, true);
+			Server.npcHandler.spawnNpc(c, BarrowsData.BARROW_BROTHER[c.hiddenBrother][0], c.position.absX, c.position.absY+ Misc.random(1), c.position.heightLevel, 0, BarrowsData.BARROW_BROTHER[c.hiddenBrother][1], BarrowsData.BARROW_BROTHER[c.hiddenBrother][2], BarrowsData.BARROW_BROTHER[c.hiddenBrother][3], BarrowsData.BARROW_BROTHER[c.hiddenBrother][4], true, true);
 			c.spawnedFinalBrother = true;
 		}
 	}

@@ -327,14 +327,6 @@ public class Misc {
 		if (Math.signum(dx) < 0)
 			angle += 180.0;
 		return (int) ((((90 - angle) / 22.5) + 16) % 16);
-		/*int changeX = x - srcX; int changeY = y - srcY;
-		for (int j = 0; j < directionDeltaX.length; j++) {
-			if (changeX == directionDeltaX[j] &&
-				changeY == directionDeltaY[j])
-				return j;
-		
-		}
-		return -1;*/
 	}
 
 	public static byte directionDeltaX[] = new byte[]{ 0, 1, 1, 1, 0,-1,-1,-1 };

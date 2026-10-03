@@ -16,6 +16,7 @@ import server.game.npcs.NPCHandler;
 import server.game.objects.Object;
 import server.game.objects.Objects;
 import server.game.players.Client;
+import server.game.players.PathFinder;
 import server.game.players.Player;
 import server.game.players.PlayerHandler;
 import core.util.Misc;
@@ -38,7 +39,8 @@ public class DwarfCannon {
 
 	private static final int[] SETUP_ITEMS = { ITEM_BASE, ITEM_STAND, ITEM_BARRELS, ITEM_FURNACE };
 	private static final int[] SETUP_OBJECTS = { OBJ_BASE, OBJ_STAND, OBJ_BARRELS, OBJ_CANNON };
-	private static final int[] ROTATE_ANIMS = { 516, 517, 518, 519, 520, 521, 514, 515 };
+	/* Rotation index must match muzzle + firing arc: N, NE, E, SE, S, SW, W, NW */
+	private static final int[] ROTATE_ANIMS = { 515, 516, 517, 518, 519, 520, 521, 514 };
 	private static final int[] MUZZLE_X = { 0, 1, 1, 1, 0, -1, -1, -1 };
 	private static final int[] MUZZLE_Y = { 1, 1, 0, -1, -1, -1, 0, 1 };
 
@@ -89,9 +91,9 @@ public class DwarfCannon {
 				return;
 			}
 		}
-		int placeX = c.absX;
-		int placeY = c.absY;
-		int placeZ = c.heightLevel;
+		int placeX = c.position.absX;
+		int placeY = c.position.absY;
+		int placeZ = c.position.heightLevel;
 		if (!canBuildAt(placeX, placeY, placeZ)) {
 			c.sendMessage("There isn't enough room to set up the cannon here.");
 			return;
@@ -124,8 +126,8 @@ public class DwarfCannon {
 					container.stop();
 					return;
 				}
-				if (Math.abs(player.absX - cannon.x) > 3 || Math.abs(player.absY - cannon.y) > 3
-						|| player.heightLevel != cannon.z) {
+				if (Math.abs(player.position.absX - cannon.x) > 3 || Math.abs(player.position.absY - cannon.y) > 3
+						|| player.position.heightLevel != cannon.z) {
 					player.sendMessage("You move too far away from the cannon.");
 					cannon.building = false;
 					pickupInternal(player, cannon, true);
@@ -178,7 +180,7 @@ public class DwarfCannon {
 	}
 
 	public static void firstClick(Client c, int objectId, int objectX, int objectY) {
-		DwarfCannon cannon = forLocation(objectX, objectY, c.heightLevel);
+		DwarfCannon cannon = forLocation(objectX, objectY, c.position.heightLevel);
 		if (cannon == null) {
 			return;
 		}
@@ -198,7 +200,7 @@ public class DwarfCannon {
 	}
 
 	public static void pickup(Client c, int objectX, int objectY) {
-		DwarfCannon cannon = forLocation(objectX, objectY, c.heightLevel);
+		DwarfCannon cannon = forLocation(objectX, objectY, c.position.heightLevel);
 		if (cannon == null) {
 			return;
 		}
@@ -217,11 +219,11 @@ public class DwarfCannon {
 		if (itemId != ITEM_BALLS || !isCannonObject(objectId)) {
 			return;
 		}
-		if (Math.abs(c.absX - objectX) > 4 || Math.abs(c.absY - objectY) > 4) {
+		if (Math.abs(c.position.absX - objectX) > 4 || Math.abs(c.position.absY - objectY) > 4) {
 			c.sendMessage("You can't reach that.");
 			return;
 		}
-		DwarfCannon cannon = forLocation(objectX, objectY, c.heightLevel);
+		DwarfCannon cannon = forLocation(objectX, objectY, c.position.heightLevel);
 		if (cannon == null) {
 			return;
 		}
@@ -360,7 +362,8 @@ public class DwarfCannon {
 		int cy = cannon.y + 1 + MUZZLE_Y[cannon.rotation];
 		int offX = (cy - target.absY) * -1;
 		int offY = (cx - target.absX) * -1;
-		c.getPA().createPlayersProjectile(cx, cy, offX, offY, 50, 50, PROJECTILE, 35, 20, target.npcId + 1, 25);
+		int lockon = targetIndex(target) + 1;
+		c.getPA().createPlayersProjectile(cx, cy, offX, offY, 50, 50, PROJECTILE, 35, 20, lockon, 25);
 		final NPC hitNpc = target;
 		final int damage = rollDamage(c, target);
 		CycleEventHandler.addEvent(c, new CycleEvent() {
@@ -374,6 +377,18 @@ public class DwarfCannon {
 			public void stop() {
 			}
 		}, 1);
+	}
+
+	private static int targetIndex(NPC target) {
+		if (target == null) {
+			return -1;
+		}
+		for (int i = 0; i < NPCHandler.maxNPCs; i++) {
+			if (NPCHandler.npcs[i] == target) {
+				return i;
+			}
+		}
+		return -1;
 	}
 
 	private static NPC findTarget(Client c, DwarfCannon cannon, NPC ignore) {
@@ -396,7 +411,7 @@ public class DwarfCannon {
 			if (dist > RANGE || dist >= bestDist) {
 				continue;
 			}
-			if (!hasLineOfSight(cx, cy, n.absX, n.absY, cannon.z)) {
+			if (!PathFinder.hasLineOfSight(cx, cy, 1, n.absX, n.absY, 1, cannon.z)) {
 				continue;
 			}
 			best = n;
@@ -491,40 +506,9 @@ public class DwarfCannon {
 		}
 	}
 
-	private static boolean hasLineOfSight(int x1, int y1, int x2, int y2, int z) {
-		int dx = Math.abs(x2 - x1);
-		int dy = Math.abs(y2 - y1);
-		int sx = x1 < x2 ? 1 : -1;
-		int sy = y1 < y2 ? 1 : -1;
-		int err = dx - dy;
-		int x = x1;
-		int y = y1;
-		while (x != x2 || y != y2) {
-			int e2 = err * 2;
-			int nx = x;
-			int ny = y;
-			if (e2 > -dy) {
-				err -= dy;
-				nx += sx;
-			}
-			if (e2 < dx) {
-				err += dx;
-				ny += sy;
-			}
-			if (nx == x2 && ny == y2) {
-				return true;
-			}
-			if ((Region.getClipping(nx, ny, z) & 0x20000) != 0) {
-				return false;
-			}
-			x = nx;
-			y = ny;
-		}
-		return true;
-	}
 
 	private static int rollDamage(Client c, NPC n) {
-		int max = 5 + (c.playerLevel[4] / 5);
+		int max = 5 + (c.skills.playerLevel[4] / 5);
 		if (max > 30) {
 			max = 30;
 		}
@@ -652,13 +636,13 @@ public class DwarfCannon {
 	}
 
 	private static void stepOff(Client c) {
-		if (Region.getClipping(c.getX() - 1, c.getY(), c.heightLevel, -1, 0)) {
+		if (Region.getClipping(c.getX() - 1, c.getY(), c.position.heightLevel, -1, 0)) {
 			c.getPA().walkTo(-1, 0);
-		} else if (Region.getClipping(c.getX(), c.getY() - 1, c.heightLevel, 0, -1)) {
+		} else if (Region.getClipping(c.getX(), c.getY() - 1, c.position.heightLevel, 0, -1)) {
 			c.getPA().walkTo(0, -1);
-		} else if (Region.getClipping(c.getX() + 1, c.getY(), c.heightLevel, 1, 0)) {
+		} else if (Region.getClipping(c.getX() + 1, c.getY(), c.position.heightLevel, 1, 0)) {
 			c.getPA().walkTo(1, 0);
-		} else if (Region.getClipping(c.getX(), c.getY() + 1, c.heightLevel, 0, 1)) {
+		} else if (Region.getClipping(c.getX(), c.getY() + 1, c.position.heightLevel, 0, 1)) {
 			c.getPA().walkTo(0, 1);
 		}
 	}
@@ -737,7 +721,7 @@ public class DwarfCannon {
 	private static Client nearbyPlayer(int x, int y, int z) {
 		for (int i = 0; i < Config.MAX_PLAYERS; i++) {
 			Player p = PlayerHandler.players[i];
-			if (p != null && p.heightLevel == z && p.distanceToPoint(x, y) <= 25) {
+			if (p != null && p.position.heightLevel == z && p.distanceToPoint(x, y) <= 25) {
 				return (Client) p;
 			}
 		}

@@ -3,9 +3,7 @@ package server.content.music;
 import server.game.players.Client;
  
 /**
- * 
- * @author Jordy/mrclassic
- *
+ * Music
  */
 public class Music {
        
@@ -40,7 +38,7 @@ public class Music {
          */
         public static void playMusic(Client c) {
                 Music song = getMusicId(c);
-                if(c.auto == 0)
+                if(c.settings.auto == 0)
                 	return;
                 if (song == null) {
                         c.outStream.createFrame(74);
@@ -78,7 +76,7 @@ public class Music {
          * @return
          */
         private static Music getMusicId(Client c) {
-                int x = c.absX, y = c.absY;
+                int x = c.position.absX, y = c.position.absY;
                 for (int i = 0; i < songs.length; i++) {
                         if (x >= songs[i].swX && x <= songs[i].neX && y >= songs[i].swY && y <= songs[i].neY) {
                                 which = songs[i];

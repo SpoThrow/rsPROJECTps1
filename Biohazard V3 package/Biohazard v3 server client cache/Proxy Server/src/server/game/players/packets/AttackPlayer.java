@@ -3,7 +3,6 @@ package server.game.players.packets;
 import server.Config;
 import server.game.items.ItemAssistant;
 import server.game.players.Client;
-import server.game.players.PacketType;
 import server.game.players.PlayerHandler;
 
 /**
@@ -186,7 +185,7 @@ public class AttackPlayer implements PacketType {
 			
 			for(int r = 0; r < c.REDUCE_SPELLS.length; r++){	// reducing spells, confuse etc
 				if(PlayerHandler.players[c.playerIndex].REDUCE_SPELLS[r] == c.MAGIC_SPELLS[c.spellId][0]) {
-					if((System.currentTimeMillis() - PlayerHandler.players[c.playerIndex].reduceSpellDelay[r]) < PlayerHandler.players[c.playerIndex].REDUCE_SPELL_TIME[r]) {
+					if((System.currentTimeMillis() - PlayerHandler.players[c.playerIndex].timers.reduceSpellDelay[r]) < PlayerHandler.players[c.playerIndex].REDUCE_SPELL_TIME[r]) {
 						c.sendMessage("That player is currently immune to this spell.");
 						c.usingMagic = false;
 						c.stopMovement();
@@ -197,18 +196,13 @@ public class AttackPlayer implements PacketType {
 			}
 
 			
-			if(System.currentTimeMillis() - PlayerHandler.players[c.playerIndex].teleBlockDelay < PlayerHandler.players[c.playerIndex].teleBlockLength && c.MAGIC_SPELLS[c.spellId][0] == 12445) {
+			if(System.currentTimeMillis() - PlayerHandler.players[c.playerIndex].timers.teleBlockDelay < PlayerHandler.players[c.playerIndex].teleBlockLength && c.MAGIC_SPELLS[c.spellId][0] == 12445) {
 				c.sendMessage("That player is already affected by this spell.");
 				c.usingMagic = false;
 				c.stopMovement();
 				c.getCombat().resetPlayerAttack();
 			}
 			
-			/*if(!c.getCombat().checkMagicReqs(c.spellId)) {
-				c.stopMovement();
-				c.getCombat().resetPlayerAttack();
-				break;
-			}*/
 	 
 			if(c.usingMagic) {
 				if(c.goodDistance(c.getX(), c.getY(), PlayerHandler.players[c.playerIndex].getX(), PlayerHandler.players[c.playerIndex].getY(), 7)) {

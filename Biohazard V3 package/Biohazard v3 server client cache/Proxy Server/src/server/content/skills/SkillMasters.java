@@ -83,8 +83,8 @@ public class SkillMasters {
 
 	public static int checkMaxedSkills(Client c) {
 		int maxed = 0;
-		for (int j = 0; j < c.playerLevel.length; j++) {
-			if (c.getLevelForXP(c.playerXP[j]) >= 99) {
+		for (int j = 0; j < c.skills.playerLevel.length; j++) {
+			if (c.getLevelForXP(c.skills.playerXP[j]) >= 99) {
 				maxed++;				
 			}			
 		}		
@@ -100,7 +100,7 @@ public class SkillMasters {
 		int maxed = checkMaxedSkills(c);
 		for(MasterData m : MasterData.values()) {
 			if (c.talkingNpc == m.getMaster()) {
-				if (c.getPA().getLevelForXP(c.playerXP[getSkill(c)]) >= 99) {
+				if (c.getPA().getLevelForXP(c.skills.playerXP[getSkill(c)]) >= 99) {
 					if (c.getItems().playerHasItem(995, 99000)) {
 						if (maxed > 1) {
 							c.getItems().addItem(m.capeId + 1, 1);

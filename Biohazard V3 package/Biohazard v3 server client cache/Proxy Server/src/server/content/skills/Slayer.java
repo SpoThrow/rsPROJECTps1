@@ -9,8 +9,8 @@ import core.util.Misc;
 
 
 /**
- * @author Jordy aka MrClassic
- **/
+ * Slayer
+ */
 
 
 public class Slayer {
@@ -130,15 +130,15 @@ public class Slayer {
         }
         for (Task slayerTask : Task.values()) {
             if (slayerTask.getDifficulty() == EASY_TASK) {
-                if (c.playerLevel[18] >= slayerTask.getLevelReq())
+                if (c.skills.playerLevel[18] >= slayerTask.getLevelReq())
                     easyTask.add(slayerTask.getNpcId());
                 continue;
             } else if (slayerTask.getDifficulty() == MEDIUM_TASK) {
-                if (c.playerLevel[18] >= slayerTask.getLevelReq())
+                if (c.skills.playerLevel[18] >= slayerTask.getLevelReq())
                     mediumTask.add(slayerTask.getNpcId());
                 continue;
             } else if (slayerTask.getDifficulty() == HARD_TASK) {
-                if (c.playerLevel[18] >= slayerTask.getLevelReq()) {
+                if (c.skills.playerLevel[18] >= slayerTask.getLevelReq()) {
                     hardTask.add(slayerTask.getNpcId());
                 }
                 continue;
@@ -210,6 +210,21 @@ public class Slayer {
         return c.slayerTask > 0 || c.taskAmount > 0;
     }
 
+    public static boolean isCheckItem(int id) {
+        if (id == 4155 || id == 15051) {
+            return true;
+        }
+        return id >= 8901 && id <= 8921;
+    }
+
+    public void checkTask() {
+        if (!hasTask()) {
+            c.sendMessage("You don't currently have a slayer task.");
+            return;
+        }
+        c.sendMessage("I currently have " + c.taskAmount + " " + getTaskName(c.slayerTask) + " to kill.");
+    }
+
 
     public void generateTask() {
     	if(c.inCoop) {
@@ -233,7 +248,7 @@ public class Slayer {
         //        + "\nHARD: " + hardTask + "");
         for (Task slayerTask : Task.values()) {
             if (slayerTask.getDifficulty() == taskLevel) {
-                if (c.playerLevel[18] >= slayerTask.getLevelReq()) {
+                if (c.skills.playerLevel[18] >= slayerTask.getLevelReq()) {
                     resizeTable(taskLevel);
                     if (!c.needsNewTask) {
                         int task = getRandomTask(taskLevel);

@@ -5,7 +5,6 @@ import server.game.items.ItemAssistant;
 /**
  * 
  * Potions.java
- * @author Acquittal
  * 
  */
 
@@ -22,9 +21,9 @@ public class Potions {
 			c.sendMessage("You may not drink potions in this duel.");
 			return;
 		}
-		if (System.currentTimeMillis() - c.potDelay >= 1200) {
-			c.potDelay = System.currentTimeMillis();
-			c.foodDelay = c.potDelay;
+		if (System.currentTimeMillis() - c.timers.potDelay >= 1200) {
+			c.timers.potDelay = System.currentTimeMillis();
+			c.timers.foodDelay = c.timers.potDelay;
 			c.getCombat().resetPlayerAttack();
 			c.attackTimer++;
             c.sendMessage("You drink some of your "+ server.game.items.Item.getItemName(itemId) +".");
@@ -354,21 +353,21 @@ public class Potions {
 		//c.overloadcounter();
 		@SuppressWarnings("unused")
 		int[] toIncrease = {0,1,2,4};
-		c.playerLevel[0] += getBrewStat(0, .27);		
-		if (c.playerLevel[0] > (c.getLevelForXP(c.playerXP[0])*1.27 + 1)) {
-			c.playerLevel[0] = (int)(c.getLevelForXP(c.playerXP[0])*1.27);
+		c.skills.playerLevel[0] += getBrewStat(0, .27);		
+		if (c.skills.playerLevel[0] > (c.getLevelForXP(c.skills.playerXP[0])*1.27 + 1)) {
+			c.skills.playerLevel[0] = (int)(c.getLevelForXP(c.skills.playerXP[0])*1.27);
 		}
-		c.playerLevel[1] += getBrewStat(1, .27);		
-		if (c.playerLevel[1] > (c.getLevelForXP(c.playerXP[1])*1.27 + 1)) {
-			c.playerLevel[1] = (int)(c.getLevelForXP(c.playerXP[1])*1.27);
+		c.skills.playerLevel[1] += getBrewStat(1, .27);		
+		if (c.skills.playerLevel[1] > (c.getLevelForXP(c.skills.playerXP[1])*1.27 + 1)) {
+			c.skills.playerLevel[1] = (int)(c.getLevelForXP(c.skills.playerXP[1])*1.27);
 		}
-		c.playerLevel[2] += getBrewStat(2, .27);		
-		if (c.playerLevel[2] > (c.getLevelForXP(c.playerXP[2])*1.27 + 1)) {
-			c.playerLevel[2] = (int)(c.getLevelForXP(c.playerXP[2])*1.27);
+		c.skills.playerLevel[2] += getBrewStat(2, .27);		
+		if (c.skills.playerLevel[2] > (c.getLevelForXP(c.skills.playerXP[2])*1.27 + 1)) {
+			c.skills.playerLevel[2] = (int)(c.getLevelForXP(c.skills.playerXP[2])*1.27);
 		}
-		c.playerLevel[4] += getBrewStat(4, .237);		
-		if (c.playerLevel[4] > (c.getLevelForXP(c.playerXP[4])*1.237 + 1)) {
-			c.playerLevel[4] = (int)(c.getLevelForXP(c.playerXP[4])*1.237);
+		c.skills.playerLevel[4] += getBrewStat(4, .237);		
+		if (c.skills.playerLevel[4] > (c.getLevelForXP(c.skills.playerXP[4])*1.237 + 1)) {
+			c.skills.playerLevel[4] = (int)(c.getLevelForXP(c.skills.playerXP[4])*1.237);
 		}
 		c.getPA().refreshSkill(0);
 		c.getPA().refreshSkill(1);
@@ -393,11 +392,11 @@ public class Potions {
 		c.startAnimation(829);
 		c.playerItems[slot] = replaceItem + 1;
 		c.getItems().resetItems(3214);
-		c.playerLevel[Player.playerSlayer] += 1;
+		c.skills.playerLevel[Player.playerSlayer] += 1;
 		c.getPA().refreshSkill(Player.playerSlayer);
-		c.playerLevel[Player.playerAttack] -= 3;
+		c.skills.playerLevel[Player.playerAttack] -= 3;
 		c.getPA().refreshSkill(Player.playerAttack);
-		c.playerLevel[Player.playerStrength] -= 3;
+		c.skills.playerLevel[Player.playerStrength] -= 3;
 		c.getPA().refreshSkill(Player.playerStrength);
 	}
 
@@ -410,18 +409,18 @@ public class Potions {
 	}
 	
 	public void enchanceMagic(int skillID, boolean sup) {
-		c.playerLevel[skillID] += getBoostedMagic(skillID, sup);
+		c.skills.playerLevel[skillID] += getBoostedMagic(skillID, sup);
 		c.getPA().refreshSkill(skillID);
 	}
 	
 	public int getBoostedMagic(int skill, boolean sup) {
 		int increaseBy = 0;
 		if (sup)
-			increaseBy = (int)(c.getLevelForXP(c.playerXP[skill])*.06);
+			increaseBy = (int)(c.getLevelForXP(c.skills.playerXP[skill])*.06);
 		else
-			increaseBy = (int)(c.getLevelForXP(c.playerXP[skill])*.06);
-		if (c.playerLevel[skill] + increaseBy > c.getLevelForXP(c.playerXP[skill]) + increaseBy + 1) {
-			return c.getLevelForXP(c.playerXP[skill]) + increaseBy - c.playerLevel[skill];
+			increaseBy = (int)(c.getLevelForXP(c.skills.playerXP[skill])*.06);
+		if (c.skills.playerLevel[skill] + increaseBy > c.getLevelForXP(c.skills.playerXP[skill]) + increaseBy + 1) {
+			return c.getLevelForXP(c.skills.playerXP[skill]) + increaseBy - c.skills.playerLevel[skill];
 		}
 		return increaseBy;
 	}
@@ -430,11 +429,11 @@ public class Potions {
 		c.startAnimation(829);
 		c.playerItems[slot] = replaceItem + 1;
 		c.getItems().resetItems(3214);
-		c.playerLevel[5] += (c.getLevelForXP(c.playerXP[5]) * .33);
+		c.skills.playerLevel[5] += (c.getLevelForXP(c.skills.playerXP[5]) * .33);
 		if (rest)
-			c.playerLevel[5] += 1;
-		if (c.playerLevel[5] > c.getLevelForXP(c.playerXP[5]))
-			c.playerLevel[5] = c.getLevelForXP(c.playerXP[5]);
+			c.skills.playerLevel[5] += 1;
+		if (c.skills.playerLevel[5] > c.getLevelForXP(c.skills.playerXP[5]))
+			c.skills.playerLevel[5] = c.getLevelForXP(c.skills.playerXP[5]);
 		c.getPA().refreshSkill(5);
 		if (rest)
 			restoreStats();
@@ -444,13 +443,13 @@ public class Potions {
 		for (int j = 0; j <= 6; j++) {
 			if (j == 5 || j == 3)
 				continue;
-			if (c.playerLevel[j] < c.getLevelForXP(c.playerXP[j])) {
-				c.playerLevel[j] += (c.getLevelForXP(c.playerXP[j]) * .33);
-				if (c.playerLevel[j] > c.getLevelForXP(c.playerXP[j])) {
-					c.playerLevel[j] = c.getLevelForXP(c.playerXP[j]);				
+			if (c.skills.playerLevel[j] < c.getLevelForXP(c.skills.playerXP[j])) {
+				c.skills.playerLevel[j] += (c.getLevelForXP(c.skills.playerXP[j]) * .33);
+				if (c.skills.playerLevel[j] > c.getLevelForXP(c.skills.playerXP[j])) {
+					c.skills.playerLevel[j] = c.getLevelForXP(c.skills.playerXP[j]);				
 				}
 				c.getPA().refreshSkill(j);
-				c.getPA().setSkillLevel(j, c.playerLevel[j], c.playerXP[j]);
+				c.getPA().setSkillLevel(j, c.skills.playerLevel[j], c.skills.playerXP[j]);
 			}			
 		}
 	}
@@ -477,42 +476,42 @@ public class Potions {
 		@SuppressWarnings("unused")
 		int[] toIncrease = {1,3};
 		for (int tD : toDecrease) {
-			c.playerLevel[tD] -= getBrewStat(tD, .10);
-			if (c.playerLevel[tD] < 0)
-				c.playerLevel[tD] = 1;
+			c.skills.playerLevel[tD] -= getBrewStat(tD, .10);
+			if (c.skills.playerLevel[tD] < 0)
+				c.skills.playerLevel[tD] = 1;
 			c.getPA().refreshSkill(tD);
-			c.getPA().setSkillLevel(tD, c.playerLevel[tD], c.playerXP[tD]);
+			c.getPA().setSkillLevel(tD, c.skills.playerLevel[tD], c.skills.playerXP[tD]);
 		}
-		c.playerLevel[1] += getBrewStat(1, .20);		
-		if (c.playerLevel[1] > (c.getLevelForXP(c.playerXP[1])*1.2 + 1)) {
-			c.playerLevel[1] = (int)(c.getLevelForXP(c.playerXP[1])*1.2);
+		c.skills.playerLevel[1] += getBrewStat(1, .20);		
+		if (c.skills.playerLevel[1] > (c.getLevelForXP(c.skills.playerXP[1])*1.2 + 1)) {
+			c.skills.playerLevel[1] = (int)(c.getLevelForXP(c.skills.playerXP[1])*1.2);
 		}
 		c.getPA().refreshSkill(1);
 		
-		c.playerLevel[3] += getBrewStat(3, .15);
-		if (c.playerLevel[3] > (c.getLevelForXP(c.playerXP[3])*1.17 + 1)) {
-			c.playerLevel[3] = (int)(c.getLevelForXP(c.playerXP[3])*1.17);
+		c.skills.playerLevel[3] += getBrewStat(3, .15);
+		if (c.skills.playerLevel[3] > (c.getLevelForXP(c.skills.playerXP[3])*1.17 + 1)) {
+			c.skills.playerLevel[3] = (int)(c.getLevelForXP(c.skills.playerXP[3])*1.17);
 		}
 		c.getPA().refreshSkill(3);
 	}
 	
 	public void enchanceStat(int skillID, boolean sup) {
-		c.playerLevel[skillID] += getBoostedStat(skillID, sup);
+		c.skills.playerLevel[skillID] += getBoostedStat(skillID, sup);
 		c.getPA().refreshSkill(skillID);
 	}
 	
 	public int getBrewStat(int skill, double amount) {
-		return (int)(c.getLevelForXP(c.playerXP[skill]) * amount);
+		return (int)(c.getLevelForXP(c.skills.playerXP[skill]) * amount);
 	}
 	
 	public int getBoostedStat(int skill, boolean sup) {
 		int increaseBy = 0;
 		if (sup)
-			increaseBy = (int)(c.getLevelForXP(c.playerXP[skill])*.20);
+			increaseBy = (int)(c.getLevelForXP(c.skills.playerXP[skill])*.20);
 		else
-			increaseBy = (int)(c.getLevelForXP(c.playerXP[skill])*.13) + 1;
-		if (c.playerLevel[skill] + increaseBy > c.getLevelForXP(c.playerXP[skill]) + increaseBy + 1) {
-			return c.getLevelForXP(c.playerXP[skill]) + increaseBy - c.playerLevel[skill];
+			increaseBy = (int)(c.getLevelForXP(c.skills.playerXP[skill])*.13) + 1;
+		if (c.skills.playerLevel[skill] + increaseBy > c.getLevelForXP(c.skills.playerXP[skill]) + increaseBy + 1) {
+			return c.getLevelForXP(c.skills.playerXP[skill]) + increaseBy - c.skills.playerLevel[skill];
 		}
 		return increaseBy;
 	}

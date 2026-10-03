@@ -1,7 +1,6 @@
 package server.game.players.packets;
 
 import server.game.players.Client;
-import server.game.players.PacketType;
 import server.game.players.PlayerHandler;
 import core.util.Misc;
 

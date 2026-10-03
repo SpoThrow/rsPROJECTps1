@@ -1,7 +1,7 @@
 package server.game.players.packets;
 
+import server.game.items.BankTabs;
 import server.game.players.Client;
-import server.game.players.PacketType;
 
 public class MoveItems implements PacketType {
 
@@ -12,6 +12,14 @@ public class MoveItems implements PacketType {
 		int itemFrom = c.getInStream().readUnsignedWordBigEndianA();
 		int itemTo = c.getInStream().readUnsignedWordBigEndian();
 		if (c.inTrade || c.tradeStatus == 1 || c.duelStatus == 1) {
+			return;
+		}
+		if (interfaceId == BankTabs.MAIN_TAB_DROP || interfaceId == BankTabs.MAIN_BUTTON) {
+			if (!c.isBanking) {
+				return;
+			}
+			int abs = c.getBank().toAbsolute(itemFrom);
+			c.getBank().moveToTab(abs, 0);
 			return;
 		}
 		if (interfaceId >= 10335 && interfaceId <= 10342) {

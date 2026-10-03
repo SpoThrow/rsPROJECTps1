@@ -2,7 +2,6 @@ package server.game.players.packets;
 
 import server.Server;
 import server.game.players.Client;
-import server.game.players.PacketType;
 import core.util.Misc;
 
 public class ItemOnGroundItem implements PacketType {

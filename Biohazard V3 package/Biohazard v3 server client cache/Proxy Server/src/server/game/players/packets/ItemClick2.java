@@ -3,8 +3,8 @@ package server.game.players.packets;
 import server.content.skills.Implings;
 import server.content.skills.Implings.ImpRewards;
 import server.content.skills.Pouches;
+import server.content.skills.Slayer;
 import server.game.players.Client;
-import server.game.players.PacketType;
 import core.util.Misc;
 
 /**
@@ -20,9 +20,24 @@ public class ItemClick2 implements PacketType {
 	@Override
 	public void processPacket(Client c, int packetType, int packetSize) {
 		int itemId = c.getInStream().readSignedWordA();
-		
-		if (!c.getItems().playerHasItem(itemId,1)) {
+		boolean inInv = c.getItems().playerHasItem(itemId, 1);
+		boolean worn = false;
+		if (!inInv) {
+			for (int i = 0; i < c.playerEquipment.length; i++) {
+				if (c.playerEquipment[i] == itemId) {
+					worn = true;
+					break;
+				}
+			}
+		}
+		if (!inInv && !worn) {
 			return;
+		}
+		if (Slayer.isCheckItem(itemId)) {
+			c.getSlayer().checkTask();
+			if (!inInv) {
+				return;
+			}
 		}
 		for (int i = 0; i < Pouches.pouchData.length; i++) {
 			if (itemId == Pouches.pouchData[i][0]) {

@@ -7,7 +7,6 @@ package server.game.players.packets;
 import server.content.skills.Cooking;
 import server.game.items.UseItem;
 import server.game.players.Client;
-import server.game.players.PacketType;
 
 public class ItemOnObject implements PacketType {
 

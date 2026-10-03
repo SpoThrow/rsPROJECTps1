@@ -1,5 +1,6 @@
 package server.game.players.packets;
 
+import server.Config;
 import server.Server;
 import server.clip.region.Region;
 import server.content.skills.Mining;
@@ -10,7 +11,6 @@ import server.event.CycleEventHandler;
 import server.game.minigames.castlewars.CastleWars;
 import server.game.objects.doors.Doors;
 import server.game.players.Client;
-import server.game.players.PacketType;
 import core.util.Misc;
 /**
  * Click Object
@@ -32,13 +32,14 @@ public class ClickObject implements PacketType {
 			c.objectId = c.getInStream().readUnsignedWord();
 			c.objectY = c.getInStream().readUnsignedWordA();
 			c.objectDistance = 1;
-			if (!Region.objectExists(c.objectId, c.objectX, c.objectY, c.heightLevel)) {
+			if (!Region.objectExists(c.objectId, c.objectX, c.objectY, c.position.heightLevel)
+					&& c.objectId != 409 && c.objectId != 410 && c.objectId != 6552) {
 				c.sendMessage("FAKE");
 		        return;
 			}
 			//if(c.goodDistance(c.objectX+c.objectXOffset+2, c.objectY+c.objectYOffset+2, c.getX(), c.getY(), c.objectDistance)) {
 			if(c.goodDistance(c.getX(), c.getY(), c.objectX, c.objectY, 1)) {
-				if (Doors.getSingleton().handleDoor(c.objectId, c.objectX, c.objectY, c.heightLevel)) {
+				if (Doors.getSingleton().handleDoor(c.objectId, c.objectX, c.objectY, c.position.heightLevel)) {
 				}
 			}				
 			if(c.teleTimer > 0)
@@ -145,7 +146,7 @@ public class ClickObject implements PacketType {
 				c.getPA().movePlayer(1752, 5137, 0);
 				break;
 			case 5100:
-				if(c.playerLevel[16] < 22) {
+				if(c.skills.playerLevel[16] < 22) {
 					c.sendMessage("You need an Agility level of 22 to pass this.");
 					return;
 				}
@@ -175,7 +176,7 @@ public class ClickObject implements PacketType {
 				break;
 				
 			case 9398://deposit
-				c.getPA().sendFrame126("The Bank of Biohazard - Deposit Box", 7421);
+				c.getPA().sendFrame126("The Bank of " + Config.SERVER_NAME + " - Deposit Box", 7421);
 				c.getPA().sendFrame248(4465, 197);//197 just because you can't see it =\
 				c.getItems().resetItems(7423);
 			break;
@@ -240,11 +241,11 @@ public class ClickObject implements PacketType {
 				break;
 				case 2558:
 					c.objectDistance = 0;
-					if (c.absX > c.objectX && c.objectX == 3044)
+					if (c.position.absX > c.objectX && c.objectX == 3044)
 						c.objectXOffset = 1;
-					if (c.absY > c.objectY)
+					if (c.position.absY > c.objectY)
 						c.objectYOffset = 1;
-					if (c.absX < c.objectX && c.objectX == 3038)
+					if (c.position.absX < c.objectX && c.objectX == 3038)
 						c.objectXOffset = -1;
 				break;
 				case 9356:
@@ -280,7 +281,7 @@ public class ClickObject implements PacketType {
 				break;
 				//castlewars
 				case 4419:
-					if (c.absX >= 2414 && c.absX <= 2416)
+					if (c.position.absX >= 2414 && c.position.absX <= 2416)
 						c.objectYOffset = 0;
 					else
 						c.objectYOffset = 2;
@@ -377,13 +378,19 @@ public class ClickObject implements PacketType {
 			c.objectY = c.getInStream().readSignedWordBigEndian();
 			c.objectX = c.getInStream().readUnsignedWordA();
 			c.objectDistance = 1;
-			if (!Region.objectExists(c.objectId, c.objectX, c.objectY, c.heightLevel))
+			if (!Region.objectExists(c.objectId, c.objectX, c.objectY, c.position.heightLevel)
+					&& c.objectId != 409 && c.objectId != 410 && c.objectId != 6552)
 		        return;
 			if(c.playerRights >= 3) {
 				Misc.println("objectId2: "+c.objectId+"  ObjectX: "+c.objectX+ "  objectY: "+c.objectY+" Xoff: "+ (c.getX() - c.objectX)+" Yoff: "+ (c.getY() - c.objectY)); 
 			}
 			
 			switch(c.objectId) {
+			case 409:
+			case 410:
+			case 6552:
+				c.objectDistance = 2;
+				break;
 			case 6:
 			case 7:
 			case 8:
@@ -432,7 +439,7 @@ public class ClickObject implements PacketType {
 			c.objectX = c.getInStream().readSignedWordBigEndian();
 			c.objectY = c.getInStream().readUnsignedWord();
 			c.objectId = c.getInStream().readUnsignedWordBigEndianA();
-			if (!Region.objectExists(c.objectId, c.objectX, c.objectY, c.heightLevel))
+			if (!Region.objectExists(c.objectId, c.objectX, c.objectY, c.position.heightLevel))
 		        return;
 			if(c.playerRights >= 3) {
 				Misc.println("objectId: "+c.objectId+"  ObjectX: "+c.objectX+ "  objectY: "+c.objectY+" Xoff: "+ (c.getX() - c.objectX)+" Yoff: "+ (c.getY() - c.objectY)); 

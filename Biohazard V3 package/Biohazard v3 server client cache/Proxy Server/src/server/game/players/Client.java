@@ -1,8 +1,8 @@
 package server.game.players;
 
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Future;
 
 import org.apache.mina.common.IoSession;
@@ -32,6 +32,8 @@ import server.game.minigames.castlewars.CastleWars;
 import server.game.minigames.rangersguild.RangersGuild;
 import server.game.minigames.treasuretrails.TreasureTrails;
 import server.game.players.combat.CombatAssistant;
+import server.game.players.combat.Curse;
+import server.game.players.packets.PacketHandler;
 import server.game.shops.ShopAssistant;
 import server.world.Clan;
 import core.net.HostList;
@@ -52,11 +54,13 @@ public class Client extends Player {
 	private TradeAndDuel tradeAndDuel = new TradeAndDuel(this);
 	private PlayerAssistant playerAssistant = new PlayerAssistant(this);
 	private CombatAssistant combatAssistant = new CombatAssistant(this);
+	private Curse curse = new Curse(this);
 	private ActionHandler actionHandler = new ActionHandler(this);
 	private PlayerKilling playerKilling = new PlayerKilling(this);
 	private TreasureTrails treasureTrails = new TreasureTrails(this);
 	private DialogueHandler dialogueHandler = new DialogueHandler(this);
-	private Queue<Packet> queuedPackets = new LinkedList<Packet>();
+	// Written by Mina I/O threads, drained by the game thread - must stay concurrent.
+	private final Queue<Packet> queuedPackets = new ConcurrentLinkedQueue<Packet>();
 	private Potions potions = new Potions(this);
 	private PotionMixing potionMixing = new PotionMixing(this);
 	private Food food = new Food(this);
@@ -98,6 +102,10 @@ public class Client extends Player {
 	public boolean healthSkill = false;
 	public boolean posSearchingItem = false;
 	public boolean posSearchingPlayer = false;
+	public boolean itemSpawnSearching = false;
+	public int itemSpawnPendingId = -1;
+	public int[] itemSpawnResults = new int[40];
+	public int itemSpawnResultCount = 0;
 
 	public Client(IoSession s, int _playerId) {
 		super(_playerId);
@@ -310,7 +318,7 @@ public class Client extends Player {
 		if (addStarter)
 			getPA().showInterface(18452);
 		for (int i = 0; i < 25; i++) {
-			getPA().setSkillLevel(i, playerLevel[i], playerXP[i]);
+			getPA().setSkillLevel(i, skills.playerLevel[i], skills.playerXP[i]);
 			getPA().refreshSkill(i);
 		}
 		for(int p = 0; p < PRAYER.length; p++) { // reset prayer glows 
@@ -328,9 +336,9 @@ public class Client extends Player {
 		getPA().applyRememberedAutocast();
 		correctCoordinates();
 		getPA().sendFrame36(173,1);
-		getPA().sendFrame36(166, brightness);
-		getPA().sendFrame36(168, musicVolume);
-		getPA().sendFrame36(169, soundEffectVolume);
+		getPA().sendFrame36(166, settings.brightness);
+		getPA().sendFrame36(168, settings.musicVolume);
+		getPA().sendFrame36(169, settings.soundEffectVolume);
 		getPA().sendFrame36(170, mouseButton ? 1 : 0);
 		getPA().sendFrame36(171, chatEffects ? 0 : 1);
 		getPA().sendFrame36(287, splitChat ? 1 : 0);
@@ -344,7 +352,7 @@ public class Client extends Player {
 		server.game.content.PlayerOwnedShop.notifyOnLogin(this);
 		//sendMessage("Join 'help' clan chat for public clan chat.");
 		if(playerRights == 4 || playerRights == 6 || playerRights == 5) {
-			sendMessage("Thank you for contributing to us and enjoy your day playing @blu@Biohazard!");
+			sendMessage("Thank you for contributing to us and enjoy your day playing @blu@"+Config.SERVER_NAME+"!");
 		}
 		getPA().showOption(4, 0,"Follow", 4);
 		getPA().showOption(5, 0,"Trade With", 3);
@@ -379,8 +387,8 @@ public class Client extends Player {
 		getPA().clearClanChat();
 		getPA().resetFollow();
 		getPA().setClanData();
-		if (lastClanChat != null && lastClanChat.length() > 0) {
-			Clan clan = Server.clanManager.getClan(lastClanChat);
+		if (clanChat.channel != null && clanChat.channel.length() > 0) {
+			Clan clan = Server.clanManager.getClan(clanChat.channel);
 			if (clan != null)
 				clan.addMember(this);
 		}
@@ -393,8 +401,8 @@ public class Client extends Player {
 		else
 			getPA().sendFrame36(172, 0);
 		MusicTab.loadMusicTab(this);
-		totalLevel = getPA().totalLevel();
-		xpTotal = getPA().xpTotal();
+		skills.totalLevel = getPA().totalLevel();
+		skills.xpTotal = getPA().xpTotal();
 		BountyHunter.checkBHTimer(this);
 		//loadRegion();
 		if(addStarter) {
@@ -411,16 +419,6 @@ public class Client extends Player {
 		}
 	}
 	
-	/*private void loadRegion() {
-		Music.playMusic(this);
-		Server.itemHandler.reloadItems(this);
-		clearLists();
-		Server.objectManager.loadObjects(this);
-		if(skullTimer > 0) {
-			isSkulled = true;	
-			headIconPk = 0;
-		}
-	}*/
 
 	
 	//sync
@@ -435,7 +433,7 @@ public class Client extends Player {
 	//sync
 	public void logout() {
 		synchronized (this) {
-		if(System.currentTimeMillis() - logoutDelay > 10000) {
+		if(System.currentTimeMillis() - timers.logoutDelay > 10000) {
 			if(Server.trawler.players.contains(this)) {
 				Server.trawler.players.remove(this);
 			}
@@ -478,7 +476,7 @@ public class Client extends Player {
 					      getPA().movePlayer(x, y, height);
 					      getPA().resetAnimationsToPrevious();
 					      updateRequired = true;
-					      appearanceUpdateRequired = true;
+					      appearance.appearanceUpdateRequired = true;
 					    }
 					    if (tStage == 3) {
 					      getPA().showInterface(18452);
@@ -774,227 +772,101 @@ public class Client extends Player {
 		}
 	}
 	
-	/*public void trawlerFade(final int x, final int y, final int height) {
-		if (System.currentTimeMillis() - lastAction > 5000) {
-			lastAction = System.currentTimeMillis();
-			resetWalkingQueue();
-			CycleEventHandler.addEvent(this, new CycleEvent() {
-				int tStage = 5;
-				public void execute(CycleEventContainer container) {
-					if (tStage == 5) {
-					      getPA().showInterface(18460);
-					    }
-					    if (tStage == 4) {
-					      getPA().movePlayer(x, y, height);
-					      getPA().resetAnimationsToPrevious();
-					      appearanceUpdateRequired = true;
-					    }
-					    if (tStage == 3) {
-					      getPA().showInterface(18452);
-					    }
-						if (tStage == 1) {
-							container.stop();
-							return;
-					    }
-						if (tStage > 0) {
-							tStage--;
-						  }
-				}
-				public void stop() {
-					getPA().closeAllWindows();
-					tStage = 0;
-				}
-			}, 1);
-		}
-	}
-	
-	public void fade(final int x, final int y, final int height) {
-		if (System.currentTimeMillis() - lastAction > 5000) {
-			lastAction = System.currentTimeMillis();
-			resetWalkingQueue();
-			dialogueAction = -1;
-			teleAction = -1;
-			CycleEventHandler.addEvent(this, new CycleEvent() {
-				int tStage = 6;
-				public void execute(CycleEventContainer container) {
-					if (tStage == 6) {
-					      getPA().showInterface(18460);
-					    }
-					    if (tStage == 5) {
-					      getPA().movePlayer(x, y, height);
-					      updateRequired = true;
-					      appearanceUpdateRequired = true;
-					    }
-					    if (tStage == 4) {
-					      getPA().showInterface(18452);
-					    }
-						if (tStage == 1) {
-							container.stop();
-							return;
-					    }
-						if (tStage > 0) {
-							tStage--;
-						  }
-				}
-				public void stop() {
-					getPA().closeAllWindows();
-					tStage = 0;
-				}
-			}, 1);
-		}
-	}
-	
-	public void fadeKQ(final int x, final int y, final int height) {
-		if (System.currentTimeMillis() - lastAction > 5000) {
-			lastAction = System.currentTimeMillis();
-			resetWalkingQueue();
-			dialogueAction = -1;
-			teleAction = -1;
-			CycleEventHandler.addEvent(this, new CycleEvent() {
-				int tStage = 6;
-				public void execute(CycleEventContainer container) {
-					if (tStage == 6) {
-					      getPA().showInterface(18460);
-					    }
-					    if (tStage == 5) {
-					      getPA().movePlayer(x, y, height);
-					      updateRequired = true;
-					      appearanceUpdateRequired = true;
-					    }
-					    if (tStage == 4) {
-					      getPA().showInterface(18452);
-					    }
-						if (tStage == 1) {
-							container.stop();
-							return;
-					    }
-						if (tStage > 0) {
-							tStage--;
-						  }
-				}
-				public void stop() {
-					getPA().closeAllWindows();
-					tStage = 0;
-					if(!getItems().playerHasItem(954)){
-						getDH().sendStatement("I may need a rope to enter this tunnel.");
-					}
-				}
-			}, 1);
-		}
-	}
-	
-	public void fadeDesert(final int x, final int y, final int height) {
-		if (System.currentTimeMillis() - lastAction > 5000) {
-			lastAction = System.currentTimeMillis();
-			resetWalkingQueue();
-			dialogueAction = -1;
-			teleAction = -1;
-			CycleEventHandler.addEvent(this, new CycleEvent() {
-				int tStage = 6;
-				public void execute(CycleEventContainer container) {
-					if (tStage == 6) {
-					      getPA().showInterface(18460);
-					    }
-					    if (tStage == 5) {
-					      getPA().movePlayer(x, y, height);
-					      updateRequired = true;
-					      appearanceUpdateRequired = true;
-					    }
-					    if (tStage == 4) {
-					      getPA().showInterface(18452);
-					    }
-						if (tStage == 1) {
-							container.stop();
-							return;
-					    }
-						if (tStage > 0) {
-							tStage--;
-						  }
-				}
-				public void stop() {
-					getPA().closeAllWindows();
-					tStage = 0;
-					getDH().sendStatement("The desert is too dry ... and you begin to see a Mirage.");
-				}
-			}, 1);
-		}
-	}
-	
-	public void fadeDungeon(final int x, final int y, final int height) {
-		if (System.currentTimeMillis() - lastAction > 5000) {
-			lastAction = System.currentTimeMillis();
-			resetWalkingQueue();
-			dialogueAction = -1;
-			teleAction = -1;
-			CycleEventHandler.addEvent(this, new CycleEvent() {
-				int tStage = 6;
-				public void execute(CycleEventContainer container) {
-					if (tStage == 6) {
-					      getPA().showInterface(18460);
-					    }
-					    if (tStage == 5) {
-					      getPA().movePlayer(x, y, height);
-					      updateRequired = true;
-					      appearanceUpdateRequired = true;
-					    }
-					    if (tStage == 4) {
-					      getPA().showInterface(18452);
-					    }
-						if (tStage == 1) {
-							container.stop();
-							return;
-					    }
-						if (tStage > 0) {
-							tStage--;
-						  }
-				}
-				public void stop() {
-					getPA().closeAllWindows();
-					tStage = 0;
-					getDH().sendStatement("The dungeon begins to collapse ... and you fell down.");
-				}
-			}, 1);
-		}
-	}
-	
-	public void fadeCrash(final int x, final int y, final int height) {
-		if (System.currentTimeMillis() - lastAction > 5000) {
-			lastAction = System.currentTimeMillis();
-			resetWalkingQueue();
-			dialogueAction = -1;
-			teleAction = -1;
-			CycleEventHandler.addEvent(this, new CycleEvent() {
-				int tStage = 6;
-				public void execute(CycleEventContainer container) {
-					if (tStage == 6) {
-					      getPA().showInterface(18460);
-					    }
-					    if (tStage == 5) {
-					      getPA().movePlayer(x, y, height);
-					      updateRequired = true;
-					      appearanceUpdateRequired = true;
-					    }
-					    if (tStage == 4) {
-					      getPA().showInterface(18452);
-					    }
-						if (tStage == 1) {
-							container.stop();
-							return;
-					    }
-						if (tStage > 0) {
-							tStage--;
-						  }
-				}
-				public void stop() {
-					getPA().closeAllWindows();
-					tStage = 0;
-					getDH().sendStatement("The boat crashed ... and you reached the sea bottom.");
-				}
-			}, 1);
-		}
-	}*/
 
 	public int packetSize = 0, packetType = -1;
+
+
+	/**
+	 * Tick order (PlayerHandler): packets → process(non-move) → postProcessing
+	 * → getNextPlayerMovement → processCombatAfterMovement (follow → swing).
+	 * Follow and swings use post-move absX/absY. attackTimer/hitDelay stay in
+	 * process() — do not move them onto CycleEventHandler.
+	 */
+	public void processCombatAfterMovement() {
+		if (!isActive || isDead) {
+			return;
+		}
+		processFollowAfterMovement();
+		if (attackTimer == 1) {
+			if (npcIndex > 0 && clickNpcType == 0) {
+				getCombat().attackNpc(npcIndex);
+			}
+			if (playerIndex > 0) {
+				getCombat().attackPlayer(playerIndex);
+			}
+		} else if (attackTimer <= 0 && (npcIndex > 0 || playerIndex > 0)) {
+			if (npcIndex > 0) {
+				attackTimer = 0;
+				getCombat().attackNpc(npcIndex);
+			} else if (playerIndex > 0) {
+				attackTimer = 0;
+				getCombat().attackPlayer(playerIndex);
+			}
+		}
+	}
+
+	/** Follow after position update so range checks use the stepped tile. */
+	private void processFollowAfterMovement() {
+		if (followId > 0) {
+			getPA().followPlayer();
+		} else if (followId2 > 0) {
+			getPA().followNpc();
+		}
+	}
+
+	private void processPrayerAndCurses() {
+		getCombat().handlePrayerDrain(this);
+		if (getCurse() != null) {
+			getCurse().handleProcess();
+		}
+	}
+
+	private void processClawDelay() {
+		if (timers.clawDelay > 0) {
+			timers.clawDelay--;
+			if (timers.clawDelay == 1) {
+				getCombat().applyClawFollowup();
+			}
+		}
+	}
+
+	private void processSingleCombatFlags() {
+		if (System.currentTimeMillis() - timers.singleCombatDelay > 3300) {
+			underAttackBy = 0;
+		}
+		if (System.currentTimeMillis() - timers.singleCombatDelay2 > 3300) {
+			underAttackBy2 = 0;
+		}
+	}
+
+	private void processSkullTimer() {
+		if (skullTimer > 0) {
+			skullTimer--;
+			if (skullTimer == 1) {
+				isSkulled = false;
+				attackedPlayers.clear();
+				appearance.headIconPk = -1;
+				skullTimer = -1;
+				getPA().requestUpdates();
+			}
+		}
+	}
+
+	private void processFreezeTimer() {
+		if (freezeTimer > -6) {
+			freezeTimer--;
+			if (frozenBy > 0) {
+				if (PlayerHandler.players[frozenBy] == null) {
+					freezeTimer = -1;
+					frozenBy = -1;
+				} else if (!goodDistance(position.absX, position.absY, PlayerHandler.players[frozenBy].position.absX,
+						PlayerHandler.players[frozenBy].position.absY, 20)) {
+					freezeTimer = -1;
+					frozenBy = -1;
+				}
+			}
+		}
+	}
 
 	public void process() {
 		if(!isResting) {
@@ -1010,48 +882,34 @@ public class Client extends Player {
 			}
 		}
 		getPA().writeEnergy();
-		/*if(System.currentTimeMillis() - specDelay > Config.INCREASE_SPECIAL_AMOUNT) {
-			specDelay = System.currentTimeMillis();
-			if(specAmount < 100) {
-				specAmount += 5;
-				if (specAmount > 100)
-					specAmount = 100;
-				getItems().addSpecialBar(playerEquipment[playerWeapon]);
-			}
-		}*/
 
-		if(followId > 0) {
-			getPA().followPlayer();
-		} else if (followId2 > 0) {
-			getPA().followNpc();
-		}
-		getCombat().handlePrayerDrain(this);
-		if(System.currentTimeMillis() - singleCombatDelay >  3300) {
-			underAttackBy = 0;
-		}
-		if (System.currentTimeMillis() - singleCombatDelay2 > 3300) {
-			underAttackBy2 = 0;
-		}
+		// Follow moved to processCombatAfterMovement (after getNextPlayerMovement).
+		processPrayerAndCurses();
+		processClawDelay();
+		processSingleCombatFlags();
 
 		if(System.currentTimeMillis() - restoreStatsDelay >  60000) {
 			restoreStatsDelay = System.currentTimeMillis();
-			for (int level = 0; level < playerLevel.length; level++)  {
-				if (playerLevel[level] < getLevelForXP(playerXP[level])) {
+			for (int level = 0; level < skills.playerLevel.length; level++)  {
+				if (skills.playerLevel[level] < getLevelForXP(skills.playerXP[level])) {
 					if(level != 5) { // prayer doesn't restore
-						playerLevel[level] += 1;
-						getPA().setSkillLevel(level, playerLevel[level], playerXP[level]);
+						skills.playerLevel[level] += 1;
+						getPA().setSkillLevel(level, skills.playerLevel[level], skills.playerXP[level]);
 						getPA().refreshSkill(level);
 					}
-				} else if (playerLevel[level] > getLevelForXP(playerXP[level])) {
-					playerLevel[level] -= 1;
-					getPA().setSkillLevel(level, playerLevel[level], playerXP[level]);
+				} else if (skills.playerLevel[level] > getLevelForXP(skills.playerXP[level])) {
+					if (curseActive[5] && core.util.Misc.random(100) < 15) {
+						continue;
+					}
+					skills.playerLevel[level] -= 1;
+					getPA().setSkillLevel(level, skills.playerLevel[level], skills.playerXP[level]);
 					getPA().refreshSkill(level);
 				}
 			}
 		}
 
 		if(inWild()) {
-			int modY = absY > 6400 ?  absY - 6400 : absY;
+			int modY = position.absY > 6400 ?  position.absY - 6400 : position.absY;
 			wildLevel = (((modY - 3520) / 8) + 1);
 			getPA().walkableInterface(197);
 			if(Config.SINGLE_AND_MULTI_ZONES) {
@@ -1065,7 +923,7 @@ public class Client extends Player {
 				getPA().sendFrame126("@yel@Level: "+wildLevel, 199);
 			}
 			getPA().showOption(3, 0, "Attack", 1);
-		} else if(this.inBH) {
+		} else if(this.bountyHunter.inBH) {
 			getPA().showOption(3, 0, "Attack", 1);
 			getPA().walkableInterface(25347);
 		} else if (inDuelArena()) {
@@ -1116,16 +974,7 @@ public class Client extends Player {
 			getPA().multiWay(-1);
 		}
 
-		if(skullTimer > 0) {
-			skullTimer--;
-			if(skullTimer == 1) {
-				isSkulled = false;
-				attackedPlayers.clear();
-				headIconPk = -1;
-				skullTimer = -1;
-				getPA().requestUpdates();
-			}	
-		}
+		processSkullTimer();
 
 		if(isDead && respawnTimer == -6) {
 			getPA().applyDead();
@@ -1143,18 +992,7 @@ public class Client extends Player {
 		if(respawnTimer > -6) {
 			respawnTimer--;
 		}
-		if(freezeTimer > -6) {
-			freezeTimer--;
-			if (frozenBy > 0) {
-				if (PlayerHandler.players[frozenBy] == null) {
-					freezeTimer = -1;
-					frozenBy = -1;
-				} else if (!goodDistance(absX, absY, PlayerHandler.players[frozenBy].absX, PlayerHandler.players[frozenBy].absY, 20)) {
-					freezeTimer = -1;
-					frozenBy = -1;
-				}
-			}
-		}
+		processFreezeTimer();
 
 		if(hitDelay > 0) {
 			hitDelay--;
@@ -1191,23 +1029,7 @@ public class Client extends Player {
 		if(attackTimer > 0) {
 			attackTimer--;
 		}
-
-		if(attackTimer == 1){
-			if(npcIndex > 0 && clickNpcType == 0) {
-				getCombat().attackNpc(npcIndex);
-			}
-			if(playerIndex > 0) {
-				getCombat().attackPlayer(playerIndex);
-			}
-		} else if (attackTimer <= 0 && (npcIndex > 0 || playerIndex > 0)) {
-			if (npcIndex > 0) {
-				attackTimer = 0;
-				getCombat().attackNpc(npcIndex);
-			} else if (playerIndex > 0) {
-				attackTimer = 0;
-				getCombat().attackPlayer(playerIndex);
-			}
-		}
+		// Attack swings run in processCombatAfterMovement() after absX/absY update.
 
 		if(inTrade && tradeResetNeeded){
 			Client o = (Client) PlayerHandler.players[tradeWith];
@@ -1290,6 +1112,10 @@ public class Client extends Player {
 
 	public CombatAssistant getCombat() {
 		return combatAssistant;
+	}
+
+	public Curse getCurse() {
+		return curse;
 	}
 
 	public ActionHandler getActions() {
@@ -1425,19 +1251,11 @@ public class Client extends Player {
 	 */
 
 	public void queueMessage(Packet arg1) {
-		//synchronized(queuedPackets) {
-			//if (arg1.getId() != 41)
-			queuedPackets.add(arg1);
-			//else
-			//processPacket(arg1);
-		//}
+		queuedPackets.add(arg1);
 	}
 
 	public boolean processQueuedPackets() {
-		Packet p = null;
-		//synchronized(queuedPackets) {
-			p = queuedPackets.poll();
-		//}
+		Packet p = queuedPackets.poll();
 		if(p == null) {
 			return false;
 		}

@@ -165,7 +165,7 @@ public class PestControlRewards {
 				break;
 			case ATTACK:
 				if(c.pcPoints > 1) {
-					c.getPA().addSkillXP(c.playerLevel[Config.ATTACK] * c.playerLevel[Config.ATTACK]/17.5 * 4, Config.ATTACK);
+					c.getPA().addSkillXP(c.skills.playerLevel[Config.ATTACK] * c.skills.playerLevel[Config.ATTACK]/17.5 * 4, Config.ATTACK);
 					c.sendMessage("You have been rewarded attack experience.");
 					c.pcPoints -= 2;
 				} else {
@@ -174,7 +174,7 @@ public class PestControlRewards {
 				break;
 			case STRENGTH:
 				if(c.pcPoints > 1) {
-					c.getPA().addSkillXP(c.playerLevel[Config.STRENGTH] * c.playerLevel[Config.STRENGTH]/17.5 * 4, Config.STRENGTH);
+					c.getPA().addSkillXP(c.skills.playerLevel[Config.STRENGTH] * c.skills.playerLevel[Config.STRENGTH]/17.5 * 4, Config.STRENGTH);
 					c.sendMessage("You have been rewarded strength experience.");
 					c.pcPoints -= 2;
 				} else {
@@ -183,7 +183,7 @@ public class PestControlRewards {
 				break;
 			case DEFENCE:
 				if(c.pcPoints > 1) {
-					c.getPA().addSkillXP(c.playerLevel[Config.DEFENCE] * c.playerLevel[Config.DEFENCE]/17.5 * 4, Config.DEFENCE);
+					c.getPA().addSkillXP(c.skills.playerLevel[Config.DEFENCE] * c.skills.playerLevel[Config.DEFENCE]/17.5 * 4, Config.DEFENCE);
 					c.sendMessage("You have been rewarded defence experience.");
 					c.pcPoints -= 2;
 				} else {
@@ -192,7 +192,7 @@ public class PestControlRewards {
 				break;
 			case RANGED:
 				if(c.pcPoints > 1) {
-					c.getPA().addSkillXP(c.playerLevel[Config.RANGED] * c.playerLevel[Config.RANGED]/17.5 * 4, Config.RANGED);
+					c.getPA().addSkillXP(c.skills.playerLevel[Config.RANGED] * c.skills.playerLevel[Config.RANGED]/17.5 * 4, Config.RANGED);
 					c.sendMessage("You have been rewarded ranged experience.");
 					c.pcPoints -= 2;
 				} else {
@@ -201,7 +201,7 @@ public class PestControlRewards {
 				break;
 			case MAGIC:
 				if(c.pcPoints > 1) {
-					c.getPA().addSkillXP(c.playerLevel[Config.MAGIC] * c.playerLevel[Config.MAGIC]/17.5 * 4, Config.MAGIC);
+					c.getPA().addSkillXP(c.skills.playerLevel[Config.MAGIC] * c.skills.playerLevel[Config.MAGIC]/17.5 * 4, Config.MAGIC);
 					c.sendMessage("You have been rewarded magic experience.");
 					c.pcPoints -= 2;
 				} else {
@@ -210,7 +210,7 @@ public class PestControlRewards {
 				break;
 			case HITPOINTS:
 				if(c.pcPoints > 1) {
-					c.getPA().addSkillXP(c.playerLevel[Config.HITPOINTS] * c.playerLevel[Config.HITPOINTS]/17.5 * 4, Config.HITPOINTS);
+					c.getPA().addSkillXP(c.skills.playerLevel[Config.HITPOINTS] * c.skills.playerLevel[Config.HITPOINTS]/17.5 * 4, Config.HITPOINTS);
 					c.sendMessage("You have been rewarded hitpoints experience.");
 					c.pcPoints -= 2;
 				} else {
@@ -219,7 +219,7 @@ public class PestControlRewards {
 				break;
 			case PRAYER:
 				if(c.pcPoints > 1) {
-					c.getPA().addSkillXP(c.playerLevel[Config.PRAYER] * c.playerLevel[Config.PRAYER]/8.75 * 4, Config.PRAYER);
+					c.getPA().addSkillXP(c.skills.playerLevel[Config.PRAYER] * c.skills.playerLevel[Config.PRAYER]/8.75 * 4, Config.PRAYER);
 					c.sendMessage("You have been rewarded prayer experience.");
 					c.pcPoints -= 2;
 				} else {

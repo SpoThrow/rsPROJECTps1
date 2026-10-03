@@ -21,7 +21,7 @@ public class RiverTroll {
 		for (int[] aRiverTroll : riverTroll) {
 			if(!c.trollSpawned) {
 				if (c.combatLevel >= aRiverTroll[0] && c.combatLevel <= aRiverTroll[1]) {
-					Server.npcHandler.spawnNpc(c, aRiverTroll[2], c.getX() + Misc.random(1), c.getY() + Misc.random(1), c.heightLevel, 0, aRiverTroll[3], aRiverTroll[4], aRiverTroll[4] * 10, aRiverTroll[4] * 10, true, false);
+					Server.npcHandler.spawnNpc(c, aRiverTroll[2], c.getX() + Misc.random(1), c.getY() + Misc.random(1), c.position.heightLevel, 0, aRiverTroll[3], aRiverTroll[4], aRiverTroll[4] * 10, aRiverTroll[4] * 10, true, false);
 					c.trollSpawned = true;
 				}
 			}

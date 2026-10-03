@@ -1,47 +1,7 @@
-package server.game.players;
+package server.game.players.packets;
 
 import server.Config;
-import server.game.players.packets.AttackPlayer;
-import server.game.players.packets.Bank10;
-import server.game.players.packets.Bank5;
-import server.game.players.packets.BankAll;
-import server.game.players.packets.BankX1;
-import server.game.players.packets.BankX2;
-import server.game.players.packets.ChallengePlayer;
-import server.game.players.packets.ChangeAppearance;
-import server.game.players.packets.ChangeRegions;
-import server.game.players.packets.Chat;
-import server.game.players.packets.ClickItem;
-import server.game.players.packets.ClickNPC;
-import server.game.players.packets.ClickObject;
-import server.game.players.packets.ClickingButtons;
-import server.game.players.packets.ClickingInGame;
-import server.game.players.packets.ClickingStuff;
-import server.game.players.packets.Commands;
-import server.game.players.packets.Dialogue;
-import server.game.players.packets.DropItem;
-import server.game.players.packets.FollowPlayer;
-import server.game.players.packets.IdleLogout;
-import server.game.players.packets.InterfaceAction;
-import server.game.players.packets.ItemClick2;
-import server.game.players.packets.ItemClick3;
-import server.game.players.packets.ItemOnGroundItem;
-import server.game.players.packets.ItemOnItem;
-import server.game.players.packets.ItemOnNpc;
-import server.game.players.packets.ItemOnObject;
-import server.game.players.packets.ItemOnPlayer;
-import server.game.players.packets.JoinChat;
-import server.game.players.packets.MagicOnFloorItems;
-import server.game.players.packets.MagicOnItems;
-import server.game.players.packets.MoveItems;
-import server.game.players.packets.PickupItem;
-import server.game.players.packets.PrivateMessaging;
-import server.game.players.packets.ReceiveString;
-import server.game.players.packets.RemoveItem;
-import server.game.players.packets.SilentPacket;
-import server.game.players.packets.Trade;
-import server.game.players.packets.Walking;
-import server.game.players.packets.WearItem;
+import server.game.players.Client;
 
 
 public class PacketHandler{
@@ -136,8 +96,8 @@ public class PacketHandler{
 
 
 	public static void processPacket(Client c, int packetType, int packetSize) {
-        PacketType p = packetId[packetType];
-        if(p != null && packetType >= 0 && packetType < 257 && packetType == c.packetType && packetSize == c.packetSize) {
+        PacketType p = (packetType >= 0 && packetType < packetId.length) ? packetId[packetType] : null;
+        if(p != null && packetType == c.packetType && packetSize == c.packetSize) {
             if (Config.sendServerPackets && c.playerRights == 3) {
                 c.sendMessage("PacketType: " + packetType + ". PacketSize: " + packetSize + ".");
             }

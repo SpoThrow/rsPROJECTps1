@@ -21,7 +21,7 @@ public class RockGolem {
 		for (int[] aRockGolem : rockGolem) {
 			if(!c.golemSpawned) {
 				if (c.combatLevel >= aRockGolem[0] && c.combatLevel <= aRockGolem[1]) {
-					Server.npcHandler.spawnNpc(c, aRockGolem[2], c.getX() + Misc.random(1), c.getY() + Misc.random(1), c.heightLevel, 0, aRockGolem[3], aRockGolem[4], aRockGolem[4] * 10, aRockGolem[4] * 10, true, false);
+					Server.npcHandler.spawnNpc(c, aRockGolem[2], c.getX() + Misc.random(1), c.getY() + Misc.random(1), c.position.heightLevel, 0, aRockGolem[3], aRockGolem[4], aRockGolem[4] * 10, aRockGolem[4] * 10, true, false);
 					c.golemSpawned = true;
 				}
 			}

@@ -28,7 +28,7 @@ public class Herblore extends SkillHandler {
 	public static void cleanHerb(final Client player, final int herbId, int slotId) {
 		for (int h = 0; h < CLEAN_DATA.length; h++) {
 			if(player.getItems().playerHasItem(CLEAN_DATA[h][0])) {
-				if (player.getLevelForXP(player.playerXP[Player.playerHerblore]) < CLEAN_DATA[h][2]) {
+				if (player.getLevelForXP(player.skills.playerXP[Player.playerHerblore]) < CLEAN_DATA[h][2]) {
 					player.sendMessage("You need an herblore level of " + CLEAN_DATA[h][2] + " to clean this herb.");
 					return;
 				}
@@ -65,7 +65,7 @@ public class Herblore extends SkillHandler {
 	public static void setupPotion(final Client c, int useItem, int itemUsed) {
 		for (int f = 0; f < POTION_DATA.length; f++) {
 			if ((useItem == POTION_DATA[f][0] && itemUsed == POTION_DATA[f][1]) || (useItem == POTION_DATA[f][1] && itemUsed == POTION_DATA[f][0])) {
-				if (c.playerLevel[Player.playerHerblore] < POTION_DATA[f][3]) {
+				if (c.skills.playerLevel[Player.playerHerblore] < POTION_DATA[f][3]) {
 					c.sendMessage("You need an herblore level of " + POTION_DATA[f][3] + " to mix this potion.");
 					return;
 				}

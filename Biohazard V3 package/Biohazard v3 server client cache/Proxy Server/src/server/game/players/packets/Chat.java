@@ -2,7 +2,6 @@ package server.game.players.packets;
 
 import server.Connection;
 import server.game.players.Client;
-import server.game.players.PacketType;
 import core.util.Misc;
 
 /**
@@ -30,6 +29,17 @@ public class Chat implements PacketType {
 		}
 
 		// Handle POS search input via chat
+		if (c.itemSpawnSearching) {
+			String chatText = Misc.textUnpack(c.getChatText(), c.packetSize - 2);
+			chatText = chatText.trim();
+			if (chatText.equalsIgnoreCase("cancel")) {
+				c.itemSpawnSearching = false;
+				c.sendMessage("Item search cancelled.");
+			} else {
+				server.game.content.ItemSpawnSearch.handleSearchString(c, chatText);
+			}
+			return;
+		}
 		if (c.posSearchingItem || c.posSearchingPlayer) {
 			String chatText = Misc.textUnpack(c.getChatText(), c.packetSize - 2);
 			chatText = chatText.toLowerCase().trim();

@@ -11,7 +11,6 @@ import core.util.Misc;
 /**
  *
  *Prayer
- *@author Acquittal
  *
  */
 public class Prayer {
@@ -98,7 +97,7 @@ public class Prayer {
          * @param ID The bone Id
          */
         public static void buryBone(Client c, int ID) {
-                if (System.currentTimeMillis() - c.buryDelay > 1500) {
+                if (System.currentTimeMillis() - c.timers.buryDelay > 1500) {
                         for (final Bones b : Bones.values()) {
                                 if (ID == b.getID()) {
                                         int doubleExperience = Misc.random(20);
@@ -108,7 +107,7 @@ public class Prayer {
                                                 
                                                 c.getPA().addSkillXP(b.getXP() * Config.PRAYER_EXPERIENCE, 5);
                                                 
-                                                c.buryDelay = System.currentTimeMillis();
+                                                c.timers.buryDelay = System.currentTimeMillis();
                                                 c.startAnimation(827);
                                 				if(Misc.random(250) == 0) {
                                 					Zombie.spawnZombie(c);
@@ -119,7 +118,7 @@ public class Prayer {
                                                 
                                                 c.getPA().addSkillXP(b.getXP() * 2 * Config.PRAYER_EXPERIENCE, 5);
                                                 
-                                                c.buryDelay = System.currentTimeMillis();
+                                                c.timers.buryDelay = System.currentTimeMillis();
                                                 c.startAnimation(827);
                                 				if(Misc.random(250) == 0) {
                                 					Zombie.spawnZombie(c);

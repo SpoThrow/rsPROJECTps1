@@ -11,35 +11,10 @@ import server.game.players.Player;
 import server.game.players.PlayerHandler;
 import core.util.Misc;
 
-/**
- * @author MrClassic
- */
-
 public class ObjectManager {
 
 	public CopyOnWriteArrayList<Object> object = new CopyOnWriteArrayList<Object>();
 	//private ArrayList<Object> toRemove = new ArrayList<Object>();
-	/*public void process() {
-		for (Object o : objects) {
-			if (o.tick > 0)
-				o.tick--;
-			else {
-				updateObject(o);
-				toRemove.add(o);
-			}		
-		}
-		for (Object o : toRemove) {
-			if (isObelisk(o.newId)) {
-				int index = getObeliskIndex(o.newId);
-				if (activated[index]) {
-					activated[index] = false;
-					teleportObelisk(index);
-				}
-			}
-			objects.remove(o);	
-		}
-		toRemove.clear();
-	}*/
 	
 	public void removeObject(int x, int y) {
 		for (int j = 0; j < PlayerHandler.players.length; j++) {
@@ -77,10 +52,15 @@ public class ObjectManager {
 		} else {
 			object.add(o);
 		}
+		// Clip once here with the object's own height so pathing works even
+		// when no player is nearby. PA.object → clipSpawnedObject then skips
+		// duplicates via Region.realObjects.
+		int objectId = (o.tick > 0) ? o.getNewId() : o.getId();
+		int face = o.getFace() < 0 ? 0 : (o.getFace() & 3);
+		if (objectId >= 0) {
+			Region.addObject(objectId, o.getX(), o.getY(), o.getHeight(), o.getType(), face);
+		}
 		loadObject(o);
-		Region r = Region.getRegion(o.getX(), o.getY());
-		if (r != null)
-			r.realObjects.add(new Objects(o.objectId, o.objectX, o.objectY, 0, o.face, o.type));
 	}
 	
 	public void loadObject(Object o) {
@@ -113,7 +93,7 @@ public class ObjectManager {
 	}
 	
 	public boolean loadForPlayer(Client c, Object o) {
-		return c.distanceToPoint(o.getX(), o.getY()) <= 60 && o.getHeight() == c.heightLevel;
+		return c.distanceToPoint(o.getX(), o.getY()) <= 60 && o.getHeight() == c.position.heightLevel;
 	}
 	
 	public boolean withinDistance(Client c, Object o) {
@@ -158,26 +138,6 @@ public class ObjectManager {
 		}
 	}
 	
-	/*public Object getObject(int x, int y, int height) {
-		for (Object o : objects) {
-			if (o.objectX == x && o.objectY == y && o.height == height)
-				return o;
-		}	
-		return null;
-	}
-	
-	public void loadObjects(Client c) {
-		if (c == null)
-			return;
-		for (Object o : objects) {
-			if (loadForPlayer(o,c))
-				c.getPA().object(o.objectId, o.objectX, o.objectY, o.face, o.type);
-		}
-		loadCustomSpawns(c);
-		if (c.distanceToPoint(2813, 3463) <= 60) {
-			Farming.updateHerbPatch(c);
-		}
-	}*/
 	
 	@SuppressWarnings("unused")
 	private int[][] customObjects = {{}};
@@ -356,8 +316,8 @@ public class ObjectManager {
 		for (int j = 0; j < PlayerHandler.players.length; j++) {
 			if (PlayerHandler.players[j] != null) {
 				Client c = (Client)PlayerHandler.players[j];
-				int xOffset = c.absX - obeliskCoords[port][0];
-				int yOffset = c.absY - obeliskCoords[port][1];
+				int xOffset = c.position.absX - obeliskCoords[port][0];
+				int yOffset = c.position.absY - obeliskCoords[port][1];
 				if (c.goodDistance(c.getX(), c.getY(), obeliskCoords[port][0] + 2, obeliskCoords[port][1] + 2, 1)) {
 					c.getPA().startTeleport2(obeliskCoords[random][0] + xOffset, obeliskCoords[random][1] + yOffset, 0);
 				}
@@ -365,18 +325,6 @@ public class ObjectManager {
 		}
 	}
 	
-	/*public boolean loadForPlayer(Object o, Client c) {
-		if (o == null || c == null)
-			return false;
-		return c.distanceToPoint(o.objectX, o.objectY) <= 60 && c.heightLevel == o.height;
-	}
-	
-	public void addObject(Object o) {
-		if (getObject(o.objectX, o.objectY, o.height) == null) {
-			objects.add(o);
-			placeObject(o);
-		}	
-	}*/
 
 
 

@@ -52,13 +52,13 @@ public class Runecrafting {
 	public static void craftRunes(final Client c, final int objectId) {
 		for (runecraftingData r : runecraftingData.values()) {
 			if (objectId == r.getAltarId()) {
-				if (c.playerLevel[20] >= r.getLevel()) {
+				if (c.skills.playerLevel[20] >= r.getLevel()) {
 					if (c.getItems().playerHasItem(1436)) {
 						c.startAnimation(791);
 						c.gfx100(186);
 						int multiplier = 1;
 						for (int i = 1; i < r.multiplier.length; i++) {
-							if (c.playerLevel[20] >= r.multiplier[i]) {
+							if (c.skills.playerLevel[20] >= r.multiplier[i]) {
 								multiplier = i;
 							}
 						}

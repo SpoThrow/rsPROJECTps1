@@ -30,7 +30,7 @@ public class SkillHandler {
 	}
 
 	public static boolean hasRequiredLevel(Client c, int id, int lvlReq, String skill, String event) {
-		if(c.playerLevel[id] < lvlReq) {
+		if(c.skills.playerLevel[id] < lvlReq) {
 			c.sendMessage("You haven't got high enough "+skill+" level to "+event+"");
 			c.sendMessage("You at least need the "+skill+" level of "+ lvlReq +".");
 			c.getPA().sendStatement("You haven't got high enough "+skill+" level to "+event+"!");

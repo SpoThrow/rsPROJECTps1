@@ -10,7 +10,6 @@ import server.game.players.Client;
 import core.util.Misc;
  
 /**
- * @author Acquittal
  **/
 
 public class Cooking extends SkillHandler {
@@ -64,9 +63,9 @@ public class Cooking extends SkillHandler {
 		if(!hasRequiredLevel(c, 7, levelRequired, "cooking", "cook this")){
 			return;
 		}
-		int chance = c.playerLevel[7];
+		int chance = c.skills.playerLevel[7];
 		if(c.playerEquipment[c.playerHands] == 775) {
-			chance = c.playerLevel[7] + 8; 
+			chance = c.skills.playerLevel[7] + 8; 
 		}
 		if(chance <= 0) {
 			chance = Misc.random(5);
@@ -128,7 +127,7 @@ public class Cooking extends SkillHandler {
 			@Override
 			public void execute(CycleEventContainer container) {
 				c.getItems().deleteItem(c.playerSkillProp[7][0], c.getItems().getItemSlot(c.playerSkillProp[7][0]), 1);
-				if(c.playerLevel[7] >= fishStopsBurning(c.playerSkillProp[7][0]) || Misc.random(c.playerSkillProp[7][6]) > Misc.random(c.playerSkillProp[7][2])) {
+				if(c.skills.playerLevel[7] >= fishStopsBurning(c.playerSkillProp[7][0]) || Misc.random(c.playerSkillProp[7][6]) > Misc.random(c.playerSkillProp[7][2])) {
 					c.sendMessage("You successfully cook the "+ ItemAssistant.getItemName(c.playerSkillProp[7][0]).toLowerCase() +".");
 					c.getPA().addSkillXP(c.playerSkillProp[7][1]*Config.COOKING_EXPERIENCE, 7);
 					c.getItems().addItem(c.playerSkillProp[7][4], 1);

@@ -8,7 +8,6 @@ import server.game.content.DwarfCannon;
 import server.game.minigames.barrows.Barrows;
 import server.game.minigames.castlewars.CastleWars;
 import server.game.players.Client;
-import server.game.players.PacketType;
 import server.game.players.Player;
 import core.util.Misc;
 
@@ -32,23 +31,23 @@ public class ClickItem implements PacketType {
 		int itemId = c.getInStream().readUnsignedWordBigEndian();
 		
 		// Handle POS sell dialog FIRST - before any other item handlers
-		if (c.posSelling && c.posSellStep == 1) {
+		if (c.pos.selling && c.pos.sellStep == 1) {
 			String why = server.game.content.PlayerOwnedShop.cannotList(itemId);
 			if (why != null) {
 				c.sendMessage(why);
 				return;
 			}
 			if(c.getItems().playerHasItem(itemId, 1)) {
-				c.posSellItemId = server.game.content.PlayerOwnedShop.unnotedId(itemId);
-				c.posSellStep = 2;
+				c.pos.sellItemId = server.game.content.PlayerOwnedShop.unnotedId(itemId);
+				c.pos.sellStep = 2;
 				c.xInterfaceId = 43000;
 				c.sendMessage("Enter how many to list. You have "
-						+ server.game.content.PlayerOwnedShop.ownedCount(c, c.posSellItemId) + ".");
+						+ server.game.content.PlayerOwnedShop.ownedCount(c, c.pos.sellItemId) + ".");
 				c.getOutStream().createFrame(27);
 			} else {
 				c.sendMessage("You don't have that item.");
-				c.posSelling = false;
-				c.posSellStep = 0;
+				c.pos.selling = false;
+				c.pos.sellStep = 0;
 			}
 			return;
 		}
@@ -78,7 +77,7 @@ public class ClickItem implements PacketType {
 			}
 			c.getItems().deleteItem(4053,c.getItems().getItemSlot(4053),1);
 			c.startAnimation(827);
-			Server.npcHandler.spawnBarricade(1532, c.absX, c.absY, c.heightLevel, 0,200,0,0,100,CastleWars.getTeamNumber(c));
+			Server.npcHandler.spawnBarricade(1532, c.position.absX, c.position.absY, c.position.heightLevel, 0,200,0,0,100,CastleWars.getTeamNumber(c));
 			c.sendMessage("You setup a barricade.");
 			if(CastleWars.getTeamNumber(c) == 1)
 				Player.saraBarricades++;
@@ -148,7 +147,8 @@ public class ClickItem implements PacketType {
 			break;
 			
 		case 4155:
-			c.getDH().sendDialogues(784, 0);
+		case 15051:
+			c.getSlayer().checkTask();
 			break;
 			
 		case 4447:
@@ -161,7 +161,7 @@ public class ClickItem implements PacketType {
 			if(c.getItems().playerHasItem(2688) || c.getItems().playerHasItem(2690)
 					|| c.getItems().playerHasItem(2689) || c.getItems().playerHasItem(2693)
 					|| c.getItems().playerHasItem(2698))
-				c.getTT().getDigLoc(c.absX, c.absY);
+				c.getTT().getDigLoc(c.position.absX, c.position.absY);
 			if(c.inArea(3553, 3301, 3561, 3294)) {
 				//c.teleTimer = 3;
 				//c.newLocation = 1;

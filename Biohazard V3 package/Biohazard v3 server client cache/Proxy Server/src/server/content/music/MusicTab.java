@@ -3,9 +3,7 @@ package server.content.music;
 import server.game.players.Client;
  
 /**
- * 
- * @author Jordy/mrclassic
- *
+ * Music tab
  */
  
 public class MusicTab {
@@ -444,7 +442,7 @@ public class MusicTab {
         }
         
         public static void setToManual(Client c) {
-        	c.auto = 0;
+        	c.settings.auto = 0;
     		c.getPA().sendFrame36(18, 0); //set to AUTO. 1 = AUTO 0 = MAN
         }
         
@@ -456,15 +454,15 @@ public class MusicTab {
         public static void handleClick(Client c, int Id) {
 	        	switch(Id) {
 	        	case 24125: //AUTO
-	        		c.auto = 1;
+	        		c.settings.auto = 1;
 	        		Music.playMusic(c);
 	        		break;
 	        	case 24126: //MANUAL
-	        		c.auto = 0;
+	        		c.settings.auto = 0;
 	        		break;
 	    		case 38197:
-	    			c.isLoopingMusic = !c.isLoopingMusic;
-	    			int setting = c.isLoopingMusic == true ? 1 : 0;
+	    			c.settings.isLoopingMusic = !c.settings.isLoopingMusic;
+	    			int setting = c.settings.isLoopingMusic == true ? 1 : 0;
 	    			c.getPA().sendFrame36(19, setting);
 	    			break;
 	        	}

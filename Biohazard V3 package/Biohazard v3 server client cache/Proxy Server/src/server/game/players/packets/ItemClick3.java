@@ -1,10 +1,10 @@
 package server.game.players.packets;
 
+import server.content.skills.Slayer;
 import server.content.skills.TalismanHandler;
 import server.content.skills.TalismanHandler.talismanData;
 import server.game.items.ItemAssistant;
 import server.game.players.Client;
-import server.game.players.PacketType;
 import core.util.Misc;
 
 /**
@@ -22,6 +22,22 @@ public class ItemClick3 implements PacketType {
 		int itemId11 = c.getInStream().readSignedWordBigEndianA();
 		int itemId1 = c.getInStream().readSignedWordA();
 		int itemId = c.getInStream().readSignedWordA();
+		if (Slayer.isCheckItem(itemId)) {
+			boolean inInv = c.getItems().playerHasItem(itemId, 1);
+			boolean worn = false;
+			if (!inInv) {
+				for (int i = 0; i < c.playerEquipment.length; i++) {
+					if (c.playerEquipment[i] == itemId) {
+						worn = true;
+						break;
+					}
+				}
+			}
+			if (inInv || worn) {
+				c.getSlayer().checkTask();
+				return;
+			}
+		}
 		if(!c.getItems().playerHasItem(itemId, 1)) {
 			return;
 		}
@@ -31,14 +47,6 @@ public class ItemClick3 implements PacketType {
         	c.getItems().deleteItem(itemId, 1);
         	c.getItems().addItem(229, 1);
         }
-/* 		final String name = c.getItems().getItemName(itemId);
-		if (c.getPotions().isPotion(itemId)) {
-			c.sendMessage("There are still some potion left...");
-			c.sendMessage("You empty it anyways.");
-			c.getItems().deleteItem(itemId, 1);
-			c.getItems().addItem(229, 1);
-		}
- */
 		for (talismanData t : talismanData.values()) {
 			if (itemId == t.getTalisman()) {
 				TalismanHandler.handleTalisman(c, itemId);

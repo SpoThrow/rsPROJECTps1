@@ -194,7 +194,7 @@ public class Implings {
 				return;
 			}
 
-			if(c.playerLevel[22] < t.getLevelRequired()) {
+			if(c.skills.playerLevel[22] < t.getLevelRequired()) {
 				c.sendMessage("You need a hunter of " + t.getLevelRequired() + " to catch this imp.");
 				return;
 			}

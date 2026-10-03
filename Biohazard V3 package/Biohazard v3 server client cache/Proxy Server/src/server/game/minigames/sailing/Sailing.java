@@ -57,17 +57,6 @@ public class Sailing {
 			}
 		}, getTime(i));
 		
-		/*CycleEventHandler.addEvent(player, new CycleEvent() {
-			@Override
-			public void execute(CycleEventContainer container) {
-				player.getPA().sendFrame36(75, -1);
-				player.getPA().closeAllWindows();
-				container.stop();
-			}
-			@Override
-			public void stop() {
-			}
-		}, getTime(i));*/
 	}
 
 	public static int getX(int i) {

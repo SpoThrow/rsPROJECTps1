@@ -11,18 +11,21 @@ import java.util.Map;
 public class Config {
 
 	public static final boolean SERVER_DEBUG = false;
+
+	/** When true, CombatAssistant.attack* dispatches via CombatStrategy (default on). */
+	public static boolean USE_COMBAT_STRATEGY = true;
 	
-	public static final String SERVER_NAME = "Biohazard";
-	public static final String WELCOME_MESSAGE = "Welcome to Biohazard.";
-	public static final String FORUMS = "Biohazard-rsps.com";
+	public static final String SERVER_NAME = "Soul-Trail";
+	public static final String WELCOME_MESSAGE = "Welcome to Soul-Trail.";
+	public static final String FORUMS = "soul-trail.com";
 	
 	public static final int CLIENT_VERSION = 1;
 	public static boolean sendServerPackets = false;
 	
 	public static int MESSAGE_DELAY = 6000;
-	public static final int ITEM_LIMIT = 19112;
+	public static final int ITEM_LIMIT = 25000;
 	public static final int MAXITEM_AMOUNT = Integer.MAX_VALUE;
-	public static final int BANK_SIZE = 352;
+	public static final int BANK_SIZE = 1000;
 	public static final int MAX_PLAYERS = 50;
 	
 	public static final int CONNECTION_DELAY = 50;

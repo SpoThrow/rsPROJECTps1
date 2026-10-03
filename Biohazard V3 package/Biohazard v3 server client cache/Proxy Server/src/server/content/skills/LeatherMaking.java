@@ -67,7 +67,7 @@ public class LeatherMaking extends CraftingData {
 		for (final leatherData l : leatherData.values()) {
 			if (buttonId == l.getButtonId(buttonId)) {
 				if (c.leatherType == l.getLeather()) {
-					if (c.playerLevel[12] < l.getLevel()) {
+					if (c.skills.playerLevel[12] < l.getLevel()) {
 						c.sendMessage("You need a crafting level of "+ l.getLevel() +" to make this.");
 						c.getPA().removeAllWindows();
 						return;
