@@ -66,7 +66,7 @@ public class StreamLoader {
 			aBoolean732 = true;
 		} else if (j != i) {
 			byte abyte1[] = new byte[i];
-			Class13.method225(abyte1, i, abyte0, j, 6);
+			Bzip2Decompressor.method225(abyte1, i, abyte0, j, 6);
 			aByteArray726 = abyte1;
 			stream = new Stream(aByteArray726);
 			aBoolean732 = true;
@@ -122,7 +122,7 @@ public class StreamLoader {
 				if (abyte0 == null)
 					abyte0 = new byte[length];
 				if (!aBoolean732) {
-					Class13.method225(abyte0, length, aByteArray726,
+					Bzip2Decompressor.method225(abyte0, length, aByteArray726,
 							anIntArray730[k], offset);
 				} else {
 					System.arraycopy(aByteArray726, offset, abyte0,

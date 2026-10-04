@@ -298,7 +298,7 @@ public final class EntityDef {
 			mruNodes.removeFromCache(model, interfaceType);
 		}
 		Model model_1 = Model.aModel_1621;
-		model_1.method464(model, Class36.method532(k) & Class36.method532(j));
+		model_1.method464(model, Frames.method532(k) & Frames.method532(j));
 		if (k != -1 && j != -1)
 			model_1.method471(ai, j, k);
 		else if (k != -1)

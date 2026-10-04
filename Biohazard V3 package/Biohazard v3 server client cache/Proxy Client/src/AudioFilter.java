@@ -2,7 +2,7 @@
 // Jad home page: http://www.kpdus.com/jad.html
 // Decompiler options: packimports(3) 
 
-final class Class39
+final class AudioFilter
 {
 
 	private float method541(int i, int j, float f)
@@ -65,7 +65,7 @@ final class Class39
 		return anIntArray665[i] * 2;
 	}
 
-	public void method545(Stream stream, Class29 class29)
+	public void method545(Stream stream, AudioEnvelope class29)
 	{
 		int i = stream.readUnsignedByte();
 		anIntArray665[0] = i >> 4;
@@ -108,7 +108,7 @@ final class Class39
 		}
 	}
 
-	public Class39()
+	public AudioFilter()
 	{
 		anIntArray665 = new int[2];
 		anIntArrayArrayArray666 = new int[2][2][4];

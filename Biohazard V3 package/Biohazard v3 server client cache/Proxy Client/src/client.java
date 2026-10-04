@@ -6373,7 +6373,7 @@ public class client extends RSApplet {
 						inputTaken = true;
 				}
                 if (onDemandData.dataType == 1)
-                    Class36.load(onDemandData.ID, onDemandData.buffer);
+                    Frames.load(onDemandData.ID, onDemandData.buffer);
 				/**
 				 * Music player
 				 */
@@ -8705,7 +8705,7 @@ public class client extends RSApplet {
 		Texture.nullLoader();
 		WorldController.nullLoader();
 		Model.nullLoader();
-		Class36.nullLoader();
+		Frames.nullLoader();
 		System.gc();
 	}
 
@@ -11394,7 +11394,7 @@ public class client extends RSApplet {
 			intGroundArray = new int[4][105][105];
 			worldController = new WorldController(intGroundArray);
 			for (int j = 0; j < 4; j++)
-				aClass11Array1230[j] = new Class11();
+				aClass11Array1230[j] = new CollisionMap();
 
 			aClass30_Sub2_Sub1_Sub1_1263 = new Sprite(512, 512);
 			StreamLoader streamLoader_6 = streamLoaderForName(5, "update list",
@@ -11402,11 +11402,11 @@ public class client extends RSApplet {
 			drawLoadingText(60, "Connecting to update server");
 			onDemandFetcher = new OnDemandFetcher();
 			onDemandFetcher.start(streamLoader_6, this);
-			Class36.method528(onDemandFetcher.getAnimCount());
+			Frames.method528(onDemandFetcher.getAnimCount());
 			Model.method459(onDemandFetcher.getModelCount(), onDemandFetcher);
 			preloadModels();
-			Class36.loadSkins();
-			Class36.loadFrames();
+			Frames.loadSkins();
+			Frames.loadFrames();
 			// models();
 			//musics(); //repack music index 3
 			//dumpidx(4); //dump models
@@ -20364,7 +20364,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 		inputTaken = false;
 		songChanging = true;
 		anIntArray1229 = new int[151];
-		aClass11Array1230 = new Class11[4];
+		aClass11Array1230 = new CollisionMap[4];
 		anIntArray1241 = new int[50];
 		aBoolean1242 = false;
 		anIntArray1250 = new int[50];
@@ -20768,7 +20768,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	private int nextSong;
 	public boolean songChanging;
 	private final int[] anIntArray1229;
-	private Class11[] aClass11Array1230;
+	private CollisionMap[] aClass11Array1230;
 	public static int anIntArray1232[];
 	private int[] anIntArray1234;
 	private int[] anIntArray1235;

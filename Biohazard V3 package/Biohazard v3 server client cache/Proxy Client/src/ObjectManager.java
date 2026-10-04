@@ -58,7 +58,7 @@ final class ObjectManager {
         return id;
     }
 
-    public final void method171(Class11 aclass11[], WorldController worldController)
+    public final void method171(CollisionMap aclass11[], WorldController worldController)
     {
 try {
         for(int j = 0; j < 4; j++)
@@ -538,7 +538,7 @@ label0:
         }
     }
 
-    private void method175(int i, WorldController worldController, Class11 class11, int j, int k, int l, int i1,
+    private void method175(int i, WorldController worldController, CollisionMap class11, int j, int k, int l, int i1,
                                  int j1)
     {
         if(lowMem && (aByteArrayArrayArray149[0][l][i] & 2) == 0)
@@ -927,7 +927,7 @@ label0:
         return class46.method577(j);
     }
 
-    public final void method179(int i, int j, Class11 aclass11[], int l, int i1, byte abyte0[],
+    public final void method179(int i, int j, CollisionMap aclass11[], int l, int i1, byte abyte0[],
                                 int j1, int k1, int l1)
     {
         for(int i2 = 0; i2 < 8; i2++)
@@ -954,7 +954,7 @@ label0:
 
     }
 
-    public final void method180(byte abyte0[], int i, int j, int k, int l, Class11 aclass11[])
+    public final void method180(byte abyte0[], int i, int j, int k, int l, CollisionMap aclass11[])
     {
         for(int i1 = 0; i1 < 4; i1++)
         {
@@ -1055,7 +1055,7 @@ try {
             return j;
     }
 
-    public final void method183(Class11 aclass11[], WorldController worldController, int i, int j, int k, int l,
+    public final void method183(CollisionMap aclass11[], WorldController worldController, int i, int j, int k, int l,
                                 byte abyte0[], int i1, int j1, int k1)
     {
 label0:
@@ -1091,7 +1091,7 @@ label0:
                             int l4 = j3;
                             if((aByteArrayArrayArray149[1][j4][k4] & 2) == 2)
                                 l4--;
-                            Class11 class11 = null;
+                            CollisionMap class11 = null;
                             if(l4 >= 0)
                                 class11 = aclass11[l4];
                             method175(k4, worldController, class11, l3, l, j4, l1, i4 + j1 & 3);
@@ -1152,7 +1152,7 @@ label0:
         return (i & 0xff80) + j;
     }
 
-    public static void method188(WorldController worldController, int i, int j, int k, int l, Class11 class11, int ai[][][], int i1,
+    public static void method188(WorldController worldController, int i, int j, int k, int l, CollisionMap class11, int ai[][][], int i1,
                                  int j1, int k1)
     {
         int l1 = ai[l][i1][j];
@@ -1416,7 +1416,7 @@ label0:
 	return bool;
   }
 
-	public final void method190(int i, Class11 aclass11[], int j, WorldController worldController, byte abyte0[])
+	public final void method190(int i, CollisionMap aclass11[], int j, WorldController worldController, byte abyte0[])
 	{
 label0:
 		{
@@ -1448,7 +1448,7 @@ label0:
 						int l3 = j2;
 						if((aByteArrayArrayArray149[1][j3][k3] & 2) == 2)
 							l3--;
-						Class11 class11 = null;
+						CollisionMap class11 = null;
 						if(l3 >= 0)
 							class11 = aclass11[l3];
 						method175(k3, worldController, class11, l2, j2, j3, l, i3);

@@ -6,14 +6,14 @@ final class Sounds {
 
 	private Sounds()
 	{
-		aClass6Array329 = new Class6[10];
+		aClass6Array329 = new SoundEffect[10];
 	}
 
 	public static void unpack(Stream stream)
 	{
 		aByteArray327 = new byte[0x6baa8];
 		aStream_328 = new Stream(aByteArray327);
-		Class6.method166();
+		SoundEffect.method166();
 		do
 		{
 			int j = stream.readUnsignedWord();
@@ -45,7 +45,7 @@ final class Sounds {
 			if(j != 0)
 			{
 				stream.currentOffset--;
-				aClass6Array329[i] = new Class6();
+				aClass6Array329[i] = new SoundEffect();
 				aClass6Array329[i].method169(stream);
 			}
 		}
@@ -151,7 +151,7 @@ final class Sounds {
 	public static final int[] anIntArray326 = new int[5000];
 	private static byte[] aByteArray327;
 	private static Stream aStream_328;
-	private final Class6[] aClass6Array329;
+	private final SoundEffect[] aClass6Array329;
 	private int anInt330;
 	private int anInt331;
 

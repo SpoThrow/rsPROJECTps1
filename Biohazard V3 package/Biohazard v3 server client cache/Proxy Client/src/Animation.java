@@ -248,7 +248,7 @@ public final class Animation {
 			return 1;
 		int j = anIntArray355[i];
 		if (j == 0) {
-			Class36 class36 = Class36.method531(anIntArray353[i]);
+			Frames class36 = Frames.method531(anIntArray353[i]);
 			if (class36 != null)
 				j = anIntArray355[i] = class36.anInt636;
 		}

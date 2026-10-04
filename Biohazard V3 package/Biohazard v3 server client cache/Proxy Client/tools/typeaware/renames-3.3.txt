@@ -1,0 +1,42 @@
+# Phase 3.3 rename map -- client obfuscated classes.
+# Every entry is justified by how the class is USED in this tree, not by its number.
+# Confidence is recorded so a later reader can re-check rather than trust.
+#
+# Class11 -> CollisionMap        HIGH. `new Class11[4]` = one per plane (client.java
+#                                :20367); ObjectManager.method171(Class11[], WorldController)
+#                                builds it; ObjectCollisionSizes.java's own header comment says
+#                                "Class11 builds collision from whichever numbers it is handed";
+#                                method219/220/221 are the boolean collision probes and
+#                                anIntArrayArray294 is the per-tile flag grid.
+# Class33 -> VertexNormal        HIGH. Animable.aClass33Array1425[]; Model.java:1466-1474
+#                                allocates one per vertex and copies anInt602..605 (x,y,z,
+#                                magnitude) -- the classic per-vertex normal.
+# Class13 -> Bzip2Decompressor   HIGH. method225(byte[],int,byte[],int,int) is the
+#                                decompress entry; every helper takes Class32 state.
+# Class32 -> Bzip2Context        HIGH. The decoder state Class13 operates on (arrays +
+#                                boolean block flag).
+# Class18 -> Skin                HIGH. Class18(Stream,int) reading anIntArray342
+#                                (vertex groups) and anIntArrayArray343 (skin lists) --
+#                                the 474 skeletal structure the plan names.
+# Class36 -> Frames              HIGH. loadSkins/loadFrames/loadLooseFrameFiles/getData/
+#                                load_647, frameData + skinData, Class18 aClass18_637.
+# Class6  -> SoundEffect         MEDIUM-HIGH. Only used by Sounds.java; method167(int,int)
+#                                returns int[] (generated samples) and method169(Stream)
+#                                parses it; it owns Class29 and Class39.
+# Class29 -> AudioEnvelope       MEDIUM-HIGH. Only used by Class6 and Class39; parsed from
+#                                a Stream via method326.
+# Class39 -> AudioFilter         MEDIUM-HIGH. Only used by Class6; float coefficient maths
+#                                and method545(Stream, Class29) -- takes the envelope.
+#
+# DELIBERATELY NOT RENAMED YET (role not yet confirmed from use, so a name would be a
+# guess -- and a wrong name is worse than an obfuscated one): Class4, Class21,
+# Class30_Sub1, Class40, Class43, Class47. See the plan's Phase 3.3 note.
+Class11=CollisionMap
+Class33=VertexNormal
+Class13=Bzip2Decompressor
+Class32=Bzip2Context
+Class18=Skin
+Class36=Frames
+Class6=SoundEffect
+Class29=AudioEnvelope
+Class39=AudioFilter

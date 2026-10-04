@@ -3,10 +3,10 @@
 // Decompiler options: packimports(3) 
 
 
-final class Class32
+final class Bzip2Context
 {
 
-	Class32()
+	Bzip2Context()
 	{
 		anIntArray583 = new int[256];
 		anIntArray585 = new int[257];

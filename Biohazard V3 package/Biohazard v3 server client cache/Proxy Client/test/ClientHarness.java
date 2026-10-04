@@ -628,7 +628,7 @@ public final class ClientHarness {
 			tileOverlay[1][5][5] = 56;
 			tileUnderlay[1][6][5] = 56;
 			tileOverlay[1][12][5] = 1;
-			manager.method171(new Class11[4], new WorldController(new int[4][105][105]));
+			manager.method171(new CollisionMap[4], new WorldController(new int[4][105][105]));
 			int[][][] shade = (int[][][]) readField(manager, "anIntArrayArrayArray135");
 			witness = shade[1][12][5] & 0x924;
 		} catch (Throwable t) {

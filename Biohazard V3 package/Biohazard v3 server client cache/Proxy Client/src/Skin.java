@@ -2,10 +2,10 @@
 // Jad home page: http://www.kpdus.com/jad.html
 // Decompiler options: packimports(3) 
 
-public final class Class18
+public final class Skin
 {
 
-    public Class18(Stream stream,int junk)
+    public Skin(Stream stream,int junk)
     {
         int anInt341 = stream.readUnsignedWord();
 	anIntArray342 = new int[anInt341];

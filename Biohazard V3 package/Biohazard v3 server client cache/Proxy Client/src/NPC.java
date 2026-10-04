@@ -53,7 +53,7 @@ public final class NPC extends Entity
 			{
 				int frameId = spotAnim.aAnimation_407.anIntArray353[super.anInt1521];
 				// Frame archive not ready — show body without gfx this tick.
-				if (frameId != -1 && Class36.method531(frameId) == null)
+				if (frameId != -1 && Frames.method531(frameId) == null)
 				{
 					if(desc.aByte68 == 1)
 						model.aBoolean1659 = true;
@@ -66,7 +66,7 @@ public final class NPC extends Entity
 					 */
 					Model body = new Model(true, true, false, model);
 					body.modelHeight = model.modelHeight;
-					Model gfx = new Model(true, Class36.method532(frameId), false, gfxBase);
+					Model gfx = new Model(true, Frames.method532(frameId), false, gfxBase);
 					gfx.method475(0, -super.anInt1524, 0);
 					gfx.method469();
 					if (frameId != -1)

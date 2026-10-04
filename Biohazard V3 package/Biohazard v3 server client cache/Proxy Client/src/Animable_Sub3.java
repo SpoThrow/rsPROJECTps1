@@ -28,7 +28,7 @@ final class Animable_Sub3 extends Animable {
 				|| anInt1569 < 0 || anInt1569 >= aSpotAnim_1568.aAnimation_407.anIntArray353.length)
 			return model;
 		int j = aSpotAnim_1568.aAnimation_407.anIntArray353[anInt1569];
-		Model model_1 = new Model(true, Class36.method532(j), false, model);
+		Model model_1 = new Model(true, Frames.method532(j), false, model);
 		if(!aBoolean1567)
 		{
 			model_1.method469();

@@ -161,7 +161,7 @@ public final class CurseData667 {
 		if (data == null || data.length == 0) {
 			return false;
 		}
-		Class36.load(destSlot, data);
+		Frames.load(destSlot, data);
 		return true;
 	}
 

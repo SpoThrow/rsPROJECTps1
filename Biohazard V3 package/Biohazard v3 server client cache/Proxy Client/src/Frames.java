@@ -2,7 +2,7 @@ import java.io.File;
 
 import sign.signlink;
 
-public final class Class36 {
+public final class Frames {
 
 	private static void loadPacked(byte[][] dest, String filename) {
 		try {
@@ -109,9 +109,9 @@ public final class Class36 {
 				return;
 			}
 			Stream stream = new Stream(data);
-			Class18 class18 = new Class18(stream, 0);
+			Skin class18 = new Skin(stream, 0);
 			int k1 = stream.readUnsignedWord();
-			animationlist[file] = new Class36[(int) (k1 * 3.0)];
+			animationlist[file] = new Frames[(int) (k1 * 3.0)];
 			decodeFrames(stream, class18, k1, file);
 		} catch (Exception exception) {
 		}
@@ -125,18 +125,18 @@ public final class Class36 {
 		if (size < 4096) {
 			size = 4096;
 		}
-		animationlist = new Class36[size][0];
+		animationlist = new Frames[size][0];
 	}
 
 	private static void ensureFileSlot(int file) {
 		if (animationlist == null) {
-			animationlist = new Class36[Math.max(8000, file + 8)][0];
+			animationlist = new Frames[Math.max(8000, file + 8)][0];
 			return;
 		}
 		if (file < animationlist.length) {
 			return;
 		}
-		Class36[][] grown = new Class36[file + 128][0];
+		Frames[][] grown = new Frames[file + 128][0];
 		System.arraycopy(animationlist, 0, grown, 0, animationlist.length);
 		animationlist = grown;
 	}
@@ -151,9 +151,9 @@ public final class Class36 {
 			}
 			Stream stream = new Stream(frames);
 			Stream stream1 = new Stream(skins);
-			Class18 class18 = new Class18(stream1, 0);
+			Skin class18 = new Skin(stream1, 0);
 			int k1 = stream.readUnsignedWord();
-			animationlist[file] = new Class36[(int) (k1 * 3.0)];
+			animationlist[file] = new Frames[(int) (k1 * 3.0)];
 			decodeFrames(stream, class18, k1, file);
 		} catch (Exception exception) {
 		}
@@ -163,15 +163,15 @@ public final class Class36 {
 		try {
 			ensureFileSlot(file);
 			Stream stream = new Stream(fileData);
-			Class18 class18 = new Class18(stream, 0);
+			Skin class18 = new Skin(stream, 0);
 			int k1 = stream.readUnsignedWord();
-			animationlist[file] = new Class36[(int) (k1 * 3.0)];
+			animationlist[file] = new Frames[(int) (k1 * 3.0)];
 			decodeFrames(stream, class18, k1, file);
 		} catch (Exception exception) {
 		}
 	}
 
-	private static void decodeFrames(Stream stream, Class18 class18, int k1, int file) {
+	private static void decodeFrames(Stream stream, Skin class18, int k1, int file) {
 		int[] ai = new int[500];
 		int[] ai1 = new int[500];
 		int[] ai2 = new int[500];
@@ -179,11 +179,11 @@ public final class Class36 {
 		for (int l1 = 0; l1 < k1; l1++) {
 			int i2 = stream.readUnsignedWord();
 			if (i2 >= animationlist[file].length) {
-				Class36[] grown = new Class36[i2 + 8];
+				Frames[] grown = new Frames[i2 + 8];
 				System.arraycopy(animationlist[file], 0, grown, 0, animationlist[file].length);
 				animationlist[file] = grown;
 			}
-			Class36 class36 = animationlist[file][i2] = new Class36();
+			Frames class36 = animationlist[file][i2] = new Frames();
 			class36.aClass18_637 = class18;
 			int j2 = stream.readUnsignedByte();
 			int l2 = 0;
@@ -246,7 +246,7 @@ public final class Class36 {
 		animationlist = null;
 	}
 
-	public static Class36 method531(int j) {
+	public static Frames method531(int j) {
 		try {
 			if (j <= 0 || animationlist == null) {
 				return null;
@@ -288,12 +288,12 @@ public final class Class36 {
 		return i == -1;
 	}
 
-	private Class36() {
+	private Frames() {
 	}
 
-	private static Class36 animationlist[][];
+	private static Frames animationlist[][];
 	public int anInt636;
-	public Class18 aClass18_637;
+	public Skin aClass18_637;
 	public int anInt638;
 	public static byte[][] frameData = null;
 	public static byte[][] skinData = null;

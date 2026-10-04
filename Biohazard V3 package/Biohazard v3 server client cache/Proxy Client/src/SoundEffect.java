@@ -2,7 +2,7 @@
 // Jad home page: http://www.kpdus.com/jad.html
 // Decompiler options: packimports(3) 
 
-final class Class6
+final class SoundEffect
 {
 
 	public static void method166()
@@ -138,12 +138,12 @@ final class Class6
 					l7 = i - i5;
 				for(; j7 < l7; j7++)
 				{
-					int j8 = (int)((long)anIntArray115[j7 + i5] * (long)Class39.anInt672 >> 16);
+					int j8 = (int)((long)anIntArray115[j7 + i5] * (long)AudioFilter.anInt672 >> 16);
 					for(int k8 = 0; k8 < i5; k8++)
-						j8 += (int)((long)anIntArray115[(j7 + i5) - 1 - k8] * (long)Class39.anIntArrayArray670[0][k8] >> 16);
+						j8 += (int)((long)anIntArray115[(j7 + i5) - 1 - k8] * (long)AudioFilter.anIntArrayArray670[0][k8] >> 16);
 
 					for(int j9 = 0; j9 < j7; j9++)
-						j8 -= (int)((long)anIntArray115[j7 - 1 - j9] * (long)Class39.anIntArrayArray670[1][j9] >> 16);
+						j8 -= (int)((long)anIntArray115[j7 - 1 - j9] * (long)AudioFilter.anIntArrayArray670[1][j9] >> 16);
 
 					anIntArray115[j7] = j8;
 					k3 = aClass29_112.method328(i + 1);
@@ -157,12 +157,12 @@ final class Class6
 						l7 = i - i5;
 					for(; j7 < l7; j7++)
 					{
-						int l8 = (int)((long)anIntArray115[j7 + i5] * (long)Class39.anInt672 >> 16);
+						int l8 = (int)((long)anIntArray115[j7 + i5] * (long)AudioFilter.anInt672 >> 16);
 						for(int k9 = 0; k9 < i5; k9++)
-							l8 += (int)((long)anIntArray115[(j7 + i5) - 1 - k9] * (long)Class39.anIntArrayArray670[0][k9] >> 16);
+							l8 += (int)((long)anIntArray115[(j7 + i5) - 1 - k9] * (long)AudioFilter.anIntArrayArray670[0][k9] >> 16);
 
 						for(int i10 = 0; i10 < i6; i10++)
-							l8 -= (int)((long)anIntArray115[j7 - 1 - i10] * (long)Class39.anIntArrayArray670[1][i10] >> 16);
+							l8 -= (int)((long)anIntArray115[j7 - 1 - i10] * (long)AudioFilter.anIntArrayArray670[1][i10] >> 16);
 
 						anIntArray115[j7] = l8;
 						k3 = aClass29_112.method328(i + 1);
@@ -178,10 +178,10 @@ final class Class6
 				{
 					int i9 = 0;
 					for(int l9 = (j7 + i5) - i; l9 < i5; l9++)
-						i9 += (int)((long)anIntArray115[(j7 + i5) - 1 - l9] * (long)Class39.anIntArrayArray670[0][l9] >> 16);
+						i9 += (int)((long)anIntArray115[(j7 + i5) - 1 - l9] * (long)AudioFilter.anIntArrayArray670[0][l9] >> 16);
 
 					for(int j10 = 0; j10 < i6; j10++)
-						i9 -= (int)((long)anIntArray115[j7 - 1 - j10] * (long)Class39.anIntArrayArray670[1][j10] >> 16);
+						i9 -= (int)((long)anIntArray115[j7 - 1 - j10] * (long)AudioFilter.anIntArrayArray670[1][j10] >> 16);
 
 					anIntArray115[j7] = i9;
 					aClass29_112.method328(i + 1);
@@ -219,35 +219,35 @@ final class Class6
 
 	public void method169(Stream stream)
 	{
-		aClass29_98 = new Class29();
+		aClass29_98 = new AudioEnvelope();
 		aClass29_98.method325(stream);
-		aClass29_99 = new Class29();
+		aClass29_99 = new AudioEnvelope();
 		aClass29_99.method325(stream);
 		int i = stream.readUnsignedByte();
 		if(i != 0)
 		{
 			stream.currentOffset--;
-			aClass29_100 = new Class29();
+			aClass29_100 = new AudioEnvelope();
 			aClass29_100.method325(stream);
-			aClass29_101 = new Class29();
+			aClass29_101 = new AudioEnvelope();
 			aClass29_101.method325(stream);
 		}
 		i = stream.readUnsignedByte();
 		if(i != 0)
 		{
 			stream.currentOffset--;
-			aClass29_102 = new Class29();
+			aClass29_102 = new AudioEnvelope();
 			aClass29_102.method325(stream);
-			aClass29_103 = new Class29();
+			aClass29_103 = new AudioEnvelope();
 			aClass29_103.method325(stream);
 		}
 		i = stream.readUnsignedByte();
 		if(i != 0)
 		{
 			stream.currentOffset--;
-			aClass29_104 = new Class29();
+			aClass29_104 = new AudioEnvelope();
 			aClass29_104.method325(stream);
-			aClass29_105 = new Class29();
+			aClass29_105 = new AudioEnvelope();
 			aClass29_105.method325(stream);
 		}
 		for(int j = 0; j < 10; j++)
@@ -264,12 +264,12 @@ final class Class6
 		anInt110 = stream.method422();
 		anInt113 = stream.readUnsignedWord();
 		anInt114 = stream.readUnsignedWord();
-		aClass39_111 = new Class39();
-		aClass29_112 = new Class29();
+		aClass39_111 = new AudioFilter();
+		aClass29_112 = new AudioEnvelope();
 		aClass39_111.method545(stream, aClass29_112);
 	}
 
-	public Class6()
+	public SoundEffect()
 	{
 		anIntArray106 = new int[5];
 		anIntArray107 = new int[5];
@@ -278,21 +278,21 @@ final class Class6
 		anInt113 = 500;
 	}
 
-	private Class29 aClass29_98;
-	private Class29 aClass29_99;
-	private Class29 aClass29_100;
-	private Class29 aClass29_101;
-	private Class29 aClass29_102;
-	private Class29 aClass29_103;
-	private Class29 aClass29_104;
-	private Class29 aClass29_105;
+	private AudioEnvelope aClass29_98;
+	private AudioEnvelope aClass29_99;
+	private AudioEnvelope aClass29_100;
+	private AudioEnvelope aClass29_101;
+	private AudioEnvelope aClass29_102;
+	private AudioEnvelope aClass29_103;
+	private AudioEnvelope aClass29_104;
+	private AudioEnvelope aClass29_105;
 	private final int[] anIntArray106;
 	private final int[] anIntArray107;
 	private final int[] anIntArray108;
 	private int anInt109;
 	private int anInt110;
-	private Class39 aClass39_111;
-	private Class29 aClass29_112;
+	private AudioFilter aClass39_111;
+	private AudioEnvelope aClass29_112;
 	int anInt113;
 	int anInt114;
 	private static int[] anIntArray115;
