@@ -12,6 +12,11 @@ REM         default: packet-tap-<timestamp>.log, next to this script.
 REM
 REM Re-run it after a phase and diff the two logs to prove the protocol did not
 REM drift. The logs have no timestamps precisely so they can be diffed directly.
+REM
+REM When the client exits, this script VERIFIES the capture (tools/verify-capture.ps1)
+REM before trusting it - a run where `java` never started, or where nothing was
+REM logged, used to look identical to a good one and silently wasted the session.
+REM If the check passes it runs the structural comparison for you.
 REM ---------------------------------------------------------------------------
 cd /d "%~dp0"
 
@@ -28,6 +33,11 @@ REM expansion (which would also make `!` in a path special).
 set OUT=%~1
 if not "%OUT%"=="" goto :namedout
 for /f %%i in ('powershell -NoProfile -Command "Get-Date -Format yyyyMMdd-HHmmss"') do set STAMP=%%i
+REM Fallback, and it matters: if the clock lookup returns nothing the name below
+REM collapses to "packet-tap-.log" - the exact name of the stale pre-fix capture
+REM sitting in this folder. That collision is how a vacuous "IDENTICAL" gets
+REM started, so never let the stamp come out empty.
+if "%STAMP%"=="" set STAMP=manual-%RANDOM%
 set OUT=packet-tap-%STAMP%.log
 :namedout
 
@@ -79,10 +89,37 @@ echo   ================================================================
 echo.
 
 java -Xmx1024m %NATIVES% -Dsoultrail.packettap="%OUT%" -cp "%CP%" Loader
-
+set GAMEEXIT=%ERRORLEVEL%
 echo.
-echo Packet log written to: %DISPLAY%
-if exist "%OUT%" (
-	for %%f in ("%OUT%") do echo Lines: %%~zf bytes
-)
+echo Client exited (code %GAMEEXIT%).
+
+REM Do NOT report success just because the banner above was printed. The old
+REM version of this file ended with "Packet log written to:" unconditionally,
+REM so a run where the JVM never started looked exactly like a good one. Verify
+REM the capture is real (exists, holds units, is not the golden master) before
+REM claiming anything, and only then spend time comparing it.
+echo Verifying capture: %DISPLAY%
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0tools\verify-capture.ps1" -Capture "%DISPLAY%" -GoldenDir "%~dp0golden-master"
+set VERIFY=%ERRORLEVEL%
+if not "%VERIFY%"=="0" goto :unusable
+
+if not exist gradlew.bat goto :nogradle
+echo Comparing against the golden master (structure only)...
+call gradlew.bat compareCapture -Pcapture="%DISPLAY%" --console=plain
+echo.
+echo   Comparison exit code: %ERRORLEVEL%   (0 = identical structure, 1 = see the diff above)
+goto :done
+
+:nogradle
+echo   gradlew.bat not found, so the comparison was not run. Run it yourself:
+echo       gradlew.bat compareCapture -Pcapture="%DISPLAY%"
+goto :done
+
+:unusable
+echo.
+echo   No usable capture was produced, so there is nothing to compare. The packet
+echo   log above never got written - see the reason printed by the verifier.
+
+:done
 if /I not "%~1"=="nopause" pause
+exit /b 0

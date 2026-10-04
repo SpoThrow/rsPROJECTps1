@@ -33,6 +33,31 @@ final class ObjectManager {
         return l >> 19 & 0xff;
     }
 
+    /**
+     * Bounds a landscape tile's floor id to `flo.dat`'s entry count.
+     *
+     * <p>The ids in {@code aByteArrayArrayArray142} / {@code ...130} are raw {@code & 0xff}
+     * bytes of map data, so they are unbounded, while `flo.dat` may well hold fewer entries
+     * than a given map references — a cache assembled out of more than one revision does
+     * exactly that. The count here is 1-based (id 0 means "no floor"), so the valid range is
+     * [1, length]; anything past it resolves to the last entry.
+     *
+     * <p>That clamp is what this class already attempted further down, but the guard compared
+     * the already-decremented id against the length and so missed by one, letting
+     * {@code Flo.cache[length]} through. Bounding the id here, at the read, covers every use
+     * of it instead of just one.
+     *
+     * <p>It is only ever called for an id that already tested above zero, so it needs no
+     * guard of its own: an id of 0 fails the comparison and is returned untouched, and the
+     * callers touch {@code Flo.cache} exactly as often as they did before.
+     */
+    private static int boundedFloorId(int id)
+    {
+        if(id > Flo.cache.length)
+            return Flo.cache.length;
+        return id;
+    }
+
     public final void method171(Class11 aclass11[], WorldController worldController)
     {
 try {
@@ -110,6 +135,7 @@ try {
                         int l12 = aByteArrayArrayArray142[l][k9][i8] & 0xff;
                         if(l12 > 0)
                         {
+                            l12 = boundedFloorId(l12);
                             Flo flo = Flo.cache[l12 - 1];
                             anIntArray124[i8] += flo.anInt397;
                             anIntArray125[i8] += flo.anInt395;
@@ -124,6 +150,7 @@ try {
                         int i14 = aByteArrayArrayArray142[l][i13][i8] & 0xff;
                         if(i14 > 0)
                         {
+                            i14 = boundedFloorId(i14);
                             Flo flo_1 = Flo.cache[i14 - 1];
                             anIntArray124[i8] -= flo_1.anInt397;
                             anIntArray125[i8] -= flo_1.anInt395;
@@ -169,6 +196,8 @@ try {
                             int i19 = aByteArrayArrayArray130[l][l6][k17] & 0xff;
                             if(l18 > 0 || i19 > 0)
                             {
+                                l18 = boundedFloorId(l18);
+                                i19 = boundedFloorId(i19);
                                 int j19 = anIntArrayArrayArray129[l][l6][k17];
                                 int k19 = anIntArrayArrayArray129[l][l6 + 1][k17];
                                 int l19 = anIntArrayArrayArray129[l][l6 + 1][k17 + 1];
@@ -238,8 +267,8 @@ try {
                                 {
                                     int k22 = aByteArrayArrayArray136[l][l6][k17] + 1;
                                     byte byte4 = aByteArrayArrayArray148[l][l6][k17];
-									if((i19 - 1) > Flo.cache.length)
-										i19 = Flo.cache.length;//42 = invisible
+                                    // i19 (and l18 above) were bounded at the read, so no guard
+                                    // is needed here; this is where the off-by-one one used to be.
                                     Flo flo_2 = Flo.cache[i19 - 1];
 										if((i19-1) != 54){
 											int i23 = flo_2.anInt391;

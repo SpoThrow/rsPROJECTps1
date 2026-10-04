@@ -36,8 +36,13 @@ public final class  Varp {
             if(j == 2)
                 stream.readUnsignedByte();
             else
-            if(j == 3)
-                anIntArray703[anInt702++] = i;
+            if(j == 3) {
+                // Phase 2.2: anIntArray703 is allocated with varp.dat's entry count, but
+                // this write is driven by a counter over opcode-3 occurrences, so a corrupt
+                // entry repeating opcode 3 would run past the end during cache load.
+                if (anInt702 < anIntArray703.length)
+                    anIntArray703[anInt702++] = i;
+            }
             else
             if(j == 4) {
 			} else

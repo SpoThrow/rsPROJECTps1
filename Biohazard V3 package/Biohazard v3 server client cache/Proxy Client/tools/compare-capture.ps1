@@ -41,7 +41,17 @@
 param(
     [Parameter(Mandatory = $true)][string]$Golden,
     [Parameter(Mandatory = $true)][string]$Current,
-    [int]$Context = 6
+    [int]$Context = 6,
+    # Minimum length of the common prefix required to call a pair compatible.
+    # The prefix is the deterministic region: the login handshake plus the initial
+    # region load. Measured at 701 units on two independent sessions six hours
+    # apart, so a change anywhere real in that region - our Phase 2 hardening most
+    # of all - shows up by shortening it. 600 is a floor just under the measurement
+    # so ordinary server-side variation does not trip it.
+    # ASSUMPTION: both sessions log in at the same place. Logging in somewhere else
+    # loads different regions, which shortens the prefix for a legitimate reason.
+    # The drift message says so when the prefix is short but non-trivial.
+    [int]$MinPrefix = 600
 )
 
 $ErrorActionPreference = 'Stop'
@@ -71,13 +81,108 @@ function Read-Signature([string]$path) {
 $goldenSig = Read-Signature $Golden
 $currentSig = Read-Signature $Current
 
+# ---------------------------------------------------------------------------
+# GUARD: never compare a capture against itself.
+#
+# This tool's failure mode is a VACUOUS PASS. The Gradle task picks the newest
+# packet-tap-*.log, so a stale capture left in the directory - specifically, the
+# very session the golden master was promoted from - is picked up again, compared
+# against its own promoted copy, and reported as "IDENTICAL structure": a green
+# result that looks exactly like a real one and proves nothing.
+#
+# Two independent sessions can never produce byte-identical captures, because the
+# ISAAC keys and login seeds are per-session random (see the header). So identical
+# hashes mean one file is a copy of the other and there is nothing to compare.
+# Fail loudly instead of printing a false pass.
+# ---------------------------------------------------------------------------
+$goldenHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $Golden).Hash
+$currentHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $Current).Hash
+if ($goldenHash -eq $currentHash) {
+    Write-Host "REFUSING TO COMPARE: the two files are byte-identical ($($goldenHash.Substring(0, 12))...)."
+    Write-Host ""
+    Write-Host "  golden : $Golden"
+    Write-Host "  current: $Current"
+    Write-Host ""
+    Write-Host "A capture cannot legitimately equal the golden master: opcodes are ISAAC-encrypted with"
+    Write-Host "per-session random keys and the login block embeds those seeds, so two sessions always"
+    Write-Host "differ. This means the 'current' file IS the golden master (or a copy of the session it"
+    Write-Host "was promoted from), and comparing it would print a meaningless IDENTICAL."
+    Write-Host ""
+    Write-Host "Take a fresh capture with Record.bat and re-run."
+    exit 2
+}
+
 Write-Host "golden : $Golden"
 Write-Host "current: $Current"
 Write-Host ""
 
-# Locate every position where the two sequences disagree. Reporting the count as
-# well as the first divergence matters: one late divergence is usually innocent
-# (a wandering NPC), whereas many starting early is a protocol change.
+# ---------------------------------------------------------------------------
+# VERDICT: common prefix + alignment.
+#
+# WHY THE POSITIONAL COUNT IS NO LONGER THE VERDICT.
+# Record.bat records a fresh, human session, so the route is never identical to
+# the golden master's. A single extra client->server packet shifts every
+# following unit by one, and a positional diff then scores each of those as a
+# divergence: 5,944 of them on a session that was in fact healthy, caused by one
+# "W 7" inserted at unit 1569. That count is real, but it means "different route",
+# not "protocol drift" - and a verdict that fails on every fresh session is one
+# nobody can act on.
+#
+# So the verdict rests on two things that ARE comparable across sessions:
+#   * the common PREFIX - the login handshake plus the initial region load, which
+#     are deterministic; they matched to the unit across two sessions 6h apart;
+#   * the longest common SUBSEQUENCE - which tolerates inserted/removed packets.
+#
+# Calibration, measured on the real captures rather than assumed:
+#   same protocol, different route .... LCS/shorter = 89.1%  (incoming only 91.4%)
+#   structure destroyed, same multiset . 60.1% (shuffled tail) / 62.5% (reversed)
+# The floor is only that high because the stream is dominated by an R 1 / R 2
+# heartbeat, so the threshold sits between the two, at 75%.
+#
+# KNOWN LIMIT, stated so a green is not over-trusted: a small structural change in
+# the ROUTE-DEPENDENT TAIL (say three deleted units late in the session) is
+# indistinguishable from a different route and will pass. What this reliably
+# catches is a break in the login/load prefix, or a cascade - which is what a
+# desync actually is, since one misread length corrupts every later unit.
+# ---------------------------------------------------------------------------
+$prefix = 0
+while ($prefix -lt $goldenSig.Count -and $prefix -lt $currentSig.Count -and
+       $goldenSig[$prefix] -eq $currentSig[$prefix]) { $prefix++ }
+
+Add-Type -TypeDefinition @'
+using System;
+public static class CaptureAlign {
+  // Length of the longest common subsequence of two unit sequences.
+  public static int Lcs(string[] a, string[] b) {
+    int n = a.Length, m = b.Length;
+    if (n == 0 || m == 0) return 0;
+    int[] prev = new int[m + 1], cur = new int[m + 1];
+    for (int i = 1; i <= n; i++) {
+      for (int j = 1; j <= m; j++) {
+        cur[j] = (a[i - 1] == b[j - 1]) ? prev[j - 1] + 1
+                                        : (prev[j] >= cur[j - 1] ? prev[j] : cur[j - 1]);
+      }
+      int[] t = prev; prev = cur; cur = t;
+      Array.Clear(cur, 0, cur.Length);
+    }
+    return prev[m];
+  }
+}
+'@
+
+$lcs = [CaptureAlign]::Lcs([string[]]$goldenSig, [string[]]$currentSig)
+$shorter = [Math]::Min($goldenSig.Count, $currentSig.Count)
+$ratio = if ($shorter -gt 0) { [Math]::Round(100.0 * $lcs / $shorter, 1) } else { 0.0 }
+
+Write-Host ("golden units  : {0}" -f $goldenSig.Count)
+Write-Host ("current units : {0}" -f $currentSig.Count)
+Write-Host ("common prefix : {0} units (deterministic login + region load)" -f $prefix)
+Write-Host ("LCS / shorter : {0} / {1} = {2}%  (compatible if >= 75%; destroyed floor ~60%)" -f $lcs, $shorter, $ratio)
+Write-Host ""
+
+# Locate every position where the two sequences disagree. Kept even for a
+# compatible pair because it pinpoints the first difference, which is what tells
+# a legitimate route change apart from a fault.
 $divergences = New-Object System.Collections.Generic.List[int]
 $max = [Math]::Max($goldenSig.Count, $currentSig.Count)
 for ($i = 0; $i -lt $max; $i++) {
@@ -86,15 +191,31 @@ for ($i = 0; $i -lt $max; $i++) {
     if ($g -ne $c) { $divergences.Add($i) }
 }
 
-Write-Host ("golden units : {0}" -f $goldenSig.Count)
-Write-Host ("current units: {0}" -f $currentSig.Count)
-Write-Host ("divergences  : {0}" -f $divergences.Count)
-Write-Host ""
-
 if ($divergences.Count -eq 0) {
-    Write-Host "IDENTICAL structure."
+    Write-Host "VERDICT: IDENTICAL structure - the two sessions match unit for unit."
     exit 0
 }
+
+if ($prefix -ge $MinPrefix -and $ratio -ge 75) {
+    Write-Host "VERDICT: COMPATIBLE - same protocol, different route."
+    Write-Host ("  {0} positional differences, all consistent with a different set of player" -f $divergences.Count)
+    Write-Host "  actions: one extra/absent packet shifts the alignment, which is why the raw"
+    Write-Host "  count is large. The login/load prefix and the great majority of units still"
+    Write-Host "  line up in order, so the client is framing packets exactly as before."
+    exit 0
+}
+
+Write-Host "VERDICT: DRIFT SUSPECTED - structural divergence beyond a route difference."
+if ($prefix -lt 20) {
+    Write-Host ("  The common prefix is only {0} units, so even the LOGIN HANDSHAKE differs." -f $prefix)
+    Write-Host "  That is the one region that is always deterministic - treat this as a real break."
+} elseif ($prefix -lt $MinPrefix) {
+    Write-Host ("  The prefix broke at unit {0}, inside the deterministic login/load region" -f $prefix)
+    Write-Host ("  (expected at least {0}). Either a real change there, or the session logged in at a" -f $MinPrefix)
+    Write-Host "  different place and loaded different regions. Compare the context below to tell"
+    Write-Host "  which: a location difference diverges on map data, a protocol change on framing."
+}
+Write-Host ""
 
 $first = $divergences[0]
 Write-Host ("First divergence at unit {0} (1-based {1}):" -f $first, ($first + 1))

@@ -10,9 +10,14 @@ REM a live session against the server. Two differences from Gradle:
 REM   * Gradle pins --release 8; this script used -source/-target 1.7, which
 REM     modern javac rejects outright and which only worked because the script
 REM     pins a JDK 8 below.
-REM   * Gradle reads the sources as UTF-8. This script sets no -encoding, so it
-REM     uses the platform default (Cp1252) and compiles four player-visible
-REM     strings to mojibake - a UTF-8 em dash becoming three wrong characters.
+REM   * Gradle reads the sources as UTF-8. This script used to set no -encoding,
+REM     so it fell back to the platform default (Cp1252) while the sources are
+REM     UTF-8: four player-visible strings compiled to mojibake, and any comment
+REM     containing a non-ASCII character (e.g. the warning sign) failed the
+REM     compile outright with "unmappable character for encoding Cp1252".
+REM     This script now passes -encoding UTF-8 so BOTH builds agree. Verified:
+REM     without the flag the client fails with 3 unmappable-character errors;
+REM     with it, 207 classes compile and the em dash is a real U+2014.
 REM
 REM WARNING: :killclient below runs taskkill /F on the game window. Do not run
 REM this as a convenience step while playing.
@@ -35,7 +40,7 @@ set CP=
 if exist deps\lwjgl.jar set CP=-cp deps\lwjgl.jar
 
 echo Compiling client...
-%JAVAC% -source 1.7 -target 1.7 %CP% -d "%BUILDDIR%" -sourcepath src src\*.java src\sign\*.java
+%JAVAC% -encoding UTF-8 -source 1.7 -target 1.7 %CP% -d "%BUILDDIR%" -sourcepath src src\*.java src\sign\*.java
 if errorlevel 1 (
 	echo.
 	echo Client compile failed.

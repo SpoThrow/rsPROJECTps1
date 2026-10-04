@@ -264,15 +264,28 @@ tasks.register('compareCapture', Exec) {
                 throw new GradleException("Capture not found: ${current}")
             }
         } else {
+            // Match ONLY the stamped name that Record.bat produces. The pre-fix
+            // artefact in this folder is literally "packet-tap-.log" (empty stamp),
+            // and it is byte-identical to the golden master - the exact file that
+            // caused the vacuous IDENTICAL. A glob of /packet-tap-.*\.log/ matches
+            // that too, so requiring the timestamp keeps it out of the running
+            // rather than relying on compare-capture.ps1 to refuse it after the
+            // fact. The refusal guard stays as defence in depth.
             current = dir.listFiles()
-                    ?.findAll { it.name ==~ /packet-tap-.*\.log/ }
+                    ?.findAll { it.name ==~ /packet-tap-\d{8}-\d{6}\.log/ }
                     ?.sort { it.lastModified() }
                     ?.reverse()
                     ?.find()
         }
         if (current == null) {
-            throw new GradleException(
-                    'No capture found. Run Record.bat, or pass -Pcapture=<path to a packet-tap log>.')
+            def stale = dir.listFiles()?.findAll { it.name ==~ /packet-tap-.*\.log/ }
+            def hint = ''
+            if (stale != null && !stale.isEmpty()) {
+                hint = " Ignoring non-stamped leftover(s): ${stale*.name.join(', ')}" +
+                        ' - those are pre-fix artefacts, not this session.'
+            }
+            throw new GradleException('No capture found. Run Record.bat, or pass ' +
+                    '-Pcapture=<path to a packet-tap log>.' + hint)
         }
         logger.lifecycle("compareCapture: golden=${golden.name}  current=${current.name}")
         commandLine 'powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass',

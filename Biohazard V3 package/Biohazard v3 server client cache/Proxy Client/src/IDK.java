@@ -41,14 +41,31 @@ public final class IDK {
 			if(i == 3)
 				aBoolean662 = true;
 			else
+			// Phase 2.2: each opcode range below spans 10 slots but the arrays hold 6/6/5,
+			// so opcodes 46-49, 56-59 and 65-69 indexed past the end. The word is read
+			// unconditionally and only the STORE is guarded: skipping the read would desync
+			// the stream and garble every later definition, which is worse than the crash it
+			// avoids. Valid 317 data only uses 40-45 / 50-55 / 60-64, so this is inert there.
 			if(i >= 40 && i < 50)
-				anIntArray659[i - 40] = stream.readUnsignedWord();
+			{
+				int value = stream.readUnsignedWord();
+				if(i - 40 < anIntArray659.length)
+					anIntArray659[i - 40] = value;
+			}
 			else
 			if(i >= 50 && i < 60)
-				anIntArray660[i - 50] = stream.readUnsignedWord();
+			{
+				int value = stream.readUnsignedWord();
+				if(i - 50 < anIntArray660.length)
+					anIntArray660[i - 50] = value;
+			}
 			else
 			if (i >= 60 && i < 70) 
-				anIntArray661[i - 60] = stream.readUnsignedWord();
+			{
+				int value = stream.readUnsignedWord();
+				if(i - 60 < anIntArray661.length)
+					anIntArray661[i - 60] = value;
+			}
 			else
 				System.out.println("Error unrecognised config code: " + i);
 		} while(true);

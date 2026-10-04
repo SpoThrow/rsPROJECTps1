@@ -15,7 +15,13 @@ public final class VarBit {
 			if(cache[j] == null)
 				cache[j] = new VarBit();
 			cache[j].readValues(stream);
-			if(cache[j].aBoolean651)
+			// Phase 2.2: anInt648 is read out of varbit.dat while Varp.cache is sized from
+			// varp.dat's entry count, so a corrupt or mismatched cache can point past the
+			// end of it (or reach here with Varp still unloaded). Skip instead of crashing
+			// during cache load; for a well-formed cache the condition never triggers.
+			if(cache[j].aBoolean651 && Varp.cache != null && cache[j].anInt648 >= 0
+					&& cache[j].anInt648 < Varp.cache.length
+					&& Varp.cache[cache[j].anInt648] != null)
 				Varp.cache[cache[j].anInt648].aBoolean713 = true;
 		}
 
