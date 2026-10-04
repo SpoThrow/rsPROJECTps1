@@ -19,7 +19,7 @@ public class Animable extends NodeSub {
 		}
 	}
 
-	Model getRotatedModel()
+	public Model getRotatedModel()
 	{
 		return null;
 	}

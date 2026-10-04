@@ -8818,7 +8818,7 @@ public class client extends RSApplet {
 		super.shouldDebug = true;
 	}
 
-	Component getGameComponent() {
+	public Component getGameComponent() {
 		if (signlink.mainapp != null)
 			return signlink.mainapp;
 		if (super.gameFrame != null)
@@ -11438,7 +11438,7 @@ public class client extends RSApplet {
 		}
 	}
 
-	void startUp() {
+	public void startUp() {
 		drawLoadingText(20, "Starting up");
 		loadClientSettings();
 		new CacheDownloader(this).downloadCache();

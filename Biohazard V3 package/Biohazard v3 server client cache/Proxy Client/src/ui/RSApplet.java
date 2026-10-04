@@ -518,7 +518,7 @@ public class RSApplet extends Applet implements Runnable, MouseListener, MouseMo
         }
     }
 
-	void mouseWheelDragged(int i, int j) {
+	public void mouseWheelDragged(int i, int j) {
 	}
  public final void mouseMoved(MouseEvent mouseevent)
     {
@@ -786,27 +786,27 @@ public class RSApplet extends Applet implements Runnable, MouseListener, MouseMo
 	{
 	}
 
-	void startUp()
+	public void startUp()
 	{
 	}
 
-	void processGameLoop()
+	public void processGameLoop()
 	{
 	}
 
-	void cleanUpForQuit()
+	public void cleanUpForQuit()
 	{
 	}
 
-	void processDrawing()
+	public void processDrawing()
 	{
 	}
 
-	void raiseWelcomeScreen()
+	public void raiseWelcomeScreen()
 	{
 	}
 
-	Component getGameComponent()
+	public Component getGameComponent()
 	{
 		if(gameFrame != null)
 			return gameFrame;
