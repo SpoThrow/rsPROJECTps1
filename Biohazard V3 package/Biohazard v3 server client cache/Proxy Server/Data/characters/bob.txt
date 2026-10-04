@@ -3,8 +3,8 @@ character-username = bob
 character-password = 9cdfb439c7876e703e307864c9167a15
 [CHARACTER]
 character-height = 0
-character-posx = 2507
-character-posy = 3763
+character-posx = 3093
+character-posy = 3495
 character-rights = 3
 donator = 0
 respected = 0
@@ -21,7 +21,7 @@ membership = false
 expModifier = 1.0
 lastclanchat = help
 lastLoginDate = 0
-character-energy = 97
+character-energy = 100
 desert-treasure = 0
 dt-kill = 0
 horror-from-deep = 0
@@ -122,10 +122,10 @@ character-look = 12	0
 [SKILLS]
 character-skill = 0	99	29840996
 character-skill = 1	99	29634552
-character-skill = 2	99	32066996
-character-skill = 3	50	19727088
+character-skill = 2	99	32486396
+character-skill = 3	93	19866888
 character-skill = 4	99	31352652
-character-skill = 5	0	27435082
+character-skill = 5	26	27435172
 character-skill = 6	99	30183388
 character-skill = 7	99	14391160
 character-skill = 8	99	14489410
@@ -148,10 +148,16 @@ character-skill = 24	1	0
 
 [ITEMS]
 character-item = 0	559	9
-character-item = 1	996	46599
+character-item = 1	996	46606
 character-item = 2	1441	1
 character-item = 3	437	1
 character-item = 4	11723	1
+character-item = 6	555	6
+character-item = 7	527	1
+character-item = 8	563	2
+character-item = 9	878	4
+character-item = 10	1441	1
+character-item = 11	527	1
 
 [BANK]
 character-bank = 0	4154	1
