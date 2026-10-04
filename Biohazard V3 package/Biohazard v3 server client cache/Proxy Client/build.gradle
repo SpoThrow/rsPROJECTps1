@@ -17,11 +17,14 @@
 //    system-property string literals in GlPresent.java). Verified compiling.
 //
 // 2. No `toolchain` block, on purpose.
-//    A toolchain would make Gradle provision a JDK. This machine has JDK 8 and
-//    JDK 25 and nothing between, and provisioning needs the network. javac 25
-//    can already emit Java 8 bytecode via `--release 8`, so the running JDK is
-//    sufficient and the build stays offline and hermetic. Raising the target
-//    later is a one-line override: -PclientJavaRelease=17
+//    A toolchain was *possible* here - Gradle already has a JDK 21 cached under
+//    ~/.gradle/jdks, provisioned by the server's own build. It is still the wrong
+//    tool: the client's correct target is Java 8 (it is a game client, and 8 buys
+//    nothing), and javac 25 can already emit that via `--release 8`. Adding a
+//    toolchain would be a second moving part that changes which compiler runs
+//    without changing the output, and it risks a future edit silently compiling at
+//    a different level. Keeping only `options.release` means the pin lives in one
+//    place. Raise it later with: -PclientJavaRelease=17
 // ---------------------------------------------------------------------------
 
 plugins {
