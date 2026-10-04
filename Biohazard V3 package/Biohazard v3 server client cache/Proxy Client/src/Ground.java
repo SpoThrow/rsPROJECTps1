@@ -3,6 +3,8 @@
 // Decompiler options: packimports(3) 
 
 
+import node.Node;
+
 public final class Ground extends Node {
 
 	public Ground(int i, int j, int k)

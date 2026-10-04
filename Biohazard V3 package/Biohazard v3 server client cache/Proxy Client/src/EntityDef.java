@@ -1,3 +1,5 @@
+import node.MRUNodes;
+
 public final class EntityDef {
 
 	public static EntityDef forID(int i) {

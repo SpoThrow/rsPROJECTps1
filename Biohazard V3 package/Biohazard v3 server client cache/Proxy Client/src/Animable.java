@@ -2,6 +2,8 @@
 // Jad home page: http://www.kpdus.com/jad.html
 // Decompiler options: packimports(3) 
 
+import node.NodeSub;
+
 public class Animable extends NodeSub {
 
 	public void method443(int i, int j, int k, int l, int i1, int j1, int k1, 

@@ -2,7 +2,9 @@
 // Jad home page: http://www.kpdus.com/jad.html
 // Decompiler options: packimports(3) 
 
-import java.util.Arrays;
+import java.util.Arrays;import node.NodeSub;
+
+
 
 public class DrawingArea extends NodeSub {
 

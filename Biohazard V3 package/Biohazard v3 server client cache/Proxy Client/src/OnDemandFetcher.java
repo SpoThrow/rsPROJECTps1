@@ -7,7 +7,10 @@ import java.net.Socket;
 import java.util.zip.CRC32;
 import java.util.zip.GZIPInputStream;
 
-import sign.signlink;
+import sign.signlink;import node.NodeList;
+import node.NodeSubList;
+
+
 
 public final class OnDemandFetcher extends OnDemandFetcherParent
 		implements Runnable

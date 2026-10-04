@@ -3,6 +3,8 @@
 // Decompiler options: packimports(3) 
 
 
+import node.NodeSub;
+
 public final class OnDemandData extends NodeSub {
 
     public OnDemandData()

@@ -2,7 +2,9 @@
 // Jad home page: http://www.kpdus.com/jad.html
 // Decompiler options: packimports(3) 
 
-final class NodeSubList {
+package node;
+
+public final class NodeSubList {
 
     public NodeSubList()
     {

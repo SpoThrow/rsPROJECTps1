@@ -2,6 +2,8 @@
 // Jad home page: http://www.kpdus.com/jad.html
 // Decompiler options: packimports(3) 
 
+import node.MRUNodes;
+
 public class RSInterface {
 	
     public static void addTransparentSprite(int id, int spriteId, String spriteName, int op)

@@ -2,6 +2,8 @@
 // Jad home page: http://www.kpdus.com/jad.html
 // Decompiler options: packimports(3) 
 
+import node.NodeList;
+
 final class WorldController {
 
 	public static final int VIEW = 75;

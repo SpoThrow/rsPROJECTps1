@@ -2,6 +2,8 @@
 // Jad home page: http://www.kpdus.com/jad.html
 // Decompiler options: packimports(3) 
 
+package node;
+
 public class Node {
 
     public final void unlink()

@@ -3,6 +3,8 @@
 // Decompiler options: packimports(3) 
 
 
+package node;
+
 public class NodeSub extends Node {
 
     public final void unlinkSub()

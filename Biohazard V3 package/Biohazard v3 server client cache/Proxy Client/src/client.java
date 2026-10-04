@@ -29,7 +29,10 @@ import java.util.Properties;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
-import sign.signlink;
+import sign.signlink;import node.Node;
+import node.NodeList;
+
+
 
 public class client extends RSApplet {
 

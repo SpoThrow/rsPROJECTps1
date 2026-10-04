@@ -2,6 +2,8 @@
 // Jad home page: http://www.kpdus.com/jad.html
 // Decompiler options: packimports(3) 
 
+import node.MRUNodes;
+
 public final class ItemDef {
 
 	public static void nullLoader() {

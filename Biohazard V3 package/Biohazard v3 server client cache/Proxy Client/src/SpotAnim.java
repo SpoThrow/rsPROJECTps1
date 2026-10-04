@@ -1,3 +1,5 @@
+import node.MRUNodes;
+
 public final class SpotAnim {
 
 	public static void unpackConfig(StreamLoader streamLoader) {
