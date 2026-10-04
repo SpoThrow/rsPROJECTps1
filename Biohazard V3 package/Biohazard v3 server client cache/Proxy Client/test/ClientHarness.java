@@ -1,5 +1,19 @@
 import java.io.File;
-import java.io.FileInputStream;
+import java.io.FileInputStream;import cache.StreamLoader;
+import def.EntityDef;
+import def.Flo;
+import def.IDK;
+import def.ItemDef;
+import def.ObjectDef;
+import def.VarBit;
+import def.Varp;
+import net.PacketTap;
+import net.Stream;
+import scene.CollisionMap;
+import scene.ObjectManager;
+import scene.WorldController;
+
+
 
 /**
  * Headless self-check harness for the Soul-Trail client - Phase 0.4 of

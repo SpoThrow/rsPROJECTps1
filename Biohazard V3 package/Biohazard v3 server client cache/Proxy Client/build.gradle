@@ -42,8 +42,10 @@ def binDir = layout.projectDirectory.dir('bin').asFile
 
 sourceSets {
     main {
-        // The client is a flat default-package tree with one subpackage (`sign`),
-        // not Maven's src/main/java. Point the source set at it directly.
+        // The client used to be a flat default-package tree with one subpackage
+        // (`sign`). Phase 3.1 moved it into eight packages (cache, def, game, model,
+        // net, node, scene, ui); `sign` is unchanged. It is still not Maven's
+        // src/main/java, so point the source set at `src` directly.
         java { srcDirs = ['src'] }
         resources { srcDirs = [] }
     }
@@ -84,7 +86,7 @@ tasks.withType(JavaCompile).configureEach {
 }
 
 // ---------------------------------------------------------------------------
-// bin/ is the runtime directory - Run.bat does `java -cp bin Loader` - and it is
+// bin/ is the runtime directory - Run.bat does `java -cp bin game.Loader` - and it is
 // git-tracked. Gradle compiles to build/, then this copies the classes down.
 //
 // Faithful to Compile.bat's robocopy /E /IS /IT: overwrite changed files, but
@@ -183,7 +185,7 @@ tasks.named('check') {
 // ---------------------------------------------------------------------------
 tasks.register('generateObjectCollisionSizes', Exec) {
     group = 'build'
-    description = 'Regenerates src/ObjectCollisionSizes.java from Proxy Server/Data/objectSize.cfg.'
+    description = 'Regenerates src/scene/ObjectCollisionSizes.java from Proxy Server/Data/objectSize.cfg.'
     workingDir = projectDir
     commandLine 'powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass',
             '-File', file('tools/generate-object-collision-sizes.ps1').absolutePath
@@ -191,13 +193,13 @@ tasks.register('generateObjectCollisionSizes', Exec) {
 
 tasks.register('verifyObjectCollisionSizes') {
     group = 'verification'
-    description = 'Fails if src/ObjectCollisionSizes.java was not generated from the current server objectSize.cfg.'
+    description = 'Fails if src/scene/ObjectCollisionSizes.java was not generated from the current server objectSize.cfg.'
     // Always run: it is a freshness check, and up-to-date tracking would let it
     // pass by being skipped rather than by verifying anything.
     outputs.upToDateWhen { false }
     doLast {
         def cfg = file('../Proxy Server/Data/objectSize.cfg')
-        def generated = file('src/ObjectCollisionSizes.java')
+        def generated = file('src/scene/ObjectCollisionSizes.java')
         if (!cfg.exists()) {
             throw new GradleException("Cannot find the object size table at ${cfg}")
         }
@@ -213,13 +215,13 @@ tasks.register('verifyObjectCollisionSizes') {
         def m = (generated.getText('UTF-8') =~ /SOURCE_CFG_SHA256\s*=\s*"([0-9a-f]{64})"/)
         if (!m.find()) {
             throw new GradleException(
-                    "src/ObjectCollisionSizes.java has no SOURCE_CFG_SHA256 constant, so its age cannot be " +
+                    "src/scene/ObjectCollisionSizes.java has no SOURCE_CFG_SHA256 constant, so its age cannot be " +
                     "checked. Regenerate it: gradlew generateObjectCollisionSizes")
         }
         def embedded = m.group(1)
         if (actual != embedded) {
             throw new GradleException(
-                    "src/ObjectCollisionSizes.java is OUT OF SYNC with Proxy Server/Data/objectSize.cfg.\n" +
+                    "src/scene/ObjectCollisionSizes.java is OUT OF SYNC with Proxy Server/Data/objectSize.cfg.\n" +
                     "  current cfg hash    : ${actual}\n" +
                     "  hash it was built from: ${embedded}\n" +
                     "The client and server would disagree about scenery collision.\n" +
@@ -303,6 +305,6 @@ tasks.register('run', JavaExec) {
     dependsOn tasks.named('classes')
     workingDir = projectDir
     classpath = files(mainClassesDir) + files('deps/lwjgl.jar')
-    mainClass = 'Loader'
+    mainClass = 'game.Loader'
     jvmArgs = ['-Xmx1024m']
 }

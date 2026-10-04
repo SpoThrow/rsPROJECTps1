@@ -88,7 +88,7 @@ echo    Record the screen too, then close the client normally.
 echo   ================================================================
 echo.
 
-java -Xmx1024m %NATIVES% -Dsoultrail.packettap="%OUT%" -cp "%CP%" Loader
+java -Xmx1024m %NATIVES% -Dsoultrail.packettap="%OUT%" -cp "%CP%" game.Loader
 set GAMEEXIT=%ERRORLEVEL%
 echo.
 echo Client exited (code %GAMEEXIT%).

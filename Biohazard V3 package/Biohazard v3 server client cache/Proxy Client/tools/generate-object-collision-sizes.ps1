@@ -1,5 +1,5 @@
 <#
-    Regenerates Proxy Client/src/ObjectCollisionSizes.java from the server's
+    Regenerates Proxy Client/src/scene/ObjectCollisionSizes.java from the server's
     Data/objectSize.cfg.
 
     Why this exists: the client builds its own collision from loc.dat object sizes
@@ -19,7 +19,7 @@ $toolsDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $clientDir = Split-Path -Parent $toolsDir
 $repoRoot = Split-Path -Parent $clientDir
 $cfgPath = Join-Path $repoRoot 'Proxy Server\Data\objectSize.cfg'
-$outPath = Join-Path $clientDir 'src\ObjectCollisionSizes.java'
+$outPath = Join-Path $clientDir 'src\scene\ObjectCollisionSizes.java'
 
 if (-not (Test-Path $cfgPath)) {
     throw "Cannot find the object size table at $cfgPath"
@@ -88,6 +88,8 @@ $builder = New-Object System.Text.StringBuilder
 [void]$builder.AppendLine(' * Regenerate after editing Data/objectSize.cfg:')
 [void]$builder.AppendLine(' *     powershell -ExecutionPolicy Bypass -File tools/generate-object-collision-sizes.ps1')
 [void]$builder.AppendLine(' */')
+[void]$builder.AppendLine('package scene;')
+[void]$builder.AppendLine('')
 [void]$builder.AppendLine('public final class ObjectCollisionSizes')
 [void]$builder.AppendLine('{')
 [void]$builder.AppendLine('')
