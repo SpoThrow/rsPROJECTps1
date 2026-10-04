@@ -73,10 +73,16 @@ import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.ImportTree;
+import com.sun.source.tree.MemberSelectTree;
+import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
+import com.sun.source.tree.ModifiersTree;
+import com.sun.source.tree.NewClassTree;
 import com.sun.source.tree.Tree;
+import com.sun.source.tree.VariableTree;
 import com.sun.source.util.JavacTask;
 import com.sun.source.util.SourcePositions;
+import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
 import com.sun.source.util.Trees;
 
@@ -97,7 +103,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -224,6 +232,12 @@ public final class MoveToPackages {
         // file-by-file in a single pass.
         // -------------------------------------------------------------------
         List<Unit> unitList = new ArrayList<Unit>();
+        // MEMBER-level widening, keyed by the OWNER's compilation unit. Unlike a type, a
+        // member's edit lands in a DIFFERENT file from the one that revealed the need, so
+        // it is collected globally and attached during pass 2. Identity maps because these
+        // are the very Tree instances the compiler produced.
+        final Map<CompilationUnitTree, Set<Tree>> memberWiden =
+                new IdentityHashMap<CompilationUnitTree, Set<Tree>>();
         for (CompilationUnitTree cu : parsed) {
             ClassTree own = null;
             for (Tree t : cu.getTypeDecls()) if (t instanceof ClassTree) { own = (ClassTree) t; break; }
@@ -245,8 +259,17 @@ public final class MoveToPackages {
             new TreePathScanner<Void, Void>() {
                 @Override public Void visitIdentifier(IdentifierTree t, Void p) {
                     String n = t.getName().toString();
-                    if (!map.containsKey(n)) return super.visitIdentifier(t, p);
                     Element e = trees.getElement(getCurrentPath());
+                    // A NESTED type reached from another package must be public too, and it is
+                    // NOT in `map` -- that lists the top-level types the move relocates, while a
+                    // nested type travels with its owner. This is the third hole the first real
+                    // apply fell into (OverlayManager.Panel), after members.
+                    if (e instanceof TypeElement
+                            && ((TypeElement) e).getEnclosingElement() instanceof TypeElement) {
+                        markMember(e, ownPkg, trees, map, memberWiden);
+                        return super.visitIdentifier(t, p);
+                    }
+                    if (!map.containsKey(n)) return super.visitIdentifier(t, p);
                     if (e == null || !(e instanceof TypeElement)) return super.visitIdentifier(t, p);
                     ElementKind k = e.getKind();
                     if (k != ElementKind.CLASS && k != ElementKind.INTERFACE && k != ElementKind.ENUM) {
@@ -270,6 +293,23 @@ public final class MoveToPackages {
                     if (refTarget != null && !refTarget.equals(ownPkg)) u.needed.add(refTarget + "." + refName);
                     return super.visitIdentifier(t, p);
                 }
+                // MEMBER widening. The type-only rule is NOT enough, and the first real
+                // apply proved it: mapping 54 types public compiled straight into 100
+                // errors of the form "X is not public in pkg.Y", because the MEMBERS
+                // stayed package-private. Every call, field read and `new` resolves to an
+                // element here, so the same attribution that finds types finds members.
+                @Override public Void visitMethodInvocation(MethodInvocationTree t, Void p) {
+                    markMember(trees.getElement(getCurrentPath()), ownPkg, trees, map, memberWiden);
+                    return super.visitMethodInvocation(t, p);
+                }
+                @Override public Void visitNewClass(NewClassTree t, Void p) {
+                    markMember(trees.getElement(getCurrentPath()), ownPkg, trees, map, memberWiden);
+                    return super.visitNewClass(t, p);
+                }
+                @Override public Void visitMemberSelect(MemberSelectTree t, Void p) {
+                    markMember(trees.getElement(getCurrentPath()), ownPkg, trees, map, memberWiden);
+                    return super.visitMemberSelect(t, p);
+                }
             }.scan(cu, null);
 
             unitList.add(u);
@@ -285,7 +325,7 @@ public final class MoveToPackages {
         // -------------------------------------------------------------------
         // PASS 2: turn the decisions into edits, verify them, and apply.
         // -------------------------------------------------------------------
-        int totalFiles = 0, moved = 0, importsAdded = 0, widened = 0;
+        int totalFiles = 0, moved = 0, importsAdded = 0, widened = 0, membersWidened = 0;
         List<String> blockers = new ArrayList<String>();
         List<String> entryPoints = new ArrayList<String>();
         List<Pending> pending = new ArrayList<Pending>();
@@ -308,7 +348,12 @@ public final class MoveToPackages {
             // widened, or the move silently changes accessibility and the build fails.
             boolean mustWiden = u.isMoving && !u.isPublic && crossPackage.contains(u.ownType);
 
-            if (needed.isEmpty() && !u.isMoving && !mustWiden) continue;
+            // Members reached from another package must be public too, and the edits land
+            // HERE because this unit owns them -- even when the unit is not itself moving.
+            Set<Tree> memberEdits = memberWiden.get(cu);
+
+            if (needed.isEmpty() && !u.isMoving && !mustWiden
+                    && (memberEdits == null || memberEdits.isEmpty())) continue;
             totalFiles++;
 
             List<Edit> edits = new ArrayList<Edit>();
@@ -366,6 +411,30 @@ public final class MoveToPackages {
                 widened++;
             }
 
+            // (4) the MEMBER widening: the same rule one level down, but keyed to the
+            //     owner's file rather than the one that revealed the need. An insertion is
+            //     only safe where a declaration truly begins, so a field that shares a
+            //     declaration (`int a, b;`) is refused rather than split into `int a, public b;`.
+            if (memberEdits != null) {
+                for (Tree decl : memberEdits) {
+                    long at = positions.getStartPosition(cu, decl);
+                    if (at < 0) {
+                        System.err.println("could not locate a member declaration in " + srcName(cu) + " -- aborting");
+                        System.exit(1);
+                    }
+                    int back = (int) at - 1;
+                    while (back >= 0 && Character.isWhitespace(src.charAt(back))) back--;
+                    if (back >= 0 && src.charAt(back) == ',') {
+                        System.err.println("member at " + srcName(cu) + ":" + at
+                                + " shares a declaration with another (multi-declarator field);"
+                                + " handle this file by hand -- aborting");
+                        System.exit(1);
+                    }
+                    edits.add(new Edit(at, at, "public ", 3, "member"));
+                    membersWidened++;
+                }
+            }
+
             edits.sort(new Comparator<Edit>() {
                 public int compare(Edit a, Edit b) {
                     if (a.start != b.start) return Long.compare(a.start, b.start);
@@ -420,7 +489,8 @@ public final class MoveToPackages {
         System.out.println();
         System.out.println((apply ? "APPLIED" : "DRY RUN (nothing written)") + ": "
                 + totalFiles + " file(s), " + moved + " class(es) moved, "
-                + widened + " class(es) widened to public, " + importsAdded + " import(s) added");
+                + widened + " class(es) widened to public, " + membersWidened
+                + " member(s) widened to public, " + importsAdded + " import(s) added");
 
         if (!entryPoints.isEmpty()) {
             System.out.println();
@@ -465,6 +535,55 @@ public final class MoveToPackages {
             }
         }
         return false;
+    }
+
+    /**
+     * Record that a FIELD, METHOD or CONSTRUCTOR is reached from another package and so
+     * must be public -- the second half of the visibility rule, added after the first
+     * real apply produced 100 "X is not public in pkg.Y" errors with every TYPE already
+     * public.
+     *
+     * The owner's TARGET package is what decides, not where it sits on disk, so this
+     * works off the same map as the rest of the tool and is correct on an unmoved tree.
+     * An already-public member is skipped, as is a private one (unreachable across a
+     * package boundary by definition, so it can never be the cause of one of these
+     * errors). A `protected` member is skipped too, and that is a deliberate boundary:
+     * it is legal to reach one through inheritance, so widening it is not the same
+     * certain fix, and pass 2 refuses rather than emitting "public protected".
+     *
+     * The declaration TREE is recorded rather than a text offset precisely because the
+     * edit belongs to the OWNER's file, which may be a different compilation unit from
+     * the one being scanned.
+     */
+    private static void markMember(Element e, String ownPkg, Trees trees, Map<String, String> pkgMap,
+                                   Map<CompilationUnitTree, Set<Tree>> out) {
+        if (e == null) return;
+        ElementKind k = e.getKind();
+        if (k != ElementKind.FIELD && k != ElementKind.METHOD && k != ElementKind.CONSTRUCTOR
+                && k != ElementKind.CLASS && k != ElementKind.INTERFACE && k != ElementKind.ENUM
+                && k != ElementKind.ANNOTATION_TYPE) return;
+        Set<Modifier> mods = e.getModifiers();
+        if (mods.contains(Modifier.PUBLIC) || mods.contains(Modifier.PRIVATE)
+                || mods.contains(Modifier.PROTECTED)) return;
+        Element owner = e.getEnclosingElement();
+        if (!(owner instanceof TypeElement)) return;
+        TypeElement ownerTop = topLevel((TypeElement) owner);
+        String ownerName = ownerTop.getSimpleName().toString();
+        String ownerTarget = pkgMap.get(ownerName);
+        String ownerPkg = ownerTarget != null ? ownerTarget : pkgOf(ownerTop);
+        if (ownerPkg.isEmpty()) return;                       // the owner stays in the default package
+        if (ownerPkg.equals(ownPkg)) return;                  // same target package: still visible
+        Tree decl = trees.getTree(e);
+        if (decl == null) return;                             // implicit (e.g. default ctor): the type covers it
+        TreePath path = trees.getPath(e);
+        if (path == null) return;
+        CompilationUnitTree declCu = path.getCompilationUnit();
+        Set<Tree> set = out.get(declCu);
+        if (set == null) {
+            set = Collections.newSetFromMap(new IdentityHashMap<Tree, Boolean>());
+            out.put(declCu, set);
+        }
+        set.add(decl);
     }
 
     /** The outermost type declaration enclosing `t` (i.e. the one that owns the file). */
