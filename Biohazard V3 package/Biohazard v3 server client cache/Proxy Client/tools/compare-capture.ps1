@@ -20,6 +20,15 @@
 # a packet in the wrong order changes how many bytes are consumed, so a desync
 # shows up here as a length/order divergence.
 #
+# CORRECTION (2026-10-04 late night), because the paragraph above used to be
+# followed by a claim that the login/load prefix is DETERMINISTIC - it is not.
+# The region carries a length-prefixed loading-progress String whose byte length
+# depends on its own value and whose frequency varies several-fold per session,
+# plus ordinary inserted client actions. So the prefix is compared by bounded
+# ALIGNMENT rather than unit-for-unit; see the parameter block for measurements.
+# Payloads are still not compared, and the frame is identified only where the
+# alignment needs it - not by decoding the progress text.
+#
 # Verified against the real capture: the first 12 units are the login handshake
 # exactly as client.java:10409-10461 performs it (8 discarded reads, 1 response
 # code, an 8-byte seed flush, then the 171-byte login block).
@@ -42,16 +51,55 @@ param(
     [Parameter(Mandatory = $true)][string]$Golden,
     [Parameter(Mandatory = $true)][string]$Current,
     [int]$Context = 6,
-    # Minimum length of the common prefix required to call a pair compatible.
-    # The prefix is the deterministic region: the login handshake plus the initial
-    # region load. Measured at 701 units on two independent sessions six hours
-    # apart, so a change anywhere real in that region - our Phase 2 hardening most
-    # of all - shows up by shortening it. 600 is a floor just under the measurement
-    # so ordinary server-side variation does not trip it.
-    # ASSUMPTION: both sessions log in at the same place. Logging in somewhere else
-    # loads different regions, which shortens the prefix for a legitimate reason.
-    # The drift message says so when the prefix is short but non-trivial.
-    [int]$MinPrefix = 600
+    # GAP-TOLERANT PREFIX ALIGNMENT (replaces the old positional $MinPrefix gate).
+    #
+    # The old gate required the two captures to agree UNIT FOR UNIT for the first
+    # 600 units. That is not a property this protocol has, and it produced false
+    # positives on healthy sessions - proven by comparing captures from the SAME
+    # BINARY against each other: 221412 vs 221551 scored COMPATIBLE (1,100-unit
+    # prefix) while 221412 vs 221811 and 221551 vs 221811 scored DRIFT with a
+    # 17-unit prefix, DESPITE SCORING HIGHER SIMILARITY (98.1% and 96.8% against
+    # 97.5%). A client cannot drift from itself, so the gate was the fault.
+    #
+    # Two benign, per-session-varying things sit in that region:
+    #   * a loading-progress String frame, length-prefixed, whose byte length
+    #     depends on its own value - "98%\n" is 6 bytes, "100%\n" is 7 - and which
+    #     appears a wildly different number of times per session (3, 7 and 31
+    #     measured). It changes BOTH the R 2 length prefix and the R 6/R 7 payload,
+    #     so it breaks a positional match at two units.
+    #   * ordinary inserted client actions: 221811 carries an extra W 1 at unit 520
+    #     where 221412 carries R 1, shifting everything by one.
+    # Neither is a desync. A desync is a CASCADE - one misread length makes every
+    # later unit garbage - and that is what the alignment below actually measures.
+    #
+    # So the gate asks: can the golden's first $PrefixWindow units be matched, in
+    # order, into the current's first ($PrefixWindow + $PrefixSlack) units, missing
+    # at most $PrefixTolerance of them?
+    #
+    # Measured, and this is what sets the defaults. Note the TWO healthy baselines
+    # score differently, which is why the tolerance cannot be tighter:
+    #   healthy, golden vs a fresh session .. 600 / 594 / 594 / 593
+    #     (213845, 221412, 221551, 221811 - the ~6-unit cost is benign: golden's
+    #      session interleaves the SAME variable-length frames in a different
+    #      order, e.g. `R 2 ffff` + `R 6 00566401c763` early where 221412 carries
+    #      them later. Both sessions hold ~163 such frames, so no data is lost.)
+    #   healthy, same binary vs itself .... 600 / 599 / 599
+    #   cascade breaking at unit 18 ....... 351
+    #   cascade at 60 / 120 / 300 ......... 372 / 392 / 470
+    #   cascade at 440 / 480 / 500 ........ 536 / 559 / 568
+    #   cascade at 520 / 540 / 560 ........ 573 / 580 / 589
+    #   cascade at 580 .................... 597
+    # So 590 (600 - 10) keeps every healthy measurement clear with margin, and still
+    # catches every cascade that begins at or before unit 560.
+    #
+    # KNOWN LIMIT, stated so a green is not over-trusted: a cascade beginning in the
+    # LAST ~35 UNITS of the window is not distinguishable from benign drift - at unit
+    # 580 it scores 597, above a healthy 593 - because the R 1 / R 2 / R 3 heartbeat
+    # keeps matching by coincidence however the tail is reordered. The limit already
+    # accepted on the route-dependent tail is the same phenomenon.
+    [int]$PrefixWindow = 600,
+    [int]$PrefixSlack = 64,
+    [int]$PrefixTolerance = 10
 )
 
 $ErrorActionPreference = 'Stop'
@@ -117,9 +165,9 @@ Write-Host "current: $Current"
 Write-Host ""
 
 # ---------------------------------------------------------------------------
-# VERDICT: common prefix + alignment.
+# VERDICT: prefix ALIGNMENT + whole-stream similarity.
 #
-# WHY THE POSITIONAL COUNT IS NO LONGER THE VERDICT.
+# WHY THE POSITIONAL COUNT IS NOT THE VERDICT.
 # Record.bat records a fresh, human session, so the route is never identical to
 # the golden master's. A single extra client->server packet shifts every
 # following unit by one, and a positional diff then scores each of those as a
@@ -128,23 +176,34 @@ Write-Host ""
 # not "protocol drift" - and a verdict that fails on every fresh session is one
 # nobody can act on.
 #
-# So the verdict rests on two things that ARE comparable across sessions:
-#   * the common PREFIX - the login handshake plus the initial region load, which
-#     are deterministic; they matched to the unit across two sessions 6h apart;
-#   * the longest common SUBSEQUENCE - which tolerates inserted/removed packets.
+# The verdict rests on two things that ARE comparable across sessions:
+#   * the PREFIX - the login handshake plus the initial region load. It is NOT
+#     deterministic (see the parameter block: a variable-length loading-progress
+#     frame and ordinary inserted client actions both live there), so it is
+#     compared by bounded ALIGNMENT - how many of the golden's first N units can
+#     be matched, in order, inside a small slack. Measured: healthy sessions score
+#     593-600 of 600; every cascade scores 351-589 until it starts past unit 560;
+#   * the longest common SUBSEQUENCE over the whole stream - which tolerates
+#     inserted/removed packets.
 #
 # Calibration, measured on the real captures rather than assumed:
-#   same protocol, different route .... LCS/shorter = 89.1%  (incoming only 91.4%)
+#   same protocol, different route .... LCS/shorter = 89.1% .. 98.1%
 #   structure destroyed, same multiset . 60.1% (shuffled tail) / 62.5% (reversed)
 # The floor is only that high because the stream is dominated by an R 1 / R 2
 # heartbeat, so the threshold sits between the two, at 75%.
 #
 # KNOWN LIMIT, stated so a green is not over-trusted: a small structural change in
 # the ROUTE-DEPENDENT TAIL (say three deleted units late in the session) is
-# indistinguishable from a different route and will pass. What this reliably
-# catches is a break in the login/load prefix, or a cascade - which is what a
-# desync actually is, since one misread length corrupts every later unit.
+# indistinguishable from a different route and will pass; likewise a cascade
+# confined to the last few units of the prefix window scores like benign drift.
+# What this reliably catches is a break in the login/load prefix, or a cascade
+# anywhere before the end of that window - which is what a desync actually is,
+# since one misread length corrupts every later unit.
 # ---------------------------------------------------------------------------
+# Exact positional prefix: kept ONLY as a diagnostic. It is expected to be SHORT
+# on healthy sessions - 221412 vs 221811 scores 17 while being a same-binary pair -
+# so it must never drive the verdict again. That mistake is what produced the
+# false DRIFT verdicts this tool was repaired for.
 $prefix = 0
 while ($prefix -lt $goldenSig.Count -and $prefix -lt $currentSig.Count -and
        $goldenSig[$prefix] -eq $currentSig[$prefix]) { $prefix++ }
@@ -167,6 +226,21 @@ public static class CaptureAlign {
     }
     return prev[m];
   }
+  // Bounded prefix alignment: how many of the golden's first `window` units can
+  // be matched, in order, into the current's first `window + slack` units. This
+  // tolerates the benign per-session variation (the loading-progress frame
+  // changing its length, one inserted client action) while a cascade - where
+  // every unit past the break is drawn from the wrong offset - cannot reach the
+  // required count.
+  public static int PrefixAlign(string[] golden, string[] current, int window, int slack) {
+    int n = Math.Min(window, golden.Length);
+    if (n == 0) return 0;
+    int m = Math.Min(window + slack, current.Length);
+    if (m == 0) return 0;
+    string[] g = new string[n]; Array.Copy(golden, g, n);
+    string[] c = new string[m]; Array.Copy(current, c, m);
+    return Lcs(g, c);
+  }
 }
 '@
 
@@ -174,10 +248,16 @@ $lcs = [CaptureAlign]::Lcs([string[]]$goldenSig, [string[]]$currentSig)
 $shorter = [Math]::Min($goldenSig.Count, $currentSig.Count)
 $ratio = if ($shorter -gt 0) { [Math]::Round(100.0 * $lcs / $shorter, 1) } else { 0.0 }
 
+$window = [Math]::Min($PrefixWindow, $goldenSig.Count)
+$prefixMatch = [CaptureAlign]::PrefixAlign([string[]]$goldenSig, [string[]]$currentSig, $PrefixWindow, $PrefixSlack)
+$prefixRequired = $window - $PrefixTolerance
+$prefixOk = $prefixMatch -ge $prefixRequired
+
 Write-Host ("golden units  : {0}" -f $goldenSig.Count)
 Write-Host ("current units : {0}" -f $currentSig.Count)
-Write-Host ("common prefix : {0} units (deterministic login + region load)" -f $prefix)
+Write-Host ("prefix align  : {0} / {1} units matched  (need >= {2}; window {3}, slack {4})" -f $prefixMatch, $window, $prefixRequired, $PrefixWindow, $PrefixSlack)
 Write-Host ("LCS / shorter : {0} / {1} = {2}%  (compatible if >= 75%; destroyed floor ~60%)" -f $lcs, $shorter, $ratio)
+Write-Host ("exact prefix  : {0} units (diagnostic only - NOT a gate; healthy pairs also score ~17 here)" -f $prefix)
 Write-Host ""
 
 # Locate every position where the two sequences disagree. Kept even for a
@@ -196,29 +276,36 @@ if ($divergences.Count -eq 0) {
     exit 0
 }
 
-if ($prefix -ge $MinPrefix -and $ratio -ge 75) {
+if ($prefixOk -and $ratio -ge 75) {
     Write-Host "VERDICT: COMPATIBLE - same protocol, different route."
     Write-Host ("  {0} positional differences, all consistent with a different set of player" -f $divergences.Count)
     Write-Host "  actions: one extra/absent packet shifts the alignment, which is why the raw"
-    Write-Host "  count is large. The login/load prefix and the great majority of units still"
-    Write-Host "  line up in order, so the client is framing packets exactly as before."
+    Write-Host "  count is large. The login/load prefix still aligns almost unit for unit, and"
+    Write-Host "  the great majority of units line up in order, so the client is framing"
+    Write-Host "  packets exactly as before."
     exit 0
 }
 
 Write-Host "VERDICT: DRIFT SUSPECTED - structural divergence beyond a route difference."
-if ($prefix -lt 20) {
-    Write-Host ("  The common prefix is only {0} units, so even the LOGIN HANDSHAKE differs." -f $prefix)
-    Write-Host "  That is the one region that is always deterministic - treat this as a real break."
-} elseif ($prefix -lt $MinPrefix) {
-    Write-Host ("  The prefix broke at unit {0}, inside the deterministic login/load region" -f $prefix)
-    Write-Host ("  (expected at least {0}). Either a real change there, or the session logged in at a" -f $MinPrefix)
-    Write-Host "  different place and loaded different regions. Compare the context below to tell"
-    Write-Host "  which: a location difference diverges on map data, a protocol change on framing."
+if (-not $prefixOk) {
+    Write-Host ("  The login/load prefix failed to align: only {0} of the golden's first {1} units could" -f $prefixMatch, $window)
+    Write-Host ("  be matched in order (need >= {0})." -f $prefixRequired)
+    Write-Host "  That region does vary between sessions - a length-prefixed loading-progress frame"
+    Write-Host "  whose byte length depends on its own value, plus ordinary inserted client actions -"
+    Write-Host "  but only by a few units: healthy sessions measure 593-600 here. A score this low is"
+    Write-Host "  a CASCADE, which is what a misread length produces, since every later unit is then"
+    Write-Host "  drawn from the wrong offset. Treat it as a real break."
+} else {
+    Write-Host ("  The prefix aligned ({0} / {1}), so the login/load region itself is intact, but" -f $prefixMatch, $window)
+    Write-Host ("  whole-stream similarity is only {0}% (need >= 75%). The two streams do not stay in" -f $ratio)
+    Write-Host "  order beyond that, which points at a framing fault rather than a different route."
 }
 Write-Host ""
 
 $first = $divergences[0]
-Write-Host ("First divergence at unit {0} (1-based {1}):" -f $first, ($first + 1))
+Write-Host ("First positional divergence at unit {0} (1-based {1}):" -f $first, ($first + 1))
+Write-Host "  Positional, so a benign inserted action or a progress frame produces one too -"
+Write-Host "  read it together with the prefix alignment above, never on its own."
 Write-Host ""
 
 $from = [Math]::Max(0, $first - $Context)
