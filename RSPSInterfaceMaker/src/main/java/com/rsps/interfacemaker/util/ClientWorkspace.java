@@ -24,9 +24,9 @@ public class ClientWorkspace {
         File interfaces = findInterfacesJava();
         workspace.interfacesJava = interfaces;
 
-        File cacheSprites = new File(System.getProperty("user.home"), "Biohazard.474" + File.separator + "Sprites");
+        File cacheSprites = new File(System.getProperty("user.home"), "Soul-Trail" + File.separator + "Sprites");
         addIfDir(workspace.spriteRoots, cacheSprites);
-        addIfDir(workspace.spriteRoots, new File(System.getProperty("user.home"), "Biohazard.474"));
+        addIfDir(workspace.spriteRoots, new File(System.getProperty("user.home"), "Soul-Trail"));
 
         if (interfaces != null) {
             File clientRoot = interfaces.getParentFile() != null ? interfaces.getParentFile().getParentFile() : null;

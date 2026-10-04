@@ -4,7 +4,7 @@ character-password = 9cdfb439c7876e703e307864c9167a15
 [CHARACTER]
 character-height = 0
 character-posx = 3086
-character-posy = 3492
+character-posy = 3496
 character-rights = 0
 donator = 0
 respected = 0
@@ -21,7 +21,7 @@ membership = false
 expModifier = 0.1
 lastclanchat = help
 lastLoginDate = 0
-character-energy = 20
+character-energy = 13
 desert-treasure = 0
 dt-kill = 0
 horror-from-deep = 0

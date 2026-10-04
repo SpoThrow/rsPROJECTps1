@@ -15,8 +15,8 @@ import java.util.Map;
  *
  * <p><b>Why this exists.</b> Phase 6 of the refactor calls for getting configuration out of the
  * source. The sharpest instance is credentials: the vote loader's database password is a string
- * literal in {@link Server}'s static initialiser and the hiscores password is a local variable in
- * {@link server.game.players.HiscoresHandler#createConnection()}, so anyone with read access to the
+ * literal in {@link Server}'s static initialiser and the hiscores password used to be a local
+ * variable in {@link server.game.players.HiscoresHandler}, so anyone with read access to the
  * repository — or to a built jar — has them.
  *
  * <p><b>Fallback semantics are the important part.</b> Every getter takes the value to use when the

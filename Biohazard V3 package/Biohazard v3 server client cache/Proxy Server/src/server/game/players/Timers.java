@@ -43,16 +43,21 @@ package server.game.players;
  * The {@code teleblock-length} branch writes <em>both</em> fields, deriving
  * {@code teleBlockDelay = System.currentTimeMillis()} at load.
  *
- * <p>Deliberately still on {@link Player}: {@code specDelay}, {@code poisonDelay} and
- * {@code prayerDelay}. All three are <em>dead</em> — the measurement reports zero references of
- * any kind anywhere in the tree — and {@code specDelay} additionally carries a
- * {@code System.currentTimeMillis()} initialiser, which is why it is not simply another
- * all-zero stamp. They are reported rather than moved or deleted, so removing them stays an
- * explicit, separate decision.
+ * <p>⚠️ The dead {@code specDelay}, {@code poisonDelay} and {@code prayerDelay} (declared on
+ * {@link Player}) and this bag's {@code saveTimer} and {@code teleGrabDelay} have been
+ * <em>deleted</em>: every one was written and never read. telegrab's requirements are already
+ * enforced by {@code checkMagicReqs}.
  *
- * <p>⚠️ {@link #saveTimer} is written once ({@code Client}: {@code saveTimer = Config.SAVE_TIMER})
- * and never read, so the save-timer feature is unimplemented — the same shape as
- * {@link #teleGrabDelay} in the §4.10 group. Nothing was wired up for it.
+ * <p>⚠️ <b>Correction (Phase 5): the claim that used to stand here — that {@code saveTimer} was
+ * redundant because {@link PlayerSaving} saves every player every five minutes — was wrong.</b>
+ * {@code PlayerSaving.initialize()} had no callers anywhere in the tree, so its thread was never
+ * started and its five-minute loop never ran. Deleting {@code saveTimer} was still
+ * behaviour-neutral (it was write-only, so it never triggered anything), but it removed the
+ * <em>name</em> of a real gap rather than redundancy: there was in fact no periodic save, and a
+ * character reached disk only on logout, on the drop/death/barrows paths, or — from Phase 5 — on a
+ * clean shutdown. **That gap has since been closed:** {@link PlayerSaving} is now driven from the
+ * game tick and writes one character per tick, so progress early in a session is no longer held
+ * only in memory.
  *
  * <p>This is a data bag on purpose. Extracting the cluster and encapsulating it are separate
  * steps, so that a behaviour change cannot hide inside the mechanical move.
@@ -124,9 +129,6 @@ public final class Timers {
 	/** Epoch-millis of the last combat action, used to hold a disconnected player for 10s. {@code 0} = out of combat. */
 	public long logoutDelay;
 
-	/** Earliest epoch-millis at which telekinetic grab may be cast again. */
-	public long teleGrabDelay;
-
 	/** Epoch-millis combat last ended; the player is "in combat" while {@code now() - this < 3300}. */
 	public long singleCombatDelay;
 
@@ -182,7 +184,4 @@ public final class Timers {
 
 	/** PK skull countdown in ticks; {@code -1} means no skull. Persisted under {@code skull-timer}. */
 	public int skullTimer;
-
-	/** ⚠️ Set once to {@code Config.SAVE_TIMER} in {@code Client} and read nowhere — write-only. */
-	public int saveTimer;
 }

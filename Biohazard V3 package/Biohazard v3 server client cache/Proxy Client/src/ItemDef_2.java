@@ -8,11 +8,24 @@ public class ItemDef_2 {
 	
 	public static void Items(int i) {
 		ItemDef itemDef = ItemDef.forID(i);
+		if (i == 4155) {
+			if (itemDef.itemActions == null) {
+				itemDef.itemActions = new String[5];
+			}
+			itemDef.itemActions[0] = "Check";
+		}
+		if (i >= 8901 && i <= 8921) {
+			if (itemDef.itemActions == null) {
+				itemDef.itemActions = new String[5];
+			}
+			itemDef.itemActions[2] = "Check";
+		}
 		switch (i) {
 
 		case 15051:
 			itemDef.itemActions = new String[5];
 			itemDef.itemActions[1] = "Wield";
+			itemDef.itemActions[2] = "Check";
 			itemDef.modelZoom = 789;
 			itemDef.modelRotationY = 69;
 			itemDef.modelRotationX = 1743;

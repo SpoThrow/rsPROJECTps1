@@ -11,6 +11,7 @@ public class Interfaces extends RSInterface {
 		slayerInterfaceSub2(textDrawingAreas);
 		equipmentScreen(textDrawingAreas);
 		prayerTab(textDrawingAreas);
+		Curses(textDrawingAreas);
 		clanChatTab(textDrawingAreas);
 		clanChatSetup(textDrawingAreas);
 		magicTab(textDrawingAreas);
@@ -34,6 +35,7 @@ public class Interfaces extends RSInterface {
 		playerOwnedShopMain(textDrawingAreas);
 		playerOwnedShopBuy(textDrawingAreas);
 		ShopInterface(textDrawingAreas);
+		itemSpawnSearch(textDrawingAreas);
 		bank(textDrawingAreas);
 	}
 	
@@ -1049,7 +1051,8 @@ public static int boxIds[] = { 4041, 4077, 4113, 4047, 4083, 4119, 4053, 4089, 4
 				"Toggle-Split Private Chat", 1, 5, 287);
 		addConfigButton(12464, 904, 30, 31, "Options/SPRITE", 40, 40,
 				"Toggle-Accept Aid", 0, 5, 427);
-		addButton(24150, 30, "Options/SPRITE", "Client Settings", -1, 1, 40, 40);
+		addConfigButton(24150, 904, 30, 31, "Options/SPRITE", 40, 40,
+				"Toggle-Resizable", 1, 1, 876);
 		addSprite(24151, 40, "Options/SPRITE");
 		tab.totalChildren(30);
 		int x = 0;
@@ -1096,8 +1099,11 @@ public static int boxIds[] = { 4041, 4077, 4113, 4047, 4083, 4119, 4053, 4089, 4
 		addHoverText(24210, "Resizable client: On", "Toggle resizable", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24249, "Display", "Display settings", tda, 1, 0xffff00, false, true, 70);
 		addHoverText(24248, "Inventory tab (resizable): Solid", "Solid board or transparent tab. Resizable only.", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24245, "Chat box (resizable): Solid", "Solid or transparent chatbox and scrollbar. Resizable only.", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24431, "Chat scrollbar: Right", "Put the chat scrollbar on the left or right", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24432, "Chat click-through: Off", "Click through transparent chat to the game world. Resizable transparent chat only.", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24211, "Distance fog: High", "Change fog strength", tda, 1, 0xff981f, false, true, 300);
-		addHoverText(24212, "Anti-aliasing: Low", "Change anti-aliasing (edge-only, not blur)", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24212, "Anti-aliasing: Medium", "Crisp edge smoothing only — no screen blur", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24213, "Animation smoothing: On", "Toggle animation smoothing", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24215, "Draw distance: 75 tiles", "Change draw distance", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24216, "Ground blending: On", "Toggle ground tile blending", tda, 1, 0xff981f, false, true, 300);
@@ -1120,11 +1126,17 @@ public static int boxIds[] = { 4041, 4077, 4113, 4047, 4083, 4119, 4053, 4089, 4
 		addHoverText(24232, "Show ping: Off", "Toggle connection latency to the server", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24233, "OpenGL acceleration: Off", "GPU present path (restart). Turn driver FXAA off if blurry", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24234, "FPS cap: 50", "Unlock the 50 FPS draw cap", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24434, "Zoom sensitivity: 100% (default)", "Mouse-wheel zoom speed. Click to change (25-300, default 100)", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24435, "Reset camera zoom", "Restore camera zoom to the default closeness", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24236, "Shift-click drop: On", "Shift-left-click drops inventory items", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24237, "Middle-click wear: On", "Middle-click wears or wields inventory items", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24238, "Special attack orb: On", "Show a spec orb next to HP/prayer/run", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24239, "Hide loot below: Off", "Hide ground items cheaper than this value", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24240, "Loot beams: Off", "Beams on valuable ground items", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24426, "Ground name shadow: Soft", "Black shadow or outline behind ground item names", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24427, "Ground name size: Small", "Size of ground item name text", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24428, "Ground whitelist: 0 items", "Always show these items. Hold Alt and click + in-game", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24429, "Ground blacklist: 0 items", "Hide these items. Hold Alt and click - in-game", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24241, "Destination tile: On", "Highlight the tile you clicked to walk to", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24242, "True tile: Off", "Highlight the tile you are actually standing on", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24243, "Chat timestamps: On", "Prefix chat lines with the time", tda, 1, 0xff981f, false, true, 300);
@@ -1189,7 +1201,7 @@ public static int boxIds[] = { 4041, 4077, 4113, 4047, 4083, 4119, 4053, 4089, 4
 		list.height = 186;
 		list.scrollMax = 260;
 		int[] ids = {
-			24210, 24248, 24211, 24212, 24213, 24215, 24216, 24217, 24233, 24234, 24231, 24232
+			24210, 24248, 24245, 24431, 24432, 24211, 24212, 24213, 24215, 24216, 24217, 24233, 24234, 24434, 24435, 24231, 24232
 		};
 		setChildren(ids.length, list);
 		for (int i = 0; i < ids.length; i++) {
@@ -2532,9 +2544,54 @@ public static int boxIds[] = { 4041, 4077, 4113, 4047, 4083, 4119, 4053, 4089, 4
 		inter.child(2, 50007, 475, 20);
 	}
 
+	/** Admin ::item search: type a name, pick an icon row, then enter amount. */
+	public static void itemSpawnSearch(TextDrawingArea[] tda) {
+		RSInterface rsi = addInterface(51000);
+		addSprite(51080, 10, "Interfaces/POS/BUY");
+		addText(51001, "Item Spawn", tda, 2, 0xFF981F, true, true);
+		addText(51002, "Search for an item", tda, 0, 0xFF981F, false, true);
+		addHoverButton(51003, "Interfaces/POS/BUY", 8, 16, 16, "Close", 0, 51081, 1);
+		addHoveredButton(51081, "Interfaces/POS/BUY", 9, 16, 16, 51082);
+		addHoverButton(51004, "Interfaces/POS/BUY", 13, 16, 16, "Search", 0, 51083, 1);
+		addHoveredButton(51083, "Interfaces/POS/BUY", 14, 16, 16, 51084);
+		addHoverText(51005, "Search", "Search by name", tda, 0, 0xFF981F, false, true, 42);
+		RSInterface.interfaceCache[51005].height = 16;
+		RSInterface scroll = addInterface(51500);
+		scroll.width = 441;
+		scroll.height = 250;
+		scroll.scrollMax = 1560;
+		setChildren(240, scroll);
+		int child = 0;
+		for (int i = 0; i < 40; i++) {
+			int y = i * 39;
+			addSprite(51700 + i, 15, "Interfaces/POS/BUY");
+			addPosItemSlot(51200 + i);
+			addText(51300 + i, "", tda, 0, 0xFF981F, false, true);
+			addText(51350 + i, "", tda, 0, 0xC8C8C8, false, true);
+			addHoverButton(51400 + i, "Interfaces/POS/BUY", 11, 26, 32, "Select", 0, 51800 + i, 1);
+			addHoveredButton(51800 + i, "Interfaces/POS/BUY", 12, 26, 32, 51840 + i);
+			setBounds(51700 + i, 4, y, child++, scroll);
+			setBounds(51200 + i, 10, y + 4, child++, scroll);
+			setBounds(51300 + i, 52, y + 8, child++, scroll);
+			setBounds(51350 + i, 52, y + 22, child++, scroll);
+			setBounds(51400 + i, 410, y + 4, child++, scroll);
+			setBounds(51800 + i, 410, y + 4, child++, scroll);
+		}
+		setChildren(9, rsi);
+		setBounds(51080, 12, 14, 0, rsi);
+		setBounds(51001, 256, 18, 1, rsi);
+		setBounds(51002, 32, 42, 2, rsi);
+		setBounds(51003, 475, 20, 3, rsi);
+		setBounds(51081, 475, 20, 4, rsi);
+		setBounds(51004, 454, 20, 5, rsi);
+		setBounds(51083, 454, 20, 6, rsi);
+		setBounds(51005, 400, 21, 7, rsi);
+		setBounds(51500, 31, 60, 8, rsi);
+	}
+
 	public static void bank(TextDrawingArea[] tda) {
 		RSInterface bank = addInterface(5292);
-		setChildren(44, bank);
+		setChildren(53, bank);
 		addSprite(5293, 0, "BankTab/BANK");
 		addHover(5384, 3, 0, 5380, 1, "BankTab/BANK", 17, 17, "Close Window");
 		addHovered(5380, 2, "BankTab/BANK", 17, 17, 5379);
@@ -2550,8 +2607,6 @@ public static int boxIds[] = { 4041, 4077, 4113, 4047, 4083, 4119, 4053, 4089, 4
 		addHoveredButton(26013, "BankTab/BANK", 18, 35, 25, 26014);
 		addHoverButton(26016, "BankTab/BANK", 19, 35, 25, "Deposit worn items", 0, 26017, 1);
 		addHoveredButton(26017, "BankTab/BANK", 20, 35, 25, 26018);
-		addHoverButton(26020, "BankTab/BANK", 21, 35, 25, "Deposit beast of burden", 0, 26021, 1);
-		addHoveredButton(26021, "BankTab/BANK", 22, 35, 25, 26022);
 		addButton(10324, 0, "BankTab/TAB", "View all items");
 		addButton(10325, 4, "BankTab/TAB", "Drag an item here to create a new tab");
 		addButton(10326, 4, "BankTab/TAB", "Drag an item here to create a new tab");
@@ -2561,20 +2616,40 @@ public static int boxIds[] = { 4041, 4077, 4113, 4047, 4083, 4119, 4053, 4089, 4
 		addButton(10330, 4, "BankTab/TAB", "Drag an item here to create a new tab");
 		addButton(10331, 4, "BankTab/TAB", "Drag an item here to create a new tab");
 		addButton(10332, 4, "BankTab/TAB", "Drag an item here to create a new tab");
+		Sprite filledTab = imageLoader(3, "BankTab/TAB");
+		for (int i = 0; i < 8; i++) {
+			interfaceCache[10325 + i].sprite2 = filledTab;
+		}
+		addSprite(26051, 21, "BankTab/BANK");
 		addText(19995, "0", tda, 0, 0xb4b864, true, false);
-		addText(19996, "352", tda, 0, 0xb4b864, true, false);
-		addHoverText(26030, "1", "Withdraw/deposit 1", tda, 1, 0xff981f, true, true, 22);
-		addHoverText(26031, "5", "Withdraw/deposit 5", tda, 1, 0xff981f, true, true, 22);
-		addHoverText(26032, "10", "Withdraw/deposit 10", tda, 1, 0xff981f, true, true, 28);
-		addHoverText(26033, "X", "Withdraw/deposit last X (click to set)", tda, 1, 0xff981f, true, true, 40);
-		addHoverText(26034, "All", "Withdraw/deposit all", tda, 1, 0xff981f, true, true, 30);
-		addHoverText(26035, "PH", "Toggle placeholders", tda, 1, 0xff981f, true, true, 28);
-		for (int id = 26030; id <= 26035; id++) {
+		addText(19996, "1000", tda, 0, 0xb4b864, true, false);
+		addConfigButton(26036, 5292, 23, 24, "BankTab/BANK", 25, 25, "Withdraw/deposit 1", 1, 0, 117);
+		addHoveredButton(26037, "BankTab/BANK", 24, 25, 25, 26038);
+		addConfigButton(26039, 5292, 23, 24, "BankTab/BANK", 25, 25, "Withdraw/deposit 5", 1, 0, 118);
+		addHoveredButton(26040, "BankTab/BANK", 24, 25, 25, 26041);
+		addConfigButton(26042, 5292, 23, 24, "BankTab/BANK", 25, 25, "Withdraw/deposit 10", 1, 0, 119);
+		addHoveredButton(26043, "BankTab/BANK", 24, 25, 25, 26044);
+		addConfigButton(26045, 5292, 23, 24, "BankTab/BANK", 25, 25, "Withdraw/deposit last X (click to set)", 1, 0, 120);
+		addHoveredButton(26046, "BankTab/BANK", 24, 25, 25, 26047);
+		addConfigButton(26048, 5292, 23, 24, "BankTab/BANK", 25, 25, "Withdraw/deposit all", 1, 0, 121);
+		addHoveredButton(26049, "BankTab/BANK", 24, 25, 25, 26050);
+		addTextButton(26030, "1", "Withdraw/deposit 1", 0xff981f, true, true, tda, 1, 25);
+		addTextButton(26031, "5", "Withdraw/deposit 5", 0xff981f, true, true, tda, 1, 25);
+		addTextButton(26032, "10", "Withdraw/deposit 10", 0xff981f, true, true, tda, 1, 25);
+		addTextButton(26033, "X", "Withdraw/deposit last X (click to set)", 0xff981f, true, true, tda, 1, 25);
+		addTextButton(26034, "All", "Withdraw/deposit all", 0xff981f, true, true, tda, 1, 25);
+		for (int id = 26030; id <= 26034; id++) {
 			interfaceCache[id].height = 16;
 		}
+		interfaceCache[26030].mOverInterToTrigger = 26037;
+		interfaceCache[26031].mOverInterToTrigger = 26040;
+		interfaceCache[26032].mOverInterToTrigger = 26043;
+		interfaceCache[26033].mOverInterToTrigger = 26046;
+		interfaceCache[26034].mOverInterToTrigger = 26049;
 		for (int i = 0; i < 8; i++) {
 			addBankItem(10335 + i);
 		}
+		addBankItem(10334);
 		setBounds(5293, 13, 12, 0, bank);
 		setBounds(5383, 170, 15, 1, bank);
 		setBounds(5385, 30, 79, 2, bank);
@@ -2586,50 +2661,62 @@ public static int boxIds[] = { 4041, 4077, 4113, 4047, 4083, 4119, 4053, 4089, 4
 		setBounds(26001, 25, 285, 8, bank);
 		setBounds(26004, 65, 285, 9, bank);
 		setBounds(26005, 65, 285, 10, bank);
-		setBounds(26008, 240, 285, 11, bank);
-		setBounds(26009, 240, 285, 12, bank);
-		setBounds(26012, 375, 285, 13, bank);
-		setBounds(26013, 375, 285, 14, bank);
-		setBounds(26016, 415, 285, 15, bank);
-		setBounds(26017, 415, 285, 16, bank);
-		setBounds(26020, 455, 285, 17, bank);
-		setBounds(26021, 455, 285, 18, bank);
-		setBounds(10324, 22, 36, 19, bank);
+		setBounds(26008, 232, 285, 11, bank);
+		setBounds(26009, 232, 285, 12, bank);
+		setBounds(26016, 415, 285, 13, bank);
+		setBounds(26017, 415, 285, 14, bank);
+		setBounds(26012, 455, 285, 15, bank);
+		setBounds(26013, 455, 285, 16, bank);
+		setBounds(10324, 22, 36, 17, bank);
+		setBounds(10334, 29, 39, 52, bank);
 		int tabX = 70;
 		for (int i = 0; i < 8; i++) {
-			setBounds(10325 + i, tabX, 36, 20 + i, bank);
+			setBounds(10325 + i, tabX, 36, 18 + i, bank);
 			tabX += 48;
 		}
-		setBounds(19995, 465, 283, 28, bank);
-		setBounds(19996, 465, 294, 29, bank);
+		setBounds(26051, 453, 40, 26, bank);
+		setBounds(19995, 472, 38, 27, bank);
+		setBounds(19996, 472, 52, 28, bank);
 		tabX = 77;
 		for (int i = 0; i < 8; i++) {
-			setBounds(10335 + i, tabX, 39, 30 + i, bank);
+			setBounds(10335 + i, tabX, 39, 29 + i, bank);
 			tabX += 48;
 		}
-		setBounds(26030, 28, 267, 38, bank);
-		setBounds(26031, 52, 267, 39, bank);
-		setBounds(26032, 80, 267, 40, bank);
-		setBounds(26033, 114, 267, 41, bank);
-		setBounds(26034, 158, 267, 42, bank);
-		setBounds(26035, 198, 267, 43, bank);
+		int qtyY = 285;
+		int qtyX = 270;
+		int qtyStep = 29;
+		setBounds(26036, qtyX, qtyY, 37, bank);
+		setBounds(26037, qtyX, qtyY, 38, bank);
+		setBounds(26039, qtyX + qtyStep, qtyY, 39, bank);
+		setBounds(26040, qtyX + qtyStep, qtyY, 40, bank);
+		setBounds(26042, qtyX + qtyStep * 2, qtyY, 41, bank);
+		setBounds(26043, qtyX + qtyStep * 2, qtyY, 42, bank);
+		setBounds(26045, qtyX + qtyStep * 3, qtyY, 43, bank);
+		setBounds(26046, qtyX + qtyStep * 3, qtyY, 44, bank);
+		setBounds(26048, qtyX + qtyStep * 4, qtyY, 45, bank);
+		setBounds(26049, qtyX + qtyStep * 4, qtyY, 46, bank);
+		setBounds(26030, qtyX, qtyY + 5, 47, bank);
+		setBounds(26031, qtyX + qtyStep, qtyY + 5, 48, bank);
+		setBounds(26032, qtyX + qtyStep * 2, qtyY + 5, 49, bank);
+		setBounds(26033, qtyX + qtyStep * 3, qtyY + 5, 50, bank);
+		setBounds(26034, qtyX + qtyStep * 4, qtyY + 5, 51, bank);
 		RSInterface scroll = interfaceCache[5385];
-		scroll.height = 186;
-		scroll.width = 406;
-		scroll.scrollMax = 2000;
+		scroll.height = 189;
+		scroll.width = 444;
+		scroll.scrollMax = 5000;
 		setChildren(1, scroll);
 		scroll.children[0] = 5382;
 		scroll.childX[0] = 4;
 		scroll.childY[0] = 2;
 		RSInterface container = interfaceCache[5382];
 		container.width = 10;
-		container.height = 50;
+		container.height = 120;
 		container.invSpritePadX = 12;
 		container.invSpritePadY = 8;
 		container.contentType = 206;
-		if (container.inv == null || container.inv.length < 500) {
-			int[] items = new int[500];
-			int[] amounts = new int[500];
+		if (container.inv == null || container.inv.length < 1200) {
+			int[] items = new int[1200];
+			int[] amounts = new int[1200];
 			if (container.inv != null) {
 				System.arraycopy(container.inv, 0, items, 0, container.inv.length);
 				System.arraycopy(container.invStackSizes, 0, amounts, 0, container.invStackSizes.length);

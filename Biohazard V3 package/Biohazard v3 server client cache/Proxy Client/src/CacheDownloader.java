@@ -20,7 +20,7 @@ public class CacheDownloader {
 	private client client;
 	private final int BUFFER = 1024;
 	private final int VERSION = 11;
-	private String cacheLink = "http://www.bio-hazard.net/download/cache.zip"; 
+	private String cacheLink = ""; 
 	private String fileToExtract = getCacheDir() + getArchivedName();
 
 	public CacheDownloader(client client) {
@@ -49,6 +49,9 @@ public class CacheDownloader {
 
 	public CacheDownloader downloadCache() {
 		try {
+		if (getCacheLink() == null || getCacheLink().length() == 0) {
+			return null;
+		}
 		File location = new File(getCacheDir());
 		File version = new File(getCacheDir() + "/cacheVersion" + getCacheVersion() + ".dat");
 		if(!location.exists()) {

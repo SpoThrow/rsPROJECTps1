@@ -245,9 +245,15 @@ public class BountyHunter {
 	}
 
 	public static void handleBHDeath(Client c) {
-		Client target = PlayerHandler.players[c.bountyHunter.targetIndex];
-		Client rogue = PlayerHandler.players[c.killCredit.killerId];
-		if(c.killCredit.killerId == c.bountyHunter.targetIndex) {
+		int targetIndex = c.bountyHunter.targetIndex;
+		int killerId = c.killCredit.killerId;
+		Client target = playerAt(targetIndex);
+		Client rogue = playerAt(killerId);
+		// targetIndex and killerId are 1-based player slots with 0 meaning "none". Resolving
+		// them through a guarded lookup matters: the raw PlayerHandler.players[...] threw when
+		// the slot was empty, and when both were 0 this took the target branch and wrote
+		// safeTimer = 0 onto whichever player happened to occupy slot 0.
+		if (targetIndex > 0 && killerId == targetIndex && target != null) {
 			target.bountyHunter.safeTimer = 0;
 			if(isKillCreditFor(target, c)) {
 				target.bountyHunter.bountyKills++;
@@ -257,7 +263,7 @@ public class BountyHunter {
 				resetTarget(target);
 				updateInterface(target);
 			}
-		} else {
+		} else if (rogue != null) {
 			rogue.bountyHunter.rogueKills++;
 			rogue.bountyHunter.isRogue = true;
 			startPenaltyTimer(rogue);
@@ -268,6 +274,14 @@ public class BountyHunter {
 			assignSkull(c, 0);
 			resetTarget(c);
 		}
+	}
+
+	/** Player at a 1-based slot, or {@code null} when the index means "none" (&le;0) or is out of range. */
+	private static Client playerAt(int index) {
+		if (index <= 0 || index >= PlayerHandler.players.length) {
+			return null;
+		}
+		return PlayerHandler.players[index];
 	}
 	
 	public static void handleReward(Client c, int reward) {

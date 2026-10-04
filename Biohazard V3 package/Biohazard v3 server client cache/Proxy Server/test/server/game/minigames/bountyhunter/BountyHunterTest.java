@@ -20,6 +20,7 @@ class BountyHunterTest {
 
 	@AfterEach
 	void tearDown() {
+		PlayerHandler.players[0] = null;
 		PlayerHandler.players[1] = null;
 		PlayerHandler.players[2] = null;
 	}
@@ -100,5 +101,41 @@ class BountyHunterTest {
 				"the safe timer is still cleared on death, as before");
 		assertEquals(3, target.bountyHunter.bountyKills,
 				"no kill credit may be awarded when the target name does not match");
+	}
+
+	@Test
+	void aDeathWithNoKillerAndNoTargetTouchesNobody() {
+		// killerId == targetIndex == 0 was the dangerous case: the old check compared the two
+		// and took the target branch, writing safeTimer = 0 onto whichever player occupied slot
+		// 0 (or NPEing if that slot was empty). A death with no killer and no target belongs to
+		// no one, so neither branch may run.
+		final Client decoy = new Client(null, 0);
+		decoy.bountyHunter.safeTimer = 77;
+		decoy.bountyHunter.rogueKills = 5;
+		PlayerHandler.players[0] = decoy;
+
+		final Client victim = new Client(null, 1);
+		victim.playerName = "Victim";
+		victim.bountyHunter.inBH = true;
+		victim.bountyHunter.targetIndex = 0;
+		victim.killCredit.killerId = 0;
+
+		BountyHunter.handleBHDeath(victim);
+
+		assertEquals(77, decoy.bountyHunter.safeTimer, "slot 0's safe timer must not be touched");
+		assertEquals(5, decoy.bountyHunter.rogueKills, "slot 0 must not be credited a rogue kill");
+	}
+
+	@Test
+	void aDeathToAnNpcWithAnAssignedTargetDoesNotThrow() {
+		// An NPC kill leaves killerId at 0 while targetIndex is still whatever the crater
+		// assigned. The old code indexed players[0] for the rogue and threw when it was empty.
+		final Client victim = new Client(null, 1);
+		victim.playerName = "Victim";
+		victim.bountyHunter.inBH = true;
+		victim.bountyHunter.targetIndex = 7; // slot nobody occupies
+		victim.killCredit.killerId = 0;      // killed by an NPC
+
+		BountyHunter.handleBHDeath(victim); // must not throw
 	}
 }

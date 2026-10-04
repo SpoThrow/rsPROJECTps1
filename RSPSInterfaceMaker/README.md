@@ -1,6 +1,6 @@
 # RSPS Interface Maker
 
-A visual interface designer for 317/474-style RuneScape Private Servers (Biohazard V3 and similar sources).
+A visual interface designer for 317/474-style RuneScape Private Servers (Soul-Trail and similar sources).
 
 ## Features
 
@@ -12,7 +12,7 @@ A visual interface designer for 317/474-style RuneScape Private Servers (Biohaza
 - **Distribution Tools**: Distribute components evenly horizontally or vertically
 - **Property Panel**: Edit all component properties in real-time
 - **Layer Management**: Reorder components via drag-and-drop list
-- **Code Generation**: Export clean Java code matching Biohazard style
+- **Code Generation**: Export clean Java code matching Soul-Trail style
 - **Live Code Preview**: Real-time Java code preview as you edit
 - **Validation**: Check for overlapping IDs, missing sprites, and canvas bounds
 - **Quick Templates**: Pre-built interface templates (Empty, Basic Dialog, Shop, Teleport)
@@ -119,7 +119,7 @@ java -jar target/interface-maker-1.0.0.jar
 
 ## Generated Code Structure
 
-The tool generates code matching the Biohazard V3 style:
+The tool generates code matching the Soul-Trail style:
 
 ### Interfaces.java Method
 

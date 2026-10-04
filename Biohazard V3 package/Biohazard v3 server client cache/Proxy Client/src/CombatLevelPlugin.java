@@ -1,16 +1,13 @@
 import java.util.Properties;
 
-/** Decimal combat level on the Combat Options tab. */
+/** Decimal combat level on the Combat Options "Combat Lvl" line. Always on. */
 final class CombatLevelPlugin {
 
-	static boolean enabled = true;
-
 	static void load(Properties props) {
-		enabled = readBool(props, "combatLevelDecimal", true);
 	}
 
 	static void save(Properties props) {
-		props.setProperty("combatLevelDecimal", Boolean.toString(enabled));
+		props.setProperty("combatLevelDecimal", "true");
 	}
 
 	static double value(int[] maxStats) {
@@ -49,22 +46,17 @@ final class CombatLevelPlugin {
 		return whole + "." + frac;
 	}
 
-	static void draw(client c, TextDrawingArea font, int[] maxStats) {
-		if (!enabled || font == null || c == null || client.tabID != 0) {
+	static void apply(int[] maxStats) {
+		if (RSInterface.interfaceCache == null || 3983 >= RSInterface.interfaceCache.length) {
 			return;
 		}
-		String text = "Combat: " + label(maxStats);
-		int x = 40;
-		int y = 248;
-		font.method385(0, text, y + 1, x + 1);
-		font.method385(0xffff00, text, y, x);
-	}
-
-	private static boolean readBool(Properties props, String key, boolean def) {
-		String v = props.getProperty(key);
-		if (v == null) {
-			return def;
+		RSInterface rsi = RSInterface.interfaceCache[3983];
+		if (rsi == null) {
+			return;
 		}
-		return v.equalsIgnoreCase("true") || v.equals("1");
+		rsi.message = "Combat Lvl: " + label(maxStats);
+		if (rsi.width < 130) {
+			rsi.width = 140;
+		}
 	}
 }

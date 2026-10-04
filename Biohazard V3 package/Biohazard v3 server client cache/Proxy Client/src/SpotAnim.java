@@ -10,8 +10,41 @@ public final class SpotAnim {
 				cache[j] = new SpotAnim();
 			cache[j].anInt404 = j;
 			cache[j].readValues(stream);
+			if (j == 1247) {
+				cache[j].anInt405 = 60776;
+				cache[j].anInt406 = 4001;
+				if (Animation.anims != null && Animation.anims.length > 4001)
+					cache[j].aAnimation_407 = Animation.anims[4001];
+			}
+			if (j == 1248) {
+				cache[j].anInt405 = 60776;
+				cache[j].anInt406 = 4002;
+				if (Animation.anims != null && Animation.anims.length > 4002)
+					cache[j].aAnimation_407 = Animation.anims[4002];
+			}
 		}
 
+	}
+
+	public static void ensureCapacity(int size) {
+		if (cache != null && cache.length >= size) {
+			return;
+		}
+		SpotAnim[] grown = new SpotAnim[size];
+		if (cache != null) {
+			System.arraycopy(cache, 0, grown, 0, cache.length);
+		}
+		for (int i = 0; i < grown.length; i++) {
+			if (grown[i] == null) {
+				grown[i] = new SpotAnim();
+				grown[i].anInt404 = i;
+			}
+		}
+		cache = grown;
+	}
+
+	void readValues667(Stream stream) {
+		readValues(stream);
 	}
 
 	private void readValues(Stream stream) {
@@ -24,7 +57,10 @@ public final class SpotAnim {
 				anInt405 = stream.readUnsignedWord();
 			} else if (i == 2) {
 				anInt406 = stream.readUnsignedWord();
-				if (Animation.anims != null) {
+				if (anInt406 == 65535) {
+					anInt406 = -1;
+				}
+				if (Animation.anims != null && anInt406 >= 0 && anInt406 < Animation.anims.length) {
 					aAnimation_407 = Animation.anims[anInt406];
 				}
 			} else if (i == 4) {
@@ -39,6 +75,14 @@ public final class SpotAnim {
 				anInt414 = stream.readUnsignedByte();
 			} else if (i == 40) {
 				int j = stream.readUnsignedByte();
+				if (j > anIntArray408.length) {
+					int[] grownSrc = new int[j];
+					int[] grownDst = new int[j];
+					System.arraycopy(anIntArray408, 0, grownSrc, 0, anIntArray408.length);
+					System.arraycopy(anIntArray409, 0, grownDst, 0, anIntArray409.length);
+					anIntArray408 = grownSrc;
+					anIntArray409 = grownDst;
+				}
 				for (int k = 0; k < j; k++) {
 					anIntArray408[k] = stream.readUnsignedWord();
 					anIntArray409[k] = stream.readUnsignedWord();
@@ -56,7 +100,7 @@ public final class SpotAnim {
 		model = Model.method462(anInt405);
 		if (model == null)
 			return null;
-		for (int i = 0; i < 10; i++)
+		for (int i = 0; i < anIntArray408.length; i++)
 			if (anIntArray408[0] != 0)
 				model.method476(anIntArray408[i], anIntArray409[i]);
 
@@ -79,8 +123,8 @@ public final class SpotAnim {
 	public int anInt405;
 	public int anInt406;
 	public Animation aAnimation_407;
-	public final int[] anIntArray408;
-	public final int[] anIntArray409;
+	public int[] anIntArray408;
+	public int[] anIntArray409;
 	public int anInt410;
 	public int anInt411;
 	public int anInt412;

@@ -4,6 +4,9 @@ package server;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.text.DecimalFormat;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import org.Vote.MainLoader;
 import org.apache.mina.common.IoAcceptor;
@@ -26,9 +29,8 @@ import server.game.npcs.WorldAdventurer;
 import server.game.objects.doors.Doors;
 import server.game.objects.doors.DoubleDoors;
 import server.game.players.Client;
-import server.game.players.Player;
 import server.game.players.PlayerHandler;
-import server.game.players.PlayerSave;
+import server.game.players.PlayerSaving;
 import server.world.ClanManager;
 import server.world.ItemHandler;
 import server.world.ObjectHandler;
@@ -60,15 +62,20 @@ public class Server {
 	public static boolean sleeping;
 	public static final int cycleRate;
 	public static boolean UpdateServer = false;
-	public static long lastMassSave = System.currentTimeMillis();
 	private static IoAcceptor acceptor;
 	private static ConnectionHandler connectionHandler;
 	private static ConnectionThrottleFilter throttleFilter;
 	private static SimpleTimer engineTimer, debugTimer;
-	private static long cycleTime, cycles, totalCycleTime, sleepTime;
+	private static long cycleTime, cycles, totalCycleTime;
+	/**
+	 * How much of the current tick's 600&nbsp;ms budget was left unused — negative when the tick
+	 * overran. Kept because {@link #getSleepTimer()} exposes it and the tick deliberately retains
+	 * the old loop's negative value (see {@link #runTick()}), so it has to keep meaning "the unused
+	 * part of the current tick".
+	 */
+	private static volatile long sleepTime;
 	private static DecimalFormat debugPercentFormat;
 	public static boolean shutdownServer = false;		
-	public static boolean shutdownClientHandler;			
 	public static int serverlistenerPort;
 	public static ItemHandler itemHandler = new ItemHandler();
 	public static PlayerHandler playerHandler = new PlayerHandler();
@@ -142,7 +149,6 @@ public class Server {
 		ObjectDef.loadConfig();
 		Region.load();
 		Config.loadConfigurations();
-		//ShutdownHook.getSingleton().run();
 		//Highscores.process();
 		System.setOut(new Logger(System.out));
 		System.setErr(new Logger(System.err));
@@ -188,56 +194,166 @@ public class Server {
 		 * Server Successfully Loaded 
 		 */
 		System.out.println("[Final Stage] " + Config.SERVER_NAME + " has been launched on localhost:" + serverlistenerPort + "...");
+
 		/**
 		 * Main Server Tick
+		 *
+		 * The tick is owned by the scheduler below rather than by this method: main used to run a
+		 * {@code while (!shutdownServer) { sleep(600 - elapsed); ... }} loop, which meant the game
+		 * loop and the JVM's own lifecycle were the same thread and there was nowhere to hook a
+		 * clean stop. See {@link #startTicker()}.
 		 */
+		registerShutdownHook();
+		startTicker();
+		// main returns here on purpose. The tick thread is non-daemon, so it is what keeps the JVM
+		// alive; nothing below this point would ever run.
+	}
+
+	/**
+	 * The thread that runs {@link #tick()}. Single-threaded on purpose: the entire game — every
+	 * player, NPC, shop and cycle event — is single-threaded state, and that is the property that
+	 * makes the rest of the server safe to reason about.
+	 */
+	private static volatile ScheduledExecutorService ticker;
+
+	/**
+	 * Starts the game loop on a dedicated scheduler.
+	 *
+	 * <p>The timing is the same as the loop this replaced: each tick re-schedules the next for
+	 * whatever is left of the 600&nbsp;ms budget, so the start-to-start period is 600&nbsp;ms while
+	 * the server keeps up, and <em>work + 600</em> if a tick overruns — the old loop's
+	 * {@code if (sleepTime >= 0) sleep(sleepTime); else sleep(cycleRate);}. That is deliberately
+	 * <em>not</em> a catch-up scheduler: {@code scheduleAtFixedRate} queues a burst of ticks to
+	 * make up for an overrun, which for a game loop turns a momentary stall into a cascade.
+	 */
+	private static void startTicker() {
+		ticker = Executors.newSingleThreadScheduledExecutor(r -> {
+			Thread thread = new Thread(r, "game-tick");
+			thread.setDaemon(false);
+			return thread;
+		});
+		scheduleTick(0);
+	}
+
+	/** Queues the next tick, unless a stop has already been requested or the scheduler is down. */
+	private static void scheduleTick(long delayMillis) {
+		ScheduledExecutorService current = ticker;
+		if (shutdownServer || current == null || current.isShutdown()) {
+			return;
+		}
+		current.schedule(Server::runTick, delayMillis, TimeUnit.MILLISECONDS);
+	}
+
+	/**
+	 * One iteration of the loop: measure the tick, book-keep, and queue the next one.
+	 *
+	 * <p>{@link Throwable} is caught here and nowhere else. Because each tick schedules the next
+	 * one, an exception escaping this method would stop the game loop silently and permanently —
+	 * the server would look alive, still accept logins, and never process a packet. Per-player
+	 * errors are already isolated in {@link PlayerHandler#process()}; anything that reaches this
+	 * handler is a handler-level fault, which is worth logging loudly and surviving rather than
+	 * dying on.
+	 */
+	private static void runTick() {
+		engineTimer.reset();
 		try {
-			while (!Server.shutdownServer) {
-				if (sleepTime >= 0)
-					Thread.sleep(sleepTime);
-				else
-					Thread.sleep(600);
-				engineTimer.reset();
-				itemHandler.process();
-				playerHandler.process();	
-	            npcHandler.process();
-				shopHandler.process();
-				CycleEventHandler.process();
-				server.game.content.DwarfCannon.process();
-				objectManager.process();
-				//castlewars
-				CastleWars.process();
-				fightPits.process();
-				pestControl.process();
-				cycleTime = engineTimer.elapsed();
-				sleepTime = cycleRate - cycleTime;
-				totalCycleTime += cycleTime;
-				cycles++;
-				debug();
-			}
-		} catch (Exception ex) {
-			ex.printStackTrace();
-			System.out.println("A fatal exception has been thrown!");
-			for(Player p : PlayerHandler.players) {
-				if(p == null)
-					continue;						
-				PlayerSave.saveGame((Client)p);
-			}
+			tick();
+		} catch (Throwable t) {
+			t.printStackTrace();
 		}
-		acceptor = null;
-		connectionHandler = null;
-		sac = null;
-		System.exit(0);
+		cycleTime = engineTimer.elapsed();
+		// Faithful to the loop this replaced, *including* its overrun handling:
+		//     if (sleepTime >= 0) sleep(sleepTime); else sleep(cycleRate);
+		// so a tick that overruns its budget waits a full cycle rather than firing immediately to
+		// catch up. Clamping to zero here instead would reintroduce exactly the catch-up burst
+		// scheduleAtFixedRate was rejected for. `sleepTime` itself is left possibly negative
+		// because getSleepTimer() exposes it as "how much of this tick was left".
+		sleepTime = cycleRate - cycleTime;
+		totalCycleTime += cycleTime;
+		cycles++;
+		debug();
+		scheduleTick(sleepTime >= 0 ? sleepTime : cycleRate);
 	}
-	
-	public static void processAllPackets() {
-		for (int j = 0; j < PlayerHandler.players.length; j++) {
-			if (PlayerHandler.players[j] != null) {
-				while(PlayerHandler.players[j].processQueuedPackets());			
-			}	
+
+	/**
+	 * One game tick.
+	 *
+	 * <p>The handler order is load-bearing and is stated here once. Players run before NPCs so that
+	 * a player's movement and attack this tick are what the NPC AI reacts to, cycle events run after
+	 * both so a timer they scheduled can see the result of this tick, and the object/graphics
+	 * handlers run last because they only publish state for the next tick's update.
+	 *
+	 * <p>{@link PlayerSaving#process()} runs at the very end, after every handler has settled this
+	 * tick's state, and writes at most one character, so the autosave can never observe a player
+	 * mid-update within a tick.
+	 */
+	private static void tick() {
+		itemHandler.process();
+		playerHandler.process();	
+        npcHandler.process();
+		shopHandler.process();
+		CycleEventHandler.process();
+		server.game.content.DwarfCannon.process();
+		objectManager.process();
+		//castlewars
+		CastleWars.process();
+		fightPits.process();
+		pestControl.process();
+		PlayerSaving.process();
+	}
+
+	/**
+	 * Installs the one lifecycle that stops the server.
+	 *
+	 * <p>Before Phase 5 there was no registered hook at all: two {@code ShutdownHook} classes
+	 * existed (one package-private to {@code server}, one in {@code core.util}) and neither was
+	 * ever added to the runtime — the only reference to either was a commented-out line in
+	 * {@code main}. So Ctrl+C, a service restart or a JVM kill discarded every character change
+	 * since that player last logged out, and a login sitting in the world for hours would roll
+	 * back to nothing.
+	 */
+	private static void registerShutdownHook() {
+		Runtime.getRuntime().addShutdownHook(new Thread(Server::requestStop, "server-shutdown"));
+	}
+
+	/**
+	 * The whole stop sequence: stop accepting new ticks, let the tick in flight finish, then write
+	 * the characters.
+	 *
+	 * <p>Waiting for the in-flight tick is what makes the save safe — this runs on the hook thread,
+	 * and a save that overlapped a tick could read a player mid-mutation. Package-private, and
+	 * separate from {@link #registerShutdownHook()}, so the sequence is reachable from a test
+	 * without the JVM actually being on its way down.
+	 *
+	 * <p>The JVM calls this once. It does not need a guard of its own because the property that
+	 * matters — never writing the same character twice — lives in {@link
+	 * Client#saveCharacterOnce()}, which is also what makes it safe to run after a logout has
+	 * already written someone.
+	 */
+	static void requestStop() {
+		shutdownServer = true;
+		stopTicker();
+		int saved = PlayerHandler.saveAllPlayers();
+		System.out.println("[Shutdown] Saved " + saved + " character(s).");
+	}
+
+	/** Stops the ticker and waits for the in-flight tick to finish. */
+	private static void stopTicker() {
+		ScheduledExecutorService current = ticker;
+		if (current == null) {
+			return;
+		}
+		current.shutdown();
+		try {
+			if (!current.awaitTermination(10, TimeUnit.SECONDS)) {
+				current.shutdownNow();
+			}
+		} catch (InterruptedException e) {
+			current.shutdownNow();
+			Thread.currentThread().interrupt();
 		}
 	}
-	
+
 	public static boolean playerExecuted = false;
 	private static void debug() {
 		if (debugTimer.elapsed() > 360*1000 || playerExecuted) {

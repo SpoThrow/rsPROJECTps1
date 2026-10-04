@@ -81,6 +81,8 @@ public abstract class Player {
 	 * {@code c.smelt.amount} rather than {@code c.smeltAmount}.
 	 */
 	public final SmeltingSession smelt = new SmeltingSession();
+	/** Music-unlock state, moved off {@code Music}'s shared static array. Read it as {@code c.music.unlocked}. */
+	public final MusicState music = new MusicState();
 	public boolean underWater = false;
 	public boolean prevRunning2;
 	public int prevPrevPlayerRunIndex;
@@ -157,7 +159,6 @@ public abstract class Player {
 	craftingLeather = false,
 	properLogout = false,
 	secDbow = false,
-	maxNextHit = false,
 	ssSpec = false,
 	vengOn = false,
 	addStarter = false,
@@ -315,8 +316,8 @@ public abstract class Player {
 	//end
 	
 	
-	public int teleGrabItem, teleGrabX, teleGrabY, duelCount, wildLevel, poisonDelay;
-	public long lastPlayerMove,lastPoison,lastPoisonSip,poisonImmune,lastSpear,lastProtItem, lastVeng,lastYell, lastAction, lastThieve,lastLockPick, specDelay = System.currentTimeMillis(), reduceStat;
+	public int teleGrabItem, teleGrabX, teleGrabY, duelCount, wildLevel;
+	public long lastPlayerMove,lastPoison,lastPoisonSip,poisonImmune,lastSpear,lastProtItem, lastVeng,lastYell, lastAction, lastThieve,lastLockPick, reduceStat;
 	/** This player's timer state: availability clocks, durations and countdowns. */
 	public final Timers timers = new Timers();
 
@@ -878,7 +879,6 @@ public abstract class Player {
 	
 	public int slayerTask,taskAmount;
 	
-	public long prayerDelay;
 	public final int[] PRAYER_DRAIN_RATE = 		{1,1,1,1,1,2,2,2,1,1,1,2,2,4,4,4,4,4,4,4,4,1,2,5,6,6};
 	public final int[] PRAYER_LEVEL_REQUIRED = 	{1,4,7,8,9,10,13,16,19,22,25,26,27,28,31,34,37,40,43,44,45,46,49,52,60,70};
 	public final int[] PRAYER = 				{0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25};
@@ -914,8 +914,7 @@ public abstract class Player {
 	public final NpcInteraction npcInteraction = new NpcInteraction();
 	/** This player's attack style (accurate/aggressive/defensive/controlled). */
 	public final CombatStyle combatStyle = new CombatStyle();
-	public boolean npcDroppingItems;
-	public int teleGfx, teleEndAnimation, teleHeight, teleX, teleY, castingSpellId;
+	public int teleGfx, teleEndAnimation, teleHeight, teleX, teleY;
 	public boolean magicFailed, oldMagicFailed, swingXpAwarded;
 	public int clickObjectType, objectId, objectX, objectY, objectXOffset, objectYOffset, objectDistance;
 	public int pItemX, pItemY, pItemId;

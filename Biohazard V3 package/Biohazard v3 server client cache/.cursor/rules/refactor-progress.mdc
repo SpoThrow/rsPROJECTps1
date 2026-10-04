@@ -1,0 +1,10 @@
+---
+description: Keep REFACTORING_PLAN.md status current
+alwaysApply: true
+---
+
+- At the start of every task, read the "Current status" block at the top of REFACTORING_PLAN.md and continue from "Next step".
+- After each completed step, update that block: "Last updated", "Last thing I did", "Next step", and any counts you verified.
+- Before stopping mid-task, update the block first.
+- Edit only the status block and the relevant phase section. Never rewrite the rest of the file.
+- Never mark a step done until tests pass.

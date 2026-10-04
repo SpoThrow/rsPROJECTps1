@@ -76,21 +76,66 @@ final class FriendNotes {
 	}
 
 	static String displayName(String name) {
-		if (!enabled || name == null) {
-			return name;
+		return name;
+	}
+
+	static String noteFromMenu(String raw) {
+		if (!enabled || raw == null) {
+			return "";
 		}
-		String note = get(name);
-		if (note.length() == 0) {
-			return name;
+		String name = extractName(raw);
+		if (name.length() == 0) {
+			return "";
 		}
-		if (note.length() > 18) {
-			note = note.substring(0, 18) + "...";
+		return get(name);
+	}
+
+	private static String extractName(String raw) {
+		int at = raw.lastIndexOf("@whi@");
+		if (at >= 0) {
+			raw = raw.substring(at + 5);
+		} else {
+			at = raw.lastIndexOf("@lre@");
+			if (at >= 0) {
+				raw = raw.substring(at + 5);
+			}
 		}
-		return name + " - " + note;
+		raw = raw.trim();
+		int cut = raw.indexOf('@');
+		if (cut > 0) {
+			raw = raw.substring(0, cut).trim();
+		}
+		return raw;
 	}
 
 	static String menuLabel(String name) {
 		return get(name).length() == 0 ? "Add note" : "Edit note";
+	}
+
+	static void drawHover(client c, String raw, int mouseX, int mouseY) {
+		if (!enabled || c == null || c.smallText == null) {
+			return;
+		}
+		String note = noteFromMenu(raw);
+		if (note == null || note.length() == 0) {
+			return;
+		}
+		int w = c.smallText.getTextWidth(note) + 8;
+		int h = 16;
+		int x = mouseX + 12;
+		int y = mouseY - h - 6;
+		if (x + w > DrawingArea.bottomX) {
+			x = mouseX - w - 4;
+		}
+		if (y < DrawingArea.topY) {
+			y = mouseY + 16;
+		}
+		if (x < DrawingArea.topX) {
+			x = DrawingArea.topX;
+		}
+		DrawingArea.method335(0x000000, y, w, h, 210, x);
+		DrawingArea.fillPixels(x, w, h, 0xC6B895, y);
+		c.smallText.method385(0xFFE14A, note, y + 12, x + 4);
 	}
 
 	private static String escape(String s) {

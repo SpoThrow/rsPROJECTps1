@@ -145,7 +145,7 @@ addHoveredButton(hoverId, "path", spriteId, width, height, dummyId);
 - `spriteId`: Calculated as `id - interfaceId` (e.g., 2)
 - `hoverId`: Calculated as `id + 1 - interfaceId` (e.g., 3)
 - `dummyId`: Calculated as `id + 2 - interfaceId` (e.g., 4)
-- The `0, 1` at the end are fixed parameters for Biohazard
+- The `0, 1` at the end are fixed parameters for Soul-Trail
 
 ### Text
 ```java

@@ -1,0 +1,13 @@
+---
+description: Keep CLIENT_REFACTORING_PLAN.md status current
+alwaysApply: true
+---
+
+- At the start of every task touching `Proxy Client/`, read the "Current status" block at the top of CLIENT_REFACTORING_PLAN.md and continue from "Next step".
+- After each completed step, update that block: "Last updated", "Last thing I did", "Next step", and any counts you verified.
+- Before stopping mid-task, update the block first.
+- Edit only the status block and the relevant phase section. Never rewrite the rest of the file.
+- Never mark a step done until it is verified — for the client that means verified on a live client against the unmodified server, not merely "it compiles".
+- Flag a phase the moment it is blocked or contradicted, in the phase section and in the status block.
+- Treat the wire protocol (packet opcodes/payloads, login handshake) and the cache format as frozen contracts: a refactor may MOVE such code but must never change what it reads or in what order. Java version is explicitly NOT part of the compatibility contract — the client and server are separate JVMs.
+- Never use LWJGL `Display.setParent` to embed a GL window in the AWT frame — it is a known Windows deadlock in this codebase (see LwjglPresent).

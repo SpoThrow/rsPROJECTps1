@@ -530,6 +530,8 @@ public final class ItemDef {
 				if (itemActions == null)
 					itemActions = new String[5];
 				itemActions[i - 35] = stream.readNewString();
+				if (itemActions[i - 35].equalsIgnoreCase("null"))
+					itemActions[i - 35] = null;
 			} else if (i == 40) {
 				int j = stream.readUnsignedByte();
 				modifiedModelColors = new int[j];
@@ -576,6 +578,10 @@ public final class ItemDef {
 				anInt184 = stream.readSignedByte() * 5;
 			else if (i == 115)
 				team = stream.readUnsignedByte();
+			else if (i == 116)
+				stream.readUnsignedWord();
+			else if (i == 117)
+				stream.readUnsignedWord();
 		} while (true);
 	}
 

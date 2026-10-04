@@ -94,7 +94,6 @@ public class Smelting {
 			c.getPA().sendFrame246(bar.getFrame(), 150, bar.getBar());
 		}
         c.getPA().sendFrame164(2400);
-        c.smelt.active = true;
 	}
 	
 	/**
@@ -181,7 +180,6 @@ public class Smelting {
 		c.smelt.amount = 0;
 		c.smelt.barType = "";
 		c.smelt.bar = null;
-		c.smelt.active = false;
 		c.smelt.lastSmelt = 0;
 		CycleEventHandler.stopEvents(c, c.smelt.eventId);
 	}

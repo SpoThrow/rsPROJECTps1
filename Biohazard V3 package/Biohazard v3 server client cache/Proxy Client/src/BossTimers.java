@@ -15,6 +15,9 @@ final class BossTimers {
 	private static final int[] SECONDS = {
 			90, 90, 90, 60, 90, 90, 90, 90, 90, 90, 90, 60
 	};
+	private static final int[] ICONS = {
+			1747, 3142, 3142, 592, 6729, 6731, 6733, 11718, 11724, 11720, 11716, 395
+	};
 
 	private static final ArrayList active = new ArrayList();
 	private static final int[] lastHp = new int[32768];
@@ -45,14 +48,34 @@ final class BossTimers {
 		if (boss < 0) {
 			return;
 		}
-		active.add(new long[] { System.currentTimeMillis() + SECONDS[boss] * 1000L, boss });
+		int wx = client.getBaseX() + npc.smallX[0];
+		int wy = client.getBaseY() + npc.smallY[0];
+		active.add(new long[] { System.currentTimeMillis() + SECONDS[boss] * 1000L, boss, wx, wy, client.scenePlane });
 	}
 
-	static void draw(TextDrawingArea font) {
+	static int tileColor(int localX, int localY, int plane) {
+		if (!enabled) {
+			return 0;
+		}
+		int wx = client.getBaseX() + localX;
+		int wy = client.getBaseY() + localY;
+		long now = System.currentTimeMillis();
+		for (int i = 0; i < active.size(); i++) {
+			long[] t = (long[]) active.get(i);
+			if (t[0] <= now) {
+				continue;
+			}
+			if ((int) t[2] == wx && (int) t[3] == wy && (int) t[4] == plane) {
+				return 0xFF4040;
+			}
+		}
+		return 0;
+	}
+
+	static void draw(client c, TextDrawingArea font) {
 		if (!enabled || font == null) {
 			return;
 		}
-		InfoBoxes.start("bosses", font);
 		long now = System.currentTimeMillis();
 		for (int i = active.size() - 1; i >= 0; i--) {
 			long[] t = (long[]) active.get(i);
@@ -62,9 +85,27 @@ final class BossTimers {
 				continue;
 			}
 			int boss = (int) t[1];
-			InfoBoxes.line(NAMES[boss] + " " + format(left), 0xFF6666);
+			InfoBoxes.icon("boss" + i, iconOf(boss), format(left), 0xFF6666);
+			if (c != null && (int) t[4] == client.scenePlane) {
+				int sx = (((int) t[2] - client.getBaseX()) << 7) + 64;
+				int sy = (((int) t[3] - client.getBaseY()) << 7) + 64;
+				c.calcEntityScreenPos(sx, 0, sy);
+				int dx = c.getSpriteDrawX();
+				int dy = c.getSpriteDrawY();
+				if (dx >= 0 && dy >= 0) {
+					String label = Integer.toString(left);
+					font.drawText(0, label, dy + 1, dx);
+					font.drawText(0xFFFFFF, label, dy, dx);
+				}
+			}
 		}
-		InfoBoxes.flush();
+	}
+
+	private static int iconOf(int boss) {
+		if (boss < 0 || boss >= ICONS.length) {
+			return 4155;
+		}
+		return ICONS[boss];
 	}
 
 	private static int indexOf(int id) {

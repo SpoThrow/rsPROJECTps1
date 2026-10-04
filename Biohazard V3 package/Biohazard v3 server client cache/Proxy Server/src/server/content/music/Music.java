@@ -49,9 +49,9 @@ public class Music {
                 c.outStream.createFrame(74);
                 c.outStream.writeWordBigEndian(song.music);
                 for (int i = 0; i < songs.length; i++) {
-                        if (unlocked[songs[i].array] == false && which == songs[i]) {
+                        if (c.music.unlocked[songs[i].array] == false && which == songs[i]) {
                                 c.sendMessage("@red@You have unlocked the song: "+songs[i].name);
-                                unlocked[songs[i].array] = true;
+                                c.music.unlocked[songs[i].array] = true;
                                 updateList(c, songs[i].tabId);
                         }
                         if (which == songs[i])
@@ -86,7 +86,7 @@ public class Music {
                 return null;
         }
        
-        public static boolean[] unlocked = new boolean[384]; 
+        // Song unlocks are per-player now: see Player.music.unlocked (MusicState). 
        
         // name, swX, swY, neX, neY, song id, childId, arraySlot
         public static final Music[] songs = {

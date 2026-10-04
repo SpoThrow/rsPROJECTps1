@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
 import core.util.Misc;
+import server.Config;
 
 /**
  * Pins {@link Movement} to the collision primitive the live movement loop actually uses.
@@ -19,8 +20,9 @@ import core.util.Misc;
  * growing its own mask arithmetic, which is the exact duplication that
  * {@code WalkingCheck}/{@code ClipMap.bin} used to represent.
  *
- * <p>Region data is not loaded under the test task, so {@code Region.getClipping} returns 0
- * for every tile and everything reads as passable. These tests therefore assert
+ * <p>Region data is not loaded under the test task, so no region id resolves and
+ * {@code Region.getClipping} returns {@link Region#BLOCKED} for every tile — collision
+ * fails closed for terrain we have no data for. These tests therefore assert
  * <em>consistency and contract</em>, not real-world geometry — the real-data check lives in
  * {@code Region.verifyClippingConsistency}, which runs at boot.
  */
@@ -108,10 +110,16 @@ class MovementTest {
 	}
 
 	@Test
-	void withNoRegionLoadedEverythingIsWalkableButTheContractStillHolds() {
-		// Documents the test-environment precondition rather than asserting real terrain:
-		// the interesting guarantee is that isBlocked and canWalk never disagree.
-		assertFalse(Movement.isBlocked(X, Y, Z, Movement.NORTH));
-		assertTrue(Movement.canWalk(X, Y, Z, Movement.NORTH));
+	void withNoRegionLoadedTheFlagDecidesWhetherUnknownTerrainBlocks() {
+		// No region data is loaded under the test task, so the outcome depends on
+		// Config.REGION_FAIL_CLOSED. Pin whichever side is active so the contract stays honest:
+		// fail-closed blocks, the legacy default walks. isBlocked and canWalk must never disagree.
+		if (Config.REGION_FAIL_CLOSED) {
+			assertTrue(Movement.isBlocked(X, Y, Z, Movement.NORTH));
+			assertFalse(Movement.canWalk(X, Y, Z, Movement.NORTH));
+		} else {
+			assertFalse(Movement.isBlocked(X, Y, Z, Movement.NORTH));
+			assertTrue(Movement.canWalk(X, Y, Z, Movement.NORTH));
+		}
 	}
 }

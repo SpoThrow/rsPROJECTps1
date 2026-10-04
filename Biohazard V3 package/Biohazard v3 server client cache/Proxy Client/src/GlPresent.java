@@ -60,6 +60,10 @@ final class GlPresent {
 		return new BufferedImage(model, raster, false, null);
 	}
 
+	static boolean presentGame(RSImageProducer producer, int destX, int destY) {
+		return false;
+	}
+
 	static void blit(Graphics g, Image image, int x, int y) {
 		if (g instanceof Graphics2D) {
 			Graphics2D g2 = (Graphics2D) g;

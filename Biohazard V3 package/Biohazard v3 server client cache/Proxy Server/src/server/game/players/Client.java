@@ -224,11 +224,56 @@ public class Client extends Player {
 		0, 0, 6, 6, 0, 0, 0 // 250
 	};
 
+	/** True once {@link #destruct()} has run, so a second call cannot save or tear down twice. */
+	private boolean destructed;
+
+	/** True once this character has been written by {@link #saveCharacterOnce()}. */
+	private boolean characterSaved;
+
+	/**
+	 * Writes this character to disk at most once per session.
+	 *
+	 * <p>The once-guard is what lets the logout path and the server's shutdown hook both ask for
+	 * a save without writing the file twice. A <em>failed</em> write deliberately does not set the
+	 * flag, so a later attempt can still succeed.
+	 *
+	 * @return {@code true} when this call performed the save
+	 */
+	public boolean saveCharacterOnce() {
+		if (characterSaved) {
+			return false;
+		}
+		if (!PlayerSave.saveGame(this)) {
+			return false;
+		}
+		characterSaved = true;
+		return true;
+	}
+
+	/** True when this character has already been written by {@link #saveCharacterOnce()}. */
+	public boolean isCharacterSaved() {
+		return characterSaved;
+	}
+
+	/**
+	 * Takes this client out of the world exactly once: world cleanup, the final character save,
+	 * then the network teardown.
+	 *
+	 * <p><b>Two early returns were removed here, and one of them was a data-loss bug.</b>
+	 * {@code if (session == null) return} skipped the whole teardown for a half-connected client,
+	 * and {@code if (underAttackBy > 0 || underAttackBy2 > 0) return} skipped <em>everything</em>
+	 * for a player who happened to be in combat — the world cleanup, the socket close <em>and the
+	 * save</em>. The update-kick path sets {@code kickAllPlayers}, which bypasses the ten-second
+	 * out-of-combat hold that normally guards a logout, so a player who was under attack while the
+	 * server was restarting was removed from the player array with no character write and a leaked
+	 * socket. The session is now null-checked where it is used rather than causing an early exit,
+	 * and the save happens unconditionally.
+	 */
 	public void destruct() {
-		if(session == null) 
+		if (destructed) {
 			return;
-		if(this.targeting.underAttackBy > 0 || this.targeting.underAttackBy2 > 0)
-			return;
+		}
+		destructed = true;
 		if(Server.trawler.players.contains(this)) {
 			Server.trawler.players.remove(this);
 		}
@@ -252,11 +297,19 @@ public class Client extends Player {
 		if(this.playerRights < 2 || this.playerRights > 3) {
 			HiscoresHandler.saveHighScore(this);
 		}
-		HostList.getHostList().remove(session);
-		PlayerSave.saveGame(this);
+		// The one final character write, kept ahead of the socket teardown so a session that
+		// fails to close cannot cost the player his progress.
+		if (saveCharacterOnce()) {
+			System.out.println("Game saved for player " + playerName);
+		} else if (!characterSaved) {
+			System.out.println("Could not save for " + playerName);
+		}
+		if (session != null) {
+			HostList.getHostList().remove(session);
+			session.close();
+			session = null;
+		}
 		disconnected = true;
-		session.close();
-		session = null;
 		inStream = null;
 		outStream = null;
 		isActive = false;
@@ -378,7 +431,6 @@ public class Client extends Player {
 		getItems().addSpecialBar(playerEquipment[playerWeapon]);
 		if(this.specialAttack.specAmount < 100)
 			RestoreSpecialAttack.execute(this);
-		timers.saveTimer = Config.SAVE_TIMER;
 		saveCharacter = true;
 		Misc.println("[ONLINE]: "+Misc.capitalize(playerName)+"");
 		handler.updatePlayer(this, outStream);
@@ -1269,24 +1321,6 @@ public class Client extends Player {
 		}
 		timeOutCounter = 0;
 		return true;
-	}
-
-	public boolean processPacket(Packet p) {
-		//synchronized (this) {
-			if(p == null) {
-				return false;
-			}
-			inStream.currentOffset = 0;
-			packetType = p.getId();
-			packetSize = p.getLength();
-			inStream.buffer = p.getData();
-			if(packetType > 0) {
-				//sendMessage("PacketType: " + packetType);
-				PacketHandler.processPacket(this, packetType, packetSize);
-			}
-			timeOutCounter = 0;
-			return true;
-		//}
 	}
 	
 	public void correctCoordinates() {

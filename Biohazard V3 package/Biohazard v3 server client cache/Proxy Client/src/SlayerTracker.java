@@ -106,10 +106,16 @@ final class SlayerTracker {
 	}
 
 	static boolean isSlayerItem(int itemId) {
-		if (!countOnItems || remaining <= 0 || itemId < 0) {
+		if (!countOnItems || itemId < 0) {
 			return false;
 		}
-		if (itemId == 4155) {
+		if (remaining <= 0 && (task == null || task.length() == 0)) {
+			return false;
+		}
+		if (itemId == 4155 || itemId == 15051) {
+			return true;
+		}
+		if (itemId >= 8901 && itemId <= 8921) {
 			return true;
 		}
 		ItemDef def = ItemDef.forID(itemId);
@@ -117,19 +123,18 @@ final class SlayerTracker {
 			return false;
 		}
 		String n = def.name.toLowerCase();
-		return n.indexOf("slayer helm") >= 0 || n.indexOf("slayer helmet") >= 0 || n.equals("enchanted gem");
+		return n.indexOf("slayer helm") >= 0 || n.indexOf("slayer helmet") >= 0 || n.indexOf("black mask") >= 0
+				|| n.equals("enchanted gem");
 	}
 
 	static void draw(TextDrawingArea font) {
-		if (!enabled || remaining <= 0 || task.length() == 0 || font == null) {
+		if (!enabled || font == null) {
 			return;
 		}
-		InfoBoxes.start("slayer", font);
-		InfoBoxes.line(remaining + " " + task, 0x33CC66);
-		if (location != null && location.length() > 0) {
-			InfoBoxes.line(location, 0xC6B895);
+		if (remaining <= 0 && (task == null || task.length() == 0)) {
+			return;
 		}
-		InfoBoxes.flush();
+		InfoBoxes.icon("slayer", 4155, Integer.toString(remaining), 0x33CC66);
 	}
 
 	private static void parseAmountName(String rest) {

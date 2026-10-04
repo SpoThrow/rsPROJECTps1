@@ -113,8 +113,21 @@ final class Fog {
 		if (pixels == null || width < 3 || height < 3 || strength < 1) {
 			return;
 		}
-		int contrastMin = strength >= 3 ? 180 : (strength >= 2 ? 260 : 340);
-		int maxBlend = strength >= 3 ? 96 : (strength >= 2 ? 64 : 40);
+		/*
+		 * Crisp edge AA (not blur): only dark stair-step jaggies on hard contrast
+		 * edges are nudged toward the brighter neighbour. Higher strength widens
+		 * coverage slightly on true edges — it does not lower the contrast gate
+		 * into texture territory (that is what made Medium/High look soft).
+		 */
+		int contrastMin = 390 - strength * 28;
+		if (contrastMin < 270) {
+			contrastMin = 270;
+		}
+		int maxBlend = 22 + strength * 6;
+		if (maxBlend > 48) {
+			maxBlend = 48;
+		}
+		int darkBias = 20 + strength * 2;
 		if (aaScratch == null || aaScratch.length < pixels.length) {
 			aaScratch = new int[pixels.length];
 		}
@@ -176,6 +189,12 @@ final class Fog {
 				if (vert < 0) {
 					vert = -vert;
 				}
+				// Prefer clean axis edges; skip noisy diagonal texture speckles.
+				int dominant = horz >= vert ? horz : vert;
+				int lesser = horz >= vert ? vert : horz;
+				if (dominant < contrastMin / 2 || dominant < lesser + (contrastMin / 5)) {
+					continue;
+				}
 				int n;
 				int nLuma;
 				if (horz >= vert) {
@@ -195,14 +214,15 @@ final class Fog {
 						nLuma = lD;
 					}
 				}
-				if (lc + 24 >= nLuma) {
+				// Only fill the dark side of a hard edge (jaggy silhouette).
+				if (lc + darkBias >= nLuma) {
 					continue;
 				}
-				int blend = (range * maxBlend) / 900;
+				int blend = (range * maxBlend) / 1100;
 				if (blend > maxBlend) {
 					blend = maxBlend;
 				}
-				if (blend < 12) {
+				if (blend < 10) {
 					continue;
 				}
 				pixels[i] = mixWeight(c, n, 256 - blend, blend);

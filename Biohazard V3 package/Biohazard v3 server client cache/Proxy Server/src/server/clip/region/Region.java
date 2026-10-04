@@ -5,7 +5,11 @@ import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.zip.GZIPInputStream;
 
 import server.Config;
@@ -16,9 +20,31 @@ import server.game.objects.Objects;
 public class Region {
 	
 	private static Region[] regions;
+
+	/**
+	 * Region id → Region. Collision lookups used to scan all {@code regions}
+	 * (1226 entries on this map) for every tile query, and the path finder asks
+	 * for a clip value up to eight times per tile it expands.
+	 */
+	private static Map<Integer, Region> regionById = new HashMap<Integer, Region>();
+
+	/**
+	 * Fail-closed collision value for a tile whose collision data we do not have: every
+	 * directional walk-block bit (0x12801FF, which already includes the 0x100 solid bit) plus
+	 * the 0x20000 projectile-solid bit. Returned only when {@link Config#REGION_FAIL_CLOSED} is
+	 * on — see {@link #blockedValue()}.
+	 */
+	static final int BLOCKED = 0x12801FF | 0x20000;
+
+	/** Region ids already reported as having no collision data (rate limiting). */
+	private static final Set<Integer> warnedMissingRegions = new HashSet<Integer>();
+	private static final int MAX_MISSING_REGION_WARNINGS = 20;
+
 	private int id;
 	private int[][][] clips = new int[4][][];
 	private boolean members = false;
+	/** Set once this region's map file has been read; false means unknown terrain. */
+	private boolean mapLoaded = false;
 	public boolean itemProcessing = false;
 	public static boolean startup = false;
 	public List<GroundItem> floorItems = new ArrayList<GroundItem>();
@@ -39,15 +65,19 @@ public class Region {
 	}
 
 	public static Region getRegion(int x, int y) {
-		int regionX = x >> 3;
-		int regionY = y >> 3;
-		int regionId = (regionX / 8 << 8) + regionY / 8;
-		for (Region region : regions) {
-			if (region.id() == regionId) {
-				return region;
-			}
-		}
-		return null;
+		return regionById.get(regionIdOf(x, y));
+	}
+
+	/**
+	 * The 317 region id covering world tile (x, y): {@code (regionX / 8 << 8) + regionY / 8}
+	 * where {@code regionX = x >> 3}. The shifts are parenthesised because a shift binds
+	 * looser than a division, so {@code x >> 3 / 8} would silently mean {@code x >> 0}.
+	 *
+	 * <p>Package-private for {@code RegionTest}: if this ever disagreed with the id a
+	 * {@link Region} is constructed with, every lookup would miss.
+	 */
+	static int regionIdOf(int x, int y) {
+		return (((x >> 3) / 8) << 8) + ((y >> 3) / 8);
 	}
 
 	public static boolean objectExists(int id, int x, int y, int z) {
@@ -317,21 +347,49 @@ public class Region {
 	}
 
 	public static int getClipping(int x, int y, int height) {
+		if (height > 3) {
+			height = 0;
+		}
+		int regionId = regionIdOf(x, y);
+		Region region = regionById.get(regionId);
+		if (region == null) {
+			// No terrain is defined here.
+			return missingData(x, y, regionId);
+		}
+		if (!region.mapLoaded) {
+			// Listed in map_index but its map file never loaded, so we have no collision for it.
+			return missingData(x, y, regionId);
+		}
 		try {
-			if(height > 3)
-				height = 0;
-			int regionX = x >> 3;
-		int regionY = y >> 3;
-		int regionId = ((regionX / 8) << 8) + (regionY / 8);
-		for (Region r : regions) {
-			if (r.id() == regionId) {
-				return r.getClip(x, y, height);
+			return region.getClip(x, y, height);
+		} catch (Exception e) {
+			return missingData(x, y, regionId);
+		}
+	}
+
+	/**
+	 * A tile whose collision data we do not have. Blocked when {@link Config#REGION_FAIL_CLOSED}
+	 * is on, otherwise walkable (the legacy behaviour). Either way the first few unknown regions
+	 * are logged so the condition is visible instead of silent.
+	 */
+	private static int missingData(int x, int y, int regionId) {
+		if (warnedMissingRegions.size() < MAX_MISSING_REGION_WARNINGS && warnedMissingRegions.add(regionId)) {
+			System.out.println("[Region] No collision data for region " + regionId + " (e.g. " + x + "," + y + ") — "
+					+ (Config.REGION_FAIL_CLOSED ? "blocking it" : "treating it as walkable"));
+			if (warnedMissingRegions.size() == MAX_MISSING_REGION_WARNINGS) {
+				System.out.println("[Region] Further missing-region warnings suppressed.");
 			}
 		}
-		return 0;
-		} catch(Exception e) {
-		}
-		return 0;
+		return Config.REGION_FAIL_CLOSED ? BLOCKED : 0;
+	}
+
+	/**
+	 * The value returned for unknown terrain when {@link Config#REGION_FAIL_CLOSED} is enabled:
+	 * every directional walk-block bit plus the solid and projectile-solid bits, so a tile we
+	 * have no data for blocks walking, standing and projectiles rather than leaking a squeeze.
+	 */
+	public static int blockedValue() {
+		return BLOCKED;
 	}
 
 	public static boolean getClipping(int x, int y, int height, int moveTypeX, int moveTypeY)
@@ -393,9 +451,13 @@ public class Region {
 				mapGroundFileIds[i] = in.getUShort();
 				mapObjectsFileIds[i] = in.getUShort();
 			}
+			Map<Integer, Region> byId = new HashMap<Integer, Region>(size * 2);
 			for (int i = 0; i < size; i++) {
-				regions[i] = new Region(regionIds[i], isMembers[i]);
+				Region region = new Region(regionIds[i], isMembers[i]);
+				regions[i] = region;
+				byId.put(regionIds[i], region);
 			}
+			regionById = byId;
 			for (int i = 0; i < size; i++) {
 				byte[] file1 = getBuffer(new File("./Data/world/map/" + mapObjectsFileIds[i] + ".gz"));
 				byte[] file2 = getBuffer(new File("./Data/world/map/" + mapGroundFileIds[i] + ".gz"));
@@ -404,9 +466,20 @@ public class Region {
 				}
 				try {
 					loadMaps(regionIds[i], new ByteStream(file1), new ByteStream(file2));
+					regions[i].mapLoaded = true;
 				} catch(Exception e) {
 					System.out.println("Error loading map region: " + regionIds[i] + " (" + e.getClass().getSimpleName() + ")");
 				}
+			}
+			int unloaded = 0;
+			for (Region region : regions) {
+				if (!region.mapLoaded) {
+					unloaded++;
+				}
+			}
+			if (unloaded > 0) {
+				System.out.println("[Region] WARNING: " + unloaded + " of " + size + " region(s) have no map data;"
+						+ (Config.REGION_FAIL_CLOSED ? " collision there is fail-closed (blocked)" : " collision there is treated as walkable (Config.REGION_FAIL_CLOSED = false)"));
 			}
 			System.out.println("[Region] DONE LOADING REGION CONFIGURATIONS");
 			verifyClippingConsistency();
@@ -631,26 +704,16 @@ public class Region {
 	}
 
 	private static void addClipping(int x, int y, int height, int shift) {
-		int regionX = x >> 3;
-		int regionY = y >> 3;
-		int regionId = ((regionX / 8) << 8) + (regionY / 8);
-		for (Region r : regions) {
-			if (r.id() == regionId) {
-				r.addClip(x, y, height, shift);
-				break;
-			}
+		Region region = regionById.get(regionIdOf(x, y));
+		if (region != null) {
+			region.addClip(x, y, height, shift);
 		}
 	}
 
 	public static void tempClip(int x, int y, int height){
-		int regionX = x >> 3;
-		int regionY = y >> 3;
-		int regionId = ((regionX / 8) << 8) + (regionY / 8);
-		for (Region r : regions) {
-			if (r.id() == regionId) {
-				r.addClip(x, y, height, 0x200000);
-				break;
-			}
+		Region region = regionById.get(regionIdOf(x, y));
+		if (region != null) {
+			region.addClip(x, y, height, 0x200000);
 		}
 	}
 	

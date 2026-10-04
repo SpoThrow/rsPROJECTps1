@@ -25,11 +25,35 @@ public final class Model extends Animable {
 
 	public static void method459(int i, OnDemandFetcherParent onDemandFetcherParent)
 	{
-		aClass21Array1661 = new Class21[i + 50000];
+		int size = i + 50000;
+		if (size < 80000) {
+			size = 80000;
+		}
+		aClass21Array1661 = new Class21[size];
+		newmodel = new boolean[Math.max(size, 100000)];
 		aOnDemandFetcherParent_1662 = onDemandFetcherParent;
 	}
 	
 	    public static void method460(byte[] abyte0, int j) {
+	    	if (aClass21Array1661 == null) {
+	    		return;
+	    	}
+	    	if (j < 0) {
+	    		return;
+	    	}
+	    	if (j >= aClass21Array1661.length) {
+	    		Class21[] grown = new Class21[j + 1024];
+	    		System.arraycopy(aClass21Array1661, 0, grown, 0, aClass21Array1661.length);
+	    		aClass21Array1661 = grown;
+	    	}
+	    	// Missing from local cache (no update server): mark present so region load can finish.
+	    	if (abyte0 == null || abyte0.length < 2) {
+	    		Class21 empty = aClass21Array1661[j] = new Class21();
+	    		empty.anInt369 = 0;
+	    		empty.anInt370 = 0;
+	    		empty.anInt371 = 0;
+	    		return;
+	    	}
 	    	boolean newFormat = abyte0[abyte0.length - 1] == -1 && abyte0[abyte0.length - 2] == -1;
 	    	// FileOperations.WriteFile(sign.signlink.findcachedir()+"./Models Dump/"+j+".dat", abyte0);
 			// System.out.println(j + " Written");
@@ -182,6 +206,8 @@ public final class Model extends Animable {
 	{
 		if(aClass21Array1661 == null)
 			return null;
+		if(j < 0 || j >= aClass21Array1661.length)
+			return null;
 		Class21 class21 = aClass21Array1661[j];
 		if(class21 == null)
 		{
@@ -189,7 +215,11 @@ public final class Model extends Animable {
 			return null;
 		} else
 		{
-			return new Model(j);
+			try {
+				return new Model(j);
+			} catch (Exception e) {
+				return null;
+			}
 		}
 	}
 
@@ -197,6 +227,12 @@ public final class Model extends Animable {
 	{
 		if(aClass21Array1661 == null)
 			return false;
+		if(i < 0 || i >= aClass21Array1661.length)
+		{
+			if(aOnDemandFetcherParent_1662 != null)
+				aOnDemandFetcherParent_1662.method548(i);
+			return false;
+		}
 		Class21 class21 = aClass21Array1661[i];
 		if(class21 == null)
 		{
@@ -545,13 +581,406 @@ public final class Model extends Animable {
 		anIntArray1633= facePoint3;
 	}
 
+	public void scale2(int i) {
+		for (int i1 = 0; i1 < anInt1626; i1++) {
+			anIntArray1627[i1] = anIntArray1627[i1] / i;
+			anIntArray1628[i1] = anIntArray1628[i1] / i;
+			anIntArray1629[i1] = anIntArray1629[i1] / i;
+		}
+	}
+
+	public void read622Model(byte abyte0[], int modelID) {
+		Stream nc1 = new Stream(abyte0);
+		Stream nc2 = new Stream(abyte0);
+		Stream nc3 = new Stream(abyte0);
+		Stream nc4 = new Stream(abyte0);
+		Stream nc5 = new Stream(abyte0);
+		Stream nc6 = new Stream(abyte0);
+		Stream nc7 = new Stream(abyte0);
+		nc1.currentOffset = abyte0.length - 23;
+		int numVertices = nc1.readUnsignedWord();
+		int numTriangles = nc1.readUnsignedWord();
+		int numTexTriangles = nc1.readUnsignedByte();
+		Class21 ModelDef_1 = aClass21Array1661[modelID] = new Class21();
+		ModelDef_1.aByteArray368 = abyte0;
+		ModelDef_1.anInt369 = numVertices;
+		ModelDef_1.anInt370 = numTriangles;
+		ModelDef_1.anInt371 = numTexTriangles;
+		int l1 = nc1.readUnsignedByte();
+		boolean bool = (0x1 & l1 ^ 0xffffffff) == -2;
+		boolean bool_78_ = (l1 & 0x2 ^ 0xffffffff) == -3;
+		boolean bool_25_ = (0x4 & l1) == 4;
+		boolean bool_26_ = (0x8 & l1) == 8;
+		if (!bool_26_) {
+			readNewModel(abyte0, modelID);
+			return;
+		}
+		int newformat = 0;
+		if (bool_26_) {
+			nc1.currentOffset -= 7;
+			newformat = nc1.readUnsignedByte();
+			nc1.currentOffset += 6;
+		}
+		if (newformat == 15)
+			newmodel[modelID] = true;
+		int i2 = nc1.readUnsignedByte();
+		int j2 = nc1.readUnsignedByte();
+		int k2 = nc1.readUnsignedByte();
+		int l2 = nc1.readUnsignedByte();
+		int i3 = nc1.readUnsignedByte();
+		int j3 = nc1.readUnsignedWord();
+		int k3 = nc1.readUnsignedWord();
+		int l3 = nc1.readUnsignedWord();
+		int i4 = nc1.readUnsignedWord();
+		int j4 = nc1.readUnsignedWord();
+		int k4 = 0;
+		int l4 = 0;
+		int i5 = 0;
+		int v = 0;
+		int hb = 0;
+		int P = 0;
+		byte G = 0;
+		byte[] x = null;
+		byte[] O = null;
+		byte[] J = null;
+		byte[] F = null;
+		byte[] cb = null;
+		byte[] gb = null;
+		byte[] lb = null;
+		int[] ab = null;
+		int[] kb = null;
+		int[] y = null;
+		int[] N = null;
+		short[] D = null;
+		int[] triangleColours2 = new int[numTriangles];
+		if (numTexTriangles > 0) {
+			O = new byte[numTexTriangles];
+			nc1.currentOffset = 0;
+			for (int j5 = 0; j5 < numTexTriangles; j5++) {
+				byte byte0 = O[j5] = nc1.readSignedByte();
+				if (byte0 == 0)
+					k4++;
+				if (byte0 >= 1 && byte0 <= 3)
+					l4++;
+				if (byte0 == 2)
+					i5++;
+			}
+		}
+		int k5 = numTexTriangles;
+		int l5 = k5;
+		k5 += numVertices;
+		int i6 = k5;
+		if (bool)
+			k5 += numTriangles;
+		if (l1 == 1)
+			k5 += numTriangles;
+		int j6 = k5;
+		k5 += numTriangles;
+		int k6 = k5;
+		if (i2 == 255)
+			k5 += numTriangles;
+		int l6 = k5;
+		if (k2 == 1)
+			k5 += numTriangles;
+		int i7 = k5;
+		if (i3 == 1)
+			k5 += numVertices;
+		int j7 = k5;
+		if (j2 == 1)
+			k5 += numTriangles;
+		int k7 = k5;
+		k5 += i4;
+		int l7 = k5;
+		if (l2 == 1)
+			k5 += numTriangles * 2;
+		int i8 = k5;
+		k5 += j4;
+		int j8 = k5;
+		k5 += numTriangles * 2;
+		int k8 = k5;
+		k5 += j3;
+		int l8 = k5;
+		k5 += k3;
+		int i9 = k5;
+		k5 += l3;
+		int j9 = k5;
+		k5 += k4 * 6;
+		int k9 = k5;
+		k5 += l4 * 6;
+		int i_59_ = 6;
+		if (newformat != 14) {
+			if (newformat >= 15)
+				i_59_ = 9;
+		} else
+			i_59_ = 7;
+		int l9 = k5;
+		k5 += i_59_ * l4;
+		int i10 = k5;
+		k5 += l4;
+		int j10 = k5;
+		k5 += l4;
+		int k10 = k5;
+		k5 += l4 + i5 * 2;
+		v = numVertices;
+		hb = numTriangles;
+		P = numTexTriangles;
+		int[] vertexX = new int[numVertices];
+		int[] vertexY = new int[numVertices];
+		int[] vertexZ = new int[numVertices];
+		int[] facePoint1 = new int[numTriangles];
+		int[] facePoint2 = new int[numTriangles];
+		int[] facePoint3 = new int[numTriangles];
+		anIntArray1655 = new int[numVertices];
+		anIntArray1637 = new int[numTriangles];
+		anIntArray1638 = new int[numTriangles];
+		anIntArray1639 = new int[numTriangles];
+		anIntArray1656 = new int[numTriangles];
+		if (i3 == 1)
+			anIntArray1655 = new int[numVertices];
+		if (bool)
+			anIntArray1637 = new int[numTriangles];
+		if (i2 == 255)
+			anIntArray1638 = new int[numTriangles];
+		else
+			G = (byte) i2;
+		if (j2 == 1)
+			anIntArray1639 = new int[numTriangles];
+		if (k2 == 1)
+			anIntArray1656 = new int[numTriangles];
+		if (l2 == 1)
+			D = new short[numTriangles];
+		if (l2 == 1 && numTexTriangles > 0)
+			x = new byte[numTriangles];
+		triangleColours2 = new int[numTriangles];
+		int i_115_ = k5;
+		int[] texTrianglesPoint1 = null;
+		int[] texTrianglesPoint2 = null;
+		int[] texTrianglesPoint3 = null;
+		if (numTexTriangles > 0) {
+			texTrianglesPoint1 = new int[numTexTriangles];
+			texTrianglesPoint2 = new int[numTexTriangles];
+			texTrianglesPoint3 = new int[numTexTriangles];
+			if (l4 > 0) {
+				kb = new int[l4];
+				N = new int[l4];
+				y = new int[l4];
+				gb = new byte[l4];
+				lb = new byte[l4];
+				F = new byte[l4];
+			}
+			if (i5 > 0) {
+				cb = new byte[i5];
+				J = new byte[i5];
+			}
+		}
+		nc1.currentOffset = l5;
+		nc2.currentOffset = k8;
+		nc3.currentOffset = l8;
+		nc4.currentOffset = i9;
+		nc5.currentOffset = i7;
+		int l10 = 0;
+		int i11 = 0;
+		int j11 = 0;
+		for (int k11 = 0; k11 < numVertices; k11++) {
+			int l11 = nc1.readUnsignedByte();
+			int j12 = 0;
+			if ((l11 & 1) != 0)
+				j12 = nc2.method421();
+			int l12 = 0;
+			if ((l11 & 2) != 0)
+				l12 = nc3.method421();
+			int j13 = 0;
+			if ((l11 & 4) != 0)
+				j13 = nc4.method421();
+			vertexX[k11] = l10 + j12;
+			vertexY[k11] = i11 + l12;
+			vertexZ[k11] = j11 + j13;
+			l10 = vertexX[k11];
+			i11 = vertexY[k11];
+			j11 = vertexZ[k11];
+			if (anIntArray1655 != null)
+				anIntArray1655[k11] = nc5.readUnsignedByte();
+		}
+		nc1.currentOffset = j8;
+		nc2.currentOffset = i6;
+		nc3.currentOffset = k6;
+		nc4.currentOffset = j7;
+		nc5.currentOffset = l6;
+		nc6.currentOffset = l7;
+		nc7.currentOffset = i8;
+		for (int i12 = 0; i12 < numTriangles; i12++) {
+			triangleColours2[i12] = nc1.readUnsignedWord();
+			if (l1 == 1) {
+				anIntArray1637[i12] = nc2.readSignedByte();
+				if (anIntArray1637[i12] == 2)
+					triangleColours2[i12] = 65535;
+				anIntArray1637[i12] = 0;
+			}
+			if (i2 == 255) {
+				anIntArray1638[i12] = nc3.readSignedByte();
+			}
+			if (j2 == 1) {
+				anIntArray1639[i12] = nc4.readSignedByte();
+				if (anIntArray1639[i12] < 0)
+					anIntArray1639[i12] = (256 + anIntArray1639[i12]);
+			}
+			if (k2 == 1)
+				anIntArray1656[i12] = nc5.readUnsignedByte();
+			if (l2 == 1)
+				D[i12] = (short) (nc6.readUnsignedWord() - 1);
+			if (x != null)
+				if (D[i12] != -1)
+					x[i12] = (byte) (nc7.readUnsignedByte() - 1);
+				else
+					x[i12] = -1;
+		}
+		nc1.currentOffset = k7;
+		nc2.currentOffset = j6;
+		int k12 = 0;
+		int i13 = 0;
+		int k13 = 0;
+		int l13 = 0;
+		for (int i14 = 0; i14 < numTriangles; i14++) {
+			int j14 = nc2.readUnsignedByte();
+			if (j14 == 1) {
+				k12 = nc1.method421() + l13;
+				l13 = k12;
+				i13 = nc1.method421() + l13;
+				l13 = i13;
+				k13 = nc1.method421() + l13;
+				l13 = k13;
+				facePoint1[i14] = k12;
+				facePoint2[i14] = i13;
+				facePoint3[i14] = k13;
+			}
+			if (j14 == 2) {
+				i13 = k13;
+				k13 = nc1.method421() + l13;
+				l13 = k13;
+				facePoint1[i14] = k12;
+				facePoint2[i14] = i13;
+				facePoint3[i14] = k13;
+			}
+			if (j14 == 3) {
+				k12 = k13;
+				k13 = nc1.method421() + l13;
+				l13 = k13;
+				facePoint1[i14] = k12;
+				facePoint2[i14] = i13;
+				facePoint3[i14] = k13;
+			}
+			if (j14 == 4) {
+				int l14 = k12;
+				k12 = i13;
+				i13 = l14;
+				k13 = nc1.method421() + l13;
+				l13 = k13;
+				facePoint1[i14] = k12;
+				facePoint2[i14] = i13;
+				facePoint3[i14] = k13;
+			}
+		}
+		nc1.currentOffset = j9;
+		nc2.currentOffset = k9;
+		nc3.currentOffset = l9;
+		nc4.currentOffset = i10;
+		nc5.currentOffset = j10;
+		nc6.currentOffset = k10;
+		for (int k14 = 0; k14 < numTexTriangles; k14++) {
+			int i15 = O[k14] & 0xff;
+			if (i15 == 0) {
+				texTrianglesPoint1[k14] = nc1.readUnsignedWord();
+				texTrianglesPoint2[k14] = nc1.readUnsignedWord();
+				texTrianglesPoint3[k14] = nc1.readUnsignedWord();
+			}
+			if (i15 == 1) {
+				texTrianglesPoint1[k14] = nc2.readUnsignedWord();
+				texTrianglesPoint2[k14] = nc2.readUnsignedWord();
+				texTrianglesPoint3[k14] = nc2.readUnsignedWord();
+				if (newformat < 15) {
+					kb[k14] = nc3.readUnsignedWord();
+					if (newformat >= 14)
+						N[k14] = nc3.v(-1);
+					else
+						N[k14] = nc3.readUnsignedWord();
+					y[k14] = nc3.readUnsignedWord();
+				} else {
+					kb[k14] = nc3.v(-1);
+					N[k14] = nc3.v(-1);
+					y[k14] = nc3.v(-1);
+				}
+				gb[k14] = nc4.readSignedByte();
+				lb[k14] = nc5.readSignedByte();
+				F[k14] = nc6.readSignedByte();
+			}
+			if (i15 == 2) {
+				texTrianglesPoint1[k14] = nc2.readUnsignedWord();
+				texTrianglesPoint2[k14] = nc2.readUnsignedWord();
+				texTrianglesPoint3[k14] = nc2.readUnsignedWord();
+				if (newformat >= 15) {
+					kb[k14] = nc3.v(-1);
+					N[k14] = nc3.v(-1);
+					y[k14] = nc3.v(-1);
+				} else {
+					kb[k14] = nc3.readUnsignedWord();
+					if (newformat < 14)
+						N[k14] = nc3.readUnsignedWord();
+					else
+						N[k14] = nc3.v(-1);
+					y[k14] = nc3.readUnsignedWord();
+				}
+				gb[k14] = nc4.readSignedByte();
+				lb[k14] = nc5.readSignedByte();
+				F[k14] = nc6.readSignedByte();
+				cb[k14] = nc6.readSignedByte();
+				J[k14] = nc6.readSignedByte();
+			}
+			if (i15 == 3) {
+				texTrianglesPoint1[k14] = nc2.readUnsignedWord();
+				texTrianglesPoint2[k14] = nc2.readUnsignedWord();
+				texTrianglesPoint3[k14] = nc2.readUnsignedWord();
+				if (newformat < 15) {
+					kb[k14] = nc3.readUnsignedWord();
+					if (newformat < 14)
+						N[k14] = nc3.readUnsignedWord();
+					else
+						N[k14] = nc3.v(-1);
+					y[k14] = nc3.readUnsignedWord();
+				} else {
+					kb[k14] = nc3.v(-1);
+					N[k14] = nc3.v(-1);
+					y[k14] = nc3.v(-1);
+				}
+				gb[k14] = nc4.readSignedByte();
+				lb[k14] = nc5.readSignedByte();
+				F[k14] = nc6.readSignedByte();
+			}
+		}
+		if (i2 != 255) {
+			for (int i12 = 0; i12 < numTriangles; i12++)
+				anIntArray1638[i12] = i2;
+		}
+		anIntArray1640 = triangleColours2;
+		anInt1626 = numVertices;
+		anInt1630 = numTriangles;
+		anIntArray1627 = vertexX;
+		anIntArray1628 = vertexY;
+		anIntArray1629 = vertexZ;
+		anIntArray1631 = facePoint1;
+		anIntArray1632 = facePoint2;
+		anIntArray1633 = facePoint3;
+	}
+
+
 	private Model(int modelId)
     {
 	 byte[] is = aClass21Array1661[modelId].aByteArray368;
         if(is[is.length - 1] == -1 && is[is.length - 2] == -1)
-                readNewModel(is, modelId);
+                read622Model(is, modelId);
         else
                 readOldModel(modelId);
+		if (newmodel != null && modelId >= 0 && modelId < newmodel.length && newmodel[modelId])
+			scale2(4);
     }
 	
 	
@@ -1078,14 +1507,23 @@ public final class Model extends Animable {
 
 	public void method464(Model model, boolean flag)
 	{
+		if (model == null || model.anIntArray1627 == null) {
+			return;
+		}
 		anInt1626 = model.anInt1626;
+		if (anInt1626 > model.anIntArray1627.length) {
+			anInt1626 = model.anIntArray1627.length;
+		}
 		anInt1630 = model.anInt1630;
+		if (model.anIntArray1631 != null && anInt1630 > model.anIntArray1631.length) {
+			anInt1630 = model.anIntArray1631.length;
+		}
 		anInt1642 = model.anInt1642;
 		if(anIntArray1622.length < anInt1626)
 		{
-			anIntArray1622 = new int[anInt1626 + 100];
-			anIntArray1623 = new int[anInt1626 + 100];
-			anIntArray1624 = new int[anInt1626 + 100];
+			anIntArray1622 = new int[anInt1626 + 10000];
+			anIntArray1623 = new int[anInt1626 + 10000];
+			anIntArray1624 = new int[anInt1626 + 10000];
 		}
 		anIntArray1627 = anIntArray1622;
 		anIntArray1628 = anIntArray1623;
@@ -1112,7 +1550,10 @@ public final class Model extends Animable {
 
 			} else
 			{
-				System.arraycopy(model.anIntArray1639, 0, anIntArray1639, 0, anInt1630);
+				int copyPri = anInt1630;
+				if (copyPri > model.anIntArray1639.length)
+					copyPri = model.anIntArray1639.length;
+				System.arraycopy(model.anIntArray1639, 0, anIntArray1639, 0, copyPri);
 
 			}
 		}
@@ -2456,6 +2897,7 @@ public final class Model extends Animable {
 	public boolean aBoolean1659;
 	Class33 aClass33Array1660[];
 	private static Class21[] aClass21Array1661;
+	public static boolean newmodel[];
 	private static OnDemandFetcherParent aOnDemandFetcherParent_1662;
 	private static boolean[] aBooleanArray1663 = new boolean[4096];
 	private static boolean[] aBooleanArray1664 = new boolean[4096];

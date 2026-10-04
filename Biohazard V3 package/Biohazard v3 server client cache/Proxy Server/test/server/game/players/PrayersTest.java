@@ -11,10 +11,9 @@ import org.junit.jupiter.api.Test;
 /**
  * Pins the prayer/curse state after §4.12 moved it off {@link Player} into {@link Prayers}.
  *
- * <p>Two defaults here are <em>not</em> zero and both matter: {@code prayerPoint} starts at
+ * <p>One default here is <em>not</em> zero and it matters: {@code prayerPoint} starts at
  * {@code 1.0} because the drain wraps it as {@code 1.0 + prayerPoint} (so {@code 1.0} is the
- * unit modulus, and {@code 0} would deduct a point on the first tick), and {@code prayerId}
- * starts at {@code -1} ("none"). The tests pin both.
+ * unit modulus, and {@code 0} would deduct a point on the first tick). The test pins it.
  *
  * <p>The arrays are pinned against the lookup tables that stayed on {@link Player}, because the
  * index spaces are shared across the two classes now: a length change on either side is an
@@ -30,13 +29,11 @@ class PrayersTest {
 	void aFreshPlayersDefaultsAreTheLoadBearingOnes() {
 		final Prayers p = new Prayers();
 
-		// Not zero: the fractional drain accumulator and the "no prayer selected" id.
+		// Not zero: the fractional drain accumulator.
 		assertEquals(1.0, p.prayerPoint, 0.0, "prayerPoint's 1.0 is the drain unit modulus");
-		assertEquals(-1, p.prayerId, "prayerId's -1 means 'none'");
 
-		// Zero / false for the rest.
+		// Zero for the rest.
 		assertEquals(0L, p.stopPrayerDelay, "no prayer toggle has happened yet");
-		assertFalse(p.usingPrayer, "a fresh player is not using a prayer");
 
 		// Nothing is switched on.
 		for (int i = 0; i < p.prayerActive.length; i++) {
@@ -93,11 +90,9 @@ class PrayersTest {
 		a.prayers.prayerActive[10] = true;
 		a.prayers.curseActive[18] = true;
 		a.prayers.prayerPoint = 0.5;
-		a.prayers.usingPrayer = true;
 
 		assertFalse(b.prayers.prayerActive[10], "prayer flags leaked between players");
 		assertFalse(b.prayers.curseActive[18], "curse flags leaked between players");
 		assertEquals(1.0, b.prayers.prayerPoint, 0.0, "the drain accumulator leaked between players");
-		assertFalse(b.prayers.usingPrayer, "usingPrayer leaked between players");
 	}
 }

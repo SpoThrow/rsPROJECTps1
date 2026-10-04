@@ -115,6 +115,24 @@ public class Config {
 	public static final boolean NPC_SMART_PATHING = false;
 
 	/**
+	 * What {@code Region.getClipping} returns for a tile whose collision data we do not have
+	 * (the region is absent from {@code map_index}, its map file is missing, or its clip
+	 * lookup threw).
+	 *
+	 * <p>{@code false} (default) = legacy behaviour, {@code 0} = walkable. Terrain the server
+	 * has no data for stays passable. This is the safe default because the server's map is
+	 * missing regions that the client still renders — most visibly the ground around the Nex
+	 * arena, which is bordered by eleven regions with no map data — so blocking them would
+	 * freeze players mid-fight.
+	 *
+	 * <p>{@code true} = fail closed, returning {@link server.clip.region.Region#blockedValue()}.
+	 * A tile we know nothing about blocks walking, standing and projectiles instead of becoming
+	 * a hole to walk through. Correct in principle, but it changes traversal anywhere the data
+	 * is absent, so it needs a live pass before being left on.
+	 */
+	public static final boolean REGION_FAIL_CLOSED = false;
+
+	/**
 	 * Use {@code Data/objectSize.cfg} for object collision footprints instead of the cache's
 	 * {@code loc.dat} sizes.
 	 *

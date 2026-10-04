@@ -73,11 +73,9 @@ public class CombatAssistant{
 	}
 	
 	public int getPrayerDelay() {
-		c.prayers.usingPrayer = false;
 		int delay = 4000;	
 		for(int i = 0; i < c.prayers.prayerActive.length; i++) {
 			if(c.prayers.prayerActive[i] == true) {
-				c.prayers.usingPrayer = true;
 				delay -= c.PRAYER_DRAIN_RATE[i];
 			}
 		}
@@ -645,9 +643,6 @@ public class CombatAssistant{
 		}
 		if (protMelee(o) && !veracsEffect) {
 			damage = damage * 60 / 100;
-		}
-		if (c.maxNextHit) {
-			damage = calculateMeleeMaxHit();
 		}
 		return capHit(damage, remainingPlayerHp(i));
 	}
@@ -2256,9 +2251,6 @@ public class CombatAssistant{
 		if(protMelee(o) && !veracsEffect) { // if prayer active reduce damage by 40%
 			damage = (int)damage * 60 / 100;
 		}
-		if (c.maxNextHit) {
-			damage = calculateMeleeMaxHit();
-		}
 		}
 		if (damage > 0 && guthansEffect) {
 			c.skills.playerLevel[3] += damage;
@@ -3162,18 +3154,15 @@ public class CombatAssistant{
 	};
 	
 	public void handlePrayerDrain(Client c) {
-		c.prayers.usingPrayer = false;
 		double toRemove = 0.0;
 		for(int i = 0; i < PRAYER_DRAIN.length; i++) {
 			if(c.prayers.prayerActive[i]) { 
 				toRemove += PRAYER_DRAIN[i]/10;
-				c.prayers.usingPrayer = true;
 			}
 		}
 		for (int j = 0; j < c.CURSE_DRAIN.length; j++) {
 			if (c.prayers.curseActive[j]) {
 				toRemove += c.CURSE_DRAIN[j] / 20;
-				c.prayers.usingPrayer = true;
 			}
 		}
 		if (toRemove > 0) {
@@ -3196,7 +3185,6 @@ public class CombatAssistant{
 			c.sendMessage("You have run out of prayer points!");
 			c.skills.playerLevel[5] = 0;
 			resetPrayers();
-			c.prayers.prayerId = -1;	
 		}
 		c.getPA().refreshSkill(5);
 	}

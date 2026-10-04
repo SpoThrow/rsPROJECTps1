@@ -74,7 +74,7 @@ class TimersTest {
 		}
 
 		// Guard against the loop passing vacuously if the bag is ever emptied.
-		assertEquals(30, counted, "the timer bag should hold 30 fields");
+		assertEquals(28, counted, "the timer bag should hold 28 fields");
 
 		// The exception is pinned by value, not merely excused.
 		assertEquals(-6, timers.freezeTimer, "freezeTimer's -6 is a re-freeze immunity window");
@@ -97,8 +97,8 @@ class TimersTest {
 		assertTrue(now - t.singleCombatDelay2 > 3300, "a new player must not be in single combat");
 		// Not teleblocked: now - teleBlockDelay must NOT be under teleBlockLength.
 		assertFalse(now - t.teleBlockDelay < t.teleBlockLength, "a new player must not be teleblocked");
-		// teleGrabDelay is deliberately not asserted: it is written in MagicOnFloorItems and read
-		// nowhere, so the tele-grab cooldown is unimplemented and there is no comparison to make.
+		// teleGrabDelay no longer exists: it was written in MagicOnFloorItems and read nowhere,
+		// so the write-only field was deleted rather than left as state wired to nothing.
 	}
 
 	@Test
@@ -130,8 +130,11 @@ class TimersTest {
 		// walks 0 -> -6 over his first ticks. That transient is pinned as documented behaviour.
 		assertEquals(0, t.respawnTimer, "respawnTimer's declared default is 0, not the -6 idle value");
 		assertTrue(t.respawnTimer > -6, "so a fresh player is still counting down toward -6");
-		// saveTimer is deliberately absent from this list: it is written once in Client and read
-		// nowhere, so there is no behaviour of its own to assert.
+		// saveTimer no longer exists: it was written once in Client and read nowhere, so the
+		// write-only field was deleted. NOTE (Phase 5): the reason first recorded here — "periodic
+		// saving is handled by PlayerSaving" — was wrong; PlayerSaving.initialize() is never
+		// called, so no periodic save runs at all. The deletion is still behaviour-neutral because
+		// the field was never read, but a character reaches disk only on logout or on shutdown.
 	}
 
 	@Test

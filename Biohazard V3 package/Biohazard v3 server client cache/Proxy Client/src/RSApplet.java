@@ -48,6 +48,9 @@ public class RSApplet extends Applet implements Runnable, MouseListener, MouseMo
 		int chatY = client.instance.chatDrawY();
 		int chatW = client.instance.chatWidth();
 		if (mouseX >= chatX && mouseX < chatX + chatW && mouseY >= chatY && mouseY < chatY + 165) {
+			if (ChatboxItemSearch.mouseWheel(rotation)) {
+				return;
+			}
 			int scrollPos = client.anInt1089;
 			scrollPos -= rotation * 30;
 			if (scrollPos < 0) {
@@ -544,7 +547,11 @@ public class RSApplet extends Applet implements Runnable, MouseListener, MouseMo
 			ctrlIsDown = true;
 		}
 		if (i == KeyEvent.VK_ALT) {
-			altIsDown = true;
+			// Ignore OS key-repeat while Alt is held (was causing flicker + broken double-tap).
+			if (!altIsDown) {
+				altIsDown = true;
+				GroundItemLists.onAltPressed();
+			}
 		}
 		if (i == KeyEvent.VK_PRINTSCREEN) {
 			Jframe.takeScreenshot(client.silentScreenshots);
@@ -558,6 +565,10 @@ public class RSApplet extends Applet implements Runnable, MouseListener, MouseMo
 				KeyRemapper.captureKey(i);
 				return;
 			}
+		}
+		if (i == KeyEvent.VK_ESCAPE && ChatboxItemSearch.open) {
+			ChatboxItemSearch.close();
+			return;
 		}
 		boolean remap = loggedIn && client.keyRemapping;
 		boolean typing = client.chatTypeFocused || (client.instance != null && client.instance.isTypingOverlay());
@@ -671,6 +682,7 @@ public class RSApplet extends Applet implements Runnable, MouseListener, MouseMo
 		}
 		if (i == KeyEvent.VK_ALT) {
 			altIsDown = false;
+			GroundItemLists.onAltReleased();
 		}
 		if(c < '\036')
 			c = '\0';

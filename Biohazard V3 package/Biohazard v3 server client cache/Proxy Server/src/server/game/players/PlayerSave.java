@@ -12,7 +12,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 
-import server.content.music.Music;
 import core.util.Misc;
 
 public class PlayerSave {
@@ -218,7 +217,7 @@ public class PlayerSave {
 							p.lockedEXP = Integer.parseInt(token2);	
 					} else if (token.equals("music-unlocked")) {
                             for (int j = 0; j < token3.length; j++) {
-                            	Music.unlocked[j] = Boolean.parseBoolean(token3[j]);
+                            	p.music.unlocked[j] = Boolean.parseBoolean(token3[j]);
                             }
 					} else if (token.equals("quest-points")) {
 						p.questPoints = Integer.parseInt(token2);
@@ -499,8 +498,8 @@ public class PlayerSave {
 			characterfile.newLine();
 		    characterfile.write("music-unlocked = ", 0, 17);
 	        String music = "";
-	        for(int i = 0; i < Music.unlocked.length; i++)
-	        	music += Music.unlocked[i] + "\t";
+	        for(int i = 0; i < p.music.unlocked.length; i++)
+	        	music += p.music.unlocked[i] + "\t";
 	        characterfile.write(music);
 	        characterfile.newLine();
 			characterfile.write("membership = ", 0, 13);

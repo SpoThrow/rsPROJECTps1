@@ -32,12 +32,30 @@ public final class HudEditor extends JFrame {
 		private final SizeRow spec = new SizeRow("Spec", "spec", -2000, 2000, 1, 4096);
 		private final SizeRow world = new SizeRow("World map", "world", -2000, 2000, 1, 4096);
 		private final SizeRow frame = new SizeRow("Map frame", "frame", -2000, 2000, 1, 4096);
+		private final SizeRow xp = new SizeRow("XP counter", "xp", -2000, 2000, 1, 4096);
 	private final JSpinner mapX = numberSpinner(0, -2000, 2000);
 	private final JSpinner mapY = numberSpinner(0, -2000, 2000);
 	private final JCheckBox lockAspect = new JCheckBox("Lock aspect ratio (pixel W/H stay proportional)", true);
 	private final JTextArea output = new JTextArea(10, 56);
 	private boolean loading;
 	private final SizeRow[] rows;
+
+	public static boolean isOpen() {
+		return instance != null && instance.isVisible();
+	}
+
+	public static void syncFromLayout() {
+		if (instance == null || !instance.isVisible()) {
+			return;
+		}
+		SwingUtilities.invokeLater(new Runnable() {
+			public void run() {
+				if (instance != null) {
+					instance.reloadFromLayout();
+				}
+			}
+		});
+	}
 
 	public static void open() {
 		SwingUtilities.invokeLater(new Runnable() {
@@ -69,7 +87,7 @@ public final class HudEditor extends JFrame {
 	private HudEditor() {
 		super("Minimap HUD layout editor");
 		setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-		rows = new SizeRow[] { compass, hp, prayer, run, spec, world, frame };
+		rows = new SizeRow[] { compass, hp, prayer, run, spec, world, frame, xp };
 
 		JPanel position = new JPanel(new GridLayout(0, 5, 4, 4));
 		position.setBorder(BorderFactory.createTitledBorder("Position (pixels from minimap buffer)"));
@@ -129,6 +147,7 @@ public final class HudEditor extends JFrame {
 		JPanel buttons = new JPanel();
 		JButton apply = new JButton("Apply live");
 		JButton save = new JButton("Save file");
+		JButton builtin = new JButton("Save as built-in");
 		JButton reload = new JButton("Reload file");
 		JButton copy = new JButton("Copy Java");
 		apply.addActionListener(new ActionListener() {
@@ -142,6 +161,25 @@ public final class HudEditor extends JFrame {
 				pushToLayout();
 				HudLayout.get().save();
 				refreshSnippet();
+			}
+		});
+		builtin.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				pushToLayout();
+				String path = HudLayout.get().saveAsBuiltin();
+				refreshSnippet();
+				if (path != null) {
+					javax.swing.JOptionPane.showMessageDialog(HudEditor.this,
+							"Wrote " + HudLayout.get().modeName()
+									+ " defaults into HudLayout.java.\nRecompile the client so everyone gets this layout.\n"
+									+ path,
+							"Built-in HUD saved", javax.swing.JOptionPane.INFORMATION_MESSAGE);
+				} else {
+					javax.swing.JOptionPane.showMessageDialog(HudEditor.this,
+							"Could not find HudLayout.java. Copy the Java snippet below into create"
+									+ (HudLayout.get().resizableMode ? "Resizable" : "Fixed") + "Defaults().",
+							"Built-in HUD save failed", javax.swing.JOptionPane.WARNING_MESSAGE);
+				}
 			}
 		});
 		reload.addActionListener(new ActionListener() {
@@ -160,6 +198,7 @@ public final class HudEditor extends JFrame {
 		});
 		buttons.add(apply);
 		buttons.add(save);
+		buttons.add(builtin);
 		buttons.add(reload);
 		buttons.add(copy);
 
@@ -241,6 +280,7 @@ public final class HudEditor extends JFrame {
 			spec.load(h.specOrbX, h.specOrbY, h.specOrbW, h.specOrbH);
 			world.load(h.worldMapX, h.worldMapY, h.worldMapW, h.worldMapH);
 			frame.load(h.mapFrameX, h.mapFrameY, h.mapFrameW, h.mapFrameH);
+			xp.load(h.xpOrbX, h.xpOrbY, 0, 0);
 			setSpinnerValue(mapX, h.minimapX);
 			setSpinnerValue(mapY, h.minimapY);
 			refreshSnippet();
@@ -279,6 +319,8 @@ public final class HudEditor extends JFrame {
 		h.mapFrameY = frame.yValue();
 		h.mapFrameW = frame.wToSave();
 		h.mapFrameH = frame.hToSave();
+		h.xpOrbX = xp.xValue();
+		h.xpOrbY = xp.yValue();
 		h.minimapX = ((Integer) mapX.getValue()).intValue();
 		h.minimapY = ((Integer) mapY.getValue()).intValue();
 	}
@@ -286,6 +328,8 @@ public final class HudEditor extends JFrame {
 	private void refreshSnippet() {
 		HudLayout h = HudLayout.get();
 		output.setText("Mode: " + h.modeName()
+				+ "\nDrag orbs and the XP counter on the game screen while this editor is open."
+				+ "\nFixed and resizable layouts are separate. Save as built-in writes HudLayout.java (not a user save file)."
 				+ "\nSizes are exact pixels (1px spinner steps). Scale % converts to whole pixels."
 				+ "\nFile:\n" + h.propertiesFile().getAbsolutePath()
 				+ "\n\nJava:\n" + h.toJavaSnippet());

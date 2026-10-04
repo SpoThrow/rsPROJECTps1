@@ -209,9 +209,17 @@ public final class Sprite extends DrawingArea {
    }
 	public void setTransparency(int transRed, int transGreen, int transBlue)
 	{
-		for(int index = 0; index < myPixels.length; index++)
-			if(((myPixels[index] >> 16) & 255) == transRed && ((myPixels[index] >> 8) & 255) == transGreen && (myPixels[index] & 255) == transBlue)
+		for(int index = 0; index < myPixels.length; index++) {
+			int pixel = myPixels[index];
+			int r = (pixel >> 16) & 255;
+			int g = (pixel >> 8) & 255;
+			int b = pixel & 255;
+			if (r == transRed && g == transGreen && b == transBlue) {
 				myPixels[index] = 0;
+			} else if (r >= 200 && b >= 200 && g <= 80) {
+				myPixels[index] = 0;
+			}
+		}
 	}
 	
 	public Sprite(StreamLoader streamLoader, String s, int i)
@@ -523,6 +531,98 @@ public final class Sprite extends DrawingArea {
 				}
 			}
 		}
+	}
+
+	/**
+	 * Grows/shrinks height while keeping top/bottom border caps 1:1.
+	 * Middle fills by repeating a content row so side borders stay crisp.
+	 */
+	public void drawVerticalSliced(int x, int y, int destH, int topCap, int bottomCap) {
+		if (myPixels == null || destH <= 0 || myWidth <= 0 || myHeight <= 0) {
+			return;
+		}
+		if (destH == myHeight) {
+			drawSprite(x, y);
+			return;
+		}
+		if (topCap < 0) {
+			topCap = 0;
+		}
+		if (bottomCap < 0) {
+			bottomCap = 0;
+		}
+		if (topCap + bottomCap >= myHeight || topCap + bottomCap >= destH) {
+			drawScaled(x, y, myWidth, destH);
+			return;
+		}
+		drawSpriteRegion(x, y, 0, 0, myWidth, topCap);
+		int midDestH = destH - topCap - bottomCap;
+		int srcMidH = myHeight - topCap - bottomCap;
+		int tileSrcY = topCap + srcMidH / 2;
+		for (int i = 0; i < midDestH; i++) {
+			drawSpriteRegion(x, y + topCap + i, 0, tileSrcY, myWidth, 1);
+		}
+		drawSpriteRegion(x, y + destH - bottomCap, 0, myHeight - bottomCap, myWidth, bottomCap);
+	}
+
+	public void drawSpriteRegion(int destX, int destY, int srcX, int srcY, int width, int height) {
+		if (myPixels == null || width <= 0 || height <= 0) {
+			return;
+		}
+		if (srcX < 0) {
+			width += srcX;
+			destX -= srcX;
+			srcX = 0;
+		}
+		if (srcY < 0) {
+			height += srcY;
+			destY -= srcY;
+			srcY = 0;
+		}
+		if (srcX + width > myWidth) {
+			width = myWidth - srcX;
+		}
+		if (srcY + height > myHeight) {
+			height = myHeight - srcY;
+		}
+		if (width <= 0 || height <= 0) {
+			return;
+		}
+		destX += anInt1442;
+		destY += anInt1443;
+		int destPtr = destX + destY * DrawingArea.width;
+		int srcPtr = srcX + srcY * myWidth;
+		int destStride = DrawingArea.width - width;
+		int srcStride = myWidth - width;
+		if (destY < DrawingArea.topY) {
+			int clip = DrawingArea.topY - destY;
+			height -= clip;
+			destY = DrawingArea.topY;
+			srcPtr += clip * myWidth;
+			destPtr += clip * DrawingArea.width;
+		}
+		if (destY + height > DrawingArea.bottomY) {
+			height -= (destY + height) - DrawingArea.bottomY;
+		}
+		if (destX < DrawingArea.topX) {
+			int clip = DrawingArea.topX - destX;
+			width -= clip;
+			destX = DrawingArea.topX;
+			srcPtr += clip;
+			destPtr += clip;
+			destStride += clip;
+			srcStride += clip;
+		}
+		if (destX + width > DrawingArea.bottomX) {
+			int clip = (destX + width) - DrawingArea.bottomX;
+			width -= clip;
+			destStride += clip;
+			srcStride += clip;
+		}
+		if (width <= 0 || height <= 0) {
+			return;
+		}
+		method349(DrawingArea.pixels, myPixels, srcPtr, destPtr, width, height, destStride, srcStride);
 	}
 
 	public void drawRotatedScaled(int destX, int destY, int destW, int destH, int rotation) {

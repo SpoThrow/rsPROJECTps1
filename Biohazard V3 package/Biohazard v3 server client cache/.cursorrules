@@ -1,0 +1,4 @@
+# Workflow Guidelines: Grok 4.6 + Composer 2.5
+- **Architectural Planning:** Use Grok 4.6's reasoning capabilities to analyze the codebase, list required changes, map dependencies, and write out a step-by-step technical plan first.
+- **Plan Review Checkpoint:** Stop and present the plan to the user for approval before modifying any files.
+- **Code Execution:** Once the plan is approved, trigger the file-editing capabilities of Composer 2.5 to apply the syntax changes cleanly across files.

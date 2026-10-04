@@ -75,15 +75,21 @@ final class OverlayManager {
 	private static final int[] wh = new int[160];
 	private static int worldN;
 
-	static void begin(int width, int height, int ox, int oy, int overlayTop, int fullW, int chatWidth, boolean chatHidden) {
+	/**
+	 * @param width above-chat / side-safe width used for corner packing
+	 * @param height above-chat height (ABOVE_CHATBOX zone sits on this)
+	 * @param fullH full client height — clamp/drag may use space below the chatbox
+	 */
+	static void begin(int width, int height, int ox, int oy, int overlayTop, int fullW, int fullH,
+			int chatWidth, boolean chatHidden) {
 		viewW = width < 64 ? 64 : width;
 		viewH = height < 64 ? 64 : height;
 		canvasW = fullW < viewW ? viewW : fullW;
-		canvasH = viewH;
+		canvasH = fullH < viewH ? viewH : fullH;
 		originX = ox;
 		originY = oy;
 		topY = overlayTop < 0 ? BORDER_TOP : overlayTop;
-		chatW = 519;
+		chatW = chatWidth > 0 ? chatWidth : 519;
 		worldN = 0;
 		hoverZone = -1;
 		draggingKeep();
@@ -300,28 +306,36 @@ final class OverlayManager {
 
 	private static void rebuildZones(boolean chatHidden) {
 		boolean resize = !client.isFixed();
+		// Viewport = game area excluding chat + side HUD (OSRS / RuneLite style).
+		int viewportBottom = viewH - BORDER;
+		if (viewportBottom < BORDER_TOP + ZONE_SIZE) {
+			viewportBottom = BORDER_TOP + ZONE_SIZE;
+		}
 		cornerX[TOP_LEFT] = BORDER;
 		cornerY[TOP_LEFT] = BORDER_TOP;
 		cornerX[TOP_CENTER] = viewW / 2;
 		cornerY[TOP_CENTER] = BORDER;
+		// Top-right of the viewport — left of minimap/inventory column.
 		cornerX[TOP_RIGHT] = viewW - BORDER;
 		cornerY[TOP_RIGHT] = BORDER;
+		// Bottom docks sit on the viewport floor (above chat), not under the chatbox.
 		cornerX[BOTTOM_LEFT] = BORDER;
-		cornerY[BOTTOM_LEFT] = viewH - BORDER;
+		cornerY[BOTTOM_LEFT] = viewportBottom;
+		// Bottom-right of the viewport — left of the inventory panel, above chat.
 		cornerX[BOTTOM_RIGHT] = viewW - BORDER;
-		cornerY[BOTTOM_RIGHT] = viewH - BORDER;
+		cornerY[BOTTOM_RIGHT] = viewportBottom;
 		if (resize) {
-			int bottom = chatHidden ? canvasH - BORDER : viewH - BORDER;
-			cornerY[BOTTOM_LEFT] = bottom;
-			cornerY[BOTTOM_RIGHT] = bottom;
-			cornerX[ABOVE_CHATBOX] = chatW - BORDER;
-			cornerY[ABOVE_CHATBOX] = viewH - BORDER;
-			if (cornerX[ABOVE_CHATBOX] > viewW - BORDER) {
-				cornerX[ABOVE_CHATBOX] = viewW - BORDER;
+			// Directly above the right side of the chatbox.
+			int chatRight = chatHidden ? viewW - BORDER : Math.min(chatW - BORDER, viewW - BORDER);
+			if (chatRight < BORDER + ZONE_SIZE) {
+				chatRight = BORDER + ZONE_SIZE;
 			}
-			cornerX[CANVAS_TOP_RIGHT] = canvasW;
-			cornerY[CANVAS_TOP_RIGHT] = 0;
-			zoneOn[ABOVE_CHATBOX] = true;
+			cornerX[ABOVE_CHATBOX] = chatRight;
+			cornerY[ABOVE_CHATBOX] = viewportBottom;
+			zoneOn[ABOVE_CHATBOX] = !chatHidden;
+			// Absolute canvas top-right (RuneLite CANVAS_TOP_RIGHT).
+			cornerX[CANVAS_TOP_RIGHT] = canvasW - BORDER;
+			cornerY[CANVAS_TOP_RIGHT] = BORDER;
 			zoneOn[CANVAS_TOP_RIGHT] = true;
 		} else {
 			cornerX[ABOVE_CHATBOX] = cornerX[BOTTOM_RIGHT];

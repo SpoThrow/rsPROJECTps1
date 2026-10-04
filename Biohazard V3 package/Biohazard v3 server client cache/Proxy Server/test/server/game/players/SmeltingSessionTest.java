@@ -1,7 +1,6 @@
 package server.game.players;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -13,8 +12,8 @@ import server.content.skills.Smelting;
 import server.content.skills.Smelting.Bars;
 
 /**
- * Pins the smelting cluster after Phase 4.2 moved its six fields off {@link Player} into
- * {@link SmeltingSession}.
+ * Pins the smelting cluster after Phase 4.2 moved its fields off {@link Player} into
+ * {@link SmeltingSession}. (The write-only {@code active} flag has since been deleted.)
  *
  * <p>As with {@code PosSessionTest}, a mechanical move can only break the defaults or the
  * ownership. The third thing worth pinning is the invariant {@link Smelting#startSmelting}
@@ -35,7 +34,6 @@ class SmeltingSessionTest {
 	void everyFieldKeepsItsOldDefault() {
 		final SmeltingSession smelt = new SmeltingSession();
 
-		assertFalse(smelt.active);
 		assertEquals(0, smelt.amount);
 		assertNull(smelt.bar);
 		assertEquals("", smelt.barType);
@@ -63,7 +61,6 @@ class SmeltingSessionTest {
 	@Test
 	void aFreshClientIsNotMidSmelt() {
 		final Client c = client();
-		assertFalse(c.smelt.active);
 		assertEquals(0, c.smelt.amount);
 		assertEquals(0L, c.smelt.lastSmelt);
 		assertNull(c.smelt.bar);

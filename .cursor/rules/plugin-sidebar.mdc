@@ -1,0 +1,19 @@
+---
+description: RuneLite-style plugin UX for Soul-Trail client plugins
+globs: "**/Proxy Client/src/{PluginSidebar,LootTracker,*Plugin,*Overlay,*Tracker,*Tags,*Notes,*Timers,*Markers,*Indicators,InfoBoxes,AntiDrag,MouseTooltips}.java"
+alwaysApply: false
+---
+
+# Plugin sidebar rules
+
+When adding or changing a client plugin:
+
+- Add a plugin-row hover tooltip that explains what the plugin does.
+- Every setting needs a hover tooltip describing the option (RuneLite-style).
+- Numeric settings (delays, draw distance, AA 2x/4x/6x, opacity, thresholds) must accept typed numbers with a documented max. Do not cycle-only.
+- Colour settings must open a colour picker and store RGB. Do not cycle named colours only.
+- Interactive chips/buttons must be high-contrast (light text, mid-grey fill, visible border).
+- Cog icons must sit fully inside the row (not clipped).
+- Window title stays the server name (`Soul-Trail`), never "Configuration" / panel names.
+- Prefer infoboxes with an item/NPC icon plus a number over text-only overlays.
+- Java 7 source: no lambdas, no diamond operator.

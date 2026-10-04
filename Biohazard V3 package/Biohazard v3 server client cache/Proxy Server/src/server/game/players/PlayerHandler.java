@@ -8,6 +8,16 @@ import server.game.npcs.NPCHandler;
 import core.util.Misc;
 import core.util.Stream;
 
+/**
+ * Owns the player array and drives one tick of every logged-in player.
+ *
+ * <p><b>Threading (Phase 5).</b> Everything in this class runs on the single game thread, which is
+ * the thread the ticker in {@link Server} owns. The Mina I/O threads never call in here except for
+ * {@link #newPlayerClient(Client)}, which takes the {@code players} monitor so slot discovery and
+ * publication are atomic against {@link #process()}. Inbound packets are not handled here at all:
+ * each client's I/O thread appends to its own concurrent queue and {@link #process()} drains it,
+ * which is the "I/O threads enqueue, game thread drains" rule made concrete.
+ */
 public class PlayerHandler{
 
 
@@ -71,15 +81,6 @@ public class PlayerHandler{
 		}
 	}
 
-	public void destruct() {
-		for(int i = 0; i < Config.MAX_PLAYERS; i++) {
-			if(players[i] == null) 
-				continue;
-			players[i].destruct();
-			players[i] = null;
-		}
-	}
-
 	public static int getPlayerCount() {
 		return playerCount;
 	}
@@ -87,7 +88,7 @@ public class PlayerHandler{
 
 	public static boolean isPlayerOn(String playerName) {
 		synchronized (PlayerHandler.players) {
-			for(int i = 0; i < Config.MAX_PLAYERS; i++) {
+			for (int i = 0; i < Config.MAX_PLAYERS; i++) {
 				if(playersCurrentlyOn[i] != null){
 					if(playersCurrentlyOn[i].equalsIgnoreCase(playerName)) {
 						return true;
@@ -98,6 +99,23 @@ public class PlayerHandler{
 		}
 	}
 
+	/**
+	 * One tick for every logged-in player.
+	 *
+	 * <p><b>The order of the two passes is load-bearing and is now stated here rather than in a
+	 * comment beside one loop.</b> Pass 1 runs the per-player tick
+	 * ({@code packets → process → merge walk → step → follow+swing}): a teleport or walk request
+	 * drained in step 2 has to be applied before step 4 moves the player, and the combat swing in
+	 * step 6 has to see the position step 4 produced. Pass 2 then initialises a player who has just
+	 * connected or sends this tick's update to everybody else — kept separate because a player
+	 * initialised in pass 2 must not also have been stepped in pass 1.
+	 *
+	 * <p>The release check is asked once per player per pass, through {@link #shouldRelease}, and
+	 * the exit itself goes through {@link #releasePlayer}. It used to be spelled out twice, with
+	 * identical and therefore dead duplicate code in pass 2 (pass 1 had already nulled the slot,
+	 * so pass 2's copy could never run) — and both copies saved the character <em>and</em> then
+	 * called {@link Client#destruct()}, which saves again.
+	 */
 	public void process() {
 		synchronized (PlayerHandler.players) {
 			updatePlayerNames();
@@ -110,95 +128,38 @@ public class PlayerHandler{
 				}
 			}
 
+			// Pass 1: packets → timers/hits → merge walk → step → follow+swing
 			for(int i = 0; i < Config.MAX_PLAYERS; i++) {
-				if(players[i] == null || !players[i].isActive) continue;
-				try {					
-
-					if(players[i].disconnected && (System.currentTimeMillis() - players[i].timers.logoutDelay > 10000 || players[i].properLogout || kickAllPlayers)) {
-						if(players[i].inTrade) {
-							Client o = (Client) PlayerHandler.players[players[i].tradeWith];
-							if(o != null) {
-								o.getTradeAndDuel().declineTrade();
-							}
-						}
-						if(players[i].duelStatus == 5) {
-							Client o = (Client) PlayerHandler.players[players[i].duelingWith];
-							if(o != null) {
-								o.getTradeAndDuel().duelVictory();
-							}
-						} else if (players[i].duelStatus <= 4 && players[i].duelStatus >= 1) {
-							Client o = (Client) PlayerHandler.players[players[i].duelingWith];
-							if(o != null) {
-								o.getTradeAndDuel().declineDuel();
-							}
-						}
-						Client o = (Client) PlayerHandler.players[i];
-						if(PlayerSave.saveGame(o)) { 
-							System.out.println("Game saved for player "+players[i].playerName); 
-						} else { 
-							System.out.println("Could not save for "+players[i].playerName); 
-						}
-						removePlayer(players[i]);
-						players[i] = null;
+				Client player = players[i];
+				if(player == null || !player.isActive) continue;
+				try {
+					if(shouldRelease(player)) {
+						releasePlayer(i, player);
 						continue;
 					}
 
-					// Order: packets → process(timers/hits) → merge walk → step → follow+swing
-					players[i].preProcessing();			
-					while(players[i].processQueuedPackets());
-					players[i].process();
-					players[i].postProcessing();
-					players[i].getNextPlayerMovement();
-					players[i].processCombatAfterMovement();
+					player.preProcessing();
+					while(player.processQueuedPackets());
+					player.process();
+					player.postProcessing();
+					player.getNextPlayerMovement();
+					player.processCombatAfterMovement();
 
 				} catch(Exception e) {
 					e.printStackTrace();
 				}
 			}
 
-
+			// Pass 2: initialise a new login, or send the update to everyone already in the world.
 			for(int i = 0; i < Config.MAX_PLAYERS; i++) {
-				if(players[i] == null || !players[i].isActive) continue;
+				Client player = players[i];
+				if(player == null || !player.isActive) continue;
 				try {
-					if(players[i].disconnected && (System.currentTimeMillis() - players[i].timers.logoutDelay > 10000 || players[i].properLogout || kickAllPlayers)) {
-						if(players[i].inTrade) {
-							Client o = (Client) PlayerHandler.players[players[i].tradeWith];
-							if(o != null) {
-								o.getTradeAndDuel().declineTrade();
-							}
-						}
-						if(players[i].duelStatus == 5) {
-							Client o1 = (Client) PlayerHandler.players[players[i].duelingWith];
-							if(o1 != null) {
-								o1.getTradeAndDuel().duelVictory();
-							}
-						} else if (players[i].duelStatus <= 4 && players[i].duelStatus >= 1) {
-							Client o1 = (Client) PlayerHandler.players[players[i].duelingWith];
-							if(o1 != null) {
-								o1.getTradeAndDuel().declineDuel();
-							}
-						}
-
-						Client o1 = (Client) PlayerHandler.players[i];
-						if(PlayerSave.saveGame(o1)){ 
-							System.out.println("Game saved for player "+players[i].playerName); 
-						} else { 
-							System.out.println("Could not save for "+players[i].playerName); 
-						}
-						removePlayer(players[i]);
-						players[i] = null;
+					if(!player.initialized) {
+						player.initialize();
+						player.initialized = true;
 					} else {
-						@SuppressWarnings("unused")
-						Client o = (Client) PlayerHandler.players[i];
-						//if(o.g) {
-						if(!players[i].initialized) {
-							players[i].initialize();
-							players[i].initialized = true;
-						}
-						else {
-							players[i].update();
-						}
-						//}
+						player.update();
 					}
 				} catch(Exception e) {
 					e.printStackTrace();
@@ -222,6 +183,69 @@ public class PlayerHandler{
 				}	
 			}
 		}
+	}
+
+	/**
+	 * Whether this player should leave the world on this tick: a disconnected client whose logout
+	 * hold has expired, one that logged out properly, or anybody at all once an update-kick runs.
+	 * The update-kick clause is why the check cannot live only in the logout packet — it is what
+	 * gives a scheduled restart a way to drop players who are still in combat.
+	 */
+	private boolean shouldRelease(Client player) {
+		return player.disconnected
+				&& (System.currentTimeMillis() - player.timers.logoutDelay > 10000
+						|| player.properLogout
+						|| kickAllPlayers);
+	}
+
+	/**
+	 * The single exit from the world: settle any trade or duel the leaving player was in, then free
+	 * the slot. {@link #removePlayer} runs {@link Client#destruct()}, which performs the one
+	 * character write — so this method deliberately does not save as well.
+	 */
+	private void releasePlayer(int index, Client player) {
+		if(player.inTrade) {
+			Client o = (Client) PlayerHandler.players[player.tradeWith];
+			if(o != null) {
+				o.getTradeAndDuel().declineTrade();
+			}
+		}
+		if(player.duelStatus == 5) {
+			Client o = (Client) PlayerHandler.players[player.duelingWith];
+			if(o != null) {
+				o.getTradeAndDuel().duelVictory();
+			}
+		} else if (player.duelStatus <= 4 && player.duelStatus >= 1) {
+			Client o = (Client) PlayerHandler.players[player.duelingWith];
+			if(o != null) {
+				o.getTradeAndDuel().declineDuel();
+			}
+		}
+		removePlayer(player);
+		players[index] = null;
+	}
+
+	/**
+	 * Writes every logged-in character to disk, at most once each.
+	 *
+	 * <p>This is what the server's shutdown hook calls, so stopping the server always persists
+	 * everyone. It is safe to call after the logout path has already written some of them, because
+	 * {@link Client#saveCharacterOnce()} is what actually performs the write and it will not write
+	 * the same character twice.
+	 *
+	 * @return how many characters this call actually wrote
+	 */
+	public static int saveAllPlayers() {
+		int saved = 0;
+		for (Client player : players) {
+			if (player == null) {
+				continue;
+			}
+			if (player.saveCharacterOnce()) {
+				saved++;
+			}
+		}
+		return saved;
 	}
 
 	public void updateNPC(Player plr, Stream str) {
@@ -276,6 +300,16 @@ public class PlayerHandler{
 
 	private Stream updateBlock = new Stream(new byte[Config.BUFFER_SIZE]);
 
+	/**
+	 * Serialises the player's own movement and update block, then the blocks of every nearby player.
+	 *
+	 * <p>Called only from {@link server.game.players.Client#update()}, which {@link #process()} runs
+	 * on the game thread while holding the {@code players} monitor — so no extra locking is needed
+	 * here. The {@code synchronized (plr)} this method used to carry is commented out directly above
+	 * and below the body; it was disabled before Phase 5 and is left disabled deliberately, because
+	 * {@link Client#logout()} also synchronises on the client and nesting the two monitors the other
+	 * way round would invite a deadlock for no benefit.
+	 */
 	public void updatePlayer(Player plr, Stream str) {
 		//synchronized(plr) {
 			updateBlock.currentOffset = 0;

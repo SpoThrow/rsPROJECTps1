@@ -19,8 +19,9 @@ package server.game.players;
  * <p><b>{@code playerProps} deliberately did not move.</b> It is
  * {@code protected static Stream} on {@link Player} — a single shared scratch buffer used
  * to serialise the appearance block for whichever player is being written, not per-player
- * state. It belongs with the serialiser, not here, and it is noted in the plan alongside
- * {@code Music.unlocked} as a pre-existing shared-static hazard.
+ * state. It belongs with the serialiser, not here, and it is noted in the plan as a
+ * pre-existing shared-static hazard. ({@code Music.unlocked} was the other one, and has since
+ * been moved to the per-player {@link MusicState}.)
  *
  * <p><b>Persistence is a table.</b> {@code playerAppearance} is written by
  * {@code PlayerSave} as an {@code [LOOK]} section of {@code character-look = <index>

@@ -1,10 +1,13 @@
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Container;
 import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
+import java.awt.Graphics;
 import java.awt.Image;
+import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
@@ -29,6 +32,7 @@ import javax.swing.JScrollPane;
 import javax.swing.JToggleButton;
 import javax.swing.ScrollPaneConstants;
 import javax.swing.SwingUtilities;
+import javax.swing.plaf.basic.BasicButtonUI;
 
 /**
  * RuneLite-style loot tracker. Values use item definition prices (no GE).
@@ -178,11 +182,16 @@ final class LootTracker {
 	}
 
 	private static void styleChip(javax.swing.AbstractButton b) {
+		b.setUI(new BasicButtonUI());
 		b.setFont(SMALL_FONT);
-		b.setForeground(TEXT);
-		b.setBackground(DARKER);
+		b.setForeground(Color.WHITE);
+		b.setBackground(new Color(72, 72, 72));
+		b.setOpaque(true);
+		b.setContentAreaFilled(true);
+		b.setBorderPainted(true);
+		b.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(new Color(140, 140, 140)),
+				BorderFactory.createEmptyBorder(3, 8, 3, 8)));
 		b.setFocusPainted(false);
-		b.setBorder(BorderFactory.createEmptyBorder(4, 8, 4, 8));
 		b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 	}
 
@@ -421,7 +430,7 @@ final class LootTracker {
 			logs.add(emptyLabel);
 		}
 		if (overallKills != null) {
-			overallKills.setText("Total kills: " + kills);
+			overallKills.setText("Total kills: " + formatCount(kills));
 			overallValue.setText("Value: " + formatGp((int) Math.min(value, 2000000000L)));
 		}
 		if (groupedBtn != null) {
@@ -511,13 +520,11 @@ final class LootTracker {
 	}
 
 	static String formatGp(int value) {
-		if (value >= 10000000) {
-			return (value / 1000000) + "m";
-		}
-		if (value >= 100000) {
-			return (value / 1000) + "k";
-		}
-		return String.valueOf(value);
+		return formatCount(value);
+	}
+
+	static String formatCount(int value) {
+		return String.format("%,d", Integer.valueOf(value));
 	}
 
 	private static Image iconFor(int id, int qty) {
@@ -542,7 +549,7 @@ final class LootTracker {
 					}
 				}
 			}
-			Image scaled = img.getScaledInstance(24, 24, Image.SCALE_SMOOTH);
+			Image scaled = img.getScaledInstance(32, 32, Image.SCALE_SMOOTH);
 			iconCache.put(key, scaled);
 			return scaled;
 		} catch (Exception e) {
@@ -669,6 +676,38 @@ final class LootTracker {
 		return s;
 	}
 
+	private static final class QtyIcon extends JLabel {
+		private static final long serialVersionUID = 1L;
+		private final int qty;
+
+		QtyIcon(Image img, int qty) {
+			this.qty = qty;
+			if (img != null) {
+				setIcon(new ImageIcon(img));
+			}
+			setPreferredSize(new Dimension(32, 32));
+			setHorizontalAlignment(CENTER);
+		}
+
+		protected void paintComponent(Graphics g) {
+			super.paintComponent(g);
+			if (qty <= 1) {
+				return;
+			}
+			String text = formatCount(qty);
+			g.setFont(new Font("SansSerif", Font.BOLD, 10));
+			int x = 1;
+			int y = getHeight() - 2;
+			g.setColor(Color.BLACK);
+			g.drawString(text, x + 1, y);
+			g.drawString(text, x - 1, y);
+			g.drawString(text, x, y + 1);
+			g.drawString(text, x, y - 1);
+			g.setColor(new Color(255, 255, 0));
+			g.drawString(text, x, y);
+		}
+	}
+
 	private static final class Stack {
 		int id;
 		int qty;
@@ -689,31 +728,27 @@ final class LootTracker {
 			setBackground(DARKER);
 			setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
 			setAlignmentX(0f);
-			setMaximumSize(new Dimension(Integer.MAX_VALUE, 400));
+			setMaximumSize(new Dimension(Integer.MAX_VALUE, Short.MAX_VALUE));
 			JPanel head = new JPanel(new BorderLayout());
 			head.setOpaque(false);
-			JLabel name = new JLabel(ev.source);
+			JLabel name = new JLabel(ev.source + " x " + ev.kills);
 			name.setForeground(Color.WHITE);
 			name.setFont(ROW_FONT);
-			JLabel kills = new JLabel(ev.kills + (ev.kills == 1 ? " kill" : " kills"));
-			kills.setForeground(LIGHT);
-			kills.setFont(SMALL_FONT);
-			head.add(name, BorderLayout.WEST);
-			head.add(kills, BorderLayout.EAST);
 			JLabel gp = new JLabel(formatGp(eventValue(ev)) + " gp");
 			gp.setForeground(ORANGE);
 			gp.setFont(SMALL_FONT);
-			JPanel icons = new JPanel(new FlowLayout(FlowLayout.LEFT, 3, 3));
+			head.add(name, BorderLayout.WEST);
+			head.add(gp, BorderLayout.EAST);
+			JPanel icons = new JPanel(new WrapLayout(FlowLayout.LEFT, 3, 3));
 			icons.setOpaque(false);
+			icons.setAlignmentX(0f);
 			for (int i = 0; i < ev.stacks.size(); i++) {
 				final Stack st = (Stack) ev.stacks.get(i);
 				if (hiddenItems.containsKey(Integer.valueOf(st.id))) {
 					continue;
 				}
-				JLabel icon = new JLabel();
-				if (st.icon != null) {
-					icon.setIcon(new ImageIcon(st.icon));
-				} else {
+				JLabel icon = new QtyIcon(st.icon, st.qty);
+				if (st.icon == null) {
 					icon.setText(itemName(st.id));
 					icon.setForeground(TEXT);
 					icon.setFont(SMALL_FONT);
@@ -743,8 +778,7 @@ final class LootTracker {
 				icons.add(icon);
 			}
 			add(head, BorderLayout.NORTH);
-			add(gp, BorderLayout.CENTER);
-			add(icons, BorderLayout.SOUTH);
+			add(icons, BorderLayout.CENTER);
 			addMouseListener(new MouseAdapter() {
 				public void mouseReleased(MouseEvent e) {
 					if (e.isPopupTrigger() || SwingUtilities.isRightMouseButton(e)) {
@@ -767,6 +801,68 @@ final class LootTracker {
 					}
 				}
 			});
+		}
+	}
+
+	/**
+	 * FlowLayout that wraps to the next row instead of growing sideways.
+	 */
+	private static final class WrapLayout extends FlowLayout {
+		private static final long serialVersionUID = 1L;
+
+		WrapLayout(int align, int hgap, int vgap) {
+			super(align, hgap, vgap);
+		}
+
+		public Dimension preferredLayoutSize(Container target) {
+			return layoutSize(target, true);
+		}
+
+		public Dimension minimumLayoutSize(Container target) {
+			return layoutSize(target, false);
+		}
+
+		private Dimension layoutSize(Container target, boolean preferred) {
+			synchronized (target.getTreeLock()) {
+				int targetWidth = target.getWidth();
+				if (targetWidth <= 0 && target.getParent() != null) {
+					targetWidth = target.getParent().getWidth();
+				}
+				if (targetWidth <= 0) {
+					targetWidth = PluginSidebar.PANEL_INNER - 28;
+				}
+				Insets insets = target.getInsets();
+				int maxWidth = targetWidth - insets.left - insets.right;
+				int hgap = getHgap();
+				int vgap = getVgap();
+				Dimension dim = new Dimension(0, 0);
+				int rowWidth = 0;
+				int rowHeight = 0;
+				int nmembers = target.getComponentCount();
+				for (int i = 0; i < nmembers; i++) {
+					java.awt.Component m = target.getComponent(i);
+					if (!m.isVisible()) {
+						continue;
+					}
+					Dimension d = preferred ? m.getPreferredSize() : m.getMinimumSize();
+					if (rowWidth + d.width > maxWidth && rowWidth > 0) {
+						dim.width = Math.max(dim.width, rowWidth);
+						dim.height += rowHeight + vgap;
+						rowWidth = 0;
+						rowHeight = 0;
+					}
+					if (rowWidth > 0) {
+						rowWidth += hgap;
+					}
+					rowWidth += d.width;
+					rowHeight = Math.max(rowHeight, d.height);
+				}
+				dim.width = Math.max(dim.width, rowWidth);
+				dim.height += rowHeight;
+				dim.width += insets.left + insets.right;
+				dim.height += insets.top + insets.bottom + vgap;
+				return dim;
+			}
 		}
 	}
 }

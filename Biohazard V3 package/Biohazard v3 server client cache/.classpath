@@ -16,5 +16,5 @@
 	<classpathentry kind="lib" path="Proxy Server/deps/slf4j.jar"/>
 	<classpathentry kind="lib" path="Proxy Server/deps/xstream.jar"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
-	<classpathentry kind="output" path="Proxy Server/bin"/>
+	<classpathentry kind="output" path="jdt-bin"/>
 </classpath>

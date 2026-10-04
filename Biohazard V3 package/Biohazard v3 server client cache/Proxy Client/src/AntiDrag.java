@@ -9,7 +9,7 @@ final class AntiDrag {
 	static void load(Properties props) {
 		enabled = readBool(props, "antiDrag", false);
 		shiftOnly = readBool(props, "antiDragShift", true);
-		delay = clamp(readInt(props, "antiDragDelay", 30), 10, 80);
+		delay = clamp(readInt(props, "antiDragDelay", 30), 1, 80);
 	}
 
 	static void save(Properties props) {
@@ -38,6 +38,10 @@ final class AntiDrag {
 		} else {
 			delay = 10;
 		}
+	}
+
+	static void setDelay(int value) {
+		delay = clamp(value, 1, 80);
 	}
 
 	private static int readInt(Properties props, String key, int def) {
