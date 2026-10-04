@@ -3,16 +3,30 @@
  *
  * WHY THIS IS A SEPARATE TOOL FROM RenameTypes, NOT AN OPTION ON IT.
  * A rename changes one identifier to another and touches nothing else. A package move
- * has to do three things at once, and the third is the one that bites:
+ * has to do four things at once, and the last two are the ones that bite:
  *   (1) put the file under its new directory and add the `package` declaration;
  *   (2) add imports so every cross-package reference still resolves;
  *   (3) do (2) from the RESOLVED element, not from text -- because a regex cannot tell
  *       a type reference from a commented-out call. That is not hypothetical here:
  *       `signlink` is referenced by 15 files, not 16, because Model matches only on a
  *       COMMENTED-OUT `sign.signlink.findcachedir()` call. A regex would have written
- *       an import for a file that does not use the type.
+ *       an import for a file that does not use the type;
+ *   (4) WIDEN the visibility of the types the move would otherwise hide.
  *
- * THE CONSTRAINT THAT SHAPES EVERYTHING.
+ * (4) IS THE ONE THAT MAKES A MOVE NOT PURELY MECHANICAL, AND IT IS NOT OBVIOUS.
+ * These are decompiled sources, and most classes are declared package-private
+ * (`final class NodeList`, not `public final class NodeList`). That was harmless while
+ * everything sat in the ONE default package, where package-private means "visible to the
+ * whole program". The moment a package boundary is introduced, package-private means
+ * something entirely different, and every cross-package reference fails with
+ * "<T> is not public in <pkg>; cannot be accessed from outside package".
+ * Measured on the first real move: moving the 6 `node` classes produced 76 such errors
+ * -- 70 for `NodeList` and 6 for `NodeSubList` -- while `Node`, `NodeSub` and `MRUNodes`
+ * were already `public` and `NodeCache` is never referenced from outside, so it stays
+ * package-private. This is why the tool runs TWO PASSES: "is this type reached from
+ * another package?" is a GLOBAL question that cannot be answered file-by-file.
+ *
+ * THE OTHER CONSTRAINT THAT SHAPES EVERYTHING.
  * The default package is not importable. So a class in a NAMED package can never see a
  * type in the DEFAULT package -- not with an import, not with a qualified name. A
  * half-finished move therefore does not compile, in a way that reads like a missing
@@ -25,12 +39,20 @@
  * rewrites the imports of everything left behind, so one leaf package can be moved,
  * built and replayed before the rest are touched.
  *
+ * KNOWN LIMITATION, STATED RATHER THAN LEFT TO BE DISCOVERED.
+ * This widens TYPES only, not their MEMBERS. A package-private field or method of a moved
+ * class that is touched from another package will still fail to compile. The move of the
+ * `node` package produced no such error, because the decompiler emitted `public` members,
+ * but the remaining packages have not been applied yet and the build is the check for each
+ * one. If a build fails with a MEMBER-access error rather than a type-access error, that
+ * is this limitation and the same rule applies one level down.
+ *
  * SAFETY MODEL (deliberately inherited from RenameTypes/MoveFields):
  *   * dry run by default -- without --apply nothing is written;
  *   * aborts, writing nothing, if javac reports any error while attributing;
  *   * verifies every insertion point against the original text before applying it;
  *   * refuses overlapping edits;
- *   * refuses a map that does not cover every top-level class it is asked about.
+ *   * refuses a map with a duplicate entry, since a class can only go to one package.
  *
  * USAGE
  *   javac -d tools/typeaware/out tools/typeaware/MoveToPackages.java
@@ -55,7 +77,6 @@ import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.util.JavacTask;
 import com.sun.source.util.SourcePositions;
-import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
 import com.sun.source.util.Trees;
 
@@ -64,7 +85,6 @@ import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
-import javax.lang.model.util.Elements;
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticCollector;
 import javax.tools.JavaCompiler;
@@ -88,13 +108,47 @@ import java.util.TreeSet;
 
 public final class MoveToPackages {
 
-    /** One textual insertion: insert `text` at [start,end) (end==start for pure inserts). */
+    /**
+     * One textual insertion: insert `text` at [start,end) (end==start for pure inserts).
+     * `priority` only matters when several insertions share an offset -- the package
+     * declaration must end up first, then the imports, then the `public` modifier -- so
+     * it is part of the sort key rather than left to chance.
+     */
     private static final class Edit {
         final long start, end;
         final String text, why;
-        Edit(long start, long end, String text, String why) {
-            this.start = start; this.end = end; this.text = text; this.why = why;
+        final int priority;
+        Edit(long start, long end, String text, int priority, String why) {
+            this.start = start; this.end = end; this.text = text;
+            this.priority = priority; this.why = why;
         }
+    }
+
+    /**
+     * A file that pass 2 has decided to write. Nothing is written during the scan: a
+     * 131-class move must not be able to stop half-applied because of a bad offset, a
+     * blocked class or a collision discovered on file 90. Everything is decided and
+     * validated first, then written in one batch.
+     */
+    private static final class Pending {
+        File delete;                     // the original file, when the class moves
+        Path write;                      // where the new text goes
+        String content;
+    }
+
+    /** Everything decided about one source file, so the second pass can settle visibility. */
+    private static final class Unit {
+        CompilationUnitTree cu;
+        String src;
+        ClassTree own;
+        String ownType;
+        String targetPkg;                                  // null when the file is not moving
+        boolean isMoving;
+        String ownPkg;                                     // null means the default package
+        boolean isPublic;
+        boolean hasMain;
+        final Set<String> needed = new TreeSet<String>();  // FQNs to import
+        final List<String> defaultRefs = new ArrayList<String>();
     }
 
     public static void main(String[] args) throws Exception {
@@ -160,53 +214,35 @@ public final class MoveToPackages {
             System.exit(1);
         }
 
-        Trees trees = Trees.instance(task);
-        Elements elements = task.getElements();
-        SourcePositions positions = trees.getSourcePositions();
+        final Trees trees = Trees.instance(task);
+        final SourcePositions positions = trees.getSourcePositions();
 
-        int totalFiles = 0, moved = 0, importsAdded = 0;
-        List<String> blockers = new ArrayList<String>();
-        List<String> entryPoints = new ArrayList<String>();
-
-        for (final CompilationUnitTree cu : parsed) {
-            final String src = cu.getSourceFile().getCharContent(false).toString();
-            final TreePath cuPath = new TreePath(cu);
-
-            // --- who is this file, and where is it going? -----------------------
+        // -------------------------------------------------------------------
+        // PASS 1: attribute every file and record what it needs. Nothing is
+        // written. Visibility needs a GLOBAL answer -- "is this type reached
+        // from outside its new package?" -- so it cannot be decided
+        // file-by-file in a single pass.
+        // -------------------------------------------------------------------
+        List<Unit> unitList = new ArrayList<Unit>();
+        for (CompilationUnitTree cu : parsed) {
             ClassTree own = null;
             for (Tree t : cu.getTypeDecls()) if (t instanceof ClassTree) { own = (ClassTree) t; break; }
-            if (own == null) continue;                       // package-info or similar
-            final String ownType = own.getSimpleName().toString();
+            if (own == null) continue;                        // package-info or similar
 
-            String existingPkg = null;
-            if (cu.getPackage() != null) existingPkg = cu.getPackage().getPackageName().toString();
+            final Unit u = new Unit();
+            u.cu = cu;
+            u.src = cu.getSourceFile().getCharContent(false).toString();
+            u.own = own;
+            u.ownType = own.getSimpleName().toString();
+            u.targetPkg = map.get(u.ownType);
+            u.isMoving = u.targetPkg != null && (only.isEmpty() || only.contains(u.targetPkg));
+            u.ownPkg = u.isMoving ? u.targetPkg
+                    : (cu.getPackage() != null ? cu.getPackage().getPackageName().toString() : null);
+            u.isPublic = own.getModifiers().getFlags().contains(Modifier.PUBLIC);
+            u.hasMain = hasMain(own);
 
-            String targetPkg = map.get(ownType);
-            final boolean isMoving = targetPkg != null && (only.isEmpty() || only.contains(targetPkg));
-            // The package this file will be IN once we are done. `null` means the default
-            // package, which cannot equal any named package -- that asymmetry is the point.
-            final String ownPkg = isMoving ? targetPkg : existingPkg;
-
-            // --- which moved types does it reference? ---------------------------
-            final Set<String> needed = new TreeSet<String>();
-            final List<String> defaultRefs = new ArrayList<String>();
-            final boolean[] hasMain = new boolean[1];
-
+            final String ownPkg = u.ownPkg;
             new TreePathScanner<Void, Void>() {
-                @Override public Void visitClass(ClassTree t, Void p) {
-                    if (t == getCurrentPath().getCompilationUnit().getTypeDecls().get(0)) {
-                        for (Tree m : t.getMembers()) {
-                            if (!(m instanceof MethodTree)) continue;
-                            MethodTree mt = (MethodTree) m;
-                            if (mt.getName().contentEquals("main")
-                                    && mt.getModifiers().getFlags().contains(Modifier.PUBLIC)
-                                    && mt.getModifiers().getFlags().contains(Modifier.STATIC)) {
-                                hasMain[0] = true;
-                            }
-                        }
-                    }
-                    return super.visitClass(t, p);
-                }
                 @Override public Void visitIdentifier(IdentifierTree t, Void p) {
                     String n = t.getName().toString();
                     if (!map.containsKey(n)) return super.visitIdentifier(t, p);
@@ -217,135 +253,174 @@ public final class MoveToPackages {
                         return super.visitIdentifier(t, p);
                     }
                     TypeElement top = topLevel((TypeElement) e);
-                    String refPkg = pkgOf(top);
                     String refName = top.getSimpleName().toString();
                     String refTarget = map.get(refName);
+                    String refPkg = pkgOf(top);
                     if (refPkg.isEmpty()) {
-                        // Still in the default package ON DISK -- but that is only fatal if it
-                        // is STAYING there. If it is moving in this same run it will end up in
-                        // a named package, so the import is legal after all.
+                        // Still in the default package ON DISK. Fatal only if it STAYS
+                        // there: if it is moving in this same run it will end up in a
+                        // named package, and the import is then legal.
                         if (refTarget != null && (only.isEmpty() || only.contains(refTarget))) {
-                            if (!refTarget.equals(ownPkg)) needed.add(refTarget + "." + refName);
-                            return super.visitIdentifier(t, p);
+                            if (!refTarget.equals(ownPkg)) u.needed.add(refTarget + "." + refName);
+                        } else {
+                            u.defaultRefs.add(refName);
                         }
-                        defaultRefs.add(refName);
                         return super.visitIdentifier(t, p);
                     }
-                    if (refTarget != null && !refTarget.equals(ownPkg)) needed.add(refTarget + "." + refName);
+                    if (refTarget != null && !refTarget.equals(ownPkg)) u.needed.add(refTarget + "." + refName);
                     return super.visitIdentifier(t, p);
                 }
             }.scan(cu, null);
 
-            if (isMoving && !defaultRefs.isEmpty()) {
-                blockers.add(srcName(cu) + " (" + ownType + " -> " + targetPkg + ") references "
-                        + new TreeSet<String>(defaultRefs) + " in the DEFAULT package, which a packaged "
+            unitList.add(u);
+        }
+
+        // Exactly the type names that must be public for the move to keep compiling:
+        // every type reached from a file that will be in a DIFFERENT package.
+        Set<String> crossPackage = new TreeSet<String>();
+        for (Unit u : unitList) {
+            for (String imp : u.needed) crossPackage.add(imp.substring(imp.lastIndexOf('.') + 1));
+        }
+
+        // -------------------------------------------------------------------
+        // PASS 2: turn the decisions into edits, verify them, and apply.
+        // -------------------------------------------------------------------
+        int totalFiles = 0, moved = 0, importsAdded = 0, widened = 0;
+        List<String> blockers = new ArrayList<String>();
+        List<String> entryPoints = new ArrayList<String>();
+        List<Pending> pending = new ArrayList<Pending>();
+
+        for (Unit u : unitList) {
+            final String src = u.src;
+            final CompilationUnitTree cu = u.cu;
+
+            if (u.isMoving && !u.defaultRefs.isEmpty()) {
+                blockers.add(srcName(cu) + " (" + u.ownType + " -> " + u.targetPkg + ") references "
+                        + new TreeSet<String>(u.defaultRefs) + " in the DEFAULT package, which a packaged "
                         + "class cannot import -- that class must move too (same run or a later one).");
                 continue;
             }
 
-            // --- drop imports that are already present ---------------------------
-            Set<String> existing = new LinkedHashSet<String>();
-            for (ImportTree it : cu.getImports()) existing.add(it.getQualifiedIdentifier().toString());
-            needed.removeAll(existing);
-            if (needed.isEmpty() && !isMoving) continue;
+            Set<String> needed = new TreeSet<String>(u.needed);
+            for (ImportTree it : cu.getImports()) needed.remove(it.getQualifiedIdentifier().toString());
 
+            // Rule (4): a moved, non-public type reached from another package must be
+            // widened, or the move silently changes accessibility and the build fails.
+            boolean mustWiden = u.isMoving && !u.isPublic && crossPackage.contains(u.ownType);
+
+            if (needed.isEmpty() && !u.isMoving && !mustWiden) continue;
             totalFiles++;
 
             List<Edit> edits = new ArrayList<Edit>();
+            long declAt = -1;                                  // validated declaration start
+
+            // The declaration is an insertion point for three separate reasons, and all
+            // three have to be listed: a moved class with no imports goes to the top of
+            // the file; so do NEW imports in a file that has none (which is NOT the same
+            // as moving -- a default-package class staying put can need imports); and the
+            // `public` modifier obviously belongs at the declaration. Miss one and the
+            // offset stays -1.
+            boolean packageAtDecl = u.isMoving && cu.getImports().isEmpty();
+            boolean importsAtDecl = !needed.isEmpty() && cu.getImports().isEmpty();
+            if (packageAtDecl || importsAtDecl || mustWiden) {
+                declAt = declStart(src, u.ownType, positions.getStartPosition(cu, u.own));
+                if (declAt < 0) {
+                    System.err.println("could not locate declaration of " + u.ownType + " in " + srcName(cu) + " -- aborting");
+                    System.exit(1);
+                }
+            }
+
+            // (1) the package declaration -- before every import and every type, since
+            //     only comments may precede it.
+            if (u.isMoving) {
+                long at = cu.getImports().isEmpty()
+                        ? declAt
+                        : positions.getStartPosition(cu, cu.getImports().get(0));
+                if (at < 0) { System.err.println("no package insertion point in " + srcName(cu) + " -- aborting"); System.exit(1); }
+                edits.add(new Edit(at, at, "package " + u.targetPkg + ";\n\n", 0, "package"));
+            }
+
+            // (2) the imports.
             StringBuilder block = new StringBuilder();
             if (!needed.isEmpty()) {
                 for (String imp : needed) block.append("import ").append(imp).append(";\n");
                 block.append("\n");
                 importsAdded += needed.size();
-            }
 
-            // --- where do the package + imports go? ------------------------------
-            // The package declaration must precede every import and every type, but
-            // comments may precede IT -- so it goes immediately before the first import,
-            // or immediately before the type declaration when there are none.
-            if (isMoving) {
                 long at;
                 if (!cu.getImports().isEmpty()) {
-                    at = positions.getStartPosition(cu, cu.getImports().get(0));
-                } else {
-                    at = declStart(src, ownType, positions.getStartPosition(cu, own));
-                    if (at < 0) {
-                        System.err.println("could not locate declaration of " + ownType + " in " + srcName(cu) + " -- aborting");
-                        System.exit(1);
-                    }
-                }
-                if (at < 0) { System.err.println("no insertion point in " + srcName(cu) + " -- aborting"); System.exit(1); }
-                edits.add(new Edit(at, at, "package " + targetPkg + ";\n\n", "package"));
-            }
-
-            if (block.length() > 0) {
-                long at;
-                String why;
-                if (!cu.getImports().isEmpty()) {
-                    ImportTree last = cu.getImports().get(cu.getImports().size() - 1);
-                    at = positions.getEndPosition(cu, last);
-                    why = "imports";
+                    at = positions.getEndPosition(cu, cu.getImports().get(cu.getImports().size() - 1));
                     if (at < 0 || at > src.length() || src.charAt((int) at - 1) != ';') {
                         System.err.println("import insertion point is not after an import in " + srcName(cu) + " -- aborting");
                         System.exit(1);
                     }
                 } else {
-                    at = declStart(src, ownType, positions.getStartPosition(cu, own));
-                    if (at < 0) {
-                        System.err.println("could not locate declaration of " + ownType + " in " + srcName(cu) + " -- aborting");
-                        System.exit(1);
-                    }
-                    why = "imports (no existing imports)";
+                    at = declAt;
                 }
-                edits.add(new Edit(at, at, block.toString(), why));
+                edits.add(new Edit(at, at, block.toString(), 1, "imports"));
             }
 
-            // --- refuse overlaps, then apply or report ---------------------------
+            // (3) the visibility widening.
+            if (mustWiden) {
+                edits.add(new Edit(declAt, declAt, "public ", 2, "visibility"));
+                widened++;
+            }
+
             edits.sort(new Comparator<Edit>() {
                 public int compare(Edit a, Edit b) {
                     if (a.start != b.start) return Long.compare(a.start, b.start);
-                    return Long.compare(a.end, b.end);
+                    return Integer.compare(a.priority, b.priority);
                 }
             });
             long last = -1;
             for (Edit e : edits) {
+                // `e.start < last` alone does NOT catch a -1 offset, because -1 < -1 is
+                // false -- which is how a bad insertion point once reached the StringBuilder.
+                if (e.start < 0 || e.end < e.start || e.end > src.length()) {
+                    System.err.println("INVALID edit offset " + e.start + ".." + e.end + " (" + e.why + ","
+                            + " length " + src.length() + ") in " + srcName(cu) + " -- aborting");
+                    System.exit(1);
+                }
                 if (e.start < last) { System.err.println("OVERLAPPING edits in " + srcName(cu) + " -- aborting"); System.exit(1); }
-                last = e.start;
+                last = e.end > e.start ? e.end : e.start;
             }
 
-            String newSrc = src;
-            if (apply) {
-                StringBuilder sb = new StringBuilder(src);
-                for (int i = edits.size() - 1; i >= 0; i--) {
-                    Edit e = edits.get(i);
-                    sb.replace((int) e.start, (int) e.end, e.text);
-                }
-                newSrc = sb.toString();
-                File f = new File(cu.getSourceFile().toUri());
-                if (isMoving) {
-                    Path dir = Paths.get("src", targetPkg);
-                    Files.createDirectories(dir);
-                    Path dst = dir.resolve(ownType + ".java");
-                    if (Files.exists(dst)) { System.err.println("target already exists: " + dst + " -- aborting"); System.exit(1); }
-                    Files.write(dst, newSrc.getBytes(StandardCharsets.UTF_8));
-                    Files.delete(f.toPath());
-                } else {
-                    Files.write(f.toPath(), newSrc.getBytes(StandardCharsets.UTF_8));
-                }
+            StringBuilder sb = new StringBuilder(src);
+            // Applied back-to-front so offsets stay valid. Within one offset this
+            // yields package, then imports, then `public` -- see the Edit javadoc.
+            for (int i = edits.size() - 1; i >= 0; i--) {
+                Edit e = edits.get(i);
+                sb.replace((int) e.start, (int) e.end, e.text);
             }
+            Pending p = new Pending();
+            if (u.isMoving) {
+                p.delete = new File(cu.getSourceFile().toUri());
+                p.write = Paths.get("src", u.targetPkg).resolve(u.ownType + ".java");
+            } else {
+                p.write = new File(cu.getSourceFile().toUri()).toPath();
+            }
+            p.content = sb.toString();
+            pending.add(p);
 
-            String action = isMoving ? ("MOVE -> src/" + targetPkg + "/" + ownType + ".java") : "imports only";
-            System.out.printf("  %-22s %-42s %s%n", ownType,
-                    (needed.isEmpty() ? "(no new imports)" : needed.toString()), action);
-            if (isMoving) {
+            StringBuilder what = new StringBuilder();
+            for (Edit e : edits) {
+                if (what.length() > 0) what.append(", ");
+                what.append(e.why);
+            }
+            System.out.printf("  %-22s %-46s %s%n", u.ownType,
+                    (needed.isEmpty() ? "(no new imports)" : needed.toString()),
+                    (u.isMoving ? "MOVE -> src/" + u.targetPkg + "/" + u.ownType + ".java" : "in place")
+                            + "  [" + what + "]");
+            if (u.isMoving) {
                 moved++;
-                if (hasMain[0]) entryPoints.add(targetPkg + "." + ownType);
+                if (u.hasMain) entryPoints.add(u.targetPkg + "." + u.ownType);
             }
         }
 
         System.out.println();
         System.out.println((apply ? "APPLIED" : "DRY RUN (nothing written)") + ": "
-                + totalFiles + " file(s), " + moved + " class(es) moved, " + importsAdded + " import(s) added");
+                + totalFiles + " file(s), " + moved + " class(es) moved, "
+                + widened + " class(es) widened to public, " + importsAdded + " import(s) added");
 
         if (!entryPoints.isEmpty()) {
             System.out.println();
@@ -358,9 +433,38 @@ public final class MoveToPackages {
             System.out.println();
             System.err.println("BLOCKED -- " + blockers.size() + " class(es) cannot move in this run:");
             for (String b : blockers) System.err.println("  " + b);
-            System.out.println("Nothing was written for the blocked classes.");
+            System.err.println("Nothing was written for ANY class -- fix the blockage and re-run.");
             System.exit(1);
         }
+
+        if (apply) {
+            // Validate the whole batch before touching the disk, so a collision on the
+            // last file cannot leave the first 130 half-written.
+            for (Pending p : pending) {
+                if (p.delete != null && Files.exists(p.write)) {
+                    System.err.println("target already exists: " + p.write + " -- aborting, nothing written");
+                    System.exit(1);
+                }
+            }
+            for (Pending p : pending) {
+                if (p.write.getParent() != null) Files.createDirectories(p.write.getParent());
+                Files.write(p.write, p.content.getBytes(StandardCharsets.UTF_8));
+                if (p.delete != null) Files.delete(p.delete.toPath());
+            }
+        }
+    }
+
+    private static boolean hasMain(ClassTree t) {
+        for (Tree m : t.getMembers()) {
+            if (!(m instanceof MethodTree)) continue;
+            MethodTree mt = (MethodTree) m;
+            if (mt.getName().contentEquals("main")
+                    && mt.getModifiers().getFlags().contains(Modifier.PUBLIC)
+                    && mt.getModifiers().getFlags().contains(Modifier.STATIC)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** The outermost type declaration enclosing `t` (i.e. the one that owns the file). */
@@ -383,8 +487,8 @@ public final class MoveToPackages {
     }
 
     /**
-     * The offset at which to insert a package declaration or import block: the start of
-     * the type declaration, INCLUDING its modifiers and annotations.
+     * The offset at which to insert a package declaration, import block or modifier: the
+     * start of the type declaration, INCLUDING its modifiers and annotations.
      *
      * Why this is not a simple equality test: javac's SourcePositions reports a ClassTree's
      * start at its FIRST MODIFIER, not at its name, so `public abstract class Animable`
