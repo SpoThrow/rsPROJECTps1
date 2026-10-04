@@ -9,3 +9,7 @@ build/
 # artefacts meant to be compared locally, not committed.
 packet-tap-*.log
 golden-master*.log
+
+# Compiled output of the tools/typeaware rewriters (RenameTypes / MoveToPackages).
+# Built on demand with `javac -d tools/typeaware/out ...`; the SOURCE is tracked.
+tools/typeaware/out/

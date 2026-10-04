@@ -29,7 +29,7 @@ public final class Model extends Animable {
 		if (size < 80000) {
 			size = 80000;
 		}
-		aClass21Array1661 = new Class21[size];
+		aClass21Array1661 = new ModelData[size];
 		newmodel = new boolean[Math.max(size, 100000)];
 		aOnDemandFetcherParent_1662 = onDemandFetcherParent;
 	}
@@ -42,13 +42,13 @@ public final class Model extends Animable {
 	    		return;
 	    	}
 	    	if (j >= aClass21Array1661.length) {
-	    		Class21[] grown = new Class21[j + 1024];
+	    		ModelData[] grown = new ModelData[j + 1024];
 	    		System.arraycopy(aClass21Array1661, 0, grown, 0, aClass21Array1661.length);
 	    		aClass21Array1661 = grown;
 	    	}
 	    	// Missing from local cache (no update server): mark present so region load can finish.
 	    	if (abyte0 == null || abyte0.length < 2) {
-	    		Class21 empty = aClass21Array1661[j] = new Class21();
+	    		ModelData empty = aClass21Array1661[j] = new ModelData();
 	    		empty.anInt369 = 0;
 	    		empty.anInt370 = 0;
 	    		empty.anInt371 = 0;
@@ -59,7 +59,7 @@ public final class Model extends Animable {
 			// System.out.println(j + " Written");
 			Stream class30_sub2_sub2 = new Stream(abyte0);
 		        class30_sub2_sub2.currentOffset = abyte0.length - (!newFormat ? 18 : 23);
-		        Class21 class21_1 = aClass21Array1661[j] = new Class21();
+		        ModelData class21_1 = aClass21Array1661[j] = new ModelData();
 		        class21_1.aByteArray368 = abyte0;
 		        class21_1.anInt369 = class30_sub2_sub2.readUnsignedWord();
 		        class21_1.anInt370 = class30_sub2_sub2.readUnsignedWord();
@@ -208,7 +208,7 @@ public final class Model extends Animable {
 			return null;
 		if(j < 0 || j >= aClass21Array1661.length)
 			return null;
-		Class21 class21 = aClass21Array1661[j];
+		ModelData class21 = aClass21Array1661[j];
 		if(class21 == null)
 		{
 			aOnDemandFetcherParent_1662.method548(j);
@@ -233,7 +233,7 @@ public final class Model extends Animable {
 				aOnDemandFetcherParent_1662.method548(i);
 			return false;
 		}
-		Class21 class21 = aClass21Array1661[i];
+		ModelData class21 = aClass21Array1661[i];
 		if(class21 == null)
 		{
 			aOnDemandFetcherParent_1662.method548(i);
@@ -261,7 +261,7 @@ public final class Model extends Animable {
 		int numVertices = nc1.readUnsignedWord();
 		int numTriangles = nc1.readUnsignedWord();
 		int numTexTriangles = nc1.readUnsignedByte();
-		Class21 ModelDef_1 = aClass21Array1661[modelID] = new Class21();
+		ModelData ModelDef_1 = aClass21Array1661[modelID] = new ModelData();
 		ModelDef_1.aByteArray368 = abyte0;
 		ModelDef_1.anInt369 = numVertices;
 		ModelDef_1.anInt370 = numTriangles;
@@ -601,7 +601,7 @@ public final class Model extends Animable {
 		int numVertices = nc1.readUnsignedWord();
 		int numTriangles = nc1.readUnsignedWord();
 		int numTexTriangles = nc1.readUnsignedByte();
-		Class21 ModelDef_1 = aClass21Array1661[modelID] = new Class21();
+		ModelData ModelDef_1 = aClass21Array1661[modelID] = new ModelData();
 		ModelDef_1.aByteArray368 = abyte0;
 		ModelDef_1.anInt369 = numVertices;
 		ModelDef_1.anInt370 = numTriangles;
@@ -987,7 +987,7 @@ public final class Model extends Animable {
 		private void readOldModel(int i)
 	{
 		aBoolean1659 = false;
-		Class21 class21 = aClass21Array1661[i];
+		ModelData class21 = aClass21Array1661[i];
 		anInt1626 = class21.anInt369;
 		anInt1630 = class21.anInt370;
 		anInt1642 = class21.anInt371;
@@ -2896,7 +2896,7 @@ public final class Model extends Animable {
 	public int anIntArrayArray1658[][];
 	public boolean aBoolean1659;
 	VertexNormal aClass33Array1660[];
-	private static Class21[] aClass21Array1661;
+	private static ModelData[] aClass21Array1661;
 	public static boolean newmodel[];
 	private static OnDemandFetcherParent aOnDemandFetcherParent_1662;
 	private static boolean[] aBooleanArray1663 = new boolean[4096];

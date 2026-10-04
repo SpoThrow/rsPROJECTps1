@@ -28,9 +28,27 @@
 # Class39 -> AudioFilter         MEDIUM-HIGH. Only used by Class6; float coefficient maths
 #                                and method545(Stream, Class29) -- takes the envelope.
 #
+# Class4  -> ObjectRotation     HIGH. Four static helpers (method155-158) that rotate a
+#                                local tile coordinate by an orientation in 0..3 and adjust
+#                                for object size (7 - k - (i1 - 1)). Used ONLY by
+#                                ObjectManager (:947, :1087-1088) to place landscape objects
+#                                and walls at their rotated offsets.
+# Class21 -> ModelData          HIGH. The cached raw model definition: aClass21Array1661
+#                                [modelID] holds aByteArray368 = the fetched bytes plus
+#                                anInt369/370/371 = vertex, triangle and texture-triangle
+#                                counts (Model.readNewModel :264-268); method462(j) builds
+#                                `new Model(j)` from it, method463(j) tests presence.
+#
 # DELIBERATELY NOT RENAMED YET (role not yet confirmed from use, so a name would be a
-# guess -- and a wrong name is worse than an obfuscated one): Class4, Class21,
-# Class30_Sub1, Class40, Class43, Class47. See the plan's Phase 3.3 note.
+# guess -- and a wrong name is worse than an obfuscated one): Class30_Sub1, Class40,
+# Class43, Class47. Naming those needs the Phase 4 scene work: Class40 (19-arg ctor,
+# shape tables, drawn through Texture.method378) and Class43 (4 corner heights + flat
+# flag, held as Ground.aClass43_1311) are the per-tile scene meshes, and Class47 (x/y
+# bounds + a type byte, per-level arrays of 500) and Class30_Sub1 (extends Node, walked
+# via aClass19_1179 in client.method63) are render/queue holders -- but which is which
+# is not pinned yet. DummyClass is not a naming problem but a DEAD class: its only use
+# anywhere is `DummyClass.cache = null;` (client.java:8698), so it belongs to Phase 8's
+# dead-code pass, not to 3.3.
 Class11=CollisionMap
 Class33=VertexNormal
 Class13=Bzip2Decompressor
@@ -40,3 +58,5 @@ Class36=Frames
 Class6=SoundEffect
 Class29=AudioEnvelope
 Class39=AudioFilter
+Class4=ObjectRotation
+Class21=ModelData

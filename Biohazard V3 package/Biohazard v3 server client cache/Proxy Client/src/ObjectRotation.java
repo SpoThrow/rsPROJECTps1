@@ -3,7 +3,7 @@
 // Decompiler options: packimports(3) 
 
 
-final class Class4
+final class ObjectRotation
 {
 
 	public static int method155(int i, int j, int k)
