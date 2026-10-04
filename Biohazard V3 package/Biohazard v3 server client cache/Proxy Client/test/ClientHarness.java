@@ -1,3 +1,6 @@
+import java.io.File;
+import java.io.FileInputStream;
+
 /**
  * Headless self-check harness for the Soul-Trail client - Phase 0.4 of
  * CLIENT_REFACTORING_PLAN.md.
@@ -47,6 +50,7 @@ public final class ClientHarness {
 		streamG2G4Aliases();
 		streamBitAccess();
 		streamOutOfRangeReadIsSilentAndWrong();
+		packetTapProducesDiffableLog();
 
 		System.out.println("=====================================");
 		System.out.println("passed: " + passed + "   failed: " + failed);
@@ -179,6 +183,82 @@ public final class ClientHarness {
 		check("Stream: out-of-range readUnsignedWord does NOT throw (silent failure)", !threw);
 		check("Stream: out-of-range readUnsignedWord returns the hardcoded 1795 sentinel",
 				value == 1795);
+	}
+
+	// ------------------------------------------------------------------ PacketTap
+
+	/**
+	 * Verifies the Phase 0.3 capture tool actually writes what it claims.
+	 *
+	 * <p>This exists because the failure it guards against is silent and expensive: if
+	 * the tap does not enable, or writes a format that cannot be diffed, the user spends
+	 * a session capturing and ends up with a log that is worthless as an oracle - and
+	 * the mistake surfaces later, when there is no second chance to record that exact
+	 * session against the same server build.
+	 *
+	 * <p>⚠️ The system property must be set <em>before</em> the first reference to
+	 * {@code PacketTap}, because it reads it in a static initialiser. Nothing else in
+	 * this harness touches it, so setting it here is safe.
+	 */
+	private static void packetTapProducesDiffableLog() {
+		File out = new File(System.getProperty("java.io.tmpdir"), "soultrail-tap-selftest.log");
+		if (out.exists()) {
+			out.delete();
+		}
+		System.setProperty("soultrail.packettap", out.getAbsolutePath());
+
+		// First reference initialises PacketTap, which opens the file.
+		check("PacketTap: enables when its system property points at a file", PacketTap.enabled());
+
+		PacketTap.incoming(new byte[] { 0x0a }, 0, 1);
+		PacketTap.outgoing(new byte[] { 0x00, 0x04, 0x01 }, 0, 3);
+		PacketTap.incoming(new byte[] { (byte) 0xde, (byte) 0xad, (byte) 0xbe, (byte) 0xef }, 0, 4);
+
+		String text = readFileText(out);
+		check("PacketTap: wrote a log", out.exists() && text.length() > 0);
+		check("PacketTap: records an incoming read as 'R <len> <hex>'", text.contains("R 1 0a\n"));
+		check("PacketTap: records an outgoing frame as 'W <len> <hex>'", text.contains("W 3 000401\n"));
+		check("PacketTap: zero-pads bytes to two hex digits (0xde.. stays 8 chars)",
+				text.contains("R 4 deadbeef\n"));
+
+		// Diffability: every data line must be exactly "<dir> <len> <hex>" - no
+		// timestamps, no counters, nothing that differs between two runs.
+		boolean everyLineDiffable = true;
+		for (String line : text.split("\n", -1)) {
+			if (line.length() == 0 || line.startsWith("#")) {
+				continue;
+			}
+			if (!line.matches("[RW] [0-9]+ [0-9a-f]+")) {
+				everyLineDiffable = false;
+			}
+		}
+		check("PacketTap: every data line is diffable ('<dir> <len> <hex>', no timestamps)",
+				everyLineDiffable);
+
+		out.delete();
+	}
+
+	private static String readFileText(File file) {
+		FileInputStream in = null;
+		try {
+			in = new FileInputStream(file);
+			byte[] buf = new byte[(int) file.length()];
+			int offset = 0;
+			int n;
+			while (offset < buf.length && (n = in.read(buf, offset, buf.length - offset)) > 0) {
+				offset += n;
+			}
+			return new String(buf, 0, offset, "UTF-8");
+		} catch (Exception e) {
+			return "";
+		} finally {
+			try {
+				if (in != null) {
+					in.close();
+				}
+			} catch (Exception e) {
+			}
+		}
 	}
 
 	// ------------------------------------------------------------------ plumbing

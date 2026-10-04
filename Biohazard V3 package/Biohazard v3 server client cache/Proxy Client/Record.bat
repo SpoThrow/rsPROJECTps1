@@ -1,0 +1,84 @@
+@echo off
+REM ---------------------------------------------------------------------------
+REM Golden-master capture - Phase 0.3 of CLIENT_REFACTORING_PLAN.md.
+REM
+REM Launches the client EXACTLY as Run.bat does, but with the passive packet tap
+REM switched on via -Dsoultrail.packettap. The tap only observes; it does not
+REM change a single byte the client sends or receives, so a capture taken with it
+REM is a valid baseline for the unmodified client.
+REM
+REM Usage:  Record.bat [output-file]
+REM         default: packet-tap-<timestamp>.log, next to this script.
+REM
+REM Re-run it after a phase and diff the two logs to prove the protocol did not
+REM drift. The logs have no timestamps precisely so they can be diffed directly.
+REM ---------------------------------------------------------------------------
+cd /d "%~dp0"
+
+if not exist bin (
+	echo Client is not compiled. Run:  gradlew.bat installBin
+	if /I not "%~1"=="nopause" pause
+	exit /b 1
+)
+
+set OUT=%~1
+if "%OUT%"=="" (
+	for /f %%i in ('powershell -NoProfile -Command "Get-Date -Format yyyyMMdd-HHmmss"') do set STAMP=%%i
+	set OUT=packet-tap-%STAMP%.log
+)
+
+REM Display path: a relative OUT lives next to this script, an absolute one is
+REM already complete. Without this the banner would print e.g. "C:\client\C:\tmp\x.log".
+set DISPLAY=%OUT%
+echo "%OUT%" | findstr /r /c:":" >nul
+if errorlevel 1 set DISPLAY=%CD%\%OUT%
+
+set CP=bin
+if exist deps\lwjgl.jar set CP=bin;deps\lwjgl.jar
+set NATIVES=
+if exist deps\natives set NATIVES=-Dorg.lwjgl.librarypath="%~dp0deps\natives"
+
+REM Prove the output path is writable BEFORE the session, not after. The tap only
+REM opens its file on the first packet, so a bad path or a read-only folder would
+REM otherwise only surface once the capture was already lost. Probe then delete, so
+REM no misleading empty log is left behind.
+> "%OUT%.probe" echo probe 2>nul
+if not exist "%OUT%.probe" (
+	echo.
+	echo   ERROR: cannot write to "%DISPLAY%"
+	echo   Check the folder exists and is writable, or pass a different path:
+	echo       Record.bat C:\some\writable\folder\capture.log
+	echo.
+	if /I not "%~1"=="nopause" pause
+	exit /b 1
+)
+del "%OUT%.probe" >nul 2>&1
+
+echo.
+echo   ================================================================
+echo    GOLDEN MASTER CAPTURE SESSION
+echo   ================================================================
+echo    Packet log : %DISPLAY%
+echo    Client     : unchanged (tap is passive, off by default)
+echo.
+echo    Please perform, in order:
+echo      1. log in
+echo      2. walk a short distance
+echo      3. attack something once
+echo      4. pick one item up off the ground
+echo    and while recording, also visit the 667 content:
+echo      5. walk past Nex, and past any curse / Blood reaver content
+echo      6. the Rock Crab area (where the noted-item crash happened)
+echo.
+echo    Record the screen too, then close the client normally.
+echo   ================================================================
+echo.
+
+java -Xmx1024m %NATIVES% -Dsoultrail.packettap="%OUT%" -cp "%CP%" Loader
+
+echo.
+echo Packet log written to: %DISPLAY%
+if exist "%OUT%" (
+	for %%f in ("%OUT%") do echo Lines: %%~zf bytes
+)
+if /I not "%~1"=="nopause" pause

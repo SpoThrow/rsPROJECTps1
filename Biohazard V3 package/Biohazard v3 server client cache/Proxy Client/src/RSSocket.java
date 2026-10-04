@@ -53,7 +53,13 @@ final class RSSocket
 		if(closed)
 			return 0;
 		else
-			return inputStream.read();
+		{
+			int value = inputStream.read();
+			// Phase 0.3 packet tap. Guarded by enabled() so normal play is unaffected.
+			if(value >= 0 && PacketTap.enabled())
+				PacketTap.incoming(new byte[] { (byte) value }, 0, 1);
+			return value;
+		}
 	}
 
 	public int available()
@@ -71,6 +77,7 @@ final class RSSocket
 		int i = 0;//was parameter
 		if(closed)
 			return;
+		int requested = j;   // Phase 0.3: remember the length, the loop consumes j
 		int k;
 		for(; j > 0; j -= k)
 		{
@@ -79,6 +86,8 @@ final class RSSocket
 				throw new IOException("EOF");
 			i += k;
 		}
+		if(PacketTap.enabled())
+			PacketTap.incoming(abyte0, 0, requested);
 
 	}
 
@@ -92,6 +101,11 @@ final class RSSocket
 			hasIOError = false;
 			throw new IOException("Error in writer thread");
 		}
+		// Phase 0.3: tap the whole frame here rather than in the writer thread, because
+		// outputStream.write() is called with whatever the ring buffer happens to hold
+		// and would split/coalesce frames differently on every run.
+		if(PacketTap.enabled())
+			PacketTap.outgoing(abyte0, 0, i);
 		if(buffer == null)
 			buffer = new byte[5000];
 		synchronized(this)
