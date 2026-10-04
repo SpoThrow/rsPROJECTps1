@@ -18,6 +18,14 @@ public final class ObjectCollisionSizes
 	private static final int MAX_ID = 14209;
 
 	/**
+	 * SHA-256 of the server Data/objectSize.cfg this file was generated from.
+	 * Read only by the build (verifyObjectCollisionSizes), which recomputes it and fails
+	 * if the two disagree: the client and server must not drift on scenery footprints,
+	 * and a generated file gives no other clue that it is stale.
+	 */
+	static final String SOURCE_CFG_SHA256 = "a31273d7548151e5972034328c5ace4dd0388e01586b5b514260e7e7d541a47d";
+
+	/**
 	 * One hex byte per object id, indexed by id. 0 means "the table has no entry";
 	 * otherwise the byte is (width << 4) | height, both at least 1. Hex rather than Base64
 	 * because the client targets Java 7, where java.util.Base64 does not exist.

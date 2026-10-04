@@ -1,4 +1,22 @@
 @echo off
+REM ---------------------------------------------------------------------------
+REM DEPRECATED - prefer the Gradle build (CLIENT_REFACTORING_PLAN.md, Phase 1):
+REM     gradlew.bat installBin     compile and copy classes into bin\
+REM     gradlew.bat check          harness + stale-class + cfg-freshness checks
+REM     gradlew.bat build          the lot
+REM
+REM Kept as a working fallback until a Gradle-built client has been confirmed on
+REM a live session against the server. Two differences from Gradle:
+REM   * Gradle pins --release 8; this script used -source/-target 1.7, which
+REM     modern javac rejects outright and which only worked because the script
+REM     pins a JDK 8 below.
+REM   * Gradle reads the sources as UTF-8. This script sets no -encoding, so it
+REM     uses the platform default (Cp1252) and compiles four player-visible
+REM     strings to mojibake - a UTF-8 em dash becoming three wrong characters.
+REM
+REM WARNING: :killclient below runs taskkill /F on the game window. Do not run
+REM this as a convenience step while playing.
+REM ---------------------------------------------------------------------------
 cd /d "%~dp0"
 
 if not exist bin mkdir bin

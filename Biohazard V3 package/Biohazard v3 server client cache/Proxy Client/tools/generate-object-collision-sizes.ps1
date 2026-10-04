@@ -68,6 +68,12 @@ for ($i = 0; $i -lt $packed.Length; $i += $chunkSize) {
     $chunks.Add($packed.Substring($i, $len))
 }
 
+# Hash of the cfg this file was generated from. The client build's
+# verifyObjectCollisionSizes task recomputes it and fails on a mismatch, so a stale
+# generated file cannot pass unnoticed. Nothing else about a generated file reveals
+# its age, and the client and server must not drift apart on scenery footprints.
+$cfgHash = (Get-FileHash -LiteralPath $cfgPath -Algorithm SHA256).Hash.ToLower()
+
 $builder = New-Object System.Text.StringBuilder
 [void]$builder.AppendLine('/*')
 [void]$builder.AppendLine(' * GENERATED FILE - do not hand-edit.')
@@ -87,6 +93,14 @@ $builder = New-Object System.Text.StringBuilder
 [void]$builder.AppendLine('')
 [void]$builder.AppendLine('	/** Highest object id in the table. */')
 [void]$builder.AppendLine('	private static final int MAX_ID = ' + $maxId + ';')
+[void]$builder.AppendLine('')
+[void]$builder.AppendLine('	/**')
+[void]$builder.AppendLine('	 * SHA-256 of the server Data/objectSize.cfg this file was generated from.')
+[void]$builder.AppendLine('	 * Read only by the build (verifyObjectCollisionSizes), which recomputes it and fails')
+[void]$builder.AppendLine('	 * if the two disagree: the client and server must not drift on scenery footprints,')
+[void]$builder.AppendLine('	 * and a generated file gives no other clue that it is stale.')
+[void]$builder.AppendLine('	 */')
+[void]$builder.AppendLine('	static final String SOURCE_CFG_SHA256 = "' + $cfgHash + '";')
 [void]$builder.AppendLine('')
 [void]$builder.AppendLine('	/**')
 [void]$builder.AppendLine('	 * One hex byte per object id, indexed by id. 0 means "the table has no entry";')

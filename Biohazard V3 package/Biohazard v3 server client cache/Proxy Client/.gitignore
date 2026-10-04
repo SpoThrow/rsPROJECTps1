@@ -1,0 +1,6 @@
+.gradle/
+build/
+
+# bin/ is deliberately NOT ignored: Run.bat launches from it, and it is tracked so
+# a built client can be diffed against the Phase 0.2 baseline in
+# _client-backup-*/BIN-BASELINE.sha256 (see CLIENT_REFACTORING_PLAN.md).

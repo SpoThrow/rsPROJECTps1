@@ -1,0 +1,239 @@
+// ---------------------------------------------------------------------------
+// Soul-Trail client build. Replaces Compile.bat. (CLIENT_REFACTORING_PLAN.md, Phase 1)
+//
+// The script this replaces compiled with
+//     javac -source 1.7 -target 1.7
+// against a hardcoded JDK 8, which only kept working by accident: `-source 7`
+// was removed in JDK 21, so plain `javac` on PATH (25 on this machine) refuses
+// it outright. The build survived purely because the script pinned jdk1.8.0_202.
+//
+// Two deliberate choices:
+//
+// 1. `options.release`, not sourceCompatibility/targetCompatibility.
+//    `--release 8` constrains the *API* as well as the bytecode level. The old
+//    `-source/-target` pair did not: it compiled against all of JDK 8. Since
+//    --release makes the API surface NARROWER, it was checked for internal JDK
+//    API use first - the client imports none (the only `sun.*` references are
+//    system-property string literals in GlPresent.java). Verified compiling.
+//
+// 2. No `toolchain` block, on purpose.
+//    A toolchain would make Gradle provision a JDK. This machine has JDK 8 and
+//    JDK 25 and nothing between, and provisioning needs the network. javac 25
+//    can already emit Java 8 bytecode via `--release 8`, so the running JDK is
+//    sufficient and the build stays offline and hermetic. Raising the target
+//    later is a one-line override: -PclientJavaRelease=17
+// ---------------------------------------------------------------------------
+
+plugins {
+    id 'java'
+}
+
+def javaRelease = (findProperty('clientJavaRelease') ?: '8') as int
+
+group = 'com.soultrail'
+version = '3.0'
+
+def mainClassesDir = layout.buildDirectory.dir('classes/java/main').get().asFile
+def harnessClassesDir = layout.buildDirectory.dir('harness/classes').get().asFile
+def binDir = layout.projectDirectory.dir('bin').asFile
+
+sourceSets {
+    main {
+        // The client is a flat default-package tree with one subpackage (`sign`),
+        // not Maven's src/main/java. Point the source set at it directly.
+        java { srcDirs = ['src'] }
+        resources { srcDirs = [] }
+    }
+}
+
+dependencies {
+    // Compile.bat put deps/lwjgl.jar on the compile classpath and Run.bat puts it
+    // on the runtime classpath. No source imports org.lwjgl - the jar is LWJGL 2
+    // and the Display.setParent approach it existed for was abandoned (see
+    // LwjglPresent.java) - but both classpaths are mirrored so this build matches
+    // the script it replaces rather than quietly diverging from it.
+    compileOnly files('deps/lwjgl.jar')
+    runtimeOnly files('deps/lwjgl.jar')
+}
+
+tasks.withType(JavaCompile).configureEach {
+    // The sources ARE UTF-8, and declaring that fixes four live bugs.
+    //
+    // Compile.bat passed no -encoding, so javac used the platform default
+    // (Cp1252 here). Thirteen client sources contain non-ASCII bytes, and in
+    // nine of them they sit only in comments - bytecode unaffected. In the other
+    // four they sit in string literals, where a UTF-8 em dash (E2 80 94) read as
+    // Cp1252 became the three-character mojibake "a-hat, euro, curly-quote".
+    // Those four strings are player-visible today:
+    //     ChatboxItemSearch  "...<mojibake> click an item"
+    //     FriendListPlugin   "Friends <mojibake> 3/200"
+    //     Interfaces         "Crisp edge smoothing only <mojibake> no screen blur"
+    //     PluginSidebar      "Crisp silhouette edges only <mojibake> no blur"
+    // Measured: exactly those 4 classes change, and no others.
+    //
+    // UTF-8 is also what tools/generate-object-collision-sizes.ps1 already writes
+    // ObjectCollisionSizes.java as, so this removes a generator/compiler mismatch.
+    options.encoding = 'UTF-8'
+    options.release = javaRelease
+    // Surface every warning so 1.3 has a baseline to defend. `-options` is off
+    // because javac 25 merely notes that Java 8 is old, which is not a code warning.
+    options.compilerArgs << '-Xlint:all,-options'
+}
+
+// ---------------------------------------------------------------------------
+// bin/ is the runtime directory - Run.bat does `java -cp bin Loader` - and it is
+// git-tracked. Gradle compiles to build/, then this copies the classes down.
+//
+// Faithful to Compile.bat's robocopy /E /IS /IT: overwrite changed files, but
+// NEVER purge. Compile.bat never removed anything either, which is why bin/
+// currently carries 7 stale .class files. Purging is Phase 8's decision, not a
+// build side effect, so the drift is reported instead of silently fixed.
+// ---------------------------------------------------------------------------
+tasks.register('installBin', Copy) {
+    group = 'build'
+    description = 'Copies compiled classes into bin/, the directory Run.bat launches from.'
+    dependsOn tasks.named('classes')
+    from mainClassesDir
+    into binDir
+    include '**/*.class'
+}
+
+tasks.named('assemble') {
+    dependsOn 'installBin'
+}
+
+// Drift check, deliberately its own always-run task rather than a hook on
+// installBin: installBin is incremental, so a hook would stay silent exactly
+// when nothing changed - which is when a stale class is most likely to survive
+// unnoticed. Wired into `check`.
+tasks.register('reportStaleClasses') {
+    group = 'verification'
+    description = 'Lists .class files in bin/ that no source produces.'
+    outputs.upToDateWhen { false }
+    doLast {
+        if (!binDir.exists() || !mainClassesDir.exists()) {
+            logger.lifecycle('reportStaleClasses: bin/ or build output missing; nothing to compare.')
+            return
+        }
+        def produced = [] as Set
+        mainClassesDir.eachFileRecurse { f ->
+            if (f.name.endsWith('.class')) {
+                produced << mainClassesDir.toPath().relativize(f.toPath()).toString().replace('\\', '/')
+            }
+        }
+        def stale = []
+        binDir.eachFileRecurse { f ->
+            if (f.name.endsWith('.class')) {
+                def rel = binDir.toPath().relativize(f.toPath()).toString().replace('\\', '/')
+                if (!produced.contains(rel)) stale << rel
+            }
+        }
+        if (stale) {
+            logger.lifecycle("reportStaleClasses: ${stale.size()} stale .class file(s) in bin/ that no source produces (Phase 8 cleanup):")
+            stale.sort().each { logger.lifecycle("    ${it}") }
+        } else {
+            logger.lifecycle('reportStaleClasses: bin/ is clean.')
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Headless tests (Phase 0.4). Deliberately NOT the JUnit `test` source set: the
+// harness is dependency-free by design, so it needs a compile step and a run
+// step and nothing else. Kept out of Compile.bat's way - running tests must
+// never close the game window, which Compile.bat's :killclient would do.
+// ---------------------------------------------------------------------------
+tasks.register('compileHarness', JavaCompile) {
+    group = 'verification'
+    description = 'Compiles the headless harness in test/ against the client classes.'
+    dependsOn tasks.named('classes')
+    source = fileTree('test') { include '**/*.java' }
+    classpath = files(mainClassesDir) + files('deps/lwjgl.jar')
+    destinationDirectory = layout.buildDirectory.dir('harness/classes')
+    options.encoding = 'UTF-8'
+    options.release = javaRelease
+}
+
+tasks.register('harness', JavaExec) {
+    group = 'verification'
+    description = 'Runs the headless harness (ClientHarness).'
+    dependsOn tasks.named('compileHarness')
+    // main first, then the client classes it drives; harness lives in the default
+    // package because Stream (which it tests) does too.
+    classpath = files(harnessClassesDir) + files(mainClassesDir)
+    mainClass = 'ClientHarness'
+}
+
+tasks.named('check') {
+    dependsOn 'harness', 'reportStaleClasses', 'verifyObjectCollisionSizes'
+}
+
+// ---------------------------------------------------------------------------
+// Phase 1.4 - keep ObjectCollisionSizes.java from drifting from the server's
+// Data/objectSize.cfg. The client and server must agree on scenery footprints or
+// collision silently diverges, and a generated file gives no hint that it is stale.
+//
+// The generated file therefore embeds SHA-256 of the cfg it came from, and this
+// task recomputes that hash and compares. Deliberately no PowerShell and no
+// re-running the generator: verification must not mutate a tracked source file,
+// and it must work offline.
+// ---------------------------------------------------------------------------
+tasks.register('generateObjectCollisionSizes', Exec) {
+    group = 'build'
+    description = 'Regenerates src/ObjectCollisionSizes.java from Proxy Server/Data/objectSize.cfg.'
+    workingDir = projectDir
+    commandLine 'powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass',
+            '-File', file('tools/generate-object-collision-sizes.ps1').absolutePath
+}
+
+tasks.register('verifyObjectCollisionSizes') {
+    group = 'verification'
+    description = 'Fails if src/ObjectCollisionSizes.java was not generated from the current server objectSize.cfg.'
+    // Always run: it is a freshness check, and up-to-date tracking would let it
+    // pass by being skipped rather than by verifying anything.
+    outputs.upToDateWhen { false }
+    doLast {
+        def cfg = file('../Proxy Server/Data/objectSize.cfg')
+        def generated = file('src/ObjectCollisionSizes.java')
+        if (!cfg.exists()) {
+            throw new GradleException("Cannot find the object size table at ${cfg}")
+        }
+        if (!generated.exists()) {
+            throw new GradleException("Cannot find ${generated}")
+        }
+
+        // Same value the generator computes with Get-FileHash: SHA-256 of the cfg's
+        // raw bytes, lowercase hex.
+        def digest = java.security.MessageDigest.getInstance('SHA-256')
+        def actual = new BigInteger(1, digest.digest(cfg.bytes)).toString(16).padLeft(64, '0')
+
+        def m = (generated.getText('UTF-8') =~ /SOURCE_CFG_SHA256\s*=\s*"([0-9a-f]{64})"/)
+        if (!m.find()) {
+            throw new GradleException(
+                    "src/ObjectCollisionSizes.java has no SOURCE_CFG_SHA256 constant, so its age cannot be " +
+                    "checked. Regenerate it: gradlew generateObjectCollisionSizes")
+        }
+        def embedded = m.group(1)
+        if (actual != embedded) {
+            throw new GradleException(
+                    "src/ObjectCollisionSizes.java is OUT OF SYNC with Proxy Server/Data/objectSize.cfg.\n" +
+                    "  current cfg hash    : ${actual}\n" +
+                    "  hash it was built from: ${embedded}\n" +
+                    "The client and server would disagree about scenery collision.\n" +
+                    "Run: gradlew generateObjectCollisionSizes")
+        }
+        logger.lifecycle("verifyObjectCollisionSizes: in sync with the server cfg (${actual.substring(0, 12)}...).")
+    }
+}
+
+// Alternative to Run.bat for development. Run.bat is untouched and remains the
+// normal way to launch; this exists so `gradlew run` works from the build.
+tasks.register('run', JavaExec) {
+    group = 'application'
+    description = 'Launches the client (mirrors Run.bat).'
+    dependsOn tasks.named('classes')
+    workingDir = projectDir
+    classpath = files(mainClassesDir) + files('deps/lwjgl.jar')
+    mainClass = 'Loader'
+    jvmArgs = ['-Xmx1024m']
+}
