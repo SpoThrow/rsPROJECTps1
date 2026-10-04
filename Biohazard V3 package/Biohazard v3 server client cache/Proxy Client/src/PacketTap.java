@@ -14,12 +14,22 @@ import java.io.IOException;
  *
  * <p><b>Why it taps {@link RSSocket} and not the TCP stream.</b> TCP chunk boundaries
  * are not reproducible - the same session produces different {@code write()} call
- * sizes on different runs - so a log of raw socket chunks cannot be diffed. But the
- * client does not consume the stream in TCP chunks: {@code client.java} reads exactly
- * one packet at a time through {@code read()} (opcodes/lengths) and
+ * sizes on different runs - so a log of raw socket chunks cannot be compared at all.
+ * But the client does not consume the stream in TCP chunks: {@code client.java} reads
+ * exactly one packet at a time through {@code read()} (opcodes/lengths) and
  * {@code flushInputStream()} (payloads), and queues whole frames through
  * {@code queueBytes()}. Tapping those three methods therefore records the protocol the
  * way the client actually understands it, which <em>is</em> reproducible.
+ *
+ * <p><b>Reproducible in STRUCTURE, not in bytes - and the difference matters.</b> A
+ * byte-for-byte comparison of two sessions is IMPOSSIBLE on this protocol, for reasons
+ * that have nothing to do with this tap: every packet opcode after login is
+ * ISAAC-encrypted with keys the client seeds from {@code Math.random()} plus the
+ * server's 8 random bytes, and the login block embeds those seeds. Two sessions of the
+ * same actions therefore share neither opcode bytes nor handshake contents. What they
+ * <em>do</em> share is the sequence of directions and lengths, which is what
+ * {@code tools/compare-capture.ps1} compares - and a desync is precisely what changes
+ * it, because reading a packet in the wrong order consumes a different number of bytes.
  *
  * <p><b>Off unless asked for.</b> Enabled only by the {@value #PROPERTY} system
  * property. With it unset, {@link #enabled()} is false, every record call returns
@@ -28,7 +38,9 @@ import java.io.IOException;
  * is the launcher that turns it on.
  *
  * <p><b>Log format</b> - one line per read/write, deliberately minimal and free of
- * timestamps so two captures can be diffed directly:
+ * timestamps. The absence of timestamps matters for a different reason than byte
+ * comparison: a clock or a counter in the file would make even the structural
+ * comparison useless, since every line would then differ:
  * <pre>
  * # Soul-Trail packet tap v1
  * # dir len hex            (R = client&lt;-server, W = client-&gt;server)

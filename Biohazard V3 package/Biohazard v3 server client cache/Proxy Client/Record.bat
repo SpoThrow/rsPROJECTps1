@@ -21,11 +21,15 @@ if not exist bin (
 	exit /b 1
 )
 
+REM Default the output name WITHOUT a parenthesised block: `%STAMP%` inside the
+REM block below would be expanded when the whole block is parsed, before `set
+REM STAMP` has run, producing "packet-tap-.log". Branching avoids needing delayed
+REM expansion (which would also make `!` in a path special).
 set OUT=%~1
-if "%OUT%"=="" (
-	for /f %%i in ('powershell -NoProfile -Command "Get-Date -Format yyyyMMdd-HHmmss"') do set STAMP=%%i
-	set OUT=packet-tap-%STAMP%.log
-)
+if not "%OUT%"=="" goto :namedout
+for /f %%i in ('powershell -NoProfile -Command "Get-Date -Format yyyyMMdd-HHmmss"') do set STAMP=%%i
+set OUT=packet-tap-%STAMP%.log
+:namedout
 
 REM Display path: a relative OUT lives next to this script, an absolute one is
 REM already complete. Without this the banner would print e.g. "C:\client\C:\tmp\x.log".

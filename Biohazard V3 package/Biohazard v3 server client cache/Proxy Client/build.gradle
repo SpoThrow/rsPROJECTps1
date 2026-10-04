@@ -229,6 +229,59 @@ tasks.register('verifyObjectCollisionSizes') {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Phase 0.5 - the re-runnable compatibility check.
+//
+// Diffs a fresh packet-tap capture against the stored golden master. See
+// tools/compare-capture.ps1 for why this compares STRUCTURE (direction + length)
+// rather than bytes: ISAAC-encrypted opcodes keyed from Math.random() make a
+// byte diff impossible on this protocol, and a structural diff is exactly what a
+// desync breaks.
+//
+// Deliberately NOT wired into `check`: it needs a capture from a human session,
+// so it cannot run unattended. Run it after each phase, with a fresh Record.bat
+// capture in the client directory (or pass -Pcapture=<path>).
+// ---------------------------------------------------------------------------
+tasks.register('compareCapture', Exec) {
+    group = 'verification'
+    description = 'Diffs a packet-tap capture against the golden master (Phase 0.5).'
+    def goldenDir = file('golden-master')
+    def requested = findProperty('capture')
+    def dir = projectDir
+    doFirst {
+        def golden = goldenDir.listFiles()
+                ?.findAll { it.name.endsWith('.log') }
+                ?.sort { it.name }
+                ?.find()
+        if (golden == null) {
+            throw new GradleException(
+                    "No golden capture in ${goldenDir}. See Phase 0.3 of CLIENT_REFACTORING_PLAN.md.")
+        }
+        def current = null
+        if (requested != null) {
+            current = file(requested)
+            if (!current.exists()) {
+                throw new GradleException("Capture not found: ${current}")
+            }
+        } else {
+            current = dir.listFiles()
+                    ?.findAll { it.name ==~ /packet-tap-.*\.log/ }
+                    ?.sort { it.lastModified() }
+                    ?.reverse()
+                    ?.find()
+        }
+        if (current == null) {
+            throw new GradleException(
+                    'No capture found. Run Record.bat, or pass -Pcapture=<path to a packet-tap log>.')
+        }
+        logger.lifecycle("compareCapture: golden=${golden.name}  current=${current.name}")
+        commandLine 'powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass',
+                '-File', new File(dir, 'tools/compare-capture.ps1').absolutePath,
+                '-Golden', golden.absolutePath,
+                '-Current', current.absolutePath
+    }
+}
+
 // Alternative to Run.bat for development. Run.bat is untouched and remains the
 // normal way to launch; this exists so `gradlew run` works from the build.
 tasks.register('run', JavaExec) {
