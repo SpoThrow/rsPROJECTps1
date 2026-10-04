@@ -88,9 +88,15 @@ import com.sun.source.util.Trees;
 
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.TypeKind;
+import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticCollector;
 import javax.tools.JavaCompiler;
@@ -224,6 +230,11 @@ public final class MoveToPackages {
 
         final Trees trees = Trees.instance(task);
         final SourcePositions positions = trees.getSourcePositions();
+        final Types types = task.getTypes();
+        // Counted separately from markMember's widenings: "reached from another package"
+        // and "an override the move quietly severed" are different faults, and the second
+        // is the one that can never fail a build.
+        final int[] overrideWidenings = new int[1];
 
         // -------------------------------------------------------------------
         // PASS 1: attribute every file and record what it needs. Nothing is
@@ -309,6 +320,15 @@ public final class MoveToPackages {
                 @Override public Void visitMemberSelect(MemberSelectTree t, Void p) {
                     markMember(trees.getElement(getCurrentPath()), ownPkg, trees, map, memberWiden);
                     return super.visitMemberSelect(t, p);
+                }
+                // RULE 4: a package-private method cannot be overridden from another
+                // package, so a move silently severs every override that crossed one.
+                @Override public Void visitMethod(MethodTree t, Void p) {
+                    Element e = trees.getElement(getCurrentPath());
+                    if (e instanceof ExecutableElement && e.getKind() == ElementKind.METHOD) {
+                        markOverride((ExecutableElement) e, trees, types, map, memberWiden, overrideWidenings);
+                    }
+                    return super.visitMethod(t, p);
                 }
             }.scan(cu, null);
 
@@ -490,7 +510,8 @@ public final class MoveToPackages {
         System.out.println((apply ? "APPLIED" : "DRY RUN (nothing written)") + ": "
                 + totalFiles + " file(s), " + moved + " class(es) moved, "
                 + widened + " class(es) widened to public, " + membersWidened
-                + " member(s) widened to public, " + importsAdded + " import(s) added");
+                + " member(s) widened to public, " + overrideWidenings[0]
+                + " override(s) reconnected, " + importsAdded + " import(s) added");
 
         if (!entryPoints.isEmpty()) {
             System.out.println();
@@ -584,6 +605,108 @@ public final class MoveToPackages {
             out.put(declCu, set);
         }
         set.add(decl);
+    }
+
+    /**
+     * RULE 4 -- preserve cross-package OVERRIDES.
+     *
+     * The most dangerous of the rules, because it fails SILENTLY. A package-private
+     * method cannot be overridden from another package, so the moment a subclass and its
+     * superclass move into different packages, every such override becomes two unrelated
+     * methods: the code still compiles, and the superclass's own calls keep invoking the
+     * superclass's empty body.
+     *
+     * That is not hypothetical -- it is how the first full move produced a white game
+     * window with no compile error and no exception. `ui.RSApplet.run()` calls
+     * `startUp()`, `processGameLoop()` and `processDrawing()`, all package-private and all
+     * empty, and `game.client`'s real implementations of them stopped overriding. The
+     * loop ran, did nothing, and never drew a frame.
+     *
+     * Detection deliberately does NOT use {@code Elements.overrides}, which correctly
+     * answers "no" here -- the whole point is that the override no longer exists. So the
+     * signature is matched by hand and the relation is treated as intended. The base is
+     * widened to public, and the override with it when it is not already public, since a
+     * package-private override of a public method is a weaker-access error.
+     */
+    private static void markOverride(ExecutableElement me, Trees trees, Types types,
+                                     Map<String, String> pkgMap, Map<CompilationUnitTree, Set<Tree>> out,
+                                     int[] counter) {
+        if (me.getModifiers().contains(Modifier.STATIC) || me.getModifiers().contains(Modifier.PRIVATE)) return;
+        Element declEl = me.getEnclosingElement();
+        if (!(declEl instanceof TypeElement)) return;
+        TypeElement declType = (TypeElement) declEl;
+        String ownerPkg = targetPkgOf(topLevel(declType), pkgMap);
+        if (ownerPkg.isEmpty()) return;
+        boolean touched = false;
+        for (TypeElement sup : supertypes(declType, types)) {
+            String supPkg = targetPkgOf(topLevel(sup), pkgMap);
+            if (supPkg.isEmpty() || supPkg.equals(ownerPkg)) continue;   // same package: the override survives
+            for (Element m : sup.getEnclosedElements()) {
+                if (m.getKind() != ElementKind.METHOD) continue;
+                ExecutableElement sm = (ExecutableElement) m;
+                if (sm.getModifiers().contains(Modifier.STATIC) || sm.getModifiers().contains(Modifier.PRIVATE)) continue;
+                if (sm.getModifiers().contains(Modifier.PUBLIC) || sm.getModifiers().contains(Modifier.PROTECTED)) continue;
+                if (!sameSignature(me, sm, types)) continue;
+                if (widenDeclaration(sm, trees, out)) touched = true;
+                if (!me.getModifiers().contains(Modifier.PUBLIC)
+                        && widenDeclaration(me, trees, out)) touched = true;
+            }
+        }
+        if (touched) counter[0]++;
+    }
+
+    /** The target package of a type: its destination if it is moving, else where it is. */
+    private static String targetPkgOf(TypeElement t, Map<String, String> pkgMap) {
+        String target = pkgMap.get(t.getSimpleName().toString());
+        return target != null ? target : pkgOf(t);
+    }
+
+    /** Every supertype (class and interface, transitively), breadth-first. */
+    private static List<TypeElement> supertypes(TypeElement t, Types types) {
+        List<TypeElement> out = new ArrayList<TypeElement>();
+        Set<String> seen = new LinkedHashSet<String>();
+        List<TypeMirror> queue = new ArrayList<TypeMirror>();
+        queue.add(t.getSuperclass());
+        for (TypeMirror i : t.getInterfaces()) queue.add(i);
+        while (!queue.isEmpty()) {
+            TypeMirror tm = queue.remove(0);
+            if (tm == null || tm.getKind() != TypeKind.DECLARED) continue;
+            TypeElement te = (TypeElement) ((DeclaredType) tm).asElement();
+            if (!seen.add(te.getQualifiedName().toString())) continue;
+            out.add(te);
+            queue.add(te.getSuperclass());
+            for (TypeMirror i : te.getInterfaces()) queue.add(i);
+        }
+        return out;
+    }
+
+    /** Name and erased parameter types match -- i.e. these would override, given visibility. */
+    private static boolean sameSignature(ExecutableElement a, ExecutableElement b, Types types) {
+        if (!a.getSimpleName().contentEquals(b.getSimpleName())) return false;
+        List<? extends VariableElement> pa = a.getParameters();
+        List<? extends VariableElement> pb = b.getParameters();
+        if (pa.size() != pb.size()) return false;
+        for (int i = 0; i < pa.size(); i++) {
+            String ea = types.erasure(pa.get(i).asType()).toString();
+            String eb = types.erasure(pb.get(i).asType()).toString();
+            if (!ea.equals(eb)) return false;
+        }
+        return true;
+    }
+
+    /** Queue one declaration for a `public ` insertion; false when it is already recorded. */
+    private static boolean widenDeclaration(Element e, Trees trees, Map<CompilationUnitTree, Set<Tree>> out) {
+        Tree decl = trees.getTree(e);
+        if (decl == null) return false;
+        TreePath path = trees.getPath(e);
+        if (path == null) return false;
+        CompilationUnitTree cu = path.getCompilationUnit();
+        Set<Tree> set = out.get(cu);
+        if (set == null) {
+            set = Collections.newSetFromMap(new IdentityHashMap<Tree, Boolean>());
+            out.put(cu, set);
+        }
+        return set.add(decl);
     }
 
     /** The outermost type declaration enclosing `t` (i.e. the one that owns the file). */
