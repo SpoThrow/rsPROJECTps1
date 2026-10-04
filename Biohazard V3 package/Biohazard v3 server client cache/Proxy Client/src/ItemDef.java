@@ -168,7 +168,20 @@ public final class ItemDef {
 		team = 0;
 	}
 
+	/*
+	 * Stand-in returned for an id that is not in the cache. Shared deliberately:
+	 * the ten-entry cache below already hands out objects that are reused and
+	 * mutated, so callers cannot rely on a definition's identity anyway.
+	 */
+	private static ItemDef invalidDef;
+
 	public static ItemDef forID(int i) {
+		// An id outside the cache must never index streamIndices. A noted item whose
+		// opcode 98 (certTemplateID) is present without opcode 97 (certID) leaves
+		// certID at -1, and toNote() below then calls forID(-1) - which used to throw
+		// ArrayIndexOutOfBoundsException: Index -1 and crash the client.
+		if (cache == null || streamIndices == null || i < 0 || i >= streamIndices.length)
+			return invalid();
 		for (int j = 0; j < 10; j++)
 			if (cache[j].id == i)
 				return cache[j];
@@ -269,8 +282,38 @@ public final class ItemDef {
 		return itemDef;
 	}
 
+	/*
+	 * A defaulted definition with no name, for an id that is not in the cache.
+	 * setDefaults() leaves certTemplateID at -1, so this cannot recurse back into
+	 * toNote(). The name must be non-null because both toNote() and the renderer
+	 * read it.
+	 */
+	private static ItemDef invalid() {
+		if (invalidDef == null) {
+			invalidDef = new ItemDef();
+			invalidDef.setDefaults();
+			invalidDef.name = "null";
+			invalidDef.description = new byte[0];
+		}
+		return invalidDef;
+	}
+
 	private void toNote() {
+		// These two ids are read from the cache independently - certTemplateID from
+		// opcode 98, certID from opcode 97 - so an entry can have one without the
+		// other. Resolving a missing one indexes the cache out of range, so leave the
+		// base definition untouched rather than half-rewriting it into a broken note.
+		if (certTemplateID < 0 || certID < 0 || streamIndices == null
+				|| certTemplateID >= streamIndices.length || certID >= streamIndices.length)
+			return;
 		ItemDef itemDef = forID(certTemplateID);
+		ItemDef itemDef_1 = forID(certID);
+		// charAt(0) below needs a non-empty name. Both lookups are done before any
+		// assignment so that a rejected definition is not left half-modified; the
+		// order of the two forID calls is unchanged, which matters because forID
+		// rotates the shared cache.
+		if (itemDef_1.name == null || itemDef_1.name.length() == 0)
+			return;
 		modelID = itemDef.modelID;
 		modelZoom = itemDef.modelZoom;
 		modelRotationY = itemDef.modelRotationY;
@@ -281,7 +324,6 @@ public final class ItemDef {
 		modelOffset2 = itemDef.modelOffset2;
 		modifiedModelColors = itemDef.modifiedModelColors;
 		originalModelColors = itemDef.originalModelColors;
-		ItemDef itemDef_1 = forID(certID);
 		name = itemDef_1.name;
 		membersObject = itemDef_1.membersObject;
 		value = itemDef_1.value;

@@ -27,8 +27,12 @@ import java.io.FileInputStream;
  * is a compile error. The first version of this file failed to compile for exactly that reason, so
  * the rule is recorded here: keep client sources ASCII.
  *
- * <p>Run with {@code RunTests.bat}. Classes come from {@code bin/}, so this tests the compiled
- * client, not a copy of the source.
+ * <p>Run with {@code RunTests.bat}. ⚠️ <b>Classes come from the Gradle build output
+ * ({@code build/classes/java/main}), not from {@code bin/}.</b> That distinction matters:
+ * {@code installBin} copies build output into {@code bin/}, and {@code bin/} is what
+ * {@code Run.bat} actually plays. So a green harness proves the <em>built</em> code is
+ * correct, and says nothing about {@code bin/} until {@code installBin} has run - the two
+ * can silently differ, which would mean testing one thing and playing another.
  */
 public final class ClientHarness {
 
@@ -51,6 +55,7 @@ public final class ClientHarness {
 		streamBitAccess();
 		streamOutOfRangeReadIsSilentAndWrong();
 		packetTapProducesDiffableLog();
+		itemDefOutOfRangeIdIsSafe();
 
 		System.out.println("=====================================");
 		System.out.println("passed: " + passed + "   failed: " + failed);
@@ -258,6 +263,125 @@ public final class ClientHarness {
 				}
 			} catch (Exception e) {
 			}
+		}
+	}
+
+	// ---------------------------------------------------------------- ItemDef
+
+	/**
+	 * Pins the crash reported live while ranging Rock Crabs: a noted item whose opcode
+	 * 98 (certTemplateID) is present without opcode 97 (certID) leaves certID at -1,
+	 * and toNote() then calls forID(-1), which indexed streamIndices[-1].
+	 *
+	 * <p>The cache is built for real rather than left unloaded, and that distinction is
+	 * the whole point of this test: with cache == null the guard short-circuits before
+	 * the index test, so a regression that dropped ONLY the bounds check would still
+	 * pass. Loading a valid archive puts a non-null streamIndices in place, which is
+	 * exactly what the crash indexed.
+	 */
+	private static void itemDefOutOfRangeIdIsSafe() {
+		try {
+			ItemDef.unpackConfig(syntheticItemCache());
+		} catch (Throwable t) {
+			check("ItemDef: synthetic cache loads (required to reach the index check)", false);
+			return;
+		}
+
+		boolean threw = false;
+		String detail = "";
+		ItemDef negative = null;
+		ItemDef huge = null;
+		ItemDef inRange = null;
+		try {
+			negative = ItemDef.forID(-1);
+			huge = ItemDef.forID(Integer.MAX_VALUE);
+			inRange = ItemDef.forID(3);
+		} catch (Throwable t) {
+			threw = true;
+			detail = t.getClass().getSimpleName();
+		}
+
+		check("ItemDef: forID(-1) does not throw (was ArrayIndexOutOfBoundsException: Index -1)"
+				+ (threw ? " - got " + detail : ""), !threw);
+		check("ItemDef: forID(-1) returns a usable definition whose name is non-null",
+				!threw && negative != null && negative.name != null && negative.name.length() > 0);
+		check("ItemDef: forID(Integer.MAX_VALUE) does not throw", !threw && huge != null);
+		check("ItemDef: an in-range id still reads the cache unchanged", !threw && inRange != null);
+	}
+
+	/**
+	 * A minimal but genuinely valid StreamLoader holding "obj.dat" and "obj.idx".
+	 *
+	 * <p>Uses the gzip branch (compressed length 0) deliberately: it is what the real
+	 * cache uses, and it is the only branch that sets aBoolean732, so getDataForName
+	 * simply copies instead of running Class13 LZ decompression.
+	 */
+	private static StreamLoader syntheticItemCache() {
+		byte[] objDat = new byte[128]; // first byte is opcode 0, so readValues returns at once
+		byte[] objIdx = new byte[4];
+		objIdx[0] = 0;                 // totalItems - 21 == 1, big-endian word
+		objIdx[1] = 1;
+		objIdx[2] = 0;                 // the single entry's size; unpackConfig ignores it
+		objIdx[3] = 0;
+
+		int dataSize = 2;
+		byte[] payload = new byte[2 + dataSize * 10 + objDat.length + objIdx.length];
+		Stream p = new Stream(payload);
+		p.writeWord(dataSize);
+		writeEntry(p, "obj.dat", objDat.length);
+		writeEntry(p, "obj.idx", objIdx.length);
+		// Data begins here, matching StreamLoader's k = currentOffset + dataSize * 10.
+		System.arraycopy(objDat, 0, payload, p.currentOffset, objDat.length);
+		System.arraycopy(objIdx, 0, payload, p.currentOffset + objDat.length, objIdx.length);
+
+		byte[] compressed = gzip(payload);
+		if (compressed.length > payload.length) {
+			throw new IllegalStateException("gzip did not shrink the payload, but the loader's "
+					+ "buffer is sized to the UNCOMPRESSED length, so the copy would overflow");
+		}
+		byte[] file = new byte[6 + compressed.length];
+		write3(file, 0, payload.length);
+		write3(file, 3, 0); // 0 selects the gzip branch
+		System.arraycopy(compressed, 0, file, 6, compressed.length);
+		return new StreamLoader(file, "synthetic-item-cache");
+	}
+
+	private static void writeEntry(Stream p, String name, int size) {
+		p.writeDWord(nameHash(name));
+		byte[] b = p.buffer;
+		int offset = p.currentOffset;
+		write3(b, offset, size);
+		write3(b, offset + 3, size);
+		p.currentOffset = offset + 6;
+	}
+
+	private static void write3(byte[] b, int offset, int value) {
+		b[offset] = (byte) (value >> 16);
+		b[offset + 1] = (byte) (value >> 8);
+		b[offset + 2] = (byte) value;
+	}
+
+	/*
+	 * Must match StreamLoader.getDataForName exactly - the toUpperCase and the -32
+	 * included - or the lookups return null and unpackConfig dies on a null stream.
+	 */
+	private static int nameHash(String s) {
+		s = s.toUpperCase();
+		int h = 0;
+		for (int j = 0; j < s.length(); j++)
+			h = (h * 61 + s.charAt(j)) - 32;
+		return h;
+	}
+
+	private static byte[] gzip(byte[] data) {
+		try {
+			java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+			java.util.zip.GZIPOutputStream gz = new java.util.zip.GZIPOutputStream(out);
+			gz.write(data);
+			gz.close();
+			return out.toByteArray();
+		} catch (java.io.IOException e) {
+			throw new RuntimeException(e);
 		}
 	}
 
