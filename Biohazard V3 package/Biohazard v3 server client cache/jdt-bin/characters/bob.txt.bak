@@ -3,8 +3,8 @@ character-username = bob
 character-password = 9cdfb439c7876e703e307864c9167a15
 [CHARACTER]
 character-height = 0
-character-posx = 3085
-character-posy = 3491
+character-posx = 2509
+character-posy = 3763
 character-rights = 3
 donator = 0
 respected = 0
@@ -21,7 +21,7 @@ membership = false
 expModifier = 1.0
 lastclanchat = help
 lastLoginDate = 0
-character-energy = 10
+character-energy = 100
 desert-treasure = 0
 dt-kill = 0
 horror-from-deep = 0
@@ -47,7 +47,7 @@ brother-info = 2	0
 brother-info = 3	0
 brother-info = 4	0
 brother-info = 5	0
-special-amount = 10.0
+special-amount = 100.0
 selected-coffin = 0
 barrows-killcount = 0
 teleblock-length = 0
@@ -96,7 +96,7 @@ character-equip = 3	700	1
 character-equip = 4	11720	1	
 character-equip = 5	11284	1	
 character-equip = 6	-1	0	
-character-equip = 7	11722	1	
+character-equip = 7	11726	1	
 character-equip = 8	-1	0	
 character-equip = 9	7462	1	
 character-equip = 10	10696	1	
@@ -122,10 +122,10 @@ character-look = 12	0
 [SKILLS]
 character-skill = 0	99	29840996
 character-skill = 1	99	29634552
-character-skill = 2	99	31655996
-character-skill = 3	99	19590088
+character-skill = 2	99	32036996
+character-skill = 3	49	19717088
 character-skill = 4	99	31352652
-character-skill = 5	84	27434722
+character-skill = 5	0	27435082
 character-skill = 6	99	30183388
 character-skill = 7	99	14391160
 character-skill = 8	99	14489410
@@ -147,6 +147,11 @@ character-skill = 23	1	0
 character-skill = 24	1	0
 
 [ITEMS]
+character-item = 0	559	9
+character-item = 1	996	46599
+character-item = 2	1441	1
+character-item = 3	437	1
+character-item = 4	11723	1
 
 [BANK]
 character-bank = 0	4154	1
