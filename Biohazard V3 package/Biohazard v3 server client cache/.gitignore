@@ -1,0 +1,8 @@
+# Client refactor safety backups (CLIENT_REFACTORING_PLAN.md, Phase 0.1).
+#
+# Backups such as _client-backup-<timestamp>/ are created beside Proxy Client/
+# and are several MB each. Ignoring them keeps them out of a stray `git add .`
+# and, more importantly, makes `git clean -fd` skip them: git clean only removes
+# ignored files when -x is passed, and losing a backup to a cleanup is exactly
+# the failure mode this plan exists to avoid.
+_client-backup-*/
