@@ -1,0 +1,167 @@
+# Phase 3.1 package map -- which package each flat default-package class moves INTO.
+#
+# Format: Class=package, one class per line (same shape as renames-3.3.txt, so the
+# two maps are read the same way and reviewed the same way).
+#
+# Every one of the 131 top-level default-package classes must appear EXACTLY once.
+# MoveToPackages aborts if any is missing, duplicated, or if any class would be left
+# in the default package -- because a class in a NAMED package cannot see a type in
+# the DEFAULT package at all (the default package is not importable), so a partial
+# move does not compile.  Note `signlink` is deliberately ABSENT: it already lives
+# in `sign` and does not move.
+#
+# The partition is the one agreed and verified on 2026-10-04 (131/131, no duplicates,
+# none missing) and recorded in CLIENT_REFACTORING_PLAN.md's Phase 3.1.
+
+# --- node (6): the shared linked-list / cache substrate ---------------------
+# Kept separate from `game` on purpose: Node is what model/cache/def/game all build
+# on, so folding it into the catch-all would make every package depend on `game`.
+Node=node
+NodeSub=node
+NodeList=node
+NodeSubList=node
+NodeCache=node
+MRUNodes=node
+
+# --- cache (8): archive/compression layer -----------------------------------
+StreamLoader=cache
+Decompressor=cache
+JavaUncompress=cache
+Bzip2Decompressor=cache
+Bzip2Context=cache
+ModelDecompressor=cache
+CacheDownloader=cache
+FileOperations=cache
+
+# --- net (8): sockets, crypto and the packet reader -------------------------
+# Stream belongs here and therefore moves LAST along with `client`, because the
+# frozen wire contract runs through it.
+RSSocket=net
+ISAACRandomGen=net
+Stream=net
+OnDemandFetcher=net
+OnDemandFetcherParent=net
+OnDemandData=net
+PacketTap=net
+CreateUID=net
+
+# --- def (12): the cache-definition readers ---------------------------------
+# ItemDef_2 is here as a TOOL, not a reader: despite the name it is a 175-line
+# item dump/debug helper referenced only by ItemDef.
+ItemDef=def
+ItemDef_2=def
+ObjectDef=def
+EntityDef=def
+VarBit=def
+Varp=def
+IDK=def
+Flo=def
+SpotAnim=def
+Animation=def
+CurseData667=def
+ItemStats=def
+
+# --- model (10) ------------------------------------------------------------
+Model=model
+Animable=model
+Animable_Sub3=model
+Animable_Sub4=model
+Animable_Sub5=model
+VertexNormal=model
+Frames=model
+Skin=model
+Texture=model
+ModelData=model
+
+# --- scene (16): the 3D world ----------------------------------------------
+WorldController=scene
+ObjectManager=scene
+CollisionMap=scene
+Ground=scene
+GroundItemLists=scene
+Object1=scene
+Object2=scene
+Object3=scene
+Object4=scene
+Object5=scene
+ObjectRotation=scene
+Class40=scene
+Class43=scene
+Class47=scene
+ObjectCollisionSizes=scene
+Fog=scene
+
+# --- game (15): game state and the two non-UI entry points ------------------
+client=game
+Entity=game
+Player=game
+NPC=game
+Item=game
+Skills=game
+DummyClass=game
+Class30_Sub1=game
+MidiPlayer=game
+Sounds=game
+SoundEffect=game
+AudioEnvelope=game
+AudioFilter=game
+SizeConstants=game
+Loader=game
+
+# --- ui (56): the AWT/Swing surface and in-game overlays --------------------
+RSInterface=ui
+Interfaces=ui
+DrawingArea=ui
+rsDrawingArea=ui
+TextDrawingArea=ui
+TextClass=ui
+RSFont=ui
+Sprite=ui
+RSImageProducer=ui
+Background=ui
+RSFrame=ui
+RSApplet=ui
+Jframe=ui
+TitleBar=ui
+PluginSidebar=ui
+OverlayManager=ui
+OverlayRefresh=ui
+HudEditor=ui
+HudLayout=ui
+InfoBoxes=ui
+GroundMarkers=ui
+ObjectMarkers=ui
+InventoryTags=ui
+MouseTooltips=ui
+StatusBars=ui
+StatusTimers=ui
+XpDrops=ui
+RegenMeter=ui
+AmmoOverlay=ui
+CannonOverlay=ui
+LootBeams=ui
+NpcIndicators=ui
+PlayerIndicators=ui
+BossTimers=ui
+SlayerTracker=ui
+PoisonPlugin=ui
+LootTracker=ui
+ChatChannels=ui
+ChatHistory=ui
+ChatboxItemSearch=ui
+FriendNotes=ui
+FriendListPlugin=ui
+HiscoresPanel=ui
+SavedCharacters=ui
+ImplingsPlugin=ui
+CombatLevelPlugin=ui
+BarrowsPlugin=ui
+AttackStyleWarn=ui
+MenuEntrySwapper=ui
+KeyRemapper=ui
+AntiDrag=ui
+MouseDetection=ui
+Censor=ui
+TextInput=ui
+GlPresent=ui
+LwjglPresent=ui
