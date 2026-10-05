@@ -126,6 +126,7 @@ public final class ClientHarness {
 		animationFrameTransformLeavesTheSourceModelUntouched();
 		animationFrameTransformCompoundsOnTheSameModel();
 		animationFrameTransformIsDeterministic();
+		sceneSeamIsOfferedTheTransformedVerticesNotTheRestPose();
 		packetTapProducesDiffableLog();
 		itemDefOutOfRangeIdIsSafe();
 		itemDefCertTemplateWithoutCertIdIsSafe();
@@ -2713,6 +2714,99 @@ public final class ClientHarness {
 					&& a.vertexZs()[i] == b.vertexZs()[i];
 		}
 		check("Animation transform: two independent models given the same frame agree exactly", same);
+	}
+
+	// ------------- Phase 6.3 the seam receives the CPU-transformed geometry
+
+	/**
+	 * Records what the Phase 4 scene seam is offered, and claims it so the software body
+	 * is skipped. Everything else declines, so nothing else about the client changes.
+	 */
+	private static final class RecordingScene implements GpuRenderer.Implementation {
+		Model lastModel;
+		boolean sawModel;
+
+		public boolean presentGameFrame(RSImageProducer producer, int destX, int destY) {
+			return false;
+		}
+
+		public boolean drawModel(Model model, int orientation, int camA, int camB, int camC,
+				int camD, int dx, int dy, int dz, int uid) {
+			lastModel = model;
+			sawModel = true;
+			return true;
+		}
+
+		public boolean drawGroundTriangle(int x0, int y0, int x1, int y1, int x2, int y2,
+				int colour0, int colour1, int colour2, int textureId, boolean flatMesh,
+				int t0, int t1, int t2, int t3, int t4, int t5, int t6, int t7, int t8) {
+			return false;
+		}
+	}
+
+	/**
+	 * 6.3: the rasteriser seam must be handed the CPU-TRANSFORMED vertices, so that GPU
+	 * rendering cannot diverge from the software animation.
+	 *
+	 * <p>⚠️ <b>This is the check that lets skinning stay on the CPU forever, which is what
+	 * the plan demands:</b> "Do not move skinning into a shader - that is where 'animations
+	 * stay fluid' turns into 'animations drift'." A shader path would have to reproduce
+	 * {@code method472}'s opcodes in GLSL and keep them bit-identical, including the
+	 * integer division in opcode 3 and the fixed-point sin/cos tables in opcode 2.
+	 *
+	 * <p>The ordering that makes this true is not obvious from either method alone:
+	 * {@code applyAnimationFrame} runs during the model's BUILD
+	 * ({@code Player.getRotatedModel}, Player.java:308-320), and {@code method443} is the
+	 * later DRAW step that dispatches {@code this} to the seam. So the model the rasteriser
+	 * is offered already carries the posed vertices.
+	 *
+	 * <p>⚠️ The control matters: the rest-pose model is dispatched through the SAME seam
+	 * first, so the difference between the two assertions is the animation and not some
+	 * other property of the fixture.
+	 */
+	private static void sceneSeamIsOfferedTheTransformedVerticesNotTheRestPose() {
+		Frames.load(FIXTURE_ANIM_FILE_TRANSLATE, buildFramesFixture(1, 7, 8, 9));
+
+		Model rest = parseSkinModel();
+		Model posed = parseSkinModel();
+		posed.method470(frameKey(FIXTURE_ANIM_FILE_TRANSLATE, 0));
+
+		RecordingScene rec = new RecordingScene();
+		GpuRenderer.install(rec);
+		try {
+			// Control: an unanimated model.
+			rest.method443(0, 0, 0, 0, 1, 1, 1, 1, 0);
+			check("Animation upload: the scene seam is actually REACHED by method443"
+					+ " (otherwise this whole test is vacuous)", rec.sawModel);
+			int restX = rec.lastModel.vertexXs()[2];
+			int restY = rec.lastModel.vertexYs()[2];
+			int restZ = rec.lastModel.vertexZs()[2];
+			check("Animation upload: control - the seam sees the REST pose (20,30,40) for an"
+					+ " unanimated model - got " + restX + "," + restY + "," + restZ,
+					restX == 20 && restY == 30 && restZ == 40);
+
+			// The real assertion: the same seam, with the frame applied.
+			rec.sawModel = false;
+			rec.lastModel = null;
+			posed.method443(0, 0, 0, 0, 1, 1, 1, 1, 0);
+
+			check("Animation upload: the seam is handed the SAME model object that was posed -"
+					+ " there is no intermediate copy to go stale", rec.lastModel == posed);
+			check("Animation upload: the seam sees the ANIMATED vertex (27,38,49), NOT the rest"
+					+ " pose - so the CPU transform is already folded in and needs no shader - got "
+					+ rec.lastModel.vertexXs()[2] + "," + rec.lastModel.vertexYs()[2] + ","
+					+ rec.lastModel.vertexZs()[2],
+					rec.lastModel.vertexXs()[2] == 27 && rec.lastModel.vertexYs()[2] == 38
+							&& rec.lastModel.vertexZs()[2] == 49);
+			check("Animation upload: ... and that is genuinely DIFFERENT from the rest pose"
+					+ " (a rest-pose-versus-rest-pose comparison would pass while being wrong)",
+					posed.vertexXs()[2] != rest.vertexXs()[2]);
+			check("Animation upload: a rasteriser reading the model needs no shader skinning,"
+					+ " because vertexXs() IS the array method472 wrote",
+					rec.lastModel.vertexXs() == posed.vertexXs());
+		} finally {
+			GpuRenderer.install(null);
+		}
 	}
 
 	// ------------------------- the standing raster gate, consolidated (Phase 4.3)
