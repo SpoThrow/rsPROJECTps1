@@ -21,6 +21,16 @@
 # The declaration is the CLAIM; the animation data is the FACT. Checking the fact is the
 # whole point - a probe that re-read the declaration would only prove it agrees with itself.
 #
+# PHASE 6.5.6: THE CURSEPACK DECLARATIONS TOO
+# The registry now also declares the CursePack's asset names and id lists, and the loaders
+# build their paths from those constants. Moving a string literal is where a typo hides,
+# and findRoot() would report one as "pack not found" - which reads like a missing pack
+# rather than a mistyped name. So this probe also resolves EVERY declared CursePack path
+# (seq.dat, spotanim.dat, each anims/{id}.gz, each models/{id}.gz) through the same private
+# asset() the loader uses, with a control that an undeclared name does NOT resolve.
+# Mutation-tested: renaming ASSET_MODELS to "modelz" turns this report into 9/18 with
+# "FIRST MISSING: modelz\50778.gz" and exit code 1.
+#
 # DEPLOYING THE DATA
 # The pack is deployed the same way CursePack is - copied into the cache root:
 #   New-Item -ItemType Directory -Force "$env:USERPROFILE\Biohazard.474\667Anims\anims"
