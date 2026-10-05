@@ -6,6 +6,7 @@ import net.Stream;
 import scene.Fog;
 import scene.WorldController;
 import ui.DrawingArea;
+import ui.SceneRasterizer;
 
 public final class Model extends Animable {
 	public static void nullLoader()
@@ -2331,6 +2332,10 @@ public final class Model extends Animable {
 	public void method443(int i, int j, int k, int l, int i1, int j1, int k1, 
 			int l1, int i2)
 	{
+		// Scene rasterisation seam (Phase 4.1c-2b). Returns false when no rasteriser
+		// is installed, so the software body below runs unchanged.
+		if (SceneRasterizer.dispatch(this, i, j, k, l, i1, j1, k1, l1, i2))
+			return;
 		int j2 = l1 * i1 - j1 * l >> 16;
 		int k2 = k1 * j + j2 * k >> 16;
 		int l2 = anInt1650 * k >> 16;

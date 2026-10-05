@@ -18,6 +18,7 @@ import scene.Fog;
 import scene.ObjectManager;
 import scene.WorldController;
 import ui.DrawingArea;
+import ui.SceneRasterizer;
 import ui.Sprite;
 
 
@@ -81,6 +82,8 @@ public final class ClientHarness {
 		triangleRasteriserIsPinned();
 		triangleRasteriserIsDeterministic();
 		triangleRasteriserDetectsAChangedTriangle();
+		sceneRasterizerIsInertByDefault();
+		sceneRasterizerInterceptsWhenInstalled();
 		packetTapProducesDiffableLog();
 		itemDefOutOfRangeIdIsSafe();
 		itemDefCertTemplateWithoutCertIdIsSafe();
@@ -1286,6 +1289,44 @@ public final class ClientHarness {
 		String perturbed = framebufferHash(triangleWorkload(1));
 		check("Triangle rasteriser: gate has teeth (one altered triangle colour changes the hash)",
 				!normal.equals(perturbed));
+	}
+
+	// --------------------------------------- scene rasteriser seam (Phase 4.1c-2b)
+
+	/**
+	 * Proves the scene seam is INERT until something is installed - i.e. that
+	 * adding it cannot have changed what the client draws.
+	 */
+	private static void sceneRasterizerIsInertByDefault() {
+		check("Scene rasteriser: no implementation is installed by default",
+				SceneRasterizer.implementation() == null);
+		check("Scene rasteriser: dispatch declines when nothing is installed",
+				!SceneRasterizer.dispatch(Model.aModel_1621, 0, 0, 0, 0, 0, 0, 0, 0, 0));
+	}
+
+	/**
+	 * Proves the seam actually intercepts - and, because
+	 * {@code Model.aModel_1621} is an empty model that {@code method443} would
+	 * otherwise cull and return from before drawing anything, proves the dispatch
+	 * sits at the TOP of the method rather than after the culling.
+	 */
+	private static void sceneRasterizerInterceptsWhenInstalled() {
+		final int[] calls = new int[1];
+		SceneRasterizer.install(new SceneRasterizer.Implementation() {
+			public void drawModel(Model model, int orientation, int camA, int camB, int camC,
+					int camD, int dx, int dy, int dz, int uid) {
+				calls[0]++;
+			}
+		});
+		try {
+			Model.aModel_1621.method443(0, 0, 0, 0, 0, 0, 0, 0, 0);
+			check("Scene rasteriser: an installed rasteriser intercepts method443",
+					calls[0] == 1);
+		} finally {
+			SceneRasterizer.install(null);
+		}
+		check("Scene rasteriser: uninstalling restores the software path",
+				SceneRasterizer.implementation() == null);
 	}
 
 	// ------------------------------------------------------------------ plumbing
