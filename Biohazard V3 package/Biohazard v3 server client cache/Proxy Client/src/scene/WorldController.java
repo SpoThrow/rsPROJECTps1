@@ -4,6 +4,7 @@
 
 package scene;
 
+import ui.SceneRasterizer;
 import node.NodeList;import game.client;
 import model.Animable;
 import model.Model;
@@ -1675,21 +1676,27 @@ label0:
 				hoverTileX = j1;
 				hoverTileY = k1;
 			}
-			if(class43.anInt720 == -1)
+			// Ground rasterisation seam (Phase 4.1c-2c). Declines when no rasteriser is
+			// installed, so the software path below runs unchanged. It sits AFTER the tile
+			// picking above, which must keep running either way.
+			if (!SceneRasterizer.dispatchGroundTriangle(i6, j6, k6, l6, k5, l5, class43.anInt718, class43.anInt719, class43.anInt717, class43.anInt720, class43.aBoolean721, i2, i3, l1, l3, i4, k4, k2, j2, j3))
 			{
-				if(class43.anInt718 != 0xbc614e)
-					Texture.method374(j6, l6, l5, i6, k6, k5, class43.anInt718, class43.anInt719, class43.anInt717);
-			} else
-			if(!lowMem)
-			{
-				if(class43.aBoolean721)
-					Texture.method378(j6, l6, l5, i6, k6, k5, class43.anInt718, class43.anInt719, class43.anInt717, i2, i3, l1, l3, i4, k4, k2, j2, j3, class43.anInt720);
-				else
-					Texture.method378(j6, l6, l5, i6, k6, k5, class43.anInt718, class43.anInt719, class43.anInt717, l2, l1, i3, j4, k4, i4, k3, j3, j2, class43.anInt720);
-			} else
-			{
-				int i7 = anIntArray485[class43.anInt720];
-				Texture.method374(j6, l6, l5, i6, k6, k5, method317(i7, class43.anInt718), method317(i7, class43.anInt719), method317(i7, class43.anInt717));
+				if(class43.anInt720 == -1)
+				{
+					if(class43.anInt718 != 0xbc614e)
+						Texture.method374(j6, l6, l5, i6, k6, k5, class43.anInt718, class43.anInt719, class43.anInt717);
+				} else
+				if(!lowMem)
+				{
+					if(class43.aBoolean721)
+						Texture.method378(j6, l6, l5, i6, k6, k5, class43.anInt718, class43.anInt719, class43.anInt717, i2, i3, l1, l3, i4, k4, k2, j2, j3, class43.anInt720);
+					else
+						Texture.method378(j6, l6, l5, i6, k6, k5, class43.anInt718, class43.anInt719, class43.anInt717, l2, l1, i3, j4, k4, i4, k3, j3, j2, class43.anInt720);
+				} else
+				{
+					int i7 = anIntArray485[class43.anInt720];
+					Texture.method374(j6, l6, l5, i6, k6, k5, method317(i7, class43.anInt718), method317(i7, class43.anInt719), method317(i7, class43.anInt717));
+				}
 			}
 		}
 		if((i5 - k5) * (l6 - l5) - (j5 - l5) * (k6 - k5) > 0)
@@ -1705,22 +1712,28 @@ label0:
 				hoverTileX = j1;
 				hoverTileY = k1;
 			}
-			if(class43.anInt720 == -1)
+			// Ground rasterisation seam (Phase 4.1c-2c). Declines when no rasteriser is
+			// installed, so the software path below runs unchanged. It sits AFTER the tile
+			// picking above, which must keep running either way.
+			if (!SceneRasterizer.dispatchGroundTriangle(i5, j5, k5, l5, k6, l6, class43.anInt716, class43.anInt717, class43.anInt719, class43.anInt720, class43.aBoolean721, i2, i3, l1, l3, i4, k4, k2, j2, j3))
 			{
-				if(class43.anInt716 != 0xbc614e)
+				if(class43.anInt720 == -1)
 				{
-					Texture.method374(j5, l5, l6, i5, k5, k6, class43.anInt716, class43.anInt717, class43.anInt719);
-				}
-			} else
-			{
-				if(!lowMem)
+					if(class43.anInt716 != 0xbc614e)
+					{
+						Texture.method374(j5, l5, l6, i5, k5, k6, class43.anInt716, class43.anInt717, class43.anInt719);
+					}
+				} else
 				{
-					Texture.method378(j5, l5, l6, i5, k5, k6, class43.anInt716, class43.anInt717, class43.anInt719, i2, i3, l1, l3, i4, k4, k2, j2, j3, class43.anInt720);
-					drawTileOverlays(j1, k1, i5, j5, k5, l5, i6, j6, k6, l6);
-					return;
+					if(!lowMem)
+					{
+						Texture.method378(j5, l5, l6, i5, k5, k6, class43.anInt716, class43.anInt717, class43.anInt719, i2, i3, l1, l3, i4, k4, k2, j2, j3, class43.anInt720);
+						drawTileOverlays(j1, k1, i5, j5, k5, l5, i6, j6, k6, l6);
+						return;
+					}
+					int j7 = anIntArray485[class43.anInt720];
+					Texture.method374(j5, l5, l6, i5, k5, k6, method317(j7, class43.anInt716), method317(j7, class43.anInt717), method317(j7, class43.anInt719));
 				}
-				int j7 = anIntArray485[class43.anInt720];
-				Texture.method374(j5, l5, l6, i5, k5, k6, method317(j7, class43.anInt716), method317(j7, class43.anInt717), method317(j7, class43.anInt719));
 			}
 		}
 		drawTileOverlays(j1, k1, i5, j5, k5, l5, i6, j6, k6, l6);
@@ -1956,21 +1969,27 @@ label0:
 					hoverTileX = i;
 					hoverTileY = i1;
 				}
-				if(class40.anIntArray682 == null || class40.anIntArray682[j2] == -1)
+				// Ground rasterisation seam (Phase 4.1c-2c). Declines when no rasteriser is
+				// installed, so the software path below runs unchanged. It sits AFTER the tile
+				// picking above, which must keep running either way.
+				if (!SceneRasterizer.dispatchGroundTriangle(i4, l4, j4, i5, k4, j5, class40.anIntArray676[j2], class40.anIntArray677[j2], class40.anIntArray678[j2], (class40.anIntArray682 == null ? -1 : class40.anIntArray682[j2]), class40.aBoolean683, Class40.anIntArray690[l2], Class40.anIntArray690[j3], Class40.anIntArray690[l3], Class40.anIntArray691[l2], Class40.anIntArray691[j3], Class40.anIntArray691[l3], Class40.anIntArray692[l2], Class40.anIntArray692[j3], Class40.anIntArray692[l3]))
 				{
-					if(class40.anIntArray676[j2] != 0xbc614e)
-						Texture.method374(l4, i5, j5, i4, j4, k4, class40.anIntArray676[j2], class40.anIntArray677[j2], class40.anIntArray678[j2]);
-				} else
-				if(!lowMem)
-				{
-					if(class40.aBoolean683)
-						Texture.method378(l4, i5, j5, i4, j4, k4, class40.anIntArray676[j2], class40.anIntArray677[j2], class40.anIntArray678[j2], Class40.anIntArray690[0], Class40.anIntArray690[1], Class40.anIntArray690[3], Class40.anIntArray691[0], Class40.anIntArray691[1], Class40.anIntArray691[3], Class40.anIntArray692[0], Class40.anIntArray692[1], Class40.anIntArray692[3], class40.anIntArray682[j2]);
-					else
-						Texture.method378(l4, i5, j5, i4, j4, k4, class40.anIntArray676[j2], class40.anIntArray677[j2], class40.anIntArray678[j2], Class40.anIntArray690[l2], Class40.anIntArray690[j3], Class40.anIntArray690[l3], Class40.anIntArray691[l2], Class40.anIntArray691[j3], Class40.anIntArray691[l3], Class40.anIntArray692[l2], Class40.anIntArray692[j3], Class40.anIntArray692[l3], class40.anIntArray682[j2]);
-				} else
-				{
-					int k5 = anIntArray485[class40.anIntArray682[j2]];
-					Texture.method374(l4, i5, j5, i4, j4, k4, method317(k5, class40.anIntArray676[j2]), method317(k5, class40.anIntArray677[j2]), method317(k5, class40.anIntArray678[j2]));
+					if(class40.anIntArray682 == null || class40.anIntArray682[j2] == -1)
+					{
+						if(class40.anIntArray676[j2] != 0xbc614e)
+							Texture.method374(l4, i5, j5, i4, j4, k4, class40.anIntArray676[j2], class40.anIntArray677[j2], class40.anIntArray678[j2]);
+					} else
+					if(!lowMem)
+					{
+						if(class40.aBoolean683)
+							Texture.method378(l4, i5, j5, i4, j4, k4, class40.anIntArray676[j2], class40.anIntArray677[j2], class40.anIntArray678[j2], Class40.anIntArray690[0], Class40.anIntArray690[1], Class40.anIntArray690[3], Class40.anIntArray691[0], Class40.anIntArray691[1], Class40.anIntArray691[3], Class40.anIntArray692[0], Class40.anIntArray692[1], Class40.anIntArray692[3], class40.anIntArray682[j2]);
+						else
+							Texture.method378(l4, i5, j5, i4, j4, k4, class40.anIntArray676[j2], class40.anIntArray677[j2], class40.anIntArray678[j2], Class40.anIntArray690[l2], Class40.anIntArray690[j3], Class40.anIntArray690[l3], Class40.anIntArray691[l2], Class40.anIntArray691[j3], Class40.anIntArray691[l3], Class40.anIntArray692[l2], Class40.anIntArray692[j3], Class40.anIntArray692[l3], class40.anIntArray682[j2]);
+					} else
+					{
+						int k5 = anIntArray485[class40.anIntArray682[j2]];
+						Texture.method374(l4, i5, j5, i4, j4, k4, method317(k5, class40.anIntArray676[j2]), method317(k5, class40.anIntArray677[j2]), method317(k5, class40.anIntArray678[j2]));
+					}
 				}
 			}
 		}

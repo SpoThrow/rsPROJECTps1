@@ -87,6 +87,8 @@ public final class ClientHarness {
 		texturedTriangleRasteriserDetectsAChangedTriangle();
 		sceneRasterizerIsInertByDefault();
 		sceneRasterizerInterceptsWhenInstalled();
+		groundSeamIsInertByDefault();
+		groundSeamInterceptsWhenInstalled();
 		packetTapProducesDiffableLog();
 		itemDefOutOfRangeIdIsSafe();
 		itemDefCertTemplateWithoutCertIdIsSafe();
@@ -1444,6 +1446,12 @@ public final class ClientHarness {
 					int camD, int dx, int dy, int dz, int uid) {
 				calls[0]++;
 			}
+
+			public void drawGroundTriangle(int x0, int y0, int x1, int y1, int x2, int y2,
+					int colour0, int colour1, int colour2, int textureId, boolean flatMesh,
+					int t0, int t1, int t2, int t3, int t4, int t5, int t6, int t7, int t8) {
+				calls[0]++;
+			}
 		});
 		try {
 			Model.aModel_1621.method443(0, 0, 0, 0, 0, 0, 0, 0, 0);
@@ -1453,6 +1461,65 @@ public final class ClientHarness {
 			SceneRasterizer.install(null);
 		}
 		check("Scene rasteriser: uninstalling restores the software path",
+				SceneRasterizer.implementation() == null);
+	}
+
+	// ------------------------------------ ground triangle seam (Phase 4.1c-2c)
+
+	/**
+	 * The ground seam must be inert with nothing installed.
+	 *
+	 * <p>This is the property that makes the change safe: {@code dispatchGroundTriangle}
+	 * returning false is what leaves the software ground path running unchanged.
+	 *
+	 * <p><b>What this does NOT prove, stated plainly:</b> that the three hooks sit in the
+	 * right place. Driving {@code WorldController.method315}/{@code method316} headlessly
+	 * is not possible - both read {@code client.tileMarkers} for tile picking, which loads
+	 * the {@code client} class. So hook PLACEMENT (after the picking, mid-loop) is verified
+	 * by reading and by the live gate, not here. What is asserted here is the plumbing and
+	 * the argument order, which is what a future implementation depends on.
+	 */
+	private static void groundSeamIsInertByDefault() {
+		boolean handled = SceneRasterizer.dispatchGroundTriangle(
+				1, 2, 3, 4, 5, 6, 7, 8, 9, -1, false, 11, 12, 13, 14, 15, 16, 17, 18, 19);
+		check("Ground rasteriser seam: declines (returns false) when no rasteriser is installed",
+				!handled);
+	}
+
+	private static void groundSeamInterceptsWhenInstalled() {
+		final int[] seen = new int[20];
+		final int[] calls = new int[1];
+		SceneRasterizer.install(new SceneRasterizer.Implementation() {
+			public void drawModel(Model model, int orientation, int camA, int camB, int camC,
+					int camD, int dx, int dy, int dz, int uid) {
+				calls[0] += 1000;
+			}
+
+			public void drawGroundTriangle(int x0, int y0, int x1, int y1, int x2, int y2,
+					int colour0, int colour1, int colour2, int textureId, boolean flatMesh,
+					int t0, int t1, int t2, int t3, int t4, int t5, int t6, int t7, int t8) {
+				calls[0]++;
+				int[] v = { x0, y0, x1, y1, x2, y2, colour0, colour1, colour2, textureId,
+						flatMesh ? 1 : 0, t0, t1, t2, t3, t4, t5, t6, t7, t8 };
+				System.arraycopy(v, 0, seen, 0, 20);
+			}
+		});
+		try {
+			boolean handled = SceneRasterizer.dispatchGroundTriangle(
+					10, 20, 30, 40, 50, 60, 70, 80, 90, 7, true, 101, 102, 103, 104, 105, 106,
+					107, 108, 109);
+			boolean orderOk = seen[0] == 10 && seen[1] == 20 && seen[2] == 30 && seen[3] == 40
+					&& seen[4] == 50 && seen[5] == 60 && seen[6] == 70 && seen[7] == 80
+					&& seen[8] == 90 && seen[9] == 7 && seen[10] == 1 && seen[11] == 101
+					&& seen[19] == 109;
+			check("Ground rasteriser seam: an installed rasteriser intercepts the ground triangle",
+					handled && calls[0] == 1);
+			check("Ground rasteriser seam: the whole payload arrives in order (coords, colours, "
+					+ "textureId, flatMesh, t0..t8)", orderOk);
+		} finally {
+			SceneRasterizer.install(null);
+		}
+		check("Ground rasteriser seam: uninstalling restores the software path",
 				SceneRasterizer.implementation() == null);
 	}
 
