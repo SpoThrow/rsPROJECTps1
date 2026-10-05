@@ -2,6 +2,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.security.MessageDigest;
 import cache.StreamLoader;
+import def.Animation;
+import def.CurseData667;
 import def.EntityDef;
 import def.Flo;
 import def.IDK;
@@ -114,6 +116,10 @@ public final class ClientHarness {
 		realModelExportIndicesAreInRangeForTheRasteriser();
 		realModelExportDecodeMatchesTheRasteriser();
 		realModelExportDrivesTheRasteriser();
+		curseFrameRemapRedirectsCurseFilesToTheHighSlots();
+		curseFrameRemapLeavesOriginalFrameSlotsAlone();
+		curseAnimationLoaderRefusesSlotsOutsideTheRemapRange();
+		curseFrameSlotsCannotCollideWithTheOriginalRange();
 		packetTapProducesDiffableLog();
 		itemDefOutOfRangeIdIsSafe();
 		itemDefCertTemplateWithoutCertIdIsSafe();
@@ -2351,6 +2357,109 @@ public final class ClientHarness {
 				+ " (its texture id resolved from the colour slot)", true);
 		check("Real model: the textured face's draw plotted pixels",
 				!beforeTextured.equals(framebufferHash(buf)));
+	}
+
+	// ------------------- Phase 6.1 frame-slot budget (the invariant, enforced)
+
+	/**
+	 * The reason the CursePack lives at 28000+ instead of under its own file ids.
+	 *
+	 * <p>The seven 667 animation files it needs are 2998, 3012, 3013, 3016, 3018, 3019 and
+	 * 3020 - every one of which sits INSIDE the packed 474 frame range (0..3229, measured
+	 * from `Frames.dat`). Loading them under their own ids would OVERWRITE 474 content, so
+	 * {@code remapSequenceFrames} rewrites each sequence's frame keys to point at
+	 * {@code ANIM_FILE_BASE + i}.
+	 */
+	private static void curseFrameRemapRedirectsCurseFilesToTheHighSlots() {
+		Animation anim = new Animation();
+		anim.anIntArray353 = new int[] { (2998 << 16) | 5, (3020 << 16) | 7 };
+
+		remapSequenceFrames(anim);
+
+		int expected0 = ((28000 + 0) << 16) | 5;  // 2998 is CURSE_ANIM_FILES[0]
+		int expected1 = ((28000 + 6) << 16) | 7;  // 3020 is CURSE_ANIM_FILES[6]
+		check("CursePack: a curse sequence's frame key is remapped to slot 28000+i (2998 -> 28000)",
+				anim.anIntArray353[0] == expected0);
+		check("CursePack: ... and the LAST curse file is remapped too (3020 -> 28006)",
+				anim.anIntArray353[1] == expected1);
+		check("CursePack: the frame INDEX survives the remap (only the file id moves)",
+				(anim.anIntArray353[0] & 0xffff) == 5 && (anim.anIntArray353[1] & 0xffff) == 7);
+	}
+
+	/**
+	 * The other half of the invariant, and the half that protects 474 content: a frame key
+	 * that does NOT name a CursePack source file must be left EXACTLY as it was.
+	 *
+	 * <p>1777 is deliberate - it is a real loose frame file in the cache root, so if the
+	 * remap ever grew a catch-all it would silently steal a slot that 474/loose content is
+	 * using.
+	 */
+	private static void curseFrameRemapLeavesOriginalFrameSlotsAlone() {
+		Animation anim = new Animation();
+		int original = (1777 << 16) | 62;
+		anim.anIntArray353 = new int[] { original, -1, 0 };
+
+		remapSequenceFrames(anim);
+
+		check("CursePack: a NON-curse frame key is left exactly as it was (it never steals an OG slot)",
+				anim.anIntArray353[0] == original);
+		check("CursePack: a -1 frame key is skipped rather than remapped high",
+				anim.anIntArray353[1] == -1);
+		check("CursePack: a 0 frame key is skipped too", anim.anIntArray353[2] == 0);
+	}
+
+	/**
+	 * The bounds that keep the high slots high: {@code loadAnimationFile} refuses any id
+	 * outside the remap window BEFORE it touches the file system.
+	 *
+	 * <p>Only out-of-range ids are asserted, so this does not depend on whether a CursePack
+	 * happens to be installed.
+	 */
+	private static void curseAnimationLoaderRefusesSlotsOutsideTheRemapRange() {
+		check("CursePack: loadAnimationFile refuses 1777 - an OG/loose frame id, not a curse slot",
+				!CurseData667.loadAnimationFile(1777));
+		check("CursePack: loadAnimationFile refuses the slot just BELOW the window (27999)",
+				!CurseData667.loadAnimationFile(27999));
+		check("CursePack: loadAnimationFile refuses the slot just ABOVE the window (28007)",
+				!CurseData667.loadAnimationFile(28007));
+		check("CursePack: loadAnimationFile refuses a negative id", !CurseData667.loadAnimationFile(-1));
+	}
+
+	/**
+	 * Pins the base and the source ids themselves, because the SEPARATION of the two ranges
+	 * is the invariant - not any one constant in isolation.
+	 */
+	private static void curseFrameSlotsCannotCollideWithTheOriginalRange() {
+		int base = (Integer) readStatic(CurseData667.class, "ANIM_FILE_BASE");
+		int[] files = (int[]) readStatic(CurseData667.class, "CURSE_ANIM_FILES");
+
+		check("CursePack: ANIM_FILE_BASE is 28000 (the whole invariant is this number)",
+				base == 28000);
+		check("CursePack: there are 7 curse source animation files", files.length == 7);
+
+		int maxSource = 0;
+		for (int i = 0; i < files.length; i++) {
+			if (files[i] > maxSource) {
+				maxSource = files[i];
+			}
+		}
+		check("CursePack: every curse SOURCE id is below the base, so the ranges are disjoint"
+				+ " (max source " + maxSource + " < " + base + ")", maxSource < base);
+		check("CursePack: the dest window is [" + base + ", " + (base + files.length)
+				+ ") and its top is the last remapped slot",
+				base + files.length - 1 == 28006);
+	}
+
+	/** Invokes CurseData667's private remap, which is otherwise only reachable from init. */
+	private static void remapSequenceFrames(Animation anim) {
+		try {
+			java.lang.reflect.Method m = CurseData667.class.getDeclaredMethod(
+					"remapSequenceFrames", Animation.class);
+			m.setAccessible(true);
+			m.invoke(null, anim);
+		} catch (Exception e) {
+			throw new RuntimeException("could not invoke remapSequenceFrames", e);
+		}
 	}
 
 	// ------------------------- the standing raster gate, consolidated (Phase 4.3)
