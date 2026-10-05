@@ -32,23 +32,11 @@ import net.Stream;
  */
 public final class CurseData667 {
 
-	private static final String PACK_FOLDER = "CursePack";
-
-	private static final int[] CURSE_SEQ_IDS = {
-		12565, 12566, 12567, 12568, 12573, 12574, 12580, 12586, 12587, 12589, 12590
-	};
-	private static final int[] CURSE_GFX_IDS = {
-		2213, 2226, 2228, 2229, 2230, 2259, 2263, 2264, 2266
-	};
-	private static final int[] CURSE_MODEL_IDS = {
-		50778, 50779, 50780, 50782, 50783, 50812, 50817, 50818, 50819
-	};
-	/** Original 667 animation file IDs used by curse seqs. */
-	private static final int[] CURSE_ANIM_FILES = {
-		2998, 3012, 3013, 3016, 3018, 3019, 3020
-	};
-	// The frame-slot budget is owned in ONE place (Phase 6.5.2): see model.FrameSlots.
-	// Re-deriving these bounds here is how three writers were able to drift apart.
+	// The content this class injects - ids, asset names and target slots - is declared
+	// in ONE place (Phase 6.5.6): see def.ContentRegistry. This class keeps the
+	// MECHANISM (how to walk an unwanted entry, how to remap a frame, when to load),
+	// not the DECLARATION. Before 6.5.6 the id arrays lived here and the bounds lived
+	// in model.FrameSlots, so "what do we inject?" had two answers.
 
 	public static File root;
 	public static boolean active;
@@ -65,7 +53,7 @@ public final class CurseData667 {
 
 	/** Only searches {@code {findcachedir()}/CursePack}. */
 	public static File findRoot() {
-		File dir = new File(signlink.findcachedir(), PACK_FOLDER);
+		File dir = new File(signlink.findcachedir(), ContentRegistry.CURSE_PACK_FOLDER);
 		try {
 			dir = dir.getCanonicalFile();
 		} catch (Exception e) {
@@ -73,7 +61,7 @@ public final class CurseData667 {
 		if (!dir.isDirectory()) {
 			return null;
 		}
-		if (!new File(dir, "seq.dat").isFile() || !new File(dir, "spotanim.dat").isFile()) {
+		if (!new File(dir, ContentRegistry.ASSET_SEQ).isFile() || !new File(dir, ContentRegistry.ASSET_SPOTANIM).isFile()) {
 			return null;
 		}
 		return dir;
@@ -104,8 +92,8 @@ public final class CurseData667 {
 		if (SpotAnim.cache == null) {
 			return;
 		}
-		for (int i = 0; i < CURSE_GFX_IDS.length; i++) {
-			int id = CURSE_GFX_IDS[i];
+		for (int i = 0; i < ContentRegistry.CURSE_GFX_IDS.length; i++) {
+			int id = ContentRegistry.CURSE_GFX_IDS[i];
 			if (id < 0 || id >= SpotAnim.cache.length || SpotAnim.cache[id] == null) {
 				continue;
 			}
@@ -124,15 +112,15 @@ public final class CurseData667 {
 			return false;
 		}
 		int local = id - FrameSlots.CURSE_BASE;
-		if (local >= CURSE_ANIM_FILES.length) {
+		if (local >= ContentRegistry.CURSE_ANIM_FILES.length) {
 			return false;
 		}
-		return loadIntoSlot(CURSE_ANIM_FILES[local], id);
+		return loadIntoSlot(ContentRegistry.CURSE_ANIM_FILES[local], id);
 	}
 
 	private static int remapFile(int originalFile) {
-		for (int i = 0; i < CURSE_ANIM_FILES.length; i++) {
-			if (CURSE_ANIM_FILES[i] == originalFile) {
+		for (int i = 0; i < ContentRegistry.CURSE_ANIM_FILES.length; i++) {
+			if (ContentRegistry.CURSE_ANIM_FILES[i] == originalFile) {
 				return FrameSlots.CURSE_BASE + i;
 			}
 		}
@@ -158,13 +146,13 @@ public final class CurseData667 {
 	}
 
 	private static void preloadRemappedAnimFiles() {
-		for (int i = 0; i < CURSE_ANIM_FILES.length; i++) {
-			loadIntoSlot(CURSE_ANIM_FILES[i], FrameSlots.CURSE_BASE + i);
+		for (int i = 0; i < ContentRegistry.CURSE_ANIM_FILES.length; i++) {
+			loadIntoSlot(ContentRegistry.CURSE_ANIM_FILES[i], FrameSlots.CURSE_BASE + i);
 		}
 	}
 
 	private static boolean loadIntoSlot(int sourceFileId, int destSlot) {
-		File file = asset("anims" + File.separator + sourceFileId + ".gz");
+		File file = asset(ContentRegistry.ASSET_ANIMS + File.separator + sourceFileId + ".gz");
 		if (file == null) {
 			return false;
 		}
@@ -178,23 +166,23 @@ public final class CurseData667 {
 
 	private static void loadCurseModels() {
 		int loaded = 0;
-		for (int i = 0; i < CURSE_MODEL_IDS.length; i++) {
-			File file = asset("models" + File.separator + CURSE_MODEL_IDS[i] + ".gz");
+		for (int i = 0; i < ContentRegistry.CURSE_MODEL_IDS.length; i++) {
+			File file = asset(ContentRegistry.ASSET_MODELS + File.separator + ContentRegistry.CURSE_MODEL_IDS[i] + ".gz");
 			if (file == null) {
-				System.out.println("CursePack model missing: " + CURSE_MODEL_IDS[i]);
+				System.out.println("CursePack model missing: " + ContentRegistry.CURSE_MODEL_IDS[i]);
 				continue;
 			}
 			byte[] data = readGzip(file);
 			if (data != null && data.length > 0) {
-				Model.method460(data, CURSE_MODEL_IDS[i]);
+				Model.method460(data, ContentRegistry.CURSE_MODEL_IDS[i]);
 				loaded++;
 			}
 		}
-		System.out.println("CursePack models loaded: " + loaded + "/" + CURSE_MODEL_IDS.length);
+		System.out.println("CursePack models loaded: " + loaded + "/" + ContentRegistry.CURSE_MODEL_IDS.length);
 	}
 
 	private static void injectSequences() {
-		File seqFile = asset("seq.dat");
+		File seqFile = asset(ContentRegistry.ASSET_SEQ);
 		if (seqFile == null) {
 			return;
 		}
@@ -207,8 +195,8 @@ public final class CurseData667 {
 		Animation.ensureCapacity(Math.max(length, 12600));
 		for (int j = 0; j < length; j++) {
 			boolean wanted = false;
-			for (int k = 0; k < CURSE_SEQ_IDS.length; k++) {
-				if (CURSE_SEQ_IDS[k] == j) {
+			for (int k = 0; k < ContentRegistry.CURSE_SEQ_IDS.length; k++) {
+				if (ContentRegistry.CURSE_SEQ_IDS[k] == j) {
 					wanted = true;
 					break;
 				}
@@ -303,7 +291,7 @@ public final class CurseData667 {
 	}
 
 	private static void injectSpotAnims() {
-		File spotFile = asset("spotanim.dat");
+		File spotFile = asset(ContentRegistry.ASSET_SPOTANIM);
 		if (spotFile == null) {
 			return;
 		}
@@ -316,8 +304,8 @@ public final class CurseData667 {
 		SpotAnim.ensureCapacity(Math.max(length, 2300));
 		for (int j = 0; j < length; j++) {
 			boolean wanted = false;
-			for (int k = 0; k < CURSE_GFX_IDS.length; k++) {
-				if (CURSE_GFX_IDS[k] == j) {
+			for (int k = 0; k < ContentRegistry.CURSE_GFX_IDS.length; k++) {
+				if (ContentRegistry.CURSE_GFX_IDS[k] == j) {
 					wanted = true;
 					break;
 				}

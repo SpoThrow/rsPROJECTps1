@@ -18,20 +18,33 @@ public final class SpotAnim {
 				cache[j] = new SpotAnim();
 			cache[j].anInt404 = j;
 			cache[j].readValues(stream);
-			if (j == 1247) {
-				cache[j].anInt405 = 60776;
-				cache[j].anInt406 = 4001;
-				if (Animation.anims != null && Animation.anims.length > 4001)
-					cache[j].aAnimation_407 = Animation.anims[4001];
-			}
-			if (j == 1248) {
-				cache[j].anInt405 = 60776;
-				cache[j].anInt406 = 4002;
-				if (Animation.anims != null && Animation.anims.length > 4002)
-					cache[j].aAnimation_407 = Animation.anims[4002];
-			}
+			applyDeclaredOverrides(cache[j]);
 		}
 
+	}
+
+	/**
+	 * Applies the spotanim overrides declared in {@link ContentRegistry} - a model and
+	 * animation supplied by declared content instead of by {@code spotanim.dat}.
+	 *
+	 * <p>Phase 6.5.6: this replaced two hardcoded {@code if (j == 1247)} /
+	 * {@code if (j == 1248)} branches. The VALUES are unchanged; what changed is that
+	 * the declaration now lives in one place, so a third override is a declaration
+	 * rather than another branch - and "which spotanims are overridden?" is answerable
+	 * without reading the loader.
+	 */
+	private static void applyDeclaredOverrides(SpotAnim spot) {
+		for (int k = 0; k < ContentRegistry.SPOTANIM_OVERRIDES.length; k++) {
+			ContentRegistry.SpotAnimOverride o = ContentRegistry.SPOTANIM_OVERRIDES[k];
+			if (spot.anInt404 != o.gfxId) {
+				continue;
+			}
+			spot.anInt405 = o.modelId;
+			spot.anInt406 = o.animId;
+			if (Animation.anims != null && Animation.anims.length > o.animId) {
+				spot.aAnimation_407 = Animation.anims[o.animId];
+			}
+		}
 	}
 
 	public static void ensureCapacity(int size) {

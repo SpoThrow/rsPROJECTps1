@@ -52,8 +52,90 @@ public final class ContentRegistry {
 	/** Source revision a declared file comes from. */
 	public static final int REVISION_667 = 667;
 
-	/** Pack folder under the cache root (mirrors {@code CurseData667.PACK_FOLDER}). */
+	/** Pack folder under the cache root for the external 667 animations. */
 	public static final String PACK_FOLDER = "667Anims";
+
+	// ------------------------------------------------------------------
+	// Declared content, in ONE place (Phase 6.5.1's decision, Phase 6.5.6).
+	//
+	// Every id list, asset name and target slot that a loader consults lives
+	// here. The loaders keep the MECHANISM - how to walk a sequence, how to remap
+	// a frame, when to re-read a file - while this class keeps the DECLARATION:
+	// what content exists, where it comes from, and where it lands.
+	//
+	// Before this, those declarations were spread across four private arrays in
+	// CurseData667 and two hardcoded `if` branches in SpotAnim, so "what content
+	// do we inject?" had no single answer. The values below are moved VERBATIM.
+	// ------------------------------------------------------------------
+
+	/** The CursePack's folder under the cache root. */
+	public static final String CURSE_PACK_FOLDER = "CursePack";
+
+	/**
+	 * Asset names inside a pack. Declared rather than inlined so a rename is one
+	 * line here instead of several scattered string concatenations.
+	 */
+	public static final String ASSET_SEQ = "seq.dat";
+	public static final String ASSET_SPOTANIM = "spotanim.dat";
+	public static final String ASSET_ANIMS = "anims";
+	public static final String ASSET_MODELS = "models";
+
+	/** CursePack sequences to inject, by id. Moved verbatim from CurseData667. */
+	public static final int[] CURSE_SEQ_IDS = {
+		12565, 12566, 12567, 12568, 12573, 12574, 12580, 12586, 12587, 12589, 12590
+	};
+
+	/** CursePack spotanims to inject, by id. Moved verbatim from CurseData667. */
+	public static final int[] CURSE_GFX_IDS = {
+		2213, 2226, 2228, 2229, 2230, 2259, 2263, 2264, 2266
+	};
+
+	/** CursePack models to inject, by id. Moved verbatim from CurseData667. */
+	public static final int[] CURSE_MODEL_IDS = {
+		50778, 50779, 50780, 50782, 50783, 50812, 50817, 50818, 50819
+	};
+
+	/**
+	 * CursePack animation SOURCE file ids, in slot order: entry {@code i} is loaded
+	 * into {@code FrameSlots.CURSE_BASE + i}. Moved verbatim from CurseData667.
+	 *
+	 * <p>These ids sit INSIDE the packed 474 range (0..3229), which is exactly why
+	 * the loader must offset them rather than load them under their own ids.
+	 */
+	public static final int[] CURSE_ANIM_FILES = {
+		2998, 3012, 3013, 3016, 3018, 3019, 3020
+	};
+
+	/**
+	 * A spotanim whose model and animation come from declared content rather than
+	 * from the cache's own {@code spotanim.dat}.
+	 */
+	public static final class SpotAnimOverride {
+		/** The spotanim id this override applies to. */
+		public final int gfxId;
+		/** Model id to draw. */
+		public final int modelId;
+		/** Animation id to play. */
+		public final int animId;
+		/** Source revision the model/animation belong to. */
+		public final int revision;
+
+		public SpotAnimOverride(int gfxId, int modelId, int animId, int revision) {
+			this.gfxId = gfxId;
+			this.modelId = modelId;
+			this.animId = animId;
+			this.revision = revision;
+		}
+	}
+
+	/**
+	 * Spotanim overrides. Moved verbatim from {@code SpotAnim.unpackConfig}'s two
+	 * hardcoded {@code if (j == 1247)} / {@code if (j == 1248)} branches.
+	 */
+	public static final SpotAnimOverride[] SPOTANIM_OVERRIDES = {
+		new SpotAnimOverride(1247, 60776, 4001, REVISION_667),
+		new SpotAnimOverride(1248, 60776, 4002, REVISION_667),
+	};
 
 	/**
 	 * One externally-sourced frame file: where it lands, where it comes from, and which

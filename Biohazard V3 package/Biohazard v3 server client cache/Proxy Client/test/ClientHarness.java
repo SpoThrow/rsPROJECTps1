@@ -140,6 +140,8 @@ public final class ClientHarness {
 		contentRegistryLoadsADeclaredSourceIntoItsSlot();
 		contentRegistryReportsAMissingSourceRatherThanPassingSilently();
 		contentRegistryValidateCatchesADriftedDeclaration();
+		declaratationsLiveInOnePlaceOnly();
+		spotAnimOverridesAreAppliedToTheDeclaredIds();
 		packetTapProducesDiffableLog();
 		itemDefOutOfRangeIdIsSafe();
 		itemDefCertTemplateWithoutCertIdIsSafe();
@@ -2457,7 +2459,7 @@ public final class ClientHarness {
 	 */
 	private static void curseFrameSlotsCannotCollideWithTheOriginalRange() {
 		int base = FrameSlots.CURSE_BASE;
-		int[] files = (int[]) readStatic(CurseData667.class, "CURSE_ANIM_FILES");
+		int[] files = ContentRegistry.CURSE_ANIM_FILES;
 
 		check("CursePack: ANIM_FILE_BASE is 28000 (the whole invariant is this number)",
 				base == 28000);
@@ -2655,6 +2657,103 @@ public final class ClientHarness {
 					+ " (reported: " + report.trim() + ")", report.length() > 0);
 		} finally {
 			Animation.anims = saved;
+		}
+	}
+
+	/**
+	 * Phase 6.5.6: the point of the migration is that the declaration has ONE owner.
+	 * This is the check that keeps it that way - a re-introduced private array in
+	 * CurseData667 would silently become a second source of truth, which is exactly the
+	 * condition 6.5.1's decision was made to end.
+	 */
+	private static void declaratationsLiveInOnePlaceOnly() {
+		String[] moved = {
+			"CURSE_SEQ_IDS", "CURSE_GFX_IDS", "CURSE_MODEL_IDS", "CURSE_ANIM_FILES", "PACK_FOLDER"
+		};
+		String leaked = "";
+		java.lang.reflect.Field[] fields = CurseData667.class.getDeclaredFields();
+		for (int i = 0; i < moved.length; i++) {
+			for (int k = 0; k < fields.length; k++) {
+				if (fields[k].getName().equals(moved[i])) {
+					leaked = fields[k].getName();
+				}
+			}
+		}
+		check("Registry: CurseData667 no longer declares its own id arrays or pack folder"
+				+ (leaked.length() > 0 ? " - FOUND " + leaked : "")
+				+ ", so the registry is the ONE owner", leaked.length() == 0);
+
+		// The migration is a MOVE, not a change, so the values must be exactly the
+		// historical ones - a silently altered id list is the failure this pins.
+		check("Registry: CURSE_SEQ_IDS is exactly the historical 11 ids",
+				ContentRegistry.CURSE_SEQ_IDS.length == 11
+						&& ContentRegistry.CURSE_SEQ_IDS[0] == 12565
+						&& ContentRegistry.CURSE_SEQ_IDS[6] == 12580
+						&& ContentRegistry.CURSE_SEQ_IDS[10] == 12590);
+		check("Registry: CURSE_GFX_IDS is exactly the historical 9 ids",
+				ContentRegistry.CURSE_GFX_IDS.length == 9
+						&& ContentRegistry.CURSE_GFX_IDS[0] == 2213
+						&& ContentRegistry.CURSE_GFX_IDS[8] == 2266);
+		check("Registry: CURSE_MODEL_IDS is exactly the historical 9 ids",
+				ContentRegistry.CURSE_MODEL_IDS.length == 9
+						&& ContentRegistry.CURSE_MODEL_IDS[0] == 50778
+						&& ContentRegistry.CURSE_MODEL_IDS[8] == 50819);
+		check("Registry: CURSE_ANIM_FILES is exactly the historical 7 files",
+				ContentRegistry.CURSE_ANIM_FILES.length == 7
+						&& ContentRegistry.CURSE_ANIM_FILES[0] == 2998
+						&& ContentRegistry.CURSE_ANIM_FILES[6] == 3020);
+
+		check("Registry: exactly two spotanim overrides are declared",
+				ContentRegistry.SPOTANIM_OVERRIDES.length == 2);
+		ContentRegistry.SpotAnimOverride a = ContentRegistry.SPOTANIM_OVERRIDES[0];
+		ContentRegistry.SpotAnimOverride b = ContentRegistry.SPOTANIM_OVERRIDES[1];
+		check("Registry: override 0 is gfx 1247 -> model 60776 / anim 4001, the values"
+				+ " the hardcoded branch used",
+				a.gfxId == 1247 && a.modelId == 60776 && a.animId == 4001);
+		check("Registry: override 1 is gfx 1248 -> model 60776 / anim 4002, the values"
+				+ " the hardcoded branch used",
+				b.gfxId == 1248 && b.modelId == 60776 && b.animId == 4002);
+	}
+
+	/**
+	 * The override MECHANISM, driven directly: a spotanim whose id is declared must get
+	 * the declared model and animation - the behaviour the two hardcoded branches used
+	 * to provide - and an undeclared id must be left completely alone.
+	 */
+	private static void spotAnimOverridesAreAppliedToTheDeclaredIds() {
+		java.lang.reflect.Method m;
+		try {
+			m = SpotAnim.class.getDeclaredMethod("applyDeclaredOverrides", SpotAnim.class);
+			m.setAccessible(true);
+		} catch (Exception e) {
+			throw new RuntimeException("could not find applyDeclaredOverrides", e);
+		}
+
+		for (int i = 0; i < ContentRegistry.SPOTANIM_OVERRIDES.length; i++) {
+			ContentRegistry.SpotAnimOverride o = ContentRegistry.SPOTANIM_OVERRIDES[i];
+			SpotAnim s = new SpotAnim();
+			s.anInt404 = o.gfxId;
+			invokeQuietly(m, s);
+			check("Registry: the declared override for gfx " + o.gfxId + " is applied"
+					+ " (model " + s.anInt405 + ", anim " + s.anInt406 + ")",
+					s.anInt405 == o.modelId && s.anInt406 == o.animId);
+		}
+
+		SpotAnim untouched = new SpotAnim();
+		untouched.anInt404 = 1246;   // adjacent to a declared id, but NOT declared
+		untouched.anInt405 = 111;
+		untouched.anInt406 = 222;
+		invokeQuietly(m, untouched);
+		check("Registry: an UNDECLARED spotanim id is left exactly as it was"
+				+ " (an override leaking to every spotanim would be a real behaviour change)",
+				untouched.anInt405 == 111 && untouched.anInt406 == 222);
+	}
+
+	private static void invokeQuietly(java.lang.reflect.Method m, SpotAnim target) {
+		try {
+			m.invoke(null, target);
+		} catch (Exception e) {
+			throw new RuntimeException("could not invoke " + m.getName(), e);
 		}
 	}
 
@@ -3275,7 +3374,7 @@ public final class ClientHarness {
 	 * under their own ids would overwrite 474 content.
 	 */
 	private static void curseSourceIdsWouldHaveCollidedWithoutTheOffset() {
-		int[] files = (int[]) readStatic(CurseData667.class, "CURSE_ANIM_FILES");
+		int[] files = ContentRegistry.CURSE_ANIM_FILES;
 		int maxSource = 0;
 		int minSource = Integer.MAX_VALUE;
 		for (int i = 0; i < files.length; i++) {
