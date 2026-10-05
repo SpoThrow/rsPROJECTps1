@@ -39,10 +39,11 @@ public final class GpuRenderer {
 	 * owns - so the scene seam is satisfied by inheritance and cannot drift out of
 	 * sync with the scene interface.
 	 *
-	 * <p>Implementations are expected to fall through to the software path for
-	 * anything they do not handle: {@link #presentGameFrame} returns {@code false} to
-	 * decline, and the scene operations simply are not called when a caller has no
-	 * renderer installed.
+	 * <p>Implementations are expected to DECLINE what they cannot handle, and every
+	 * operation here can express that: {@link #presentGameFrame} returns
+	 * {@code false}, and the inherited scene operations return {@code false} too. So a
+	 * partial renderer is safe - anything it declines falls through to the software
+	 * path rather than disappearing.
 	 */
 	public interface Implementation extends SceneRasterizer.Implementation {
 

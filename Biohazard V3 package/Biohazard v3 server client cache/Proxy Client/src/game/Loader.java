@@ -13,6 +13,7 @@ import javax.swing.JPanel;
 import javax.swing.JRadioButton;
 import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;import ui.GlPresent;
+import ui.RendererConfig;
 
 
 
@@ -30,6 +31,7 @@ public class Loader extends JFrame {
 	 */
 	public static void main(String[] args) {
 		GlPresent.applyPipeline();
+		RendererConfig.select();
 		EventQueue.invokeLater(new Runnable() {
 			public void run() {
 				try {

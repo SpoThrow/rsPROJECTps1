@@ -57,7 +57,17 @@ public final class SceneRasterizer {
 	 */
 	public interface Implementation {
 
-		void drawModel(Model model, int orientation, int camA, int camB, int camC, int camD,
+		/**
+		 * Draw a model submitted by the scene.
+		 *
+		 * @return {@code true} if this rasteriser handled it, so the caller must NOT
+		 *         run its software body; {@code false} to DECLINE, in which case the
+		 *         caller falls through to software. Declining is what makes a partial
+		 *         renderer safe - mirroring {@code GlPresent.presentGame} and
+		 *         {@link GpuRenderer.Implementation#presentGameFrame}, which return
+		 *         {@code false} for the same reason.
+		 */
+		boolean drawModel(Model model, int orientation, int camA, int camB, int camC, int camD,
 				int dx, int dy, int dz, int uid);
 
 		/**
@@ -82,8 +92,10 @@ public final class SceneRasterizer {
 		 *                     ordering - the same flag the software path branches on
 		 * @param t0..t8       the nine camera-space values used for texture mapping, in
 		 *                     the order the software rasteriser receives them
+		 * @return {@code true} if handled, {@code false} to DECLINE and let the caller
+		 *         fall through to software
 		 */
-		void drawGroundTriangle(int x0, int y0, int x1, int y1, int x2, int y2,
+		boolean drawGroundTriangle(int x0, int y0, int x1, int y1, int x2, int y2,
 				int colour0, int colour1, int colour2, int textureId, boolean flatMesh,
 				int t0, int t1, int t2, int t3, int t4, int t5, int t6, int t7, int t8);
 	}
@@ -114,7 +126,8 @@ public final class SceneRasterizer {
 	 *
 	 * @return {@code true} if a rasteriser handled it - in which case the caller
 	 *         must return without running its own body - or {@code false} if there
-	 *         is no rasteriser installed and the caller must draw it itself.
+	 *         is no rasteriser installed OR the installed one declined, in which
+	 *         case the caller must draw it itself.
 	 */
 	public static boolean dispatch(Model model, int orientation, int camA, int camB, int camC,
 			int camD, int dx, int dy, int dz, int uid) {
@@ -122,8 +135,7 @@ public final class SceneRasterizer {
 		if (impl == null) {
 			return false;
 		}
-		impl.drawModel(model, orientation, camA, camB, camC, camD, dx, dy, dz, uid);
-		return true;
+		return impl.drawModel(model, orientation, camA, camB, camC, camD, dx, dy, dz, uid);
 	}
 
 	/**
@@ -146,8 +158,7 @@ public final class SceneRasterizer {
 		if (impl == null) {
 			return false;
 		}
-		impl.drawGroundTriangle(x0, y0, x1, y1, x2, y2, colour0, colour1, colour2,
+		return impl.drawGroundTriangle(x0, y0, x1, y1, x2, y2, colour0, colour1, colour2,
 				textureId, flatMesh, t0, t1, t2, t3, t4, t5, t6, t7, t8);
-		return true;
 	}
 }

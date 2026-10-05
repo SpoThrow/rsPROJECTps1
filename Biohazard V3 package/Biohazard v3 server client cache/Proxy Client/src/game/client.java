@@ -86,6 +86,7 @@ import ui.DrawingArea;
 import ui.FriendListPlugin;
 import ui.FriendNotes;
 import ui.GlPresent;
+import ui.RendererConfig;
 import ui.GroundMarkers;
 import ui.HiscoresPanel;
 import ui.HudEditor;
@@ -3831,6 +3832,7 @@ public class client extends RSApplet {
 
 	static void preloadOpenGlProperty() {
 		GlPresent.applyPipeline();
+		RendererConfig.select();
 	}
 
 	public static int getBaseX() {

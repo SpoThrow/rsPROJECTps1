@@ -20,6 +20,7 @@ import scene.WorldController;
 import ui.DrawingArea;
 import ui.GpuRenderer;
 import ui.RSImageProducer;
+import ui.RendererConfig;
 import ui.SceneRasterizer;
 import ui.Sprite;
 
@@ -93,6 +94,8 @@ public final class ClientHarness {
 		groundSeamInterceptsWhenInstalled();
 		gpuRendererIsInertByDefault();
 		gpuRendererWiresBothSeams();
+		decliningRendererFallsThrough();
+		rendererSettingIsItsOwnKey();
 		packetTapProducesDiffableLog();
 		itemDefOutOfRangeIdIsSafe();
 		itemDefCertTemplateWithoutCertIdIsSafe();
@@ -1454,15 +1457,17 @@ public final class ClientHarness {
 				return true;
 			}
 
-			public void drawModel(Model model, int orientation, int camA, int camB, int camC,
+			public boolean drawModel(Model model, int orientation, int camA, int camB, int camC,
 					int camD, int dx, int dy, int dz, int uid) {
 				calls[0]++;
+				return true;
 			}
 
-			public void drawGroundTriangle(int x0, int y0, int x1, int y1, int x2, int y2,
+			public boolean drawGroundTriangle(int x0, int y0, int x1, int y1, int x2, int y2,
 					int colour0, int colour1, int colour2, int textureId, boolean flatMesh,
 					int t0, int t1, int t2, int t3, int t4, int t5, int t6, int t7, int t8) {
 				calls[0]++;
+				return true;
 			}
 		});
 		try {
@@ -1505,13 +1510,15 @@ public final class ClientHarness {
 				return true;
 			}
 
-			public void drawModel(Model model, int orientation, int camA, int camB, int camC,
+			public boolean drawModel(Model model, int orientation, int camA, int camB, int camC,
 					int camD, int dx, int dy, int dz, int uid) {
+				return true;
 			}
 
-			public void drawGroundTriangle(int x0, int y0, int x1, int y1, int x2, int y2,
+			public boolean drawGroundTriangle(int x0, int y0, int x1, int y1, int x2, int y2,
 					int colour0, int colour1, int colour2, int textureId, boolean flatMesh,
 					int t0, int t1, int t2, int t3, int t4, int t5, int t6, int t7, int t8) {
+				return true;
 			}
 		});
 		try {
@@ -1525,6 +1532,54 @@ public final class ClientHarness {
 		}
 		check("Renderer facade: one uninstall clears BOTH seams",
 				GpuRenderer.implementation() == null && SceneRasterizer.implementation() == null);
+	}
+
+	// ------------------------------- renderer selection and the decline (Phase 4.2b)
+
+	/**
+	 * A renderer that DECLINES everything must leave the software path untouched.
+	 *
+	 * <p>This is the property that makes the bring-up placeholder safe, and it is not
+	 * hypothetical: the scene seam treats an installed renderer as authoritative unless
+	 * it says otherwise, so a placeholder that accepted submissions without drawing them
+	 * would make models and ground disappear. Each assertion here is the "says
+	 * otherwise" half.
+	 */
+	private static void decliningRendererFallsThrough() {
+		GpuRenderer.install(new RendererConfig.DecliningRenderer("harness-test"));
+		try {
+			check("Decline contract: a declining renderer does not consume a model",
+					!SceneRasterizer.dispatch(Model.aModel_1621, 0, 0, 0, 0, 0, 0, 0, 0, 0));
+			check("Decline contract: a declining renderer does not consume a ground triangle",
+					!SceneRasterizer.dispatchGroundTriangle(1, 2, 3, 4, 5, 6, 7, 8, 9, -1, false,
+							11, 12, 13, 14, 15, 16, 17, 18, 19));
+			check("Decline contract: a declining renderer declines the present",
+					!GpuRenderer.presentGameFrame(null, 0, 0));
+			check("Decline contract: the renderer is installed, so this is DECLINING not absent",
+					GpuRenderer.implementation() != null
+							&& SceneRasterizer.implementation() != null);
+		} finally {
+			GpuRenderer.install(null);
+		}
+	}
+
+	/**
+	 * The selection must be its own key and must default to software.
+	 *
+	 * <p>The key assertion guards the documented trap: {@code openGl} already exists and
+	 * selects Java2D's OWN pipeline via {@code sun.java2d.opengl}, which is a different
+	 * thing from selecting a renderer of ours. Reusing that key would make the name lie.
+	 *
+	 * <p>Defaults to software is what makes an absent key harmless on a cache that has
+	 * never seen the property.
+	 */
+	private static void rendererSettingIsItsOwnKey() {
+		check("Renderer setting: uses its own key, NOT the openGl key (which is Java2D's pipeline)",
+				!RendererConfig.PROPERTY.equalsIgnoreCase("openGl"));
+		check("Renderer setting: defaults to software before any selection runs",
+				RendererConfig.SOFTWARE.equals(RendererConfig.requestedName()));
+		check("Renderer setting: the default leaves the software path installed",
+				SceneRasterizer.implementation() == null);
 	}
 
 	// ------------------------------------ ground triangle seam (Phase 4.1c-2c)
@@ -1557,18 +1612,20 @@ public final class ClientHarness {
 				return true;
 			}
 
-			public void drawModel(Model model, int orientation, int camA, int camB, int camC,
+			public boolean drawModel(Model model, int orientation, int camA, int camB, int camC,
 					int camD, int dx, int dy, int dz, int uid) {
 				calls[0] += 1000;
+				return true;
 			}
 
-			public void drawGroundTriangle(int x0, int y0, int x1, int y1, int x2, int y2,
+			public boolean drawGroundTriangle(int x0, int y0, int x1, int y1, int x2, int y2,
 					int colour0, int colour1, int colour2, int textureId, boolean flatMesh,
 					int t0, int t1, int t2, int t3, int t4, int t5, int t6, int t7, int t8) {
 				calls[0]++;
 				int[] v = { x0, y0, x1, y1, x2, y2, colour0, colour1, colour2, textureId,
 						flatMesh ? 1 : 0, t0, t1, t2, t3, t4, t5, t6, t7, t8 };
 				System.arraycopy(v, 0, seen, 0, 20);
+				return true;
 			}
 		});
 		try {

@@ -113,6 +113,7 @@ import ui.RSFont;
 import ui.RSImageProducer;
 import ui.RSInterface;
 import ui.RegenMeter;
+import ui.RendererConfig;
 import ui.SavedCharacters;
 import ui.SlayerTracker;
 import ui.Sprite;
@@ -176,6 +177,7 @@ public final class ClientSettings {
 			props.setProperty("performanceStats", Boolean.toString(performanceStats));
 			props.setProperty("showPing", Boolean.toString(showPing));
 			props.setProperty("openGl", Boolean.toString(openGlEnabled));
+			props.setProperty(RendererConfig.PROPERTY, RendererConfig.requestedName());
 			props.setProperty("fpsUnlocked", Boolean.toString(fpsUnlocked));
 			props.setProperty("zoomSensitivity", Integer.toString(zoomSensitivity));
 			props.setProperty("shiftClickDrop", Boolean.toString(shiftClickDrop));
