@@ -97,6 +97,10 @@ public final class ClientHarness {
 		decliningRendererFallsThrough();
 		rendererSettingIsItsOwnKey();
 		rasterPinsAreStanding();
+		modelGeometryExposesLocalVertices();
+		modelGeometryDecodesRenderTypeAndTexture();
+		modelGeometryHandlesAbsentAttributes();
+		modelGeometryTextureArraysAreIndexedByTextureNotFace();
 		packetTapProducesDiffableLog();
 		itemDefOutOfRangeIdIsSafe();
 		itemDefCertTemplateWithoutCertIdIsSafe();
@@ -836,6 +840,120 @@ public final class ClientHarness {
 		java.lang.reflect.Field f = target.getClass().getDeclaredField(name);
 		f.setAccessible(true);
 		return f.get(target);
+	}
+
+	/**
+	 * Writes a field of an instance. Used to park synthetic geometry onto a bare
+	 * {@link Model} so the Phase 5.1 accessors can be checked without a cache.
+	 */
+	private static void writeField(Object target, String name, Object value) {
+		try {
+			java.lang.reflect.Field f = target.getClass().getDeclaredField(name);
+			f.setAccessible(true);
+			f.set(target, value);
+		} catch (Exception e) {
+			throw new RuntimeException("could not write field " + name, e);
+		}
+	}
+
+	/**
+	 * A bare {@link Model} with no geometry at all.
+	 *
+	 * <p>Built through the private no-arg constructor by reflection, deliberately:
+	 * every other constructor needs cache data or model streams, and reusing the
+	 * shared {@link Model#aModel_1621} singleton would let one test's parked data
+	 * leak into another.
+	 */
+	private static Model bareModel() {
+		try {
+			java.lang.reflect.Constructor<Model> c = Model.class.getDeclaredConstructor();
+			c.setAccessible(true);
+			return c.newInstance();
+		} catch (Exception e) {
+			throw new RuntimeException("could not create a bare Model", e);
+		}
+	}
+
+	// ------------------------------- Phase 5.1 geometry accessors
+
+	/**
+	 * The accessors must return the model's OWN arrays, in their own slots.
+	 *
+	 * <p>Identity comparison (==) is the point: it fails if a mapping is swapped
+	 * (ys for zs), if a copy is returned, or if the wrong field is read - none of
+	 * which a value comparison of one array would catch.
+	 */
+	private static void modelGeometryExposesLocalVertices() {
+		Model m = bareModel();
+		int[] xs = { 1, 2, 3 };
+		int[] ys = { 4, 5, 6 };
+		int[] zs = { 7, 8, 9 };
+		int[] fa = { 0, 2 };
+		int[] fb = { 1, 0 };
+		int[] fc = { 2, 1 };
+		writeField(m, "anInt1626", 3);
+		writeField(m, "anInt1630", 2);
+		writeField(m, "anIntArray1627", xs);
+		writeField(m, "anIntArray1628", ys);
+		writeField(m, "anIntArray1629", zs);
+		writeField(m, "anIntArray1631", fa);
+		writeField(m, "anIntArray1632", fb);
+		writeField(m, "anIntArray1633", fc);
+
+		check("Model geometry: vertex and face counts are exposed",
+				m.vertexCount() == 3 && m.faceCount() == 2);
+		check("Model geometry: vertices map to X, Y, Z in that order (not swapped)",
+				m.vertexXs() == xs && m.vertexYs() == ys && m.vertexZs() == zs);
+		check("Model geometry: face indices map to A, B, C in that order (not swapped)",
+				m.faceVertexA() == fa && m.faceVertexB() == fb && m.faceVertexC() == fc);
+	}
+
+	private static void modelGeometryDecodesRenderTypeAndTexture() {
+		Model m = bareModel();
+		writeField(m, "anIntArray1637", new int[] { 2 | (5 << 2), 3 });
+		check("Model geometry: render type is the LOW 2 BITS of the render-type word",
+				m.faceRenderType(0) == 2);
+		check("Model geometry: texture id is the render-type word shifted right by 2",
+				m.faceTextureId(0) == 5);
+		check("Model geometry: a purely flat face decodes to texture id 0",
+				m.faceRenderType(1) == 3 && m.faceTextureId(1) == 0);
+	}
+
+	/**
+	 * Not every model has every attribute, and the software path already guards for
+	 * that. The accessors must mirror those guards rather than inventing values -
+	 * a texture id of 0 would mean "texture zero", which is a real texture.
+	 */
+	private static void modelGeometryHandlesAbsentAttributes() {
+		Model m = bareModel();
+		check("Model geometry: a model with no render types reports so", !m.hasFaceRenderTypes());
+		check("Model geometry: absent render types decode to type 0 without throwing",
+				m.faceRenderType(0) == 0);
+		check("Model geometry: absent render types decode to texture id -1, NOT 0 (which is a real texture)",
+				m.faceTextureId(0) == -1);
+		check("Model geometry: a model with no textures reports so", !m.hasTextures());
+		check("Model geometry: texture count is 0 when there are no textures", m.textureCount() == 0);
+		check("Model geometry: absent alpha is reported, not replaced by a sentinel", !m.hasFaceAlphas());
+	}
+
+	/**
+	 * The texture arrays are indexed by TEXTURE ID, while faces are indexed by face
+	 * id. Confusing the two is the most likely way a GPU upload goes subtly wrong -
+	 * so the counts are made to differ here, which any such mix-up would trip over.
+	 */
+	private static void modelGeometryTextureArraysAreIndexedByTextureNotFace() {
+		Model m = bareModel();
+		writeField(m, "anInt1630", 3);
+		writeField(m, "anInt1642", 2);
+		writeField(m, "anIntArray1643", new int[] { 10, 11 });
+		writeField(m, "anIntArray1644", new int[] { 12, 13 });
+		writeField(m, "anIntArray1645", new int[] { 14, 15 });
+
+		check("Model geometry: texture arrays are sized by TEXTURE count, not face count",
+				m.textureCount() == 2 && m.faceCount() == 3);
+		check("Model geometry: texture vertex indices are exposed per texture",
+				m.textureVertexA()[1] == 11 && m.textureVertexB()[1] == 13 && m.textureVertexC()[1] == 15);
+		check("Model geometry: a model carrying textures reports so", m.hasTextures());
 	}
 
 	/**

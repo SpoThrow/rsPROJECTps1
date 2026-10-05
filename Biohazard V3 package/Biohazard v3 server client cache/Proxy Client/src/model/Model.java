@@ -2951,4 +2951,177 @@ public final class Model extends Animable {
 		modelIntArray3 = Texture.anIntArray1482;
 		modelIntArray4 = Texture.anIntArray1469;
 	}
+
+	// ---------------------------------------------------------------------
+	// Phase 5.1 - read-only geometry accessors (additive; nothing below is
+	// called by any existing code path, so software output cannot change).
+	//
+	// WHY THIS EXISTS. The GPU path needs to upload model geometry, and it must
+	// do so from a named contract instead of reaching into the obfuscated fields.
+	// Nine of the arrays below are PRIVATE, so a companion class in this package
+	// still could not read them - which is why the accessors live here.
+	//
+	// WHICH GEOMETRY, AND WHY NOT SCREEN-SPACE. The obvious reading of "post
+	// transform geometry" is the screen-space scratch arrays (anIntArray1665/1666
+	// /1667 and 1668/1669/1670). That reading is WRONG for this seam, and the
+	// plan's wording has been corrected to say so: SceneRasterizer.dispatch runs
+	// at the TOP of method443, BEFORE the transform, so at the moment a renderer
+	// is invoked those arrays are still empty. They are also static scratch shared
+	// by every model, valid only mid-draw. What is exposed here is therefore
+	// MODEL-LOCAL geometry - the vertices after the model's own construction
+	// transform, which is what a renderer should upload and transform itself. That
+	// is the RuneLite arrangement Phase 6.3 describes ("confirm the CPU-side
+	// transform is the one uploaded"), and it is why Phase 5.1 precedes any GL.
+	//
+	// CONTRACT - read this before using these. The array accessors return the
+	// model's LIVE storage, never a copy: a copy per model per frame is exactly the
+	// allocation the GPU path exists to avoid. They are therefore accessors in the
+	// API sense, not in the immutability sense - CALLERS MUST NOT MUTATE THE
+	// RETURNED ARRAYS. Copy into your own buffer (Phase 5.2) if you need to.
+	//
+	// NULLABILITY. Not every model has every attribute, and the software path
+	// already guards accordingly (`if (anIntArray1639 == null)` in method484), so
+	// the accessors mirror that rather than inventing values:
+	//   - always present: vertexXs/Ys/Zs, faceVertexA/B/C
+	//   - absent on some models: faceRenderTypes, facePriorities, faceAlphas,
+	//     faceBaseColours, and all three texture arrays -> return null
+	// Callers must null-check, or use the has* predicates below.
+	//
+	// SEMANTICS, verified against the real draw path (method484, not inferred):
+	//   - faceRenderTypes: low 2 bits are the render type (0 flat-gouraud,
+	//     1 flat-single, 2 textured-gouraud, 3 textured-flat); the value >> 2 is
+	//     the texture id. Use faceRenderType/faceTextureId for the decoded forms.
+	//   - faceCornerColourA/B/C: per-corner LIT colours, computed by method479.
+	//     They are populated during the draw, so they are only meaningful after a
+	//     lighting pass has run.
+	//   - faceBaseColours: the face's unlit colour from the cache.
+	//   - faceAlphas: 0-255, only defined for faces of a textured model.
+	//   - texture arrays are indexed by TEXTURE ID, not by face, and hold vertex
+	//     indices into the model - length is textureCount(), not faceCount().
+	// ---------------------------------------------------------------------
+
+	/** Number of model-local vertices. Valid indices for the vertex accessors. */
+	public int vertexCount() {
+		return anInt1626;
+	}
+
+	/** Number of faces. Valid indices for the face accessors. */
+	public int faceCount() {
+		return anInt1630;
+	}
+
+	/**
+	 * Number of textures referenced by this model. The texture arrays are indexed
+	 * by texture id (0..textureCount()-1), NOT by face.
+	 */
+	public int textureCount() {
+		return anInt1642;
+	}
+
+	/** Model-local vertex X. Live storage - do not mutate. */
+	public int[] vertexXs() {
+		return anIntArray1627;
+	}
+
+	/** Model-local vertex Y. Live storage - do not mutate. */
+	public int[] vertexYs() {
+		return anIntArray1628;
+	}
+
+	/** Model-local vertex Z. Live storage - do not mutate. */
+	public int[] vertexZs() {
+		return anIntArray1629;
+	}
+
+	/** First vertex index of each face. Live storage - do not mutate. */
+	public int[] faceVertexA() {
+		return anIntArray1631;
+	}
+
+	/** Second vertex index of each face. Live storage - do not mutate. */
+	public int[] faceVertexB() {
+		return anIntArray1632;
+	}
+
+	/** Third vertex index of each face. Live storage - do not mutate. */
+	public int[] faceVertexC() {
+		return anIntArray1633;
+	}
+
+	/** Per-corner lit colours, populated by the lighting pass. May be null. */
+	public int[] faceCornerColoursA() {
+		return anIntArray1634;
+	}
+
+	/** Per-corner lit colours, populated by the lighting pass. May be null. */
+	public int[] faceCornerColoursB() {
+		return anIntArray1635;
+	}
+
+	/** Per-corner lit colours, populated by the lighting pass. May be null. */
+	public int[] faceCornerColoursC() {
+		return anIntArray1636;
+	}
+
+	/** Unlit per-face colours as loaded from the cache. May be null. */
+	public int[] faceBaseColours() {
+		return anIntArray1640;
+	}
+
+	/** Per-face alpha (0-255) for textured models. May be null. */
+	public int[] faceAlphas() {
+		return anIntArray1639;
+	}
+
+	/** Per-face draw priority. May be null. */
+	public int[] facePriorities() {
+		return anIntArray1638;
+	}
+
+	/** Raw render type + texture id. Use the decoded accessors below. May be null. */
+	public int[] faceRenderTypes() {
+		return anIntArray1637;
+	}
+
+	public boolean hasFaceRenderTypes() {
+		return anIntArray1637 != null;
+	}
+
+	public boolean hasFaceAlphas() {
+		return anIntArray1639 != null;
+	}
+
+	public boolean hasFaceBaseColours() {
+		return anIntArray1640 != null;
+	}
+
+	/** True when this model carries texture mapping data. */
+	public boolean hasTextures() {
+		return anIntArray1643 != null && anIntArray1644 != null && anIntArray1645 != null;
+	}
+
+	/** Decoded render type of a face; 0 when the model carries no render types. */
+	public int faceRenderType(int face) {
+		return anIntArray1637 == null ? 0 : anIntArray1637[face] & 3;
+	}
+
+	/** Decoded texture id of a face; -1 when the model carries no render types. */
+	public int faceTextureId(int face) {
+		return anIntArray1637 == null ? -1 : anIntArray1637[face] >> 2;
+	}
+
+	/** Vertex index used as the texture's first coordinate. May be null. */
+	public int[] textureVertexA() {
+		return anIntArray1643;
+	}
+
+	/** Vertex index used as the texture's second coordinate. May be null. */
+	public int[] textureVertexB() {
+		return anIntArray1644;
+	}
+
+	/** Vertex index used as the texture's third coordinate. May be null. */
+	public int[] textureVertexC() {
+		return anIntArray1645;
+	}
 }
