@@ -1253,7 +1253,7 @@ public class client extends RSApplet {
 		smallText.method385(0xffffff, timer, ty, tx);
 	}
 
-	private boolean chatClickThroughActive() {
+	boolean chatClickThroughActive() {
 		// Never click through when a dialogue / chat interface option is open.
 		if (backDialogID != -1 || dialogID != -1 || ChatboxItemSearch.open) {
 			return false;
@@ -1478,15 +1478,40 @@ public class client extends RSApplet {
 			return j / 0xf4240 + "M";
 	}
 
-	private boolean menuHasAddFriend(int j) {
-		if (j < 0)
-			return false;
-		int k = menuActionID[j];
-		if (k >= 2000)
-			k -= 2000;
-		return k == 337;
+	public MenuSystem menuUi = new MenuSystem(this);
+
+	private void build3dScreenMenu() {
+		menuUi.build3dScreenMenu();
 	}
-	
+
+	public void determineMenuSize() {
+		menuUi.determineMenuSize();
+	}
+
+	public boolean processMenuClick() {
+		return menuUi.processMenuClick();
+	}
+
+	private void buildMinimapHudMenu() {
+		menuUi.buildMinimapHudMenu();
+	}
+
+	public void drawMenu() {
+		menuUi.drawMenu();
+	}
+
+	private boolean buildFriendsListMenu(RSInterface class9) {
+		return menuUi.buildFriendsListMenu(class9);
+	}
+
+	private static String combatDiffColor(int i, int j) {
+		return MenuSystem.combatDiffColor(i, j);
+	}
+
+	private boolean menuHasAddFriend(int j) {
+		return menuUi.menuHasAddFriend(j);
+	}
+
 	public String indexLocation(int cacheIndex, int index) {
 		return signlink.findcachedir() + "index" + cacheIndex + "/" + (index != -1 ? index + ".gz" : "");
 	}
@@ -1562,119 +1587,6 @@ public class client extends RSApplet {
 
 	public Socket openSocket(int port) throws IOException {
 		return new Socket(InetAddress.getByName(server), port);
-	}
-
-	public boolean processMenuClick() {
-		if (activeInterfaceType != 0)
-			return false;
-		int j = super.clickMode3;
-		if (spellSelected == 1 && super.saveClickX >= minimapDrawX()
-				&& super.saveClickY >= 160 && super.saveClickX <= frameWidth
-				&& super.saveClickY <= 205)
-			j = 0;
-		if (menuOpen) {
-			if (j != 1) {
-				int k = super.mouseX;
-				int j1 = super.mouseY;
-				if (menuScreenArea == 0) {
-					k -= gameDrawX();
-					j1 -= gameDrawY();
-				}
-				if (menuScreenArea == 1) {
-					k -= tabDrawX();
-					j1 -= tabDrawY();
-				}
-				if (menuScreenArea == 2) {
-					k -= 17;
-					j1 -= chatDrawY();
-				}
-				if (menuScreenArea == 3) {
-					k -= minimapDrawX();
-					j1 -= 0;
-				}
-				if (k < menuOffsetX - 10 || k > menuOffsetX + menuWidth + 10
-						|| j1 < menuOffsetY - 10
-						|| j1 > menuOffsetY + menuHeight + 10) {
-					menuOpen = false;
-					if (menuScreenArea == 1)
-						needDrawTabArea = true;
-					if (menuScreenArea == 2)
-						inputTaken = true;
-				}
-			}
-			if (j == 1) {
-				int l = menuOffsetX;
-				int k1 = menuOffsetY;
-				int i2 = menuWidth;
-				int k2 = super.saveClickX;
-				int l2 = super.saveClickY;
-				if (menuScreenArea == 0) {
-					k2 -= gameDrawX();
-					l2 -= gameDrawY();
-				}
-				if (menuScreenArea == 1) {
-					k2 -= tabDrawX();
-					l2 -= tabDrawY();
-				}
-				if (menuScreenArea == 2) {
-					k2 -= 17;
-					l2 -= chatDrawY();
-				}
-				if (menuScreenArea == 3) {
-					k2 -= minimapDrawX();
-					l2 -= 0;
-				}
-				int i3 = -1;
-				for (int j3 = 0; j3 < menuActionRow; j3++) {
-					int k3 = k1 + 31 + (menuActionRow - 1 - j3) * 15;
-					if (k2 > l && k2 < l + i2 && l2 > k3 - 13 && l2 < k3 + 3)
-						i3 = j3;
-				}
-				if (i3 != -1)
-					doAction(i3);
-				menuOpen = false;
-				if (menuScreenArea == 1)
-					needDrawTabArea = true;
-				if (menuScreenArea == 2) {
-					inputTaken = true;
-				}
-			}
-			return true;
-		} else {
-			if (j == 1 && menuActionRow > 0) {
-				int i1 = menuActionID[menuActionRow - 1];
-				if (i1 == 632 || i1 == 78 || i1 == 867 || i1 == 431 || i1 == 53
-						|| i1 == 74 || i1 == 454 || i1 == 539 || i1 == 493
-						|| i1 == 847 || i1 == 447 || i1 == 1125) {
-					int l1 = menuActionCmd2[menuActionRow - 1];
-					int j2 = menuActionCmd3[menuActionRow - 1];
-					RSInterface class9 = RSInterface.interfaceCache[j2];
-					if (class9.aBoolean259 || class9.aBoolean235) {
-						aBoolean1242 = false;
-						anInt989 = 0;
-						anInt1084 = j2;
-						anInt1085 = l1;
-						activeInterfaceType = 2;
-						anInt1087 = super.saveClickX;
-						anInt1088 = super.saveClickY;
-						if (RSInterface.interfaceCache[j2].parentID == openInterfaceID)
-							activeInterfaceType = 1;
-						if (RSInterface.interfaceCache[j2].parentID == backDialogID)
-							activeInterfaceType = 3;
-						return true;
-					}
-				}
-			}
-			if (j == 1
-					&& (anInt1253 == 1 || menuHasAddFriend(menuActionRow - 1))
-					&& menuActionRow > 2)
-				j = 2;
-			if (j == 1 && menuActionRow > 0)
-				doAction(menuActionRow - 1);
-			if (j == 2 && menuActionRow > 0)
-				determineMenuSize();
-			return false;
-		}
 	}
 
 	public static int totalRead = 0;
@@ -3264,45 +3176,6 @@ public class client extends RSApplet {
 
 	public void setCameraPos(int j, int k, int l, int i1, int j1, int k1) {
 		camera.setCameraPos(j, k, l, i1, j1, k1);
-	}
-
-	public void drawMenu() {
-		int i = menuOffsetX;
-		int j = menuOffsetY;
-		int k = menuWidth;
-		int l = menuHeight + 1;
-		int i1 = 0x5d5447;
-		// DrawingArea.drawPixels(height, yPos, xPos, color, width);
-		// DrawingArea.fillPixels(xPos, width, height, color, yPos);
-		DrawingArea.drawPixels(l, j, i, i1, k);
-		DrawingArea.drawPixels(16, j + 1, i + 1, 0, k - 2);
-		DrawingArea.fillPixels(i + 1, k - 2, l - 19, 0, j + 18);
-		chatTextDrawingArea.method385(i1, "Choose Option", j + 14, i + 3);
-		int j1 = super.mouseX;
-		int k1 = super.mouseY;
-		if (menuScreenArea == 0) {
-			j1 -= gameDrawX();
-			k1 -= gameDrawY();
-		}
-		if (menuScreenArea == 1) {
-			j1 -= tabDrawX();
-			k1 -= tabDrawY();
-		}
-		if (menuScreenArea == 2) {
-			j1 -= 17;
-			k1 -= chatDrawY();
-		}
-		if (menuScreenArea == 3) {
-			j1 -= minimapDrawX();
-			k1 -= 0;
-		}
-		for (int l1 = 0; l1 < menuActionRow; l1++) {
-			int i2 = j + 31 + (menuActionRow - 1 - l1) * 15;
-			int j2 = 0xffffff;
-			if (j1 > i && j1 < i + k && k1 > i2 - 13 && k1 < i2 + 3)
-				j2 = 0xffff00;
-			newBoldFont.drawBasicString(menuActionName[l1], i + 3, i2, j2, 0);
-		}
 	}
 
 	public void addFriend(long l) {
@@ -5117,7 +4990,7 @@ public class client extends RSApplet {
 		}
 	}
 
-	private void doAction(int i) {
+	void doAction(int i) {
 		if (i < 0)
 			return;
 		int actionId = menuActionID[i];
@@ -6335,204 +6208,6 @@ public class client extends RSApplet {
 			drawFlames();
 		} else {
 			super.run();
-		}
-	}
-
-	private void build3dScreenMenu() {
-		if (itemSelected == 0 && spellSelected == 0) {
-			menuActionName[menuActionRow] = "Walk here";
-			menuActionID[menuActionRow] = 516;
-			menuActionCmd2[menuActionRow] = super.mouseX;
-			menuActionCmd3[menuActionRow] = super.mouseY;
-			menuActionRow++;
-		}
-		int j = -1;
-		for (int k = 0; k < Model.anInt1687; k++) {
-			int l = Model.anIntArray1688[k];
-			int i1 = l & 0x7f;
-			int j1 = l >> 7 & 0x7f;
-			int k1 = l >> 29 & 3;
-			int l1 = l >> 14 & 0x7fff;
-			if (l == j)
-				continue;
-			j = l;
-			if (k1 == 2 && worldController.method304(plane, i1, j1, l) >= 0) {
-				ObjectDef class46 = ObjectDef.forID(l1);
-				if (class46.childrenIDs != null)
-					class46 = class46.method580();
-				if (class46 == null)
-					continue;
-				if (itemSelected == 1) {
-					menuActionName[menuActionRow] = "Use " + selectedItemName
-							+ " with @cya@" + class46.name;
-					menuActionID[menuActionRow] = 62;
-					menuActionCmd1[menuActionRow] = l;
-					menuActionCmd2[menuActionRow] = i1;
-					menuActionCmd3[menuActionRow] = j1;
-					menuActionRow++;
-				} else if (spellSelected == 1) {
-					if ((spellUsableOn & 4) == 4) {
-						menuActionName[menuActionRow] = spellTooltip + " @cya@"
-								+ class46.name;
-						menuActionID[menuActionRow] = 956;
-						menuActionCmd1[menuActionRow] = l;
-						menuActionCmd2[menuActionRow] = i1;
-						menuActionCmd3[menuActionRow] = j1;
-						menuActionRow++;
-					}
-				} else {
-					if (class46.actions != null) {
-						for (int i2 = 4; i2 >= 0; i2--)
-							if (class46.actions[i2] != null) {
-								menuActionName[menuActionRow] = class46.actions[i2]
-										+ " @cya@" + class46.name;
-								if (i2 == 0)
-									menuActionID[menuActionRow] = 502;
-								if (i2 == 1)
-									menuActionID[menuActionRow] = 900;
-								if (i2 == 2)
-									menuActionID[menuActionRow] = 113;
-								if (i2 == 3)
-									menuActionID[menuActionRow] = 872;
-								if (i2 == 4)
-									menuActionID[menuActionRow] = 1062;
-								menuActionCmd1[menuActionRow] = l;
-								menuActionCmd2[menuActionRow] = i1;
-								menuActionCmd3[menuActionRow] = j1;
-								menuActionRow++;
-							}
-
-					}
-					menuActionName[menuActionRow] = "Examine @cya@"
-							+ class46.name + " @gre@(@whi@" + l1
-							+ "@gre@) (@whi@" + (i1 + baseX) + ","
-							+ (j1 + baseY) + "@gre@)";
-					// menuActionName[menuActionRow] = "Examine @cya@" +
-					// class46.name;
-					menuActionID[menuActionRow] = 1226;
-					menuActionCmd1[menuActionRow] = class46.type << 14;
-					menuActionCmd2[menuActionRow] = i1;
-					menuActionCmd3[menuActionRow] = j1;
-					menuActionRow++;
-				}
-			}
-			if (k1 == 1) {
-				NPC npc = npcArray[l1];
-				if (npc.desc.aByte68 == 1 && (npc.x & 0x7f) == 64
-						&& (npc.y & 0x7f) == 64) {
-					for (int j2 = 0; j2 < npcCount; j2++) {
-						NPC npc2 = npcArray[npcIndices[j2]];
-						if (npc2 != null && npc2 != npc
-								&& npc2.desc.aByte68 == 1 && npc2.x == npc.x
-								&& npc2.y == npc.y)
-							buildAtNPCMenu(npc2.desc, npcIndices[j2], j1, i1);
-					}
-
-					for (int l2 = 0; l2 < playerCount; l2++) {
-						Player player = playerArray[playerIndices[l2]];
-						if (player != null && player.x == npc.x
-								&& player.y == npc.y)
-							buildAtPlayerMenu(i1, playerIndices[l2], player, j1);
-					}
-
-				}
-				buildAtNPCMenu(npc.desc, l1, j1, i1);
-			}
-			if (k1 == 0) {
-				Player player = playerArray[l1];
-				if ((player.x & 0x7f) == 64 && (player.y & 0x7f) == 64) {
-					for (int k2 = 0; k2 < npcCount; k2++) {
-						NPC class30_sub2_sub4_sub1_sub1_2 = npcArray[npcIndices[k2]];
-						if (class30_sub2_sub4_sub1_sub1_2 != null
-								&& class30_sub2_sub4_sub1_sub1_2.desc.aByte68 == 1
-								&& class30_sub2_sub4_sub1_sub1_2.x == player.x
-								&& class30_sub2_sub4_sub1_sub1_2.y == player.y)
-							buildAtNPCMenu(class30_sub2_sub4_sub1_sub1_2.desc,
-									npcIndices[k2], j1, i1);
-					}
-
-					for (int i3 = 0; i3 < playerCount; i3++) {
-						Player class30_sub2_sub4_sub1_sub2_2 = playerArray[playerIndices[i3]];
-						if (class30_sub2_sub4_sub1_sub2_2 != null
-								&& class30_sub2_sub4_sub1_sub2_2 != player
-								&& class30_sub2_sub4_sub1_sub2_2.x == player.x
-								&& class30_sub2_sub4_sub1_sub2_2.y == player.y)
-							buildAtPlayerMenu(i1, playerIndices[i3],
-									class30_sub2_sub4_sub1_sub2_2, j1);
-					}
-
-				}
-				buildAtPlayerMenu(i1, l1, player, j1);
-			}
-			if (k1 == 3) {
-				NodeList class19 = groundArray[plane][i1][j1];
-				if (class19 != null) {
-					for (Item item = (Item) class19.getFirst(); item != null; item = (Item) class19
-							.getNext()) {
-						ItemDef itemDef = ItemDef.forID(item.ID);
-						if (itemSelected == 1) {
-							menuActionName[menuActionRow] = "Use "
-									+ selectedItemName + " with @lre@"
-									+ itemDef.name;
-							menuActionID[menuActionRow] = 511;
-							menuActionCmd1[menuActionRow] = item.ID;
-							menuActionCmd2[menuActionRow] = i1;
-							menuActionCmd3[menuActionRow] = j1;
-							menuActionRow++;
-						} else if (spellSelected == 1) {
-							if ((spellUsableOn & 1) == 1) {
-								menuActionName[menuActionRow] = spellTooltip
-										+ " @lre@" + itemDef.name;
-								menuActionID[menuActionRow] = 94;
-								menuActionCmd1[menuActionRow] = item.ID;
-								menuActionCmd2[menuActionRow] = i1;
-								menuActionCmd3[menuActionRow] = j1;
-								menuActionRow++;
-							}
-						} else {
-							for (int j3 = 4; j3 >= 0; j3--)
-								if (itemDef.groundActions != null
-										&& itemDef.groundActions[j3] != null) {
-									menuActionName[menuActionRow] = itemDef.groundActions[j3]
-											+ " @lre@" + itemDef.name;
-									if (j3 == 0)
-										menuActionID[menuActionRow] = 652;
-									if (j3 == 1)
-										menuActionID[menuActionRow] = 567;
-									if (j3 == 2)
-										menuActionID[menuActionRow] = 234;
-									if (j3 == 3)
-										menuActionID[menuActionRow] = 244;
-									if (j3 == 4)
-										menuActionID[menuActionRow] = 213;
-									menuActionCmd1[menuActionRow] = item.ID;
-									menuActionCmd2[menuActionRow] = i1;
-									menuActionCmd3[menuActionRow] = j1;
-									menuActionRow++;
-								} else if (j3 == 2) {
-									menuActionName[menuActionRow] = "Take @lre@"
-											+ itemDef.name;
-									menuActionID[menuActionRow] = 234;
-									menuActionCmd1[menuActionRow] = item.ID;
-									menuActionCmd2[menuActionRow] = i1;
-									menuActionCmd3[menuActionRow] = j1;
-									menuActionRow++;
-								}
-
-							// menuActionName[menuActionRow] = "Examine @lre@" +
-							// itemDef.name + " @gre@(@whi@" + item.ID +
-							// "@gre@)";
-							menuActionName[menuActionRow] = "Examine @lre@"
-									+ itemDef.name;
-							menuActionID[menuActionRow] = 1448;
-							menuActionCmd1[menuActionRow] = item.ID;
-							menuActionCmd2[menuActionRow] = i1;
-							menuActionCmd3[menuActionRow] = j1;
-							menuActionRow++;
-						}
-					}
-				}
-			}
 		}
 	}
 
@@ -8274,223 +7949,6 @@ public class client extends RSApplet {
 		}
 	}
 
-	public void buildAtNPCMenu(EntityDef entityDef, int i, int j, int k) {
-		if (menuActionRow >= 400)
-			return;
-		if (entityDef.childrenIDs != null)
-			entityDef = entityDef.method161();
-		if (entityDef == null)
-			return;
-		if (!entityDef.aBoolean84)
-			return;
-		String s = entityDef.name;
-		if (entityDef.combatLevel != 0)
-			s = s
-					+ combatDiffColor(myPlayer.combatLevel,
-							entityDef.combatLevel) + " (level-"
-					+ entityDef.combatLevel + ")";
-		if (itemSelected == 1) {
-			menuActionName[menuActionRow] = "Use " + selectedItemName
-					+ " with @yel@" + s;
-			menuActionID[menuActionRow] = 582;
-			menuActionCmd1[menuActionRow] = i;
-			menuActionCmd2[menuActionRow] = k;
-			menuActionCmd3[menuActionRow] = j;
-			menuActionRow++;
-			return;
-		}
-		if (spellSelected == 1) {
-			if ((spellUsableOn & 2) == 2) {
-				menuActionName[menuActionRow] = spellTooltip + " @yel@" + s;
-				menuActionID[menuActionRow] = 413;
-				menuActionCmd1[menuActionRow] = i;
-				menuActionCmd2[menuActionRow] = k;
-				menuActionCmd3[menuActionRow] = j;
-				menuActionRow++;
-			}
-		} else {
-			if (entityDef.actions != null) {
-				boolean rightClickAttack = npcAttackOption == 1;
-				if (npcAttackOption != 2 && rightClickAttack) {
-					addNpcAttackOptions(entityDef, i, j, k, s);
-				}
-				for (int l = 4; l >= 0; l--)
-					if (entityDef.actions[l] != null
-							&& !entityDef.actions[l].equalsIgnoreCase("attack")) {
-						menuActionName[menuActionRow] = entityDef.actions[l]
-								+ " @yel@" + s;
-						if (l == 0)
-							menuActionID[menuActionRow] = 20;
-						if (l == 1)
-							menuActionID[menuActionRow] = 412;
-						if (l == 2)
-							menuActionID[menuActionRow] = 225;
-						if (l == 3)
-							menuActionID[menuActionRow] = 965;
-						if (l == 4)
-							menuActionID[menuActionRow] = 478;
-						menuActionCmd1[menuActionRow] = i;
-						menuActionCmd2[menuActionRow] = k;
-						menuActionCmd3[menuActionRow] = j;
-						menuActionRow++;
-					}
-				if (npcAttackOption != 2 && !rightClickAttack) {
-					addNpcAttackOptions(entityDef, i, j, k, s);
-				}
-			}
-			// menuActionName[menuActionRow] = "Examine @yel@" + s +
-			// " @gre@(@whi@" + entityDef.type + "@gre@)";
-			menuActionName[menuActionRow] = "Examine @yel@" + s;
-			menuActionID[menuActionRow] = 1025;
-			menuActionCmd1[menuActionRow] = i;
-			menuActionCmd2[menuActionRow] = k;
-			menuActionCmd3[menuActionRow] = j;
-			menuActionRow++;
-		}
-	}
-
-	private void addNpcAttackOptions(EntityDef entityDef, int i, int j, int k, String s) {
-		if (entityDef.actions == null) {
-			return;
-		}
-		for (int i1 = 4; i1 >= 0; i1--) {
-			if (entityDef.actions[i1] == null
-					|| !entityDef.actions[i1].equalsIgnoreCase("attack")) {
-				continue;
-			}
-			// Vanilla +2000 demotes Attack vs higher-CB NPCs (Nex etc) so left-click
-			// becomes Walk/Examine. Skip that penalty when the NPC-attack plugin is
-			// set to Left click.
-			int priority = 0;
-			if (npcAttackOption != 0 && entityDef.combatLevel > myPlayer.combatLevel) {
-				priority = 2000;
-			}
-			menuActionName[menuActionRow] = entityDef.actions[i1] + " @yel@" + s;
-			if (i1 == 0)
-				menuActionID[menuActionRow] = 20 + priority;
-			if (i1 == 1)
-				menuActionID[menuActionRow] = 412 + priority;
-			if (i1 == 2)
-				menuActionID[menuActionRow] = 225 + priority;
-			if (i1 == 3)
-				menuActionID[menuActionRow] = 965 + priority;
-			if (i1 == 4)
-				menuActionID[menuActionRow] = 478 + priority;
-			menuActionCmd1[menuActionRow] = i;
-			menuActionCmd2[menuActionRow] = k;
-			menuActionCmd3[menuActionRow] = j;
-			menuActionRow++;
-		}
-	}
-
-	private void addPlayerAttackOptions(int i, int j, Player player, int k, String s) {
-		if (playerAttackOption == 2) {
-			return;
-		}
-		String col = PlayerIndicators.menuPrefix(this, player);
-		for (int l = 4; l >= 0; l--) {
-			if (atPlayerActions[l] == null || !atPlayerActions[l].equalsIgnoreCase("attack")) {
-				continue;
-			}
-			char c = '\0';
-			if (player.combatLevel > myPlayer.combatLevel)
-				c = '\u07D0';
-			if (myPlayer.team != 0 && player.team != 0)
-				if (myPlayer.team == player.team)
-					c = '\u07D0';
-				else
-					c = '\0';
-			menuActionName[menuActionRow] = atPlayerActions[l] + " " + col + s;
-			if (l == 0)
-				menuActionID[menuActionRow] = 561 + c;
-			if (l == 1)
-				menuActionID[menuActionRow] = 779 + c;
-			if (l == 2)
-				menuActionID[menuActionRow] = 27 + c;
-			if (l == 3)
-				menuActionID[menuActionRow] = 577 + c;
-			if (l == 4)
-				menuActionID[menuActionRow] = 729 + c;
-			menuActionCmd1[menuActionRow] = j;
-			menuActionCmd2[menuActionRow] = i;
-			menuActionCmd3[menuActionRow] = k;
-			menuActionRow++;
-		}
-	}
-
-	public void buildAtPlayerMenu(int i, int j, Player player, int k) {
-		if (player == myPlayer)
-			return;
-		if (menuActionRow >= 400)
-			return;
-		String s;
-		if (player.skill == 0)
-			s = player.name
-					+ combatDiffColor(myPlayer.combatLevel, player.combatLevel)
-					+ " (level-" + player.combatLevel + ")";
-		else
-			s = player.name + " (skill-" + player.skill + ")";
-		String col = PlayerIndicators.menuPrefix(this, player);
-		if (itemSelected == 1) {
-			menuActionName[menuActionRow] = "Use " + selectedItemName
-					+ " with " + col + s;
-			menuActionID[menuActionRow] = 491;
-			menuActionCmd1[menuActionRow] = j;
-			menuActionCmd2[menuActionRow] = i;
-			menuActionCmd3[menuActionRow] = k;
-			menuActionRow++;
-		} else if (spellSelected == 1) {
-			if ((spellUsableOn & 8) == 8) {
-				menuActionName[menuActionRow] = spellTooltip + " " + col + s;
-				menuActionID[menuActionRow] = 365;
-				menuActionCmd1[menuActionRow] = j;
-				menuActionCmd2[menuActionRow] = i;
-				menuActionCmd3[menuActionRow] = k;
-				menuActionRow++;
-			}
-		} else {
-			boolean rightClickAttack = playerAttackOption == 1;
-			if (rightClickAttack) {
-				addPlayerAttackOptions(i, j, player, k, s);
-			}
-			for (int l = 4; l >= 0; l--)
-				if (atPlayerActions[l] != null) {
-					if (atPlayerActions[l].equalsIgnoreCase("attack")) {
-						continue;
-					}
-					menuActionName[menuActionRow] = atPlayerActions[l]
-							+ " " + col + s;
-					char c = '\0';
-					if (atPlayerArray[l])
-						c = '\u07D0';
-					if (l == 0)
-						menuActionID[menuActionRow] = 561 + c;
-					if (l == 1)
-						menuActionID[menuActionRow] = 779 + c;
-					if (l == 2)
-						menuActionID[menuActionRow] = 27 + c;
-					if (l == 3)
-						menuActionID[menuActionRow] = 577 + c;
-					if (l == 4)
-						menuActionID[menuActionRow] = 729 + c;
-					menuActionCmd1[menuActionRow] = j;
-					menuActionCmd2[menuActionRow] = i;
-					menuActionCmd3[menuActionRow] = k;
-					menuActionRow++;
-				}
-			if (!rightClickAttack) {
-				addPlayerAttackOptions(i, j, player, k, s);
-			}
-
-		}
-		for (int i1 = 0; i1 < menuActionRow; i1++)
-			if (menuActionID[i1] == 516) {
-				menuActionName[i1] = "Walk here " + col + s;
-				return;
-			}
-
-	}
-
 	public void method89(Class30_Sub1 class30_sub1) {
 		int i = 0;
 		int j = -1;
@@ -9582,40 +9040,6 @@ public class client extends RSApplet {
 		anInt945 = 0;
 	}
 
-	private boolean buildFriendsListMenu(RSInterface class9) {
-		int i = class9.contentType;
-		if (i >= 1 && i <= 200 || i >= 701 && i <= 900) {
-			if (i >= 801)
-				i -= 701;
-			else if (i >= 701)
-				i -= 601;
-			else if (i >= 101)
-				i -= 101;
-			else
-				i--;
-			menuActionName[menuActionRow] = "Remove @whi@" + friendsList[i];
-			menuActionID[menuActionRow] = 792;
-			menuActionRow++;
-			if (FriendNotes.enabled) {
-				menuActionName[menuActionRow] = FriendNotes.menuLabel(friendsList[i]) + " @whi@" + friendsList[i];
-				menuActionID[menuActionRow] = FriendNotes.ACTION_NOTE;
-				menuActionRow++;
-			}
-			menuActionName[menuActionRow] = "Message @whi@" + friendsList[i];
-			menuActionID[menuActionRow] = 639;
-			menuActionRow++;
-			return true;
-		}
-		if (i >= 401 && i <= 500) {
-			menuActionName[menuActionRow] = "Remove @whi@" + class9.message;
-			menuActionID[menuActionRow] = 322;
-			menuActionRow++;
-			return true;
-		} else {
-			return false;
-		}
-	}
-
 	public void method104() {
 		Animable_Sub3 class30_sub2_sub4_sub3 = (Animable_Sub3) aClass19_1056
 				.reverseGetFirst();
@@ -10684,28 +10108,6 @@ public class client extends RSApplet {
 		return false;
 	}
 
-	private static String combatDiffColor(int i, int j) {
-		int k = i - j;
-		if (k < -9)
-			return "@red@";
-		if (k < -6)
-			return "@or3@";
-		if (k < -3)
-			return "@or2@";
-		if (k < 0)
-			return "@or1@";
-		if (k > 9)
-			return "@gre@";
-		if (k > 6)
-			return "@gr3@";
-		if (k > 3)
-			return "@gr2@";
-		if (k > 0)
-			return "@gr1@";
-		else
-			return "@yel@";
-	}
-
 	public void setWaveVolume(int i) {
 		signlink.wavevol = i;
 	}
@@ -10894,132 +10296,6 @@ public class client extends RSApplet {
 				}
 			}
 
-		}
-	}
-
-	public void determineMenuSize() {
-		int i = chatTextDrawingArea.getTextWidth("Choose Option");
-		for (int j = 0; j < menuActionRow; j++) {
-			int k = chatTextDrawingArea.getTextWidth(menuActionName[j]);
-			if (k > i)
-				i = k;
-		}
-
-		i += 8;
-		int l = 15 * menuActionRow + 21;
-		int clickMx = super.saveClickX - minimapDrawX();
-		if (!isFixed()) {
-			int i1 = super.saveClickX - i / 2;
-			if (i1 + i > frameWidth)
-				i1 = frameWidth - i;
-			if (i1 < 0)
-				i1 = 0;
-			int l1 = super.saveClickY;
-			if (l1 + l > frameHeight)
-				l1 = frameHeight - l;
-			if (l1 < 0)
-				l1 = 0;
-			menuOpen = true;
-			menuScreenArea = 0;
-			menuOffsetX = i1;
-			menuOffsetY = l1;
-			menuWidth = i;
-			menuHeight = 15 * menuActionRow + 22;
-			return;
-		}
-		if (overXpCounter(clickMx, super.saveClickY)) {
-			int i1 = super.saveClickX - gameDrawX() - i / 2;
-			if (i1 + i > screenAreaWidth)
-				i1 = screenAreaWidth - i;
-			if (i1 < 0)
-				i1 = 0;
-			int l1 = super.saveClickY - gameDrawY();
-			if (l1 + l > screenAreaHeight)
-				l1 = screenAreaHeight - l;
-			if (l1 < 0)
-				l1 = 0;
-			menuOpen = true;
-			menuScreenArea = 0;
-			menuOffsetX = i1;
-			menuOffsetY = l1;
-			menuWidth = i;
-			menuHeight = 15 * menuActionRow + 22;
-			return;
-		}
-		if (super.saveClickX > tabDrawX() && super.saveClickY > tabDrawY()
-				&& super.saveClickX < tabDrawX() + 246 && super.saveClickY < tabDrawY() + 335) {
-			int j1 = super.saveClickX - tabDrawX() - i / 2;
-			if (j1 < 0)
-				j1 = 0;
-			else if (j1 + i > 245)
-				j1 = 245 - i;
-			int i2 = super.saveClickY - tabDrawY();
-			if (i2 < 0)
-				i2 = 0;
-			else if (i2 + l > 333)
-				i2 = 333 - l;
-			menuOpen = true;
-			menuScreenArea = 1;
-			menuOffsetX = j1;
-			menuOffsetY = i2;
-			menuWidth = i;
-			menuHeight = 15 * menuActionRow + 22;
-		} else if (super.saveClickX > 0 && super.saveClickY > chatDrawY()
-				&& super.saveClickX < 516 && super.saveClickY < chatDrawY() + 165
-				&& !(chatClickThroughActive() && super.saveClickY < chatDrawY() + 142
-						&& !(super.saveClickX >= (chatScrollbarLeft ? 2 : 496)
-								&& super.saveClickX < (chatScrollbarLeft ? 2 : 496) + 16))) {
-			int k1 = super.saveClickX - 0 - i / 2;
-			if (k1 < 0)
-				k1 = 0;
-			else if (k1 + i > 516)
-				k1 = 516 - i;
-			int j2 = super.saveClickY - chatDrawY();
-			if (j2 < 0)
-				j2 = 0;
-			else if (j2 + l > 165)
-				j2 = 165 - l;
-			menuOpen = true;
-			menuScreenArea = 2;
-			menuOffsetX = k1;
-			menuOffsetY = j2;
-			menuWidth = i;
-			menuHeight = 15 * menuActionRow + 22;
-		} else if (isOverHudControls(super.saveClickX, super.saveClickY)) {
-			int j1 = super.saveClickX - minimapDrawX() - i / 2;
-			int minX = hudMenuMinX();
-			if (j1 + i > 246)
-				j1 = 246 - i;
-			if (j1 < minX)
-				j1 = minX;
-			int i2 = super.saveClickY;
-			if (i2 + l > 168)
-				i2 = 168 - l;
-			if (i2 < 0)
-				i2 = 0;
-			menuOpen = true;
-			menuScreenArea = 3;
-			menuOffsetX = j1;
-			menuOffsetY = i2;
-			menuWidth = i;
-			menuHeight = 15 * menuActionRow + 22;
-		} else {
-			int i1 = super.saveClickX - gameDrawX() - i / 2;
-			if (i1 + i > screenAreaWidth)
-				i1 = screenAreaWidth - i;
-			if (i1 < 0)
-				i1 = 0;
-			int l1 = super.saveClickY - gameDrawY();
-			if (l1 + l > screenAreaHeight)
-				l1 = screenAreaHeight - l;
-			if (l1 < 0)
-				l1 = 0;
-			menuOpen = true;
-			menuScreenArea = 0;
-			menuOffsetX = i1;
-			menuOffsetY = l1;
-			menuWidth = i;
-			menuHeight = 15 * menuActionRow + 22;
 		}
 	}
 
@@ -12063,7 +11339,7 @@ public class client extends RSApplet {
 		return tabInterfaceIDs != null && tabInterfaceIDs.length > 5 && tabInterfaceIDs[5] == 22500;
 	}
 
-	private boolean hudHit(int mx, int my, int x, int y, int w, int h) {
+	boolean hudHit(int mx, int my, int x, int y, int w, int h) {
 		if (w <= 0) {
 			w = 57;
 		}
@@ -12073,32 +11349,7 @@ public class client extends RSApplet {
 		return mx >= x && my >= y && mx < x + w && my < y + h;
 	}
 
-	private int hudMenuMinX() {
-		HudLayout hud = HudLayout.get();
-		int min = 0;
-		if (hud.compassX < min) {
-			min = hud.compassX;
-		}
-		if (hud.hpOrbX < min) {
-			min = hud.hpOrbX;
-		}
-		if (hud.prayerOrbX < min) {
-			min = hud.prayerOrbX;
-		}
-		if (hud.runOrbX < min) {
-			min = hud.runOrbX;
-		}
-		if (hud.specOrbX < min) {
-			min = hud.specOrbX;
-		}
-		int xpLeft = xpHudOffX();
-		if (xpLeft < min) {
-			min = xpLeft;
-		}
-		return min - 8;
-	}
-
-	private boolean isOverHudControls(int sx, int sy) {
+	boolean isOverHudControls(int sx, int sy) {
 		HudLayout hud = HudLayout.get();
 		int mx = sx - minimapDrawX();
 		int my = sy;
@@ -12326,62 +11577,6 @@ public class client extends RSApplet {
 			return true;
 		}
 		return false;
-	}
-
-	private void buildMinimapHudMenu() {
-		int mx = super.mouseX - minimapDrawX();
-		int my = super.mouseY;
-		HudLayout hud = HudLayout.get();
-		if (hudHit(mx, my, hud.compassX, hud.compassY, hud.compassW > 0 ? hud.compassW : 33, hud.compassH > 0 ? hud.compassH : 33)) {
-			menuActionName[menuActionRow] = "Face North";
-			menuActionID[menuActionRow] = 1503;
-			menuActionRow++;
-			return;
-		}
-		if (hudHit(mx, my, hud.runOrbX, hud.runOrbY, hud.runOrbW, hud.runOrbH)) {
-			menuActionName[menuActionRow] = "Toggle Run";
-			menuActionID[menuActionRow] = 1050;
-			menuActionRow++;
-			return;
-		}
-		if (hudHit(mx, my, hud.prayerOrbX, hud.prayerOrbY, hud.prayerOrbW, hud.prayerOrbH)) {
-			if (selectingQuickPrayers) {
-				menuActionName[menuActionRow] = "Confirm Quick Prayers";
-				menuActionID[menuActionRow] = 1507;
-				menuActionRow++;
-			} else {
-				menuActionName[menuActionRow] = "Setup Quick Prayers";
-				menuActionID[menuActionRow] = 1506;
-				menuActionRow++;
-				menuActionName[menuActionRow] = "Toggle Quick Prayers";
-				menuActionID[menuActionRow] = 1505;
-				menuActionRow++;
-			}
-			return;
-		}
-		if (specOrb && hudHit(mx, my, hud.specOrbX, hud.specOrbY, hud.specOrbW, hud.specOrbH)) {
-			menuActionName[menuActionRow] = "Use Special Attack";
-			menuActionID[menuActionRow] = 1509;
-			menuActionRow++;
-			return;
-		}
-		if (hudHit(mx, my, hud.hpOrbX, hud.hpOrbY, hud.hpOrbW, hud.hpOrbH)) {
-			String poisonTip = PoisonPlugin.orbTooltip();
-			if (poisonTip != null) {
-				menuActionName[menuActionRow] = poisonTip;
-				menuActionID[menuActionRow] = 1515;
-				menuActionRow++;
-			}
-			return;
-		}
-		if (overXpCounter(mx, my)) {
-			menuActionName[menuActionRow] = "Reset XP tracker";
-			menuActionID[menuActionRow] = 1510;
-			menuActionRow++;
-			menuActionName[menuActionRow] = (xpDrops ? "Turn XP drops off" : "Turn XP drops on");
-			menuActionID[menuActionRow] = 1512;
-			menuActionRow++;
-		}
 	}
 
 	private void startQuickPrayerSetup() {
@@ -12753,7 +11948,7 @@ public class client extends RSApplet {
 		return xpBar != null && xpBar.myHeight > 0 ? xpBar.myHeight : 23;
 	}
 
-	private int xpHudOffX() {
+	int xpHudOffX() {
 		int orb = isFixed() ? -xpOrbW() - 4 : -xpOrbW() - 6;
 		if (xpCounterOpen) {
 			int bar = orb - xpBarW() + 8;
@@ -12800,7 +11995,7 @@ public class client extends RSApplet {
 		return isFixed() ? screenY - gameDrawY() : screenY;
 	}
 
-	private boolean overXpCounter(int mx, int my) {
+	boolean overXpCounter(int mx, int my) {
 		if (hudHit(mx, my, xpOrbOffX(), xpOrbOffY(), xpOrbW(), xpOrbH())) {
 			return true;
 		}
@@ -16718,7 +15913,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	long aLong824;
 	private int[][] anIntArrayArray825;
 	private int[] friendsNodeIDs;
-	private NodeList[][][] groundArray;
+	NodeList[][][] groundArray;
 	private int[] anIntArray828;
 	private int[] anIntArray829;
 	private volatile boolean aBoolean831;
@@ -16726,8 +15921,8 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	int loginScreenState;
 	private Stream aStream_834;
 	public NPC[] npcArray;
-	private int npcCount;
-	private int[] npcIndices;
+	int npcCount;
+	int[] npcIndices;
 	private int anInt839;
 	private int[] anIntArray840;
 	private int anInt841;
@@ -16769,9 +15964,9 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	String inputString;
 	private final int maxPlayers;
 	private final int myPlayerIndex;
-	private Player[] playerArray;
-	private int playerCount;
-	private int[] playerIndices;
+	Player[] playerArray;
+	int playerCount;
+	int[] playerIndices;
 	private int anInt893;
 	private int[] anIntArray894;
 	private Stream[] aStreamArray895s;
@@ -16804,13 +15999,13 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	final String[] chatNames;
 	final String[] chatMessages;
 	private int anInt945;
-	private WorldController worldController;
+	WorldController worldController;
 	Sprite[] sideIcons;
 	int menuScreenArea;
-	private int menuOffsetX;
-	private int menuOffsetY;
-	private int menuWidth;
-	private int menuHeight;
+	int menuOffsetX;
+	int menuOffsetY;
+	int menuWidth;
+	int menuHeight;
 	long aLong953;
 	private boolean aBoolean954;
 	private long[] friendsListAsLongs;
@@ -16845,7 +16040,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	private int anInt985;
 	private static int anInt986;
 	private Sprite[] hitMarks;
-	private int anInt989;
+	int anInt989;
 	private final int[] anIntArray990;
 	private static boolean aBoolean993;
 	private final boolean aBoolean994;
@@ -16891,8 +16086,8 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	private final int[] anIntArray1030;
 	private boolean aBoolean1031;
 	private static Sprite[] mapFunctions;
-	private static int baseX;
-	private static int baseY;
+	static int baseX;
+	static int baseY;
 	private int anInt1036;
 	private int anInt1037;
 	int loginFailures;
@@ -16942,13 +16137,13 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	private Sprite mapDotFriend;
 	private int anInt1079;
 	private boolean aBoolean1080;
-	private String[] friendsList;
+	String[] friendsList;
 	private Stream inStream;
-	private int anInt1084;
-	private int anInt1085;
-	private int activeInterfaceType;
-	private int anInt1087;
-	private int anInt1088;
+	int anInt1084;
+	int anInt1085;
+	int activeInterfaceType;
+	int anInt1087;
+	int anInt1088;
 	public static int anInt1089;
 	private final int[] expectedCRCs;
 	public int[] menuActionCmd2;
@@ -16981,8 +16176,8 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	private Sprite compass;
 	private RSImageProducer aRSImageProducer_1125;
 	public static Player myPlayer;
-	private final String[] atPlayerActions;
-	private final boolean[] atPlayerArray;
+	final String[] atPlayerActions;
+	final boolean[] atPlayerArray;
 	private final int[][][] anIntArrayArrayArray1129;
 	public static final int[] tabInterfaceIDs = { -1, -1, -1, -1, -1, -1, -1,
 			-1, -1, -1, -1, -1, -1, -1, -1 };
@@ -16991,7 +16186,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	private static int anInt1134;
 	int spellSelected;
 	private int anInt1137;
-	private int spellUsableOn;
+	int spellUsableOn;
 	String spellTooltip;
 	private Sprite[] aClass30_Sub2_Sub1_Sub1Array1140;
 	private boolean aBoolean1141;
@@ -17078,7 +16273,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	private int anInt1238;
 	public final int anInt1239 = 100;
 	private final int[] anIntArray1241;
-	private boolean aBoolean1242;
+	boolean aBoolean1242;
 	private int atInventoryLoopCycle;
 	private int atInventoryInterface;
 	private int atInventoryIndex;
@@ -17089,7 +16284,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	private final int[] anIntArray1250;
 	private int anInt1251;
 	private final boolean rsAlreadyLoaded;
-	private int anInt1253;
+	int anInt1253;
 	boolean welcomeScreenRaised;
 	boolean messagePromptRaised;
 	private int anInt1257;
