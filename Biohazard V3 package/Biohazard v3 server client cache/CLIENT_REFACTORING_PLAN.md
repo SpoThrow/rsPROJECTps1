@@ -1139,6 +1139,15 @@ GL_SMOKE_OK
 
 ⚠ **Noted now so it is not discovered late:** `Run.bat` launches plain `java` - Java 25 on this machine - where loading LWJGL's natives prints restricted-method warnings (`System::load`, `sun.misc.Unsafe`). The flag is `--enable-native-access=ALL-UNNAMED`. Harmless today, but the real client's runtime JVM is now a variable Phase 7 introduces, and `Run.bat` is the place it will surface.
 
+⚠ **7.2's THREADING CONSTRAINT, established now so it is not rediscovered mid-implementation.** The client is `client extends RSApplet`, and `RSApplet implements Runnable` with `startRunnable(this, 1)` - so **the game loop runs on its OWN thread**, not the EDT. `paint(Graphics)` is the EDT's callback, and that is where today's present happens. The split is therefore:
+
+| thread | what it does today | what GL would add |
+|---|---|---|
+| game thread (`run()`) | logic, rasterisation, writes the software framebuffer | **scene submission** (`SceneRasterizer.dispatch`) - so the GL context must be current HERE |
+| EDT (`paint`) | presents the framebuffer via `Renderer` | nothing - the present stays software |
+
+⚠ **So the natural arrangement is: create the GL context lazily ON THE GAME THREAD and keep every GL call there.** `SceneRasterizer.dispatch` already runs on that thread, the readback composites into the same buffer immediately after the scene pass, and the EDT never touches GL at all. That avoids the entire AWT/GL cross-thread problem rather than managing it - and it is the same reason the offscreen choice is safe: there is no shared HWND and no second event pump to synchronise with.
+
 ---
 
 
