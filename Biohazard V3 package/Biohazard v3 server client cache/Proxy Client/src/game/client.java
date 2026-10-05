@@ -199,7 +199,7 @@ public class client extends RSApplet {
 	boolean[] quickCurses = new boolean[20];
 	boolean selectingQuickPrayers;
 	private boolean quickPrayersOn;
-	private boolean chatBoxHidden;
+	boolean chatBoxHidden;
 	private HashMap groundItemTimes = new HashMap();
 	private int[] lastExp;
 	private int[] sessionXp;
@@ -260,14 +260,46 @@ public class client extends RSApplet {
 		return frameMode == ScreenMode.FIXED;
 	}
 
-	private Sprite currentChatArea() {
-		if (isFixed()) {
-			return chatArea;
-		}
-		if (resizableChatTransparent) {
-			return null;
-		}
-		return chatAreaResizable != null ? chatAreaResizable : chatArea;
+	public ChatArea chatAreaUi = new ChatArea(this);
+
+	private void drawChatArea() {
+		chatAreaUi.drawChatArea();
+	}
+
+	private void drawSplitPrivateChat() {
+		chatAreaUi.drawSplitPrivateChat();
+	}
+
+	private void buildChatAreaMenu(int j) {
+		chatAreaUi.buildChatAreaMenu(j);
+	}
+
+	public void processChatModeClick() {
+		chatAreaUi.processChatModeClick();
+	}
+
+	private void buildSplitPrivateChatMenu() {
+		chatAreaUi.buildSplitPrivateChatMenu();
+	}
+
+	public void rightClickChatButtons() {
+		chatAreaUi.rightClickChatButtons();
+	}
+
+	void copyWorldUnderHud(RSImageProducer dest, int srcX, int srcY) {
+		chatAreaUi.copyWorldUnderHud(dest, srcX, srcY);
+	}
+
+	public static String capitalize(String s) {
+		return ChatArea.capitalize(s);
+	}
+
+	private void clearChatHistory() {
+		chatAreaUi.clearChatHistory();
+	}
+
+	private static String timePrefix(long ms) {
+		return ChatArea.timePrefix(ms);
 	}
 
 	public TabArea tabAreaUi = new TabArea(this);
@@ -1038,39 +1070,6 @@ public class client extends RSApplet {
 		}
 	}
 
-	void copyWorldUnderHud(RSImageProducer dest, int srcX, int srcY) {
-		if (dest == null || aRSImageProducer_1165 == null) {
-			return;
-		}
-		int[] source = aRSImageProducer_1165.anIntArray315;
-		int sw = aRSImageProducer_1165.anInt316;
-		int sh = aRSImageProducer_1165.anInt317;
-		int[] destPix = dest.anIntArray315;
-		int dw = dest.anInt316;
-		int dh = dest.anInt317;
-		for (int y = 0; y < dh; y++) {
-			int sy = srcY + y;
-			if (sy < 0 || sy >= sh) {
-				continue;
-			}
-			int sx = srcX;
-			int dx = 0;
-			int copy = dw;
-			if (sx < 0) {
-				dx -= sx;
-				copy += sx;
-				sx = 0;
-			}
-			if (sx + copy > sw) {
-				copy = sw - sx;
-			}
-			if (copy <= 0 || dx >= dw) {
-				continue;
-			}
-			System.arraycopy(source, sy * sw + sx, destPix, y * dw + dx, copy);
-		}
-	}
-
 	private void compositeHudAndBlit() {
 		copyProducer(aRSImageProducer_1164, minimapDrawX(), 0, true);
 		if (!isFixed()) {
@@ -1094,41 +1093,14 @@ public class client extends RSApplet {
 	}
 
 
-	private boolean transparentChatActive() {
-		return !isFixed() && resizableChatTransparent;
-	}
-
 	/** Black/default chat ink -> white when frosted chat is on (keeps coloured text). */
-	private int chatInk(int color) {
-		if (transparentChatActive() && (color == 0 || color == 0x000000)) {
-			return 0xffffff;
-		}
-		return color;
-	}
-
 	/**
 	 * Chat timestamp colour follows the chatbox transparent setting
 	 * (RuneLite Chat Timestamps opaque vs transparent).
 	 * Opaque: blue; transparent: aqua for readability on the world.
 	 */
-	private int chatTimestampColor() {
-		return transparentChatActive() ? 0x00FFFA : 0x0000FF;
-	}
-
 	/** Public chat body: cyan/blue on solid chatbox; OSRS periwinkle on transparent. */
-	private int chatPublicBodyColor() {
-		return transparentChatActive() ? 0x9595FF : 255;
-	}
-
 	/** Black outline for frosted chat — keeps coloured text readable on the world. */
-	private int chatShadow() {
-		return transparentChatActive() ? 0 : -1;
-	}
-
-	private int chatInputColor() {
-		return transparentChatActive() ? 0xffffff : 255;
-	}
-
 	/** Resizable wildy/multi HUD: above top-right of tab panel, toward RHS border. */
 	private int multiOverlayX() {
 		return isFixed() ? 472 : Math.max(0, frameWidth - 42);
@@ -1556,556 +1528,11 @@ public class client extends RSApplet {
 		}
 	}
 
-	public void drawChannelButtons() {
-		String text[] = { "On", "Friends", "Off", "Hide" };
-		int textColor[] = { 65280, 0xffff00, 0xff0000, 65535 };
-		switch (cButtonCPos) {
-		case 0:
-			chatButtons[1].drawSprite(5, 142);
-			break;
-		case 1:
-			chatButtons[1].drawSprite(71, 142);
-			break;
-		case 2:
-			chatButtons[1].drawSprite(137, 142);
-			break;
-		case 3:
-			chatButtons[1].drawSprite(203, 142);
-			break;
-		case 4:
-			chatButtons[1].drawSprite(269, 142);
-			break;
-		case 5:
-			chatButtons[1].drawSprite(335, 142);
-			break;
-		}
-		if (cButtonHPos == cButtonCPos) {
-			switch (cButtonHPos) {
-			case 0:
-				chatButtons[2].drawSprite(5, 142);
-				break;
-			case 1:
-				chatButtons[2].drawSprite(71, 142);
-				break;
-			case 2:
-				chatButtons[2].drawSprite(137, 142);
-				break;
-			case 3:
-				chatButtons[2].drawSprite(203, 142);
-				break;
-			case 4:
-				chatButtons[2].drawSprite(269, 142);
-				break;
-			case 5:
-				chatButtons[2].drawSprite(335, 142);
-				break;
-			case 6:
-				chatButtons[3].drawSprite(404, 142);
-				break;
-			}
-		} else {
-			switch (cButtonHPos) {
-			case 0:
-				chatButtons[0].drawSprite(5, 142);
-				break;
-			case 1:
-				chatButtons[0].drawSprite(71, 142);
-				break;
-			case 2:
-				chatButtons[0].drawSprite(137, 142);
-				break;
-			case 3:
-				chatButtons[0].drawSprite(203, 142);
-				break;
-			case 4:
-				chatButtons[0].drawSprite(269, 142);
-				break;
-			case 5:
-				chatButtons[0].drawSprite(335, 142);
-				break;
-			case 6:
-				chatButtons[3].drawSprite(404, 142);
-				break;
-			}
-		}
-		smallText.method389(true, 425, 0xffffff, "  Screenshot", 157);
-		smallText.method389(true, 26, 0xffffff, "All", 157);
-		smallText.method389(true, 86, 0xffffff, "Game", 157);
-		smallText.method389(true, 150, 0xffffff, "Public", 152);
-		smallText.method389(true, 212, 0xffffff, "Private", 152);
-		smallText.method389(true, 286, 0xffffff, "Clan", 152);
-		smallText.method389(true, 349, 0xffffff, "Trade", 152);
-		smallText.method382(textColor[publicChatMode], 164,
-				text[publicChatMode], 163, true);
-		smallText.method382(textColor[privateChatMode], 230,
-				text[privateChatMode], 163, true);
-		smallText.method382(textColor[clanChatMode], 296, text[clanChatMode],
-				163, true);
-		smallText.method382(textColor[tradeMode], 362, text[tradeMode], 163,
-				true);
-	}
-
-	private void drawChatArea() {
-		aRSImageProducer_1166.initDrawingArea();
-		Texture.anIntArray1472 = anIntArray1180;
-		boolean hideChat = chatBoxHidden && !isFixed() && !messagePromptRaised
-				&& inputDialogState == 0 && aString844 == null && backDialogID == -1 && dialogID == -1
-				&& !ChatboxItemSearch.open;
-		boolean transparentChat = !isFixed() && resizableChatTransparent && !hideChat;
-		if (transparentChat) {
-			copyWorldUnderHud(aRSImageProducer_1166, 0, chatDrawY());
-			// Frosted glass ~5–8% opacity over the message area (filter row stays solid below).
-			DrawingArea.method335(0xD8DCE4, 0, 519, 142, 14, 0);
-			DrawingArea.method335(0xF0F2F6, 1, 517, 1, 28, 1);
-			DrawingArea.method335(0xF0F2F6, 140, 517, 1, 28, 1);
-			DrawingArea.method335(0xB0B8C4, 1, 1, 140, 32, 1);
-			DrawingArea.method335(0xB0B8C4, 1, 1, 140, 32, 517);
-			DrawingArea.method335(0x9098A4, 0, 519, 1, 36, 0);
-			DrawingArea.method335(0x9098A4, 141, 519, 1, 36, 0);
-			// Opaque filter-row strip from the solid chat sprite.
-			Sprite filterBg = chatAreaResizable != null ? chatAreaResizable : chatArea;
-			if (filterBg != null) {
-				DrawingArea.setDrawingArea(filterBg.myHeight, 0, filterBg.myWidth, 142);
-				filterBg.drawSprite(0, 0);
-				DrawingArea.defaultDrawingAreaSize();
-			}
-		}
-		if (hideChat) {
-			DrawingArea.setAllPixelsToZero();
-			Sprite chatBg = chatAreaResizable != null ? chatAreaResizable : chatArea;
-			if (chatBg != null) {
-				int top = chatBg.myHeight - 28;
-				if (top < 0) {
-					top = 0;
-				}
-				DrawingArea.setDrawingArea(chatBg.myHeight, 0, chatBg.myWidth, top);
-				chatBg.drawSprite(0, 0);
-				DrawingArea.defaultDrawingAreaSize();
-			}
-		} else if (!transparentChat) {
-			Sprite chatBg = currentChatArea();
-			if (chatBg != null) {
-				chatBg.drawSprite(0, 0);
-			}
-		}
-		drawChannelButtons();
-		if (hideChat) {
-			if (menuOpen && menuScreenArea == 2 && isFixed()) {
-				drawMenu();
-			}
-			if (isFixed()) {
-				aRSImageProducer_1166.drawGraphics(chatDrawY(), super.graphics, 0);
-			}
-			aRSImageProducer_1165.initDrawingArea();
-			Texture.anIntArray1472 = anIntArray1182;
-			return;
-		}
-		TextDrawingArea textDrawingArea = aTextDrawingArea_1271;
-		if (ChatboxItemSearch.open) {
-			ChatboxItemSearch.draw(this);
-		} else if (messagePromptRaised) {
-			newBoldFont.drawCenteredString(aString1121, 259, 60, 0, -1);
-			newBoldFont.drawCenteredString(promptInput + "*", 259, 80, 128, -1);
-		} else if (inputDialogState == 1) {
-			newBoldFont.drawCenteredString("Enter amount:", 259, 60, 0, -1);
-			newBoldFont.drawCenteredString(amountOrNameInput + "*", 259, 80,
-					128, -1);
-		} else if (inputDialogState == 2) {
-			newBoldFont.drawCenteredString(openInterfaceID == 5292 ? "Enter item name:" : "Enter name:", 259, 60, 0, -1);
-			newBoldFont.drawCenteredString(amountOrNameInput + "*", 259, 80,
-					128, -1);
-		} else if (aString844 != null) {
-			newBoldFont.drawCenteredString(aString844, 259, 60, 0, -1);
-			newBoldFont.drawCenteredString("Click to continue", 259, 80, 128,
-					-1);
-		} else if (backDialogID != -1) {
-			drawInterface(0, 20, RSInterface.interfaceCache[backDialogID], 20);
-		} else if (dialogID != -1) {
-			drawInterface(0, 20, RSInterface.interfaceCache[dialogID], 20);
-		} else {
-			int j77 = -3;
-			int j = 0;
-			int chatMsgX = chatScrollbarLeft ? 28 : 11;
-			int chatTextLeft = chatScrollbarLeft ? 26 : 8;
-			int chatTextRight = chatScrollbarLeft ? 506 : 497;
-			DrawingArea.setDrawingArea(122, chatTextLeft, chatTextRight, 7);
-			for (int k = 0; k < 500; k++)
-				if (chatMessages[k] != null) {
-					int chatType = chatTypes[k];
-					int yPos = (70 - j77 * 14) + anInt1089 + 5;
-					String s1 = chatNames[k];
-					byte byte0 = 0;
-					if (s1 != null && s1.startsWith("@cr1@")) {
-						s1 = s1.substring(5);
-						byte0 = 1;
-					} else if (s1 != null && s1.startsWith("@cr2@")) {
-						s1 = s1.substring(5);
-						byte0 = 2;
-					} else if (s1 != null && s1.startsWith("@cr3@")) {
-						s1 = s1.substring(5);
-						byte0 = 3;
-					} else if (s1 != null && s1.startsWith("@cr4@")) {
-						s1 = s1.substring(5);
-						byte0 = 4;
-					} else if (s1 != null && s1.startsWith("@cr5@")) {
-						s1 = s1.substring(5);
-						byte0 = 5;
-					} else if (s1 != null && s1.startsWith("@cr6@")) {
-						s1 = s1.substring(5);
-						byte0 = 6;
-					} else if (s1 != null && s1.startsWith("@cr7@")) {
-						s1 = s1.substring(5);
-						byte0 = 7;
-					} else if (s1 != null && s1.startsWith("@cr8@")) {
-						s1 = s1.substring(5);
-						byte0 = 8;
-					} else if (s1 != null && s1.startsWith("@cr9@")) {
-						s1 = s1.substring(5);
-						byte0 = 9;
-					}
-					if (chatType == 0) {
-						if (chatTypeView == 5 || chatTypeView == 0) {
-							if (yPos > 0 && yPos < 210) {
-								int x0 = chatMsgX;
-								String stamp0 = chatTimePrefix(k);
-								if (stamp0.length() > 0) {
-									newRegularFont.drawBasicString(stamp0, x0, yPos,
-											chatTimestampColor(), chatShadow());
-									x0 += newRegularFont.getTextWidth(stamp0);
-								}
-								newRegularFont.drawBasicString(chatBody(k),
-										x0, yPos, chatInk(ChatChannels.gameColor(this, chatBody(k))), chatShadow());
-							}
-							j++;
-							j77++;
-						}
-					}
-					if ((chatType == 1 || chatType == 2)
-							&& (chatType == 1 || publicChatMode == 0 || publicChatMode == 1
-									&& isFriendOrSelf(s1))) {
-						if (chatTypeView == 1 || chatTypeView == 0) {
-							if (yPos > 0 && yPos < 210) {
-								int xPos = chatMsgX;
-								String stamp = chatTimePrefix(k);
-								if (stamp.length() > 0) {
-									newRegularFont.drawBasicString(stamp, xPos, yPos, chatTimestampColor(), chatShadow());
-									xPos += newRegularFont.getTextWidth(stamp);
-								}
-								if (byte0 == 1) {
-									modIcons[0].drawSprite(xPos + 1, yPos - 11);
-									xPos += 14;
-								} else if (byte0 == 2) {
-									modIcons[2].drawSprite(xPos, yPos - 13);
-									xPos += 14;
-								} else if (byte0 == 3) {
-									modIcons[1].drawSprite(xPos + 1, yPos - 11);
-									xPos += 14;
-								} else if (byte0 == 4) {
-									modIcons[3].drawSprite(xPos + 1, yPos - 10);
-									xPos += 14;
-								} else if (byte0 == 5) {
-									modIcons[4].drawSprite(xPos + 1, yPos - 10);
-									xPos += 14;
-								} else if (byte0 == 6) {
-									modIcons[5].drawSprite(xPos + 1, yPos - 10);
-									xPos += 14;
-								} else if (byte0 == 7) {
-									modIcons[6].drawSprite(xPos + 1, yPos - 10);
-									xPos += 14;
-								} else if (byte0 == 8) {
-									modIcons[7].drawSprite(xPos + 1, yPos - 10);
-									xPos += 14;
-								} else if (byte0 == 9) {
-									modIcons[8].drawSprite(xPos + 1, yPos - 10);
-									xPos += 14;
-								}
-								newRegularFont.drawBasicString(s1 + ":", xPos,
-										yPos, chatInk(0), chatShadow());
-								xPos += newRegularFont.getTextWidth(s1) + 8;
-								newRegularFont.drawBasicString(chatBody(k),
-										xPos, yPos, chatPublicBodyColor(), chatShadow());
-							}
-							j++;
-							j77++;
-						}
-					}
-					if ((chatType == 3 || chatType == 7)
-							&& (splitPrivateChat == 0 || chatTypeView == 2)
-							&& (chatType == 7 || privateChatMode == 0 || privateChatMode == 1
-									&& isFriendOrSelf(s1))) {
-						if (chatTypeView == 2 || chatTypeView == 0) {
-							if (yPos > 0 && yPos < 210) {
-								int k1 = chatMsgX;
-								// textDrawingArea.method385(0, "From", yPos,
-								// k1);
-								// k1 += textDrawingArea.getTextWidth("From ");
-
-								newRegularFont.drawBasicString("From", k1,
-										yPos, chatInk(0), chatShadow());
-								if (byte0 == 3 || byte0 == 2 || byte0 == 1
-										|| byte0 == 0) {
-									k1 += textDrawingArea.getTextWidth("From ");
-								} else if (byte0 == 6 || byte0 == 5
-										|| byte0 == 4) {
-									k1 += textDrawingArea.getTextWidth("From");
-								}
-								if (byte0 == 1) {
-									modIcons[0].drawSprite(k1 - 1, yPos - 11);
-									k1 += 12;
-								} else if (byte0 == 2) {
-									modIcons[2].drawSprite(k1 - 2, yPos - 13);
-									k1 += 12;
-								} else if (byte0 == 3) {
-									modIcons[1].drawSprite(k1 - 1, yPos - 11);
-									k1 += 12;
-								} else if (byte0 == 4) {
-									modIcons[3].drawSprite(k1, yPos - 10);
-									k1 += 12;
-								} else if (byte0 == 5) {
-									modIcons[4].drawSprite(k1, yPos - 10);
-									k1 += 12;
-								} else if (byte0 == 6) {
-									modIcons[5].drawSprite(k1, yPos - 10);
-									k1 += 12;
-								} else if (byte0 == 7) {
-									modIcons[6].drawSprite(k1, yPos - 10);
-									k1 += 12;
-								} else if (byte0 == 8) {
-									modIcons[7].drawSprite(k1, yPos - 10);
-									k1 += 12;
-								} else if (byte0 == 9) {
-									modIcons[8].drawSprite(k1, yPos - 10);
-									k1 += 12;
-								}
-								// textDrawingArea.method385(0, s1 + ":", yPos,
-								// k1);
-								// k1 += textDrawingArea.getTextWidth(s1) + 8;
-								// textDrawingArea.method385(0x800000,
-								// chatMessages[k], yPos, k1);
-
-								newRegularFont.drawBasicString(s1 + ":", k1,
-										yPos, chatInk(0), chatShadow());
-								k1 += newRegularFont.getTextWidth(s1) + 8;
-								String privStamp = chatTimePrefix(k);
-								if (privStamp.length() > 0) {
-									newRegularFont.drawBasicString(privStamp, k1, yPos,
-											chatTimestampColor(), chatShadow());
-									k1 += newRegularFont.getTextWidth(privStamp);
-								}
-								newRegularFont.drawBasicString(chatBody(k),
-										k1, yPos, 0x800000, chatShadow());
-							}
-							j++;
-							j77++;
-						}
-					}
-					if (chatType == 4
-							&& (tradeMode == 0 || tradeMode == 1
-									&& isFriendOrSelf(s1))) {
-						if (chatTypeView == 3 || chatTypeView == 0) {
-							if (yPos > 0 && yPos < 210)
-								// textDrawingArea.method385(0x800080, s1 + " "
-								// + chatMessages[k], yPos, 11);
-								newRegularFont.drawBasicString(s1 + " "
-										+ stampedChat(k), chatMsgX, yPos, 0x800080,
-										-1);
-							j++;
-							j77++;
-						}
-					}
-					if (chatType == 5 && splitPrivateChat == 0
-							&& privateChatMode < 2) {
-						if (chatTypeView == 2 || chatTypeView == 0) {
-							if (yPos > 0 && yPos < 210) {
-								int x5 = chatMsgX;
-								String stamp5 = chatTimePrefix(k);
-								if (stamp5.length() > 0) {
-									newRegularFont.drawBasicString(stamp5, x5, yPos,
-											chatTimestampColor(), chatShadow());
-									x5 += newRegularFont.getTextWidth(stamp5);
-								}
-								newRegularFont.drawBasicString(chatBody(k),
-										x5, yPos, 0x800000, chatShadow());
-							}
-							j++;
-							j77++;
-						}
-					}
-					if (chatType == 6
-							&& (splitPrivateChat == 0 || chatTypeView == 2)
-							&& privateChatMode < 2) {
-						if (chatTypeView == 2 || chatTypeView == 0) {
-							if (yPos > 0 && yPos < 210) {
-								newRegularFont.drawBasicString(
-										"To " + s1 + ":", chatMsgX, yPos, chatInk(0), chatShadow());
-								int x6 = chatMsgX + 4 + newRegularFont.getTextWidth("To :" + s1);
-								String stamp6 = chatTimePrefix(k);
-								if (stamp6.length() > 0) {
-									newRegularFont.drawBasicString(stamp6, x6, yPos,
-											chatTimestampColor(), chatShadow());
-									x6 += newRegularFont.getTextWidth(stamp6);
-								}
-								newRegularFont.drawBasicString(chatBody(k),
-										x6, yPos, 0x800000, chatShadow());
-							}
-							j++;
-							j77++;
-						}
-					}
-					if (chatType == 8
-							&& (tradeMode == 0 || tradeMode == 1
-									&& isFriendOrSelf(s1))) {
-						if (chatTypeView == 3 || chatTypeView == 0) {
-							if (yPos > 0 && yPos < 210)
-								newRegularFont.drawBasicString(s1 + " "
-										+ stampedChat(k), chatMsgX, yPos, 0x7e3200,
-										-1);
-							j++;
-							j77++;
-						}
-						if (chatType == 11 && (clanChatMode == 0)) {
-							if (chatTypeView == 11) {
-								if (yPos > 0 && yPos < 110)
-									newRegularFont.drawBasicString(s1 + " "
-											+ stampedChat(k), 19, yPos,
-											0x7e3200, chatShadow());
-								j++;
-								j77++;
-							}
-						}
-						if (chatType == 12) {
-							if (chatTypeView == 11 || chatTypeView == 0) {							
-								if (yPos > 3 && yPos < 130) {
-									String title = "<col=0000FF>" + clanTitles[k]
-											+ "</col>";
-									String username = (chatRights[k] > 0 ? "<img="
-											+ (chatRights[k] - 1) + ">" : "")
-											+ TextClass.fixName(chatNames[k]);
-									String message = "<col=800000>"
-											+ stampedChat(k) + "</col>";
-									newRegularFont.drawBasicString("[" + title + "] "
-											+ username + ": " + message, chatMsgX, yPos,
-											chatInk(0), chatShadow());
-								}
-								j++;
-								j77++;
-							}
-						}
-					}
-					if (chatType == 16) {
-						int j2 = chatMsgX + 40;
-						int clanNameWidth = textDrawingArea
-								.getTextWidth(clanname);
-						if (chatTypeView == 11 || chatTypeView == 0) {
-							if (yPos > 0 && yPos < 110)
-								switch (chatRights[k]) {
-								case 1:
-									j2 += clanNameWidth;
-									modIcons[0].drawSprite(j2 - 18, yPos - 12);
-									j2 += 15;
-									break;
-								case 2:
-									j2 += clanNameWidth;
-									modIcons[2].drawSprite(j2 - 18, yPos - 12);
-									j2 += 15;
-									break;
-								case 3:
-									j2 += clanNameWidth;
-									modIcons[1].drawSprite(j2 - 18, yPos - 12);
-									j2 += 15;
-									break;
-								case 4:
-									j2 += clanNameWidth;
-									modIcons[3].drawSprite(j2 - 18, yPos - 12);
-									j2 += 15;
-									break;
-								case 5:
-									j2 += clanNameWidth;
-									modIcons[4].drawSprite(j2 - 18, yPos - 12);
-									j2 += 15;
-									break;
-								case 6:
-									j2 += clanNameWidth;
-									modIcons[5].drawSprite(j2 - 18, yPos - 12);
-									j2 += 15;
-									break;
-								case 7:
-									j2 += clanNameWidth;
-									modIcons[6].drawSprite(j2 - 18, yPos - 12);
-									j2 += 15;
-									break;
-								case 8:
-									j2 += clanNameWidth;
-									modIcons[7].drawSprite(j2 - 18, yPos - 12);
-									j2 += 15;
-									break;
-								case 9:
-									j2 += clanNameWidth;
-									modIcons[8].drawSprite(j2 - 18, yPos - 12);
-									j2 += 15;
-									break;
-								default:
-									j2 += clanNameWidth;
-									break;
-								}
-							newRegularFont
-									.drawBasicString("[", chatMsgX + 8, yPos, chatInk(0), chatShadow());
-							newRegularFont.drawBasicString("]",
-									clanNameWidth + chatMsgX + 5, yPos, chatInk(0), chatShadow());
-							newRegularFont.drawBasicString(""
-									+ capitalize(clanname) + "", chatMsgX + 14, yPos, 255,
-									-1);
-							newRegularFont.drawBasicString(
-									capitalize(chatNames[k]) + ":", j2 - 17,
-									yPos);
-							j2 += newRegularFont.getTextWidth(chatNames[k]) + 7;
-							newRegularFont.drawBasicString(
-									capitalize(stampedChat(k)), j2 - 16, yPos,
-									0x800000, chatShadow());
-
-							j++;
-							j77++;
-						}
-					}
-				}
-			DrawingArea.defaultDrawingAreaSize();
-			anInt1211 = j * 14 + 7 + 5;
-			if (anInt1211 < 111)
-				anInt1211 = 111;
-			int scrollX = chatScrollbarLeft ? 2 : 496;
-			drawChatScrollbar(114, anInt1211 - anInt1089 - 113, 7, scrollX, anInt1211);
-			String s;
-			if (myPlayer != null && myPlayer.name != null)
-				s = myPlayer.name;
-			else
-				s = TextClass.fixName(myUsername);
-			int nameX = chatMsgX;
-			textDrawingArea.method389(transparentChatActive(), nameX, chatInk(0), s + ":", 133);
-			int inputX = nameX + 1 + textDrawingArea.getTextWidth(s + ": ");
-			if (keyRemapping && !enterToChat) {
-				textDrawingArea.method385(0x808080, "Chat disabled", 133, inputX);
-			} else if (keyRemapping && enterToChat && !chatTypeFocused) {
-				textDrawingArea.method385(0x808080, "Press Enter to chat", 133, inputX);
-			} else {
-				textDrawingArea.drawChatInput(chatInputColor(), inputX, inputString + "*", 133, transparentChatActive());
-			}
-			DrawingArea.method339(121, 0x807660, 506, 7);
-		}
-		if (menuOpen && menuScreenArea == 2 && isFixed()) {
-			drawMenu();
-		}
-		if (isFixed()) {
-			aRSImageProducer_1166.drawGraphics(chatDrawY(), super.graphics, 0);
-		}
-		aRSImageProducer_1165.initDrawingArea();
-		Texture.anIntArray1472 = anIntArray1182;
-	}
-	
 	// clan chat
 	private String clanUsername;
 	private String clanMessage;
 	private String clanTitle;
-	private final String[] clanTitles;
+	final String[] clanTitles;
 	private int channelRights;
 
 	public void init() {
@@ -3161,29 +2588,6 @@ public class client extends RSApplet {
 		}
 	}
 
-	private void drawChatScrollbar(int j, int k, int l, int i1, int j1) {
-		if (!isFixed() && resizableChatTransparent) {
-			int trackA = 14;
-			int thumbA = 40;
-			DrawingArea.method335(0xD0D4DC, l, 16, j, trackA, i1);
-			DrawingArea.method335(0xA8B0BC, l, 1, j, 28, i1);
-			DrawingArea.method335(0xA8B0BC, l, 1, j, 28, i1 + 15);
-			int k1 = ((j - 32) * j) / j1;
-			if (k1 < 8) {
-				k1 = 8;
-			}
-			int l1 = ((j - 32 - k1) * k) / (j1 - j);
-			if (l1 < 0) {
-				l1 = 0;
-			}
-			DrawingArea.method335(0xE8ECF2, l + 16 + l1, 14, k1, thumbA, i1 + 1);
-			DrawingArea.method335(0x9098A4, l + 16 + l1, 14, 1, 50, i1 + 1);
-			DrawingArea.method335(0x9098A4, l + 15 + l1 + k1, 14, 1, 50, i1 + 1);
-			return;
-		}
-		drawScrollbar(j, k, l, i1, j1);
-	}
-
 	public void drawScrollbar(int j, int k, int l, int i1, int j1) {
 		scrollBar1.drawSprite(i1, l);
 		scrollBar2.drawSprite(i1, (l + j) - 16);
@@ -3333,87 +2737,8 @@ public class client extends RSApplet {
 
 	}
 
-	private int cButtonHPos;
-	private int cButtonCPos;
-
-	public void processChatModeClick() {
-		if (super.mouseX >= 5 && super.mouseX <= 61 && super.mouseY >= chatDrawY() + 144
-				&& super.mouseY <= chatDrawY() + 165) {
-			cButtonHPos = 0;
-			inputTaken = true;
-		} else if (super.mouseX >= 71 && super.mouseX <= 127
-				&& super.mouseY >= chatDrawY() + 144 && super.mouseY <= chatDrawY() + 165) {
-			cButtonHPos = 1;
-			inputTaken = true;
-		} else if (super.mouseX >= 137 && super.mouseX <= 193
-				&& super.mouseY >= chatDrawY() + 144 && super.mouseY <= chatDrawY() + 165) {
-			cButtonHPos = 2;
-			inputTaken = true;
-		} else if (super.mouseX >= 203 && super.mouseX <= 259
-				&& super.mouseY >= chatDrawY() + 144 && super.mouseY <= chatDrawY() + 165) {
-			cButtonHPos = 3;
-			inputTaken = true;
-		} else if (super.mouseX >= 269 && super.mouseX <= 325
-				&& super.mouseY >= chatDrawY() + 144 && super.mouseY <= chatDrawY() + 165) {
-			cButtonHPos = 4;
-			inputTaken = true;
-		} else if (super.mouseX >= 335 && super.mouseX <= 391
-				&& super.mouseY >= chatDrawY() + 144 && super.mouseY <= chatDrawY() + 165) {
-			cButtonHPos = 5;
-			inputTaken = true;
-		} else if (super.mouseX >= 404 && super.mouseX <= 515
-				&& super.mouseY >= chatDrawY() + 144 && super.mouseY <= chatDrawY() + 165) {
-			cButtonHPos = 6;
-			inputTaken = true;
-		} else {
-			cButtonHPos = -1;
-			inputTaken = true;
-		}
-		if (super.clickMode3 == 1) {
-			if (super.saveClickY >= chatDrawY() + 122 && super.saveClickY < chatDrawY() + 144
-					&& super.saveClickX >= 7 && super.saveClickX < 506) {
-				chatTypeFocused = true;
-				inputTaken = true;
-			}
-			if (super.saveClickX >= 5 && super.saveClickX <= 61
-					&& super.saveClickY >= chatDrawY() + 144 && super.saveClickY <= chatDrawY() + 167) {
-				cButtonCPos = 0;
-				chatTypeView = 0;
-				if (!isFixed()) {
-					chatBoxHidden = !chatBoxHidden;
-				}
-				inputTaken = true;
-			} else if (super.saveClickX >= 71 && super.saveClickX <= 127
-					&& super.saveClickY >= chatDrawY() + 144 && super.saveClickY <= chatDrawY() + 167) {
-				cButtonCPos = 1;
-				chatTypeView = 5;
-				inputTaken = true;
-			} else if (super.saveClickX >= 137 && super.saveClickX <= 193
-					&& super.saveClickY >= chatDrawY() + 144 && super.saveClickY <= chatDrawY() + 167) {
-				cButtonCPos = 2;
-				chatTypeView = 1;
-				inputTaken = true;
-			} else if (super.saveClickX >= 203 && super.saveClickX <= 259
-					&& super.saveClickY >= chatDrawY() + 144 && super.saveClickY <= chatDrawY() + 167) {
-				cButtonCPos = 3;
-				chatTypeView = 2;
-				inputTaken = true;
-			} else if (super.saveClickX >= 269 && super.saveClickX <= 325
-					&& super.saveClickY >= chatDrawY() + 144 && super.saveClickY <= chatDrawY() + 167) {
-				cButtonCPos = 4;
-				chatTypeView = 11;
-				inputTaken = true;
-			} else if (super.saveClickX >= 335 && super.saveClickX <= 391
-					&& super.saveClickY >= chatDrawY() + 144 && super.saveClickY <= chatDrawY() + 167) {
-				cButtonCPos = 5;
-				chatTypeView = 3;
-				inputTaken = true;
-			} else if (super.saveClickX >= 404 && super.saveClickX <= 515
-					&& super.saveClickY >= chatDrawY() + 144 && super.saveClickY <= chatDrawY() + 167) {
-				Jframe.takeScreenshot();
-			}
-		}
-	}
+	int cButtonHPos;
+	int cButtonCPos;
 
 	public void method33(int i) {
 		if (Varp.cache == null || i < 0 || i >= Varp.cache.length || Varp.cache[i] == null) {
@@ -4866,23 +4191,6 @@ public class client extends RSApplet {
 			return signlink.mainapp.getAppletContext();
 		else
 			return super.getAppletContext();
-	}
-
-	public static String capitalize(String s) {
-		for (int i = 0; i < s.length(); i++) {
-			if (i == 0) {
-				s = String.format("%s%s", Character.toUpperCase(s.charAt(0)),
-						s.substring(1));
-			}
-			if (!Character.isLetterOrDigit(s.charAt(i))) {
-				if (i + 1 < s.length()) {
-					s = String.format("%s%s%s", s.subSequence(0, i + 1),
-							Character.toUpperCase(s.charAt(i + 1)),
-							s.substring(i + 2));
-				}
-			}
-		}
-		return s;
 	}
 
 	private void drawLogo() {
@@ -7735,291 +7043,6 @@ public class client extends RSApplet {
 		} while (true);
 	}
 
-	private void buildPublicChat(int j) {
-		int l = 0;
-		for (int i1 = 0; i1 < 500; i1++) {
-			if (chatMessages[i1] == null)
-				continue;
-			if (chatTypeView != 1)
-				continue;
-			int j1 = chatTypes[i1];
-			String s = chatNames[i1];
-			int k1 = (70 - l * 14 + 42) + anInt1089 + 4 + 5;
-			if (k1 < -23)
-				break;
-			if (s != null && s.startsWith("@cr1@"))
-				s = s.substring(5);
-			if (s != null && s.startsWith("@cr2@"))
-				s = s.substring(5);
-			if (s != null && s.startsWith("@cr3@"))
-				s = s.substring(5);
-			if (s != null && s.startsWith("@cr4@"))
-				s = s.substring(5);
-			if (s != null && s.startsWith("@cr5@"))
-				s = s.substring(5);
-			if (s != null && s.startsWith("@cr6@"))
-				s = s.substring(5);
-			if (s != null && s.startsWith("@cr7@"))
-				s = s.substring(5);
-			if (s != null && s.startsWith("@cr8@"))
-				s = s.substring(5);
-			if (s != null && s.startsWith("@cr9@"))
-				s = s.substring(5);
-			if ((j1 == 1 || j1 == 2)
-					&& (j1 == 1 || publicChatMode == 0 || publicChatMode == 1
-							&& isFriendOrSelf(s))) {
-				if (j > k1 - 14 && j <= k1 && !s.equals(myPlayer.name)) {
-					if (myPrivilege >= 1) {
-						menuActionName[menuActionRow] = "Report abuse @whi@"
-								+ s;
-						menuActionID[menuActionRow] = 606;
-						menuActionRow++;
-					}
-					menuActionName[menuActionRow] = "Add ignore @whi@" + s;
-					menuActionID[menuActionRow] = 42;
-					menuActionRow++;
-					menuActionName[menuActionRow] = "Add friend @whi@" + s;
-					menuActionID[menuActionRow] = 337;
-					menuActionRow++;
-				}
-				l++;
-			}
-		}
-	}
-
-	private void buildFriendChat(int j) {
-		int l = 0;
-		for (int i1 = 0; i1 < 500; i1++) {
-			if (chatMessages[i1] == null)
-				continue;
-			if (chatTypeView != 2)
-				continue;
-			int j1 = chatTypes[i1];
-			String s = chatNames[i1];
-			int k1 = (70 - l * 14 + 42) + anInt1089 + 4 + 5;
-			if (k1 < -23)
-				break;
-			if (s != null && s.startsWith("@cr1@"))
-				s = s.substring(5);
-			if (s != null && s.startsWith("@cr2@"))
-				s = s.substring(5);
-			if (s != null && s.startsWith("@cr3@"))
-				s = s.substring(5);
-			if (s != null && s.startsWith("@cr4@"))
-				s = s.substring(5);
-			if (s != null && s.startsWith("@cr5@"))
-				s = s.substring(5);
-			if (s != null && s.startsWith("@cr6@"))
-				s = s.substring(5);
-			if (s != null && s.startsWith("@cr7@"))
-				s = s.substring(5);
-			if (s != null && s.startsWith("@cr8@"))
-				s = s.substring(5);
-			if (s != null && s.startsWith("@cr9@"))
-				s = s.substring(5);
-			if ((j1 == 5 || j1 == 6)
-					&& (splitPrivateChat == 0 || chatTypeView == 2)
-					&& (j1 == 6 || privateChatMode == 0 || privateChatMode == 1
-							&& isFriendOrSelf(s)))
-				l++;
-			if ((j1 == 3 || j1 == 7)
-					&& (splitPrivateChat == 0 || chatTypeView == 2)
-					&& (j1 == 7 || privateChatMode == 0 || privateChatMode == 1
-							&& isFriendOrSelf(s))) {
-				if (j > k1 - 14 && j <= k1) {
-					if (myPrivilege >= 1) {
-						menuActionName[menuActionRow] = "Report abuse @whi@"
-								+ s;
-						menuActionID[menuActionRow] = 606;
-						menuActionRow++;
-					}
-					menuActionName[menuActionRow] = "Add ignore @whi@" + s;
-					menuActionID[menuActionRow] = 42;
-					menuActionRow++;
-					menuActionName[menuActionRow] = "Add friend @whi@" + s;
-					menuActionID[menuActionRow] = 337;
-					menuActionRow++;
-				}
-				l++;
-			}
-		}
-	}
-
-	private void buildDuelorTrade(int j) {
-		int l = 0;
-		for (int i1 = 0; i1 < 500; i1++) {
-			if (chatMessages[i1] == null)
-				continue;
-			if (chatTypeView != 3 && chatTypeView != 4)
-				continue;
-			int j1 = chatTypes[i1];
-			String s = chatNames[i1];
-			int k1 = (70 - l * 14 + 42) + anInt1089 + 4 + 5;
-			if (k1 < -23)
-				break;
-			if (s != null && s.startsWith("@cr1@"))
-				s = s.substring(5);
-			if (s != null && s.startsWith("@cr2@"))
-				s = s.substring(5);
-			if (s != null && s.startsWith("@cr3@"))
-				s = s.substring(5);
-			if (s != null && s.startsWith("@cr4@"))
-				s = s.substring(5);
-			if (s != null && s.startsWith("@cr5@"))
-				s = s.substring(5);
-			if (s != null && s.startsWith("@cr6@"))
-				s = s.substring(5);
-			if (s != null && s.startsWith("@cr7@"))
-				s = s.substring(5);
-			if (s != null && s.startsWith("@cr8@"))
-				s = s.substring(5);
-			if (s != null && s.startsWith("@cr9@"))
-				s = s.substring(5);
-			if (chatTypeView == 3 && j1 == 4
-					&& (tradeMode == 0 || tradeMode == 1 && isFriendOrSelf(s))) {
-				if (j > k1 - 14 && j <= k1) {
-					menuActionName[menuActionRow] = "Accept trade @whi@" + s;
-					menuActionID[menuActionRow] = 484;
-					menuActionRow++;
-				}
-				l++;
-			}
-			if (chatTypeView == 4 && j1 == 8
-					&& (tradeMode == 0 || tradeMode == 1 && isFriendOrSelf(s))) {
-				if (j > k1 - 14 && j <= k1) {
-					menuActionName[menuActionRow] = "Accept challenge @whi@"
-							+ s;
-					menuActionID[menuActionRow] = 6;
-					menuActionRow++;
-				}
-				l++;
-			}
-			if (j1 == 12) {
-				if (j > k1 - 14 && j <= k1) {
-					menuActionName[menuActionRow] = "Go-to @blu@" + s;
-					menuActionID[menuActionRow] = 915;
-					menuActionRow++;
-				}
-				l++;
-			}
-		}
-	}
-
-	private void buildChatAreaMenu(int j) {
-		int l = 0;
-		for (int i1 = 0; i1 < 500; i1++) {
-			if (chatMessages[i1] == null)
-				continue;
-			int j1 = chatTypes[i1];
-			int k1 = (70 - l * 14 + 42) + anInt1089 + 4 + 5;
-			if (k1 < -23)
-				break;
-			String s = chatNames[i1];
-			if (chatTypeView == 1) {
-				buildPublicChat(j);
-				break;
-			}
-			if (chatTypeView == 2) {
-				buildFriendChat(j);
-				break;
-			}
-			if (chatTypeView == 3 || chatTypeView == 4) {
-				buildDuelorTrade(j);
-				break;
-			}
-			if (chatTypeView == 5) {
-				break;
-			}
-			if (s != null && s.startsWith("@cr1@")) {
-				s = s.substring(5);
-			}
-			if (s != null && s.startsWith("@cr2@")) {
-				s = s.substring(5);
-			}
-			if (s != null && s.startsWith("@cr3@")) {
-				s = s.substring(5);
-			}
-			if (s != null && s.startsWith("@cr4@")) {
-				s = s.substring(5);
-			}
-			if (s != null && s.startsWith("@cr5@")) {
-				s = s.substring(5);
-			}
-			if (s != null && s.startsWith("@cr6@")) {
-				s = s.substring(5);
-			}
-			if (s != null && s.startsWith("@cr7@"))
-				s = s.substring(5);
-			if (s != null && s.startsWith("@cr8@"))
-				s = s.substring(5);
-			if (s != null && s.startsWith("@cr9@"))
-				s = s.substring(5);
-			if (j1 == 0)
-				l++;
-			if ((j1 == 1 || j1 == 2)
-					&& (j1 == 1 || publicChatMode == 0 || publicChatMode == 1
-							&& isFriendOrSelf(s))) {
-				if (j > k1 - 14 && j <= k1 && !s.equals(myPlayer.name)) {
-					if (myPrivilege >= 1) {
-						menuActionName[menuActionRow] = "Report abuse @whi@"
-								+ s;
-						menuActionID[menuActionRow] = 606;
-						menuActionRow++;
-					}
-					menuActionName[menuActionRow] = "Add ignore @whi@" + s;
-					menuActionID[menuActionRow] = 42;
-					menuActionRow++;
-					menuActionName[menuActionRow] = "Add friend @whi@" + s;
-					menuActionID[menuActionRow] = 337;
-					menuActionRow++;
-				}
-				l++;
-			}
-			if ((j1 == 3 || j1 == 7)
-					&& splitPrivateChat == 0
-					&& (j1 == 7 || privateChatMode == 0 || privateChatMode == 1
-							&& isFriendOrSelf(s))) {
-				if (j > k1 - 14 && j <= k1) {
-					if (myPrivilege >= 1) {
-						menuActionName[menuActionRow] = "Report abuse @whi@"
-								+ s;
-						menuActionID[menuActionRow] = 606;
-						menuActionRow++;
-					}
-					menuActionName[menuActionRow] = "Add ignore @whi@" + s;
-					menuActionID[menuActionRow] = 42;
-					menuActionRow++;
-					menuActionName[menuActionRow] = "Add friend @whi@" + s;
-					menuActionID[menuActionRow] = 337;
-					menuActionRow++;
-				}
-				l++;
-			}
-			if (j1 == 4
-					&& (tradeMode == 0 || tradeMode == 1 && isFriendOrSelf(s))) {
-				if (j > k1 - 14 && j <= k1) {
-					menuActionName[menuActionRow] = "Accept trade @whi@" + s;
-					menuActionID[menuActionRow] = 484;
-					menuActionRow++;
-				}
-				l++;
-			}
-			if ((j1 == 5 || j1 == 6) && splitPrivateChat == 0
-					&& privateChatMode < 2)
-				l++;
-			if (j1 == 8
-					&& (tradeMode == 0 || tradeMode == 1 && isFriendOrSelf(s))) {
-				if (j > k1 - 14 && j <= k1) {
-					menuActionName[menuActionRow] = "Accept challenge @whi@"
-							+ s;
-					menuActionID[menuActionRow] = 6;
-					menuActionRow++;
-				}
-				l++;
-			}
-		}
-	}
-
 	public void drawFriendsListOrWelcomeScreen(RSInterface class9) {
 		int j = class9.contentType;
 		if (j >= 1 && j <= 100 || j >= 701 && j <= 800) {
@@ -8308,154 +7331,6 @@ public class client extends RSApplet {
 		}
 	}
 
-	private int splitPrivateMessageY(int line) {
-		return chatDrawY() - gameDrawY() - 5 - line * 13;
-	}
-
-	private void drawSplitPrivateChat() {
-		if (splitPrivateChat == 0)
-			return;
-		TextDrawingArea textDrawingArea = aTextDrawingArea_1271;
-		int i = 0;
-		if (anInt1104 != 0)
-			i = 1;
-		for (int j = 0; j < 100; j++)
-			if (chatMessages[j] != null) {
-				int k = chatTypes[j];
-				String s = chatNames[j];
-				byte byte1 = 0;
-				if (s != null && s.startsWith("@cr1@")) {
-					s = s.substring(5);
-					byte1 = 1;
-				}
-				if (s != null && s.startsWith("@cr2@")) {
-					s = s.substring(5);
-					byte1 = 2;
-				}
-				if (s != null && s.startsWith("@cr3@")) {
-					s = s.substring(5);
-					byte1 = 3;
-				}
-				if (s != null && s.startsWith("@cr4@")) {
-					s = s.substring(5);
-					byte1 = 4;
-				}
-				if (s != null && s.startsWith("@cr5@")) {
-					s = s.substring(5);
-					byte1 = 5;
-				}
-				if (s != null && s.startsWith("@cr6@")) {
-					s = s.substring(5);
-					byte1 = 6;
-				}
-				if (s != null && s.startsWith("@cr7@")) {
-					s = s.substring(5);
-					byte1 = 7;
-				}
-				if (s != null && s.startsWith("@cr8@")) {
-					s = s.substring(5);
-					byte1 = 8;
-				}
-				if (s != null && s.startsWith("@cr9@")) {
-					s = s.substring(5);
-					byte1 = 9;
-				}
-
-				if ((k == 3 || k == 7)
-						&& (k == 7 || privateChatMode == 0 || privateChatMode == 1
-								&& isFriendOrSelf(s))) {
-					int l = splitPrivateMessageY(i);
-					int k1 = 4;
-					textDrawingArea.method385(0, "From", l, k1);
-					textDrawingArea.method385(65535, "From", l - 1, k1);
-					if (byte1 == 3 || byte1 == 2 || byte1 == 1 || byte1 == 0) {
-						k1 += textDrawingArea.getTextWidth("From ");
-					} else if (byte1 == 6 || byte1 == 5 || byte1 == 4) {
-						k1 += textDrawingArea.getTextWidth("From");
-					}
-					if (byte1 == 1) {
-						modIcons[0].drawSprite(k1 - 2, l - 12);
-						k1 += 12;
-					}
-					if (byte1 == 2) {
-						modIcons[2].drawSprite(k1 - 2, l - 13);
-						k1 += 12;
-					}
-					if (byte1 == 3) {
-						modIcons[1].drawSprite(k1 - 2, l - 12);
-						k1 += 12;
-					}
-					if (byte1 == 4) {
-						modIcons[3].drawSprite(k1, l - 11);
-						k1 += 12;
-					}
-					if (byte1 == 5) {
-						modIcons[4].drawSprite(k1, l - 11);
-						k1 += 12;
-					}
-					if (byte1 == 6) {
-						modIcons[5].drawSprite(k1, l - 11);
-						k1 += 12;
-					}
-					if (byte1 == 7) {
-						modIcons[6].drawSprite(k1, l - 11);
-						k1 += 12;
-					}
-					if (byte1 == 8) {
-						modIcons[7].drawSprite(k1, l - 11);
-						k1 += 12;
-					}
-					if (byte1 == 9) {
-						modIcons[8].drawSprite(k1, l - 11);
-						k1 += 12;
-					}
-					String stampSplit = chatTimePrefix(j);
-					if (stampSplit.length() > 0) {
-						textDrawingArea.method385(0, stampSplit, l, k1);
-						textDrawingArea.method385(chatTimestampColor(), stampSplit, l - 1, k1);
-						k1 += textDrawingArea.getTextWidth(stampSplit);
-					}
-					String splitLine = s + ": " + chatBody(j);
-					textDrawingArea.method385(0, splitLine, l, k1);
-					textDrawingArea.method385(65535, splitLine, l - 1, k1);
-					if (++i >= 5)
-						return;
-				}
-				if (k == 5 && privateChatMode < 2) {
-					int i1 = splitPrivateMessageY(i);
-					int x5 = 4;
-					String stamp5 = chatTimePrefix(j);
-					if (stamp5.length() > 0) {
-						textDrawingArea.method385(0, stamp5, i1, x5);
-						textDrawingArea.method385(chatTimestampColor(), stamp5, i1 - 1, x5);
-						x5 += textDrawingArea.getTextWidth(stamp5);
-					}
-					textDrawingArea.method385(0, chatBody(j), i1, x5);
-					textDrawingArea.method385(65535, chatBody(j), i1 - 1, x5);
-					if (++i >= 5)
-						return;
-				}
-				if (k == 6 && privateChatMode < 2) {
-					int j1 = splitPrivateMessageY(i);
-					String toPrefix = "To " + s + ": ";
-					textDrawingArea.method385(0, toPrefix, j1, 4);
-					textDrawingArea.method385(65535, toPrefix, j1 - 1, 4);
-					int x6 = 4 + textDrawingArea.getTextWidth(toPrefix);
-					String stamp6 = chatTimePrefix(j);
-					if (stamp6.length() > 0) {
-						textDrawingArea.method385(0, stamp6, j1, x6);
-						textDrawingArea.method385(chatTimestampColor(), stamp6, j1 - 1, x6);
-						x6 += textDrawingArea.getTextWidth(stamp6);
-					}
-					textDrawingArea.method385(0, chatBody(j), j1, x6);
-					textDrawingArea.method385(65535, chatBody(j), j1 - 1, x6);
-					if (++i >= 5)
-						return;
-				}
-			}
-
-	}
-
 	public void pushMessage(String s, int i, String s1) {
 		if (ChatChannels.hideJoinLeave(s)) {
 			return;
@@ -8489,37 +7364,6 @@ public class client extends RSApplet {
 				|| oldTask != null && !oldTask.equals(SlayerTracker.task)) {
 			saveClientSettings();
 		}
-	}
-
-	private String chatBody(int index) {
-		String msg = chatMessages[index];
-		return msg == null ? "" : msg;
-	}
-
-	private String chatTimePrefix(int index) {
-		if (!chatTimestamps || chatTimes == null || chatTimes[index] == 0L) {
-			return "";
-		}
-		return timePrefix(chatTimes[index]);
-	}
-
-	private String stampedChat(int index) {
-		String msg = chatBody(index);
-		String stamp = chatTimePrefix(index);
-		if (stamp.length() == 0) {
-			return msg;
-		}
-		return stamp + msg;
-	}
-
-	private static String timePrefix(long ms) {
-		java.util.Calendar cal = java.util.Calendar.getInstance();
-		cal.setTimeInMillis(ms);
-		int h = cal.get(java.util.Calendar.HOUR_OF_DAY);
-		int m = cal.get(java.util.Calendar.MINUTE);
-		String hh = h < 10 ? "0" + h : Integer.toString(h);
-		String mm = m < 10 ? "0" + m : Integer.toString(m);
-		return "[" + hh + ":" + mm + "] ";
 	}
 
 	public void setNorth() {
@@ -8614,68 +7458,6 @@ public class client extends RSApplet {
 			markMinimap(sprite, k, j);
 		}
 	}*/
-
-	public void rightClickChatButtons() {
-		if (super.mouseX >= 5 && super.mouseX <= 61 && super.mouseY >= chatDrawY() + 144
-				&& super.mouseY <= chatDrawY() + 165) {
-			menuActionName[1] = "Clear chat history";
-			menuActionID[1] = 1508;
-			menuActionName[2] = "View All";
-			menuActionID[2] = 999;
-			menuActionRow = 3;
-		} else if (super.mouseX >= 71 && super.mouseX <= 127
-				&& super.mouseY >= chatDrawY() + 144 && super.mouseY <= chatDrawY() + 165) {
-			menuActionName[1] = "View Game";
-			menuActionID[1] = 998;
-			menuActionRow = 2;
-		} else if (super.mouseX >= 137 && super.mouseX <= 193
-				&& super.mouseY >= chatDrawY() + 144 && super.mouseY <= chatDrawY() + 165) {
-			menuActionName[1] = "Hide public";
-			menuActionID[1] = 997;
-			menuActionName[2] = "Off public";
-			menuActionID[2] = 996;
-			menuActionName[3] = "Friends public";
-			menuActionID[3] = 995;
-			menuActionName[4] = "On public";
-			menuActionID[4] = 994;
-			menuActionName[5] = "View public";
-			menuActionID[5] = 993;
-			menuActionRow = 6;
-		} else if (super.mouseX >= 203 && super.mouseX <= 259
-				&& super.mouseY >= chatDrawY() + 144 && super.mouseY <= chatDrawY() + 165) {
-			menuActionName[1] = "Off private";
-			menuActionID[1] = 992;
-			menuActionName[2] = "Friends private";
-			menuActionID[2] = 991;
-			menuActionName[3] = "On private";
-			menuActionID[3] = 990;
-			menuActionName[4] = "View private";
-			menuActionID[4] = 989;
-			menuActionRow = 5;
-		} else if (super.mouseX >= 269 && super.mouseX <= 325
-				&& super.mouseY >= chatDrawY() + 144 && super.mouseY <= chatDrawY() + 165) {
-			menuActionName[1] = "Off clan chat";
-			menuActionID[1] = 1003;
-			menuActionName[2] = "Friends clan chat";
-			menuActionID[2] = 1002;
-			menuActionName[3] = "On clan chat";
-			menuActionID[3] = 1001;
-			menuActionName[4] = "View clan chat";
-			menuActionID[4] = 1000;
-			menuActionRow = 5;
-		} else if (super.mouseX >= 335 && super.mouseX <= 391
-				&& super.mouseY >= chatDrawY() + 144 && super.mouseY <= chatDrawY() + 165) {
-			menuActionName[1] = "Off trade";
-			menuActionID[1] = 987;
-			menuActionName[2] = "Friends trade";
-			menuActionID[2] = 986;
-			menuActionName[3] = "On trade";
-			menuActionID[3] = 985;
-			menuActionName[4] = "View trade";
-			menuActionID[4] = 984;
-			menuActionRow = 5;
-		}
-	}
 
 	public void processRightClick() {
 		if (activeInterfaceType != 0) {
@@ -11881,7 +10663,7 @@ public class client extends RSApplet {
 		anInt1213 = 0;
 	}
 
-	private boolean isFriendOrSelf(String s) {
+	boolean isFriendOrSelf(String s) {
 		if (s == null)
 			return false;
 		for (int i = 0; i < friendsCount; i++)
@@ -12469,21 +11251,6 @@ public class client extends RSApplet {
 	}
 
 	@SuppressWarnings("unused")
-	private void chatJoin(long l) {
-		try {
-			if (l == 0L)
-				return;
-			stream.createFrame(60);
-			stream.writeQWord(l);
-			return;
-		} catch (RuntimeException runtimeexception) {
-			signlink.reporterror("47229, " + 3 + ", " + l + ", "
-					+ runtimeexception.toString());
-		}
-		throw new RuntimeException();
-
-	}
-
 	public String getParameter(String s) {
 		if (signlink.mainapp != null)
 			return signlink.mainapp.getParameter(s);
@@ -13624,17 +12391,6 @@ public class client extends RSApplet {
 		tabAreaAltered = true;
 		setQuickPrayerConfirmVisible(true);
 		pushMessage("Select your quick prayers, then click Confirm.", 0, "");
-	}
-
-	private void clearChatHistory() {
-		for (int i = 0; i < chatMessages.length; i++) {
-			chatMessages[i] = null;
-			chatNames[i] = null;
-			chatTypes[i] = 0;
-			chatTimes[i] = 0L;
-		}
-		inputTaken = true;
-		pushMessage("Chat history cleared.", 0, "");
 	}
 
 	private void drawAttackStyleBox() {
@@ -15428,80 +14184,6 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 			spriteDrawX = -1;
 			spriteDrawY = -1;
 		}
-	}
-
-	private void buildSplitPrivateChatMenu() {
-		if (splitPrivateChat == 0)
-			return;
-		int i = 0;
-		if (anInt1104 != 0)
-			i = 1;
-		for (int j = 0; j < 100; j++)
-			if (chatMessages[j] != null) {
-				int k = chatTypes[j];
-				String s = chatNames[j];
-				if (s != null && s.startsWith("@cr1@")) {
-					s = s.substring(5);
-				}
-				if (s != null && s.startsWith("@cr2@")) {
-					s = s.substring(5);
-				}
-				if (s != null && s.startsWith("@cr3@")) {
-					s = s.substring(5);
-				}
-				if (s != null && s.startsWith("@cr4@")) {
-					s = s.substring(5);
-				}
-				if (s != null && s.startsWith("@cr5@")) {
-					s = s.substring(5);
-				}
-				if (s != null && s.startsWith("@cr6@")) {
-					s = s.substring(5);
-				}
-				if (s != null && s.startsWith("@cr7@")) {
-					s = s.substring(5);
-				}
-				if (s != null && s.startsWith("@cr8@")) {
-					s = s.substring(5);
-				}
-				if (s != null && s.startsWith("@cr9@")) {
-					s = s.substring(5);
-				}
-				if ((k == 3 || k == 7)
-						&& (k == 7 || privateChatMode == 0 || privateChatMode == 1
-								&& isFriendOrSelf(s))) {
-					int l = splitPrivateMessageY(i);
-					int my = super.mouseY - gameDrawY();
-					if (super.mouseX > gameDrawX() + 4 && my > l - 10
-							&& my <= l + 3) {
-						int i1 = aTextDrawingArea_1271.getTextWidth("From:  "
-								+ s + stampedChat(j)) + 25;
-						if (i1 > 450)
-							i1 = 450;
-						if (super.mouseX < gameDrawX() + 4 + i1) {
-							if (myPrivilege >= 1) {
-								menuActionName[menuActionRow] = "Report abuse @whi@"
-										+ s;
-								menuActionID[menuActionRow] = 2606;
-								menuActionRow++;
-							}
-							menuActionName[menuActionRow] = "Add ignore @whi@"
-									+ s;
-							menuActionID[menuActionRow] = 2042;
-							menuActionRow++;
-							menuActionName[menuActionRow] = "Add friend @whi@"
-									+ s;
-							menuActionID[menuActionRow] = 2337;
-							menuActionRow++;
-						}
-					}
-					if (++i >= 5)
-						return;
-				}
-				if ((k == 5 || k == 6) && privateChatMode < 2 && ++i >= 5)
-					return;
-			}
-
 	}
 
 	public void method130(int j, int k, int l, int i1, int j1, int k1, int l1,
@@ -17824,7 +16506,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	@SuppressWarnings("unused")
 	private Sprite logIconH;
 	private Sprite logIconC;
-        private Sprite[] chatButtons;
+	Sprite[] chatButtons;
 	Sprite[] ORBS = new Sprite[16];
 
 	public client() {
@@ -17998,8 +16680,8 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 		anInt1289 = -1;
 	}
 
-	private final int[] chatRights;
-	private long[] chatTimes;
+	final int[] chatRights;
+	long[] chatTimes;
 	private int hoverId;
 
 	public int rights;
@@ -18013,8 +16695,8 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	public static int spellID = 0;
 	public boolean Autocast = false;
 
-	private Sprite chatArea;
-	private Sprite chatAreaResizable;
+	Sprite chatArea;
+	Sprite chatAreaResizable;
 	private Background mapBack;
 	Sprite tabArea;
 	Sprite tabAreaResizable;
@@ -18051,8 +16733,8 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	private int anInt841;
 	private int anInt842;
 	private int anInt843;
-	private String aString844;
-	private int privateChatMode;
+	String aString844;
+	int privateChatMode;
 	private Stream aStream_847;
 	private boolean aBoolean848;
 	private static int anInt849;
@@ -18068,7 +16750,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	int yCameraPos;
 	int yCameraCurve;
 	int xCameraCurve;
-	private int myPrivilege;
+	int myPrivilege;
 	final int[] currentExp;
 	Sprite[] redStones;
 	private Sprite mapFlag;
@@ -18084,7 +16766,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	private int unknownInt10;
 	boolean menuOpen;
 	private int anInt886;
-	private String inputString;
+	String inputString;
 	private final int maxPlayers;
 	private final int myPlayerIndex;
 	private Player[] playerArray;
@@ -18185,7 +16867,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 			{ 4550, 4537, 5681, 5673, 5790, 6806, 8076, 4574 } };
 
 	private Sprite multiOverlay;
-	private String amountOrNameInput;
+	String amountOrNameInput;
 	private static int anInt1005;
 	private int daysSinceLastLogin;
 	private int pktSize;
@@ -18217,7 +16899,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	private int anInt1039;
 	private int anInt1040;
 	private int anInt1041;
-	private int dialogID;
+	int dialogID;
 	final int[] maxStats;
 	final int[] anIntArray1045;
 	int anInt1046;
@@ -18283,7 +16965,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	int anInt1101;
 	int anInt1102;
 	public static boolean tabAreaAltered;
-	private int anInt1104;
+	int anInt1104;
 	RSImageProducer aRSImageProducer_1107;
 	RSImageProducer aRSImageProducer_1108;
 	RSImageProducer aRSImageProducer_1109;
@@ -18333,7 +17015,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	private RSImageProducer mapEdgeIP;
 	private RSImageProducer aRSImageProducer_1164;
 	RSImageProducer aRSImageProducer_1165;
-	private RSImageProducer aRSImageProducer_1166;
+	RSImageProducer aRSImageProducer_1166;
 	private int daysSinceRecovChange;
 	private RSSocket socketStream;
 	private static int minimapZoom;
@@ -18346,7 +17028,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 			2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3 };
 	private int reportAbuseInterfaceID;
 	private NodeList aClass19_1179;
-	private int[] anIntArray1180;
+	int[] anIntArray1180;
 	int[] anIntArray1181;
 	int[] anIntArray1182;
 	private byte[][] aByteArrayArray1183;
@@ -18358,7 +17040,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	int invOverlayInterfaceID;
 	private int[] anIntArray1190;
 	private int[] anIntArray1191;
-	private Stream stream;
+	Stream stream;
 	private int anInt1193;
 	int splitPrivateChat;
 	public String[] menuActionName;
@@ -18377,7 +17059,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	private int[][][] intGroundArray;
 	private long aLong1215;
 	int loginScreenCursorPos;
-	private final Sprite[] modIcons;
+	final Sprite[] modIcons;
 	private long aLong1220;
 	public static int tabID;
 	private int anInt1222;
@@ -18402,7 +17084,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	private int atInventoryIndex;
 	private int atInventoryInterfaceType;
 	private byte[][] aByteArrayArray1247;
-	private int tradeMode;
+	int tradeMode;
 	private int anInt1249;
 	private final int[] anIntArray1250;
 	private int anInt1251;
@@ -18423,7 +17105,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	private int anInt1268;
 	private int anInt1269;
 	private int anInt1275;
-	private int backDialogID;
+	int backDialogID;
 	private int cameraOffsetX;
 	private int[] bigX;
 	private int[] bigY;
@@ -18433,7 +17115,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	private int anInt1285;
 	public Sprite magicAuto;
 	String selectedItemName;
-	private int publicChatMode;
+	int publicChatMode;
 	private static int anInt1288;
 	private int anInt1289;
 	public static int anInt1290;
