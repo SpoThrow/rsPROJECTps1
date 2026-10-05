@@ -240,8 +240,8 @@ public class client extends RSApplet {
 	static boolean pluginValueSet;
 	static int pluginValue;
 	private final ArrayList pendingClientSettings = new ArrayList();
-	private Sprite loginMusicSprite;
-	private Sprite loginMuteSprite;
+	Sprite loginMusicSprite;
+	Sprite loginMuteSprite;
 	private Sprite[] quickPraySprites = new Sprite[6];
 	int loginMusicRestore;
 	public static int frameWidth = 765;
@@ -373,12 +373,30 @@ public class client extends RSApplet {
 		return HudLayout.get().minimapY;
 	}
 
+	public LoginScreen loginScreen = new LoginScreen(this);
+
+	public void processLoginScreenInput() {
+		loginScreen.processLoginScreenInput();
+	}
+
+	public void drawLoginScreen(boolean flag) {
+		loginScreen.drawLoginScreen(flag);
+	}
+
+	private void blitLoginScene() {
+		loginScreen.blitLoginScene();
+	}
+
+	private void fillLoginBackdrop() {
+		loginScreen.fillLoginBackdrop();
+	}
+
 	public int loginOffsetX() {
-		return isFixed() ? 0 : Math.max(0, (frameWidth - 765) / 2);
+		return loginScreen.loginOffsetX();
 	}
 
 	public int loginOffsetY() {
-		return isFixed() ? 0 : Math.max(0, (frameHeight - 503) / 2);
+		return loginScreen.loginOffsetY();
 	}
 
 	/** Bottom of the world/interface area (top of chat), or full height if chat is hidden. */
@@ -628,44 +646,6 @@ public class client extends RSApplet {
 		setInterfaceChildPos(bank, 26034, qtyX + step * 4, qtyY + 5);
 	}
 
-	private void fillLoginBackdrop() {
-		if (super.graphics == null || isFixed()) {
-			return;
-		}
-		int ox = loginOffsetX();
-		int oy = loginOffsetY();
-		super.graphics.setColor(Color.BLACK);
-		if (welcomeScreenRaised) {
-			super.graphics.fillRect(0, 0, frameWidth, frameHeight);
-			return;
-		}
-		if (oy > 0) {
-			super.graphics.fillRect(0, 0, frameWidth, oy);
-		}
-		if (ox > 0) {
-			super.graphics.fillRect(0, oy, ox, 503);
-		}
-		int right = ox + 765;
-		if (right < frameWidth) {
-			super.graphics.fillRect(right, oy, frameWidth - right, 503);
-		}
-		int bottom = oy + 503;
-		if (bottom < frameHeight) {
-			super.graphics.fillRect(0, bottom, frameWidth, frameHeight - bottom);
-		}
-	}
-
-	private void blitLoginScene() {
-		blitTitle(aRSImageProducer_1110, 0, 0);
-		blitTitle(aRSImageProducer_1111, 0, 637);
-		blitTitle(aRSImageProducer_1107, 0, 128);
-		blitTitle(aRSImageProducer_1108, 371, 202);
-		blitTitle(aRSImageProducer_1112, 265, 0);
-		blitTitle(aRSImageProducer_1113, 265, 562);
-		blitTitle(aRSImageProducer_1114, 171, 128);
-		blitTitle(aRSImageProducer_1115, 171, 562);
-	}
-
 	private void drawHudCompass(HudLayout hud) {
 		drawHudCompassAt(hud, hud.compassX, hud.compassY);
 	}
@@ -761,7 +741,7 @@ public class client extends RSApplet {
 		return offset * dest / src;
 	}
 
-	private void blitTitle(RSImageProducer producer, int classicY, int classicX) {
+	void blitTitle(RSImageProducer producer, int classicY, int classicX) {
 		if (producer == null || super.graphics == null) {
 			return;
 		}
@@ -5656,7 +5636,7 @@ public class client extends RSApplet {
 
 	}
 
-	private void resetImageProducers() {
+	void resetImageProducers() {
 		if (aRSImageProducer_1107 != null)
 			return;
 		super.fullGameScreen = null;
@@ -14694,7 +14674,7 @@ public class client extends RSApplet {
 		return Character.toUpperCase(name.charAt(0)) + name.substring(1);
 	}
 
-	private String formatNumber(int value) {
+	String formatNumber(int value) {
 		return String.format("%,d", Integer.valueOf(value));
 	}
 
@@ -16168,181 +16148,6 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	Date date = new Date();
 
 	@SuppressWarnings("deprecation")
-	public void drawLoginScreen(boolean flag) {
-		if (normalLogin == true) {
-		resetImageProducers();
-		aRSImageProducer_1109.initDrawingArea();
-		if (aBackground_966 != null) {
-			aBackground_966.drawBackground(0, 0);
-		}
-		char c = '\u0168';
-		char c1 = '\310';
-		if(musicEnabled && !lowMem) {
-			if (date.getMonth() == 10 && date.getDate() >= 28)
-				playSong(HWEEN_THEME);
-			if (date.getMonth() == 11 || (date.getMonth() == 0 && date.getDate() <= 27))
-				playSong(XMAS_THEME);
-			else
-				playSong(OLD_THEME);
-		}
-		if (loginScreenState == 0) {
-			int i = c1 / 2 + 80;
-			smallText.method382(0x75a9a9, c / 2, onDemandFetcher.statusString,
-					i, true);
-			i = c1 / 2 - 20;
-			chatTextDrawingArea.method382(0xffff00, c / 2,
-					"Welcome to Soul-Trail", i, true);
-			i += 30;
-			int l = c / 2 - 80;
-			int k1 = c1 / 2 + 20;
-			if (aBackground_967 != null) {
-				aBackground_967.drawBackground(l - 73, k1 - 20);
-			}
-			chatTextDrawingArea
-					.method382(0xffffff, l, "New User", k1 + 5, true);
-			l = c / 2 + 80;
-			if (aBackground_967 != null) {
-				aBackground_967.drawBackground(l - 73, k1 - 20);
-			}
-			chatTextDrawingArea.method382(0xffffff, l, "Existing User", k1 + 5,
-					true);
-		}
-		if (loginScreenState == 2) {
-			int j = c1 / 2 - 40;
-			if (loginMessage1.length() > 0) {
-				chatTextDrawingArea.method382(0xffff00, c / 2, loginMessage1,
-						j - 15, true);
-				chatTextDrawingArea.method382(0xffff00, c / 2, loginMessage2,
-						j, true);
-				j += 30;
-			} else {
-				chatTextDrawingArea.method382(0xffff00, c / 2, loginMessage2,
-						j - 7, true);
-				j += 30;
-			}
-			chatTextDrawingArea
-					.method389(true, c / 2 - 90, 0xffffff, "Username: "
-							+ capitalize(myUsername)
-							+ ((loginScreenCursorPos == 0)
-									& (loopCycle % 40 < 20) ? "@yel@|" : ""), j);
-			// chatTextDrawingArea.method389(true, c / 2 - 90, 0xffffff,
-			// "Username: " + myUsername + ((loginScreenCursorPos == 0) &
-			// (loopCycle % 40 < 20) ? "@yel@|" : ""), j);
-			j += 15;
-			chatTextDrawingArea
-					.method389(true, c / 2 - 88, 0xffffff, "Password: "
-							+ TextClass.passwordAsterisks(myPassword)
-							+ ((loginScreenCursorPos == 1)
-									& (loopCycle % 40 < 20) ? "@yel@|" : ""), j);
-			j += 15;
-			int boxX = c / 2 - 90;
-			int boxY = j - 10;
-			DrawingArea.fillPixels(boxX, 12, 12, 0xffffff, boxY);
-			DrawingArea.drawPixels(10, boxY + 1, boxX + 1, 0, 10);
-			if (rememberMe == 1) {
-				DrawingArea.drawPixels(8, boxY + 2, boxX + 2, 0xffff00, 8);
-			}
-			chatTextDrawingArea.method389(true, boxX + 16, 0xffffff, "Remember me", j);
-			j += 15;
-			if (!flag) {
-				int i1 = c / 2 - 80;
-				int l1 = c1 / 2 + 50;
-				if (aBackground_967 != null) {
-					aBackground_967.drawBackground(i1 - 73, l1 - 20);
-				}
-				chatTextDrawingArea.method382(0xffffff, i1, "Login", l1 + 5,
-						true);
-				i1 = c / 2 + 80;
-				if (aBackground_967 != null) {
-					aBackground_967.drawBackground(i1 - 73, l1 - 20);
-				}
-				chatTextDrawingArea.method382(0xffffff, i1, "Cancel", l1 + 5,
-						true);
-			}
-		}
-		if (loginScreenState == 3) {
-			chatTextDrawingArea.method382(0xffff00, c / 2,
-					"Create a free account", c1 / 2 - 60, true);
-			int k = c1 / 2 - 35;
-			chatTextDrawingArea.method382(0xffffff, c / 2,
-					"To create a new account you need to", k, true);
-			k += 15;
-			chatTextDrawingArea.method382(0xffffff, c / 2,
-					"go back to the main RuneScape webpage", k, true);
-			k += 15;
-			chatTextDrawingArea.method382(0xffffff, c / 2,
-					"and choose the red 'create account'", k, true);
-			k += 15;
-			chatTextDrawingArea.method382(0xffffff, c / 2,
-					"button at the top right of that page.", k, true);
-			k += 15;
-			int j1 = c / 2;
-			int i2 = c1 / 2 + 50;
-			if (aBackground_967 != null) {
-				aBackground_967.drawBackground(j1 - 73, i2 - 20);
-			}
-			chatTextDrawingArea.method382(0xffffff, j1, "Cancel", i2 + 5, true);
-		}
-			fillLoginBackdrop();
-			blitLoginScene();
-			blitTitle(aRSImageProducer_1109, 171, 202);
-			drawSavedCharacters();
-			drawLoginVolume();
-			welcomeScreenRaised = false;
-		} else if(normalLogin == false) {
-		//worldLoginScreen();
-			resetImageProducers();
-			aRSImageProducer_1109.initDrawingArea();
-			Sprite loginTest = new Sprite("Login/login");
-			loginTest.drawSprite(0, 0);
-			if(loginMessage1.length() > 0) {
-				chatTextDrawingArea.method382(0xe0bb00, 255, loginMessage2, 60, true);
-			} else {
-				chatTextDrawingArea.method382(0xe0bb00, 255, loginMessage2, 60, true);
-			}
-			if (loginButtonint == 0) {
-				Sprite LOGINBUTTON0 = new Sprite("Login/LOGINBUTTON0");
-				LOGINBUTTON0.drawSprite(382, 89);
-				} else if (loginButtonint == 1) {
-				Sprite LOGINBUTTON1 = new Sprite("Login/LOGINBUTTON1");
-				LOGINBUTTON1.drawSprite(382, 89);
-				}
-			if (rememberMe == 0) {
-				Sprite unclickedR = new Sprite("Login/unclicked");
-				unclickedR.drawSprite(13, 130);
-			} else if (rememberMe == 1) {
-				Sprite clickedR = new Sprite("Login/clicked");
-				clickedR.drawSprite(13, 130);
-			}
-			aTextDrawingArea_1271.method389(false, 32, 0x000000, "Remember me", 141);
-			if (textbox == 0) {
-				Sprite textbox = new Sprite("Login/textbox");
-				textbox.drawSprite(13, 91);
-			} else if (textbox == 1) {
-				Sprite textbox1 = new Sprite("Login/textbox1");
-				textbox1.drawSprite(13, 91);
-			}
-			if (textbox1 == 0) {
-				Sprite textbox = new Sprite("Login/textbox");
-				textbox.drawSprite(197, 91);
-			} else if (textbox1 == 1) {
-				Sprite textbox1 = new Sprite("Login/textbox1");
-				textbox1.drawSprite(197, 91);
-			}	
-			/** Font types **/
-			//chatTextDrawingArea.method389(true, 18, 0x00f0ff, "" + capitalize(myUsername) + ((loginScreenCursorPos == 0) & (loopCycle % 40 < 20) ? "|" : ""), 110);
- 			aTextDrawingArea_1271.method389(false,18,0x000000,"" + (myUsername) + ((loginScreenCursorPos == 0) & (loopCycle % 40 < 20) ? "|" : ""), 110);
-			//chatTextDrawingArea.method389(true, 203, 0x00f0ff, "" + TextClass.passwordAsterisks(myPassword) + ((loginScreenCursorPos == 1) & (loopCycle % 40 < 20) ? "|" : ""), 110);
- 			aTextDrawingArea_1271.method389(false,203,0x000000,"" + TextClass.passwordAsterisks(myPassword) + ((loginScreenCursorPos == 1) & (loopCycle % 40 < 20) ? "|" : ""), 110);
-			fillLoginBackdrop();
-			blitLoginScene();
-			blitTitle(aRSImageProducer_1109, 171, 133);
-			drawSavedCharacters();
-			drawLoginVolume();
-			welcomeScreenRaised = false;
-		}
-	}
-
 	private void snapshotSavedCharacter() {
 		if (myUsername == null || myUsername.trim().length() == 0) {
 			return;
@@ -16377,265 +16182,10 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 		SavedCharacters.upsert(myUsername, rememberMe == 1 ? myPassword : null, combat, total, xp, gender, eq, col);
 	}
 
-	private String compactXp(int xp) {
-		if (xp >= 10000000) {
-			return (xp / 1000000) + "m";
-		}
-		if (xp >= 100000) {
-			return (xp / 1000) + "k";
-		}
-		return formatNumber(xp);
-	}
-
-	private void drawSavedCharacters() {
-		if (aRSImageProducer_1108 == null || smallText == null) {
-			return;
-		}
-		int n = SavedCharacters.count();
-		if (n <= 0) {
-			return;
-		}
-		int[] oldScan = Texture.anIntArray1472;
-		int oldTx = Texture.textureInt1;
-		int oldTy = Texture.textureInt2;
-		aRSImageProducer_1108.initDrawingArea();
-		Texture.method364();
-		int mx = super.mouseX - loginOffsetX() - SavedCharacters.PANEL_X;
-		int my = super.mouseY - loginOffsetY() - SavedCharacters.PANEL_Y;
-		int cardW = SavedCharacters.cardWidth(n);
-		int startX = (SavedCharacters.PANEL_W - n * cardW) / 2;
-		smallText.method382(0, SavedCharacters.PANEL_W / 2 + 1, "Saved characters", 13, true);
-		smallText.method382(0xff981f, SavedCharacters.PANEL_W / 2, "Saved characters", 12, true);
-		for (int i = 0; i < n; i++) {
-			SavedCharacters slot = SavedCharacters.get(i);
-			if (slot == null) {
-				continue;
-			}
-			int x = startX + i * cardW + 3;
-			int y = 18;
-			int w = cardW - 6;
-			int h = 110;
-			boolean hover = mx >= x && mx < x + w && my >= y && my < y + h;
-			DrawingArea.drawPixels(h, y, x, 0x0d0d0d, w);
-			DrawingArea.drawPixels(h - 2, y + 1, x + 1, hover ? 0xff981f : 0x6a6a6a, w - 2);
-			DrawingArea.drawPixels(h - 4, y + 2, x + 2, 0x2a2218, w - 2);
-			int well = 56;
-			int wx = x + (w - well) / 2;
-			int wy = y + 6;
-			DrawingArea.drawPixels(well + 2, wy - 1, wx - 1, 0x111111, well + 2);
-			slot.drawPortrait(wx, wy, well, well);
-			DrawingArea.fillPixels(wx - 1, well + 2, well + 2, hover ? 0xff981f : 0x4a4a4a, wy - 1);
-			String name = slot.name;
-			if (name.length() > 11) {
-				name = name.substring(0, 11);
-			}
-			smallText.method382(0, x + w / 2 + 1, name, wy + well + 14, true);
-			smallText.method382(0xffffff, x + w / 2, name, wy + well + 13, true);
-			smallText.method382(0xff981f, x + w / 2, "Lvl " + slot.combat, wy + well + 25, true);
-			smallText.method382(0xc6b895, x + w / 2, slot.totalLevel + " tot  " + compactXp(slot.totalXp) + " xp", wy + well + 37, true);
-			int rx = x + w - 8;
-			int ry = y + 12;
-			boolean overX = mx >= rx - 6 && mx <= rx + 6 && my >= ry - 8 && my <= ry + 4;
-			smallText.method382(overX ? 0xff3030 : 0xa07850, rx, "x", ry, true);
-		}
-		Texture.anIntArray1472 = oldScan;
-		Texture.textureInt1 = oldTx;
-		Texture.textureInt2 = oldTy;
-		blitTitle(aRSImageProducer_1108, SavedCharacters.PANEL_Y, SavedCharacters.PANEL_X);
-	}
-
-	private static final int LOGIN_VOL_X = 108;
-	private static final int LOGIN_VOL_Y = 196;
-	private static final int LOGIN_VOL_W = 90;
-	private static final int LOGIN_VOL_H = 38;
-
-	private void ensureLoginVolumeSprites() {
-		if (loginMusicSprite == null) {
-			try {
-				Sprite sprite = new Sprite("Login/music");
-				if (sprite.myWidth > 0 && sprite.myHeight > 0) {
-					loginMusicSprite = sprite;
-				}
-			} catch (Exception ignored) {
-			}
-		}
-		if (loginMuteSprite == null) {
-			try {
-				Sprite sprite = new Sprite("Login/mute");
-				if (sprite.myWidth > 0 && sprite.myHeight > 0) {
-					loginMuteSprite = sprite;
-				}
-			} catch (Exception ignored) {
-			}
-		}
-	}
-
-	private int loginMusicLevel() {
-		if (!musicEnabled) {
-			return 4;
-		}
-		return optionMusic;
-	}
-
-	private void playTitleMusic() {
-		if (!musicEnabled || lowMem || onDemandFetcher == null) {
-			return;
-		}
-		if (date.getMonth() == 10 && date.getDate() >= 28) {
-			playSong(HWEEN_THEME);
-		} else if (date.getMonth() == 11 || date.getMonth() == 0 && date.getDate() <= 27) {
-			playSong(XMAS_THEME);
-		} else {
-			playSong(OLD_THEME);
-		}
-	}
-
-	private void applyLoginMusicLevel(int level) {
-		if (level < 0) {
-			level = 0;
-		}
-		if (level > 4) {
-			level = 4;
-		}
-		int previous = loginMusicLevel();
-		boolean wasOn = musicEnabled;
-		optionMusic = level;
-		if (level >= 4) {
-			if (previous < 4) {
-				loginMusicRestore = previous;
-			}
-			musicEnabled = false;
-			stopMidi();
-		} else {
-			loginMusicRestore = level;
-			int[] volumes = { 256, 192, 128, 64 };
-			musicEnabled = true;
-			setMidiVolume(volumes[level]);
-			if (!wasOn || midiPlayer == null || !midiPlayer.playing()) {
-				currentSong = -1;
-				prevSong = 0;
-				playTitleMusic();
-			}
-		}
-		if (variousSettings != null) {
-			variousSettings[168] = optionMusic;
-		}
-		saveClientSettings();
-	}
-
-	private void drawLoginVolume() {
-		if (aRSImageProducer_1113 == null) {
-			return;
-		}
-		ensureLoginVolumeSprites();
-		int muted = loginMusicLevel() >= 4 ? 1 : 0;
-		int bars = muted == 1 ? 0 : 4 - loginMusicLevel();
-		int mx = super.mouseX - loginOffsetX() - 562;
-		int my = super.mouseY - loginOffsetY() - 265;
-		boolean hover = mx >= LOGIN_VOL_X && mx < LOGIN_VOL_X + LOGIN_VOL_W && my >= LOGIN_VOL_Y && my < LOGIN_VOL_Y + LOGIN_VOL_H;
-		aRSImageProducer_1113.initDrawingArea();
-		int x = LOGIN_VOL_X;
-		int y = LOGIN_VOL_Y;
-		DrawingArea.drawPixels(LOGIN_VOL_H, y, x, 0x120e0a, LOGIN_VOL_W);
-		DrawingArea.fillPixels(x, LOGIN_VOL_W, LOGIN_VOL_H, hover ? 0xff981f : 0x5A4933, y);
-		int iconX = x + 1;
-		int iconY = y + 1;
-		Sprite icon = muted == 1 ? loginMuteSprite : loginMusicSprite;
-		if (icon != null) {
-			icon.drawSprite(iconX, iconY);
-		} else {
-			drawLoginVolumeFallback(iconX + 6, iconY + 6, muted == 1);
-		}
-		int barX = x + 40;
-		int barY = y + 14;
-		int barW = 44;
-		int barH = 10;
-		DrawingArea.drawPixels(barH, barY, barX, 0x1a1610, barW);
-		DrawingArea.fillPixels(barX, barW, barH, 0x6a5a40, barY);
-		if (bars > 0) {
-			int fill = bars * barW / 4;
-			DrawingArea.drawPixels(barH - 2, barY + 1, barX + 1, 0xff981f, fill - 2 > 0 ? fill - 2 : fill);
-		}
-		if (smallText != null) {
-			smallText.method382(0xc6b895, barX + barW / 2, muted == 1 ? "Muted" : "Music", y + 11, true);
-		}
-		blitTitle(aRSImageProducer_1113, 265, 562);
-	}
-
-	private void drawLoginVolumeFallback(int x, int y, boolean muted) {
-		DrawingArea.drawPixels(16, y + 6, x + 2, 0xffd37a, 6);
-		DrawingArea.drawPixels(10, y + 2, x + 8, 0xffd37a, 4);
-		DrawingArea.drawPixels(6, y + 14, x + 12, 0xffd37a, 6);
-		if (muted) {
-			DrawingArea.method339(y + 4, 0xff3030, 18, x);
-			DrawingArea.method339(y + 20, 0xff3030, 18, x);
-		}
-	}
-
-	private boolean processLoginVolumeClicks(int ox, int oy) {
-		if (super.clickMode3 != 1) {
-			return false;
-		}
-		int mx = super.saveClickX - ox - 562;
-		int my = super.saveClickY - oy - 265;
-		if (mx < LOGIN_VOL_X || mx >= LOGIN_VOL_X + LOGIN_VOL_W || my < LOGIN_VOL_Y || my >= LOGIN_VOL_Y + LOGIN_VOL_H) {
-			return false;
-		}
-		int barX = LOGIN_VOL_X + 40;
-		if (mx < barX) {
-			if (loginMusicLevel() >= 4) {
-				applyLoginMusicLevel(loginMusicRestore);
-			} else {
-				applyLoginMusicLevel(4);
-			}
-		} else {
-			int barW = 44;
-			int rel = mx - barX;
-			if (rel < 0) {
-				rel = 0;
-			}
-			if (rel >= barW) {
-				rel = barW - 1;
-			}
-			int bars = 1 + (rel * 4) / barW;
-			if (bars > 4) {
-				bars = 4;
-			}
-			applyLoginMusicLevel(4 - bars);
-		}
-		return true;
-	}
-
-	private boolean processSavedCharacterClicks(int ox, int oy) {
-		if (super.clickMode3 != 1 || SavedCharacters.count() <= 0) {
-			return false;
-		}
-		int mx = super.saveClickX - ox - SavedCharacters.PANEL_X;
-		int my = super.saveClickY - oy - SavedCharacters.PANEL_Y;
-		int n = SavedCharacters.count();
-		int slot = SavedCharacters.hoveredSlot(mx, my);
-		if (slot < 0) {
-			return false;
-		}
-		if (SavedCharacters.hitRemove(mx, my, slot, n)) {
-			SavedCharacters.remove(slot);
-			saveClientSettings();
-			return true;
-		}
-		SavedCharacters chosen = SavedCharacters.get(slot);
-		if (chosen == null) {
-			return false;
-		}
-		myUsername = chosen.name;
-		if (chosen.password != null) {
-			myPassword = chosen.password;
-		}
-		rememberMe = 1;
-		loginScreenState = 2;
-		loginFailures = 0;
-		login(chosen.name, chosen.password == null ? "" : chosen.password, false);
-		return true;
-	}
+	static final int LOGIN_VOL_X = 108;
+	static final int LOGIN_VOL_Y = 196;
+	static final int LOGIN_VOL_W = 90;
+	static final int LOGIN_VOL_H = 38;
 
 	public void drawFlames() {
 		drawingFlames = true;
@@ -17028,205 +16578,6 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 
 	}
 
-	public void processLoginScreenInput() {
-		if (myUsername == null) {
-			myUsername = "";
-		}
-		if (myPassword == null) {
-			myPassword = "";
-		}
-		int ox = loginOffsetX();
-		int oy = loginOffsetY();
-		if (processLoginVolumeClicks(ox, oy)) {
-			return;
-		}
-		if (processSavedCharacterClicks(ox, oy)) {
-			return;
-		}
-		if (normalLogin == true) {
-		if (loginScreenState == 0) {
-			int i = ox + 765 / 2 - 80;
-			int l = oy + 503 / 2 + 20;
-			l += 20;
-			if (super.clickMode3 == 1 && super.saveClickX >= i - 75
-					&& super.saveClickX <= i + 75 && super.saveClickY >= l - 20
-					&& super.saveClickY <= l + 20) {
-				loginScreenState = 3;
-				loginScreenCursorPos = 0;
-			}
-			i = ox + 765 / 2 + 80;
-			if (super.clickMode3 == 1 && super.saveClickX >= i - 75
-					&& super.saveClickX <= i + 75 && super.saveClickY >= l - 20
-					&& super.saveClickY <= l + 20) {
-				loginMessage1 = "";
-				loginMessage2 = "Enter your username & password.";
-				loginScreenState = 2;
-				loginScreenCursorPos = 0;
-			}
-		} else {
-			if (loginScreenState == 2) {
-				int j = oy + 503 / 2 - 40;
-				j += 30;
-				j += 25;
-				if (super.clickMode3 == 1 && super.saveClickY >= j - 15
-						&& super.saveClickY < j)
-					loginScreenCursorPos = 0;
-				j += 15;
-				if (super.clickMode3 == 1 && super.saveClickY >= j - 15
-						&& super.saveClickY < j)
-					loginScreenCursorPos = 1;
-				j += 15;
-				if (super.clickMode3 == 1 && super.saveClickX >= ox + 765 / 2 - 90
-						&& super.saveClickX <= ox + 765 / 2 + 40
-						&& super.saveClickY >= j - 14 && super.saveClickY <= j + 4) {
-					rememberMe = rememberMe == 1 ? 0 : 1;
-					saveClientSettings();
-				}
-				j += 15;
-				int i1 = ox + 765 / 2 - 80;
-				int k1 = oy + 503 / 2 + 50;
-				k1 += 20;
-				if (super.clickMode3 == 1 && super.saveClickX >= i1 - 75
-						&& super.saveClickX <= i1 + 75
-						&& super.saveClickY >= k1 - 20
-						&& super.saveClickY <= k1 + 20) {
-					loginFailures = 0;
-					login(myUsername, myPassword, false);
-					if (loggedIn)
-						return;
-				}
-				i1 = ox + 765 / 2 + 80;
-				if (super.clickMode3 == 1 && super.saveClickX >= i1 - 75
-						&& super.saveClickX <= i1 + 75
-						&& super.saveClickY >= k1 - 20
-						&& super.saveClickY <= k1 + 20) {
-					loginScreenState = 0;
-					// myUsername = "";
-					// myPassword = "";
-				}
-				do {
-					int l1 = readChar(-796);
-					if (l1 == -1)
-						break;
-					boolean flag1 = false;
-					for (int i2 = 0; i2 < validUserPassChars.length(); i2++) {
-						if (l1 != validUserPassChars.charAt(i2))
-							continue;
-						flag1 = true;
-						break;
-					}
-
-					if (loginScreenCursorPos == 0) {
-						if (l1 == 8 && myUsername.length() > 0)
-							myUsername = myUsername.substring(0,
-									myUsername.length() - 1);
-						if (l1 == 9 || l1 == 10 || l1 == 13)
-							loginScreenCursorPos = 1;
-						if (flag1)
-							myUsername += (char) l1;
-						if (myUsername.length() > 12)
-							myUsername = myUsername.substring(0, 12);
-					} else if (loginScreenCursorPos == 1) {
-						if (l1 == 8 && myPassword.length() > 0)
-							myPassword = myPassword.substring(0,
-									myPassword.length() - 1);
-						if (l1 == 9 || l1 == 10 || l1 == 13)
-							loginScreenCursorPos = 0;
-						if (flag1)
-							myPassword += (char) l1;
-						if (myPassword.length() > 20)
-							myPassword = myPassword.substring(0, 20);
-					}
-				} while (true);
-				return;
-			}
-			if (loginScreenState == 3) {
-				int k = ox + 765 / 2;
-				int j1 = oy + 503 / 2 + 50;
-				j1 += 20;
-				if (super.clickMode3 == 1 && super.saveClickX >= k - 75
-						&& super.saveClickX <= k + 75
-						&& super.saveClickY >= j1 - 20
-						&& super.saveClickY <= j1 + 20)
-					loginScreenState = 0;
-			}
-		}
-		} else if(normalLogin == false) {
-			//Username Clicking area
-			if(super.clickMode3 == 1 && super.saveClickX >= ox + 145 && super.saveClickX <= ox + 321 && super.saveClickY >= oy + 261 && super.saveClickY <= oy + 288)
-				loginScreenCursorPos = 0;
-			//Password Clicking area
-			if(super.clickMode3 == 1 && super.saveClickX >= ox + 331 && super.saveClickX <= ox + 505 && super.saveClickY >= oy + 261 && super.saveClickY <= oy + 288)
-				loginScreenCursorPos = 1;
-			//Username hover
-			if(super.mouseX >= ox + 145 && super.mouseX <= ox + 321 && super.mouseY >= oy + 261 && super.mouseY <= oy + 288) {
-				textbox = 1;
-			} else {
-				textbox = 0;
-			}
-			if(super.mouseX >= ox + 331 && super.mouseX <= ox + 505 && super.mouseY >= oy + 261 && super.mouseY <= oy + 288) {
-				textbox1 = 1;
-			} else {
-				textbox1 = 0;
-			}
-			//LoginBox clicking area
-			if(super.clickMode3 == 1 && super.saveClickX >= ox + 515 && super.saveClickX <= ox + 608 && super.saveClickY >= oy + 261 && super.saveClickY <= oy + 292) {
-				loginFailures = 0;
-				login((myUsername), myPassword, false);
-				if(loggedIn)
-					return;
-			}
-			//LoginBox hover
-        			if (super.mouseX >= ox + 515 && super.mouseX <= ox + 608
-                			&& super.mouseY >= oy + 261 && super.mouseY <= oy + 292) {
-            					loginButtonint = 1;
-        				} else {
-            					loginButtonint = 0;
-			}
-			if (super.clickMode3 == 1 && super.saveClickX >= ox + 146 && super.saveClickX <= ox + 280
-					&& super.saveClickY >= oy + 298 && super.saveClickY <= oy + 320) {
-				rememberMe = rememberMe == 1 ? 0 : 1;
-				saveClientSettings();
-			}
-			//Username and password crap
-			do {
-				int l1 = readChar(-796);
-				if(l1 == -1)
-					break;
-				boolean flag1 = false;
-				for(int i2 = 0; i2 < validUserPassChars.length(); i2++) {
-					if(l1 != validUserPassChars.charAt(i2))
-						continue;
-					flag1 = true;
-					break;
-				} if(loginScreenCursorPos == 0) {
-					if(l1 == 8 && myUsername.length() > 0)
-						myUsername = myUsername.substring(0, myUsername.length() - 1);
-					if(l1 == 9 || l1 == 10 || l1 == 13)
-						loginScreenCursorPos = 1;
-					if(flag1)
-						myUsername += (char)l1;
-					if(myUsername.length() > 12)
-						myUsername = (myUsername.substring(0, 12));
-				} else if(loginScreenCursorPos == 1) {
-					if(l1 == 8 && myPassword.length() > 0)
-						myPassword = myPassword.substring(0, myPassword.length() - 1);
-					if (l1 == 9 || l1 == 10 || l1 == 13)
-                    						if (myUsername == "")
-                        							loginScreenCursorPos = 0;
-                    						else if (myPassword == "") {
-                    					} else
-                        						login(myUsername, myPassword, false);
-					if(flag1)
-						myPassword += (char)l1;
-					if(myPassword.length() > 20)
-						myPassword = myPassword.substring(0, 20);
-				}
-			} while(true);
-			return;
-}
-	}
-	
 	private void markMinimap(Sprite sprite, int i, int j)
 	{
 		int k = viewRotation + minimapRotation & 0x7ff;
@@ -19210,19 +18561,19 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	private long aLong953;
 	private boolean aBoolean954;
 	private long[] friendsListAsLongs;
-	private int currentSong;
+	int currentSong;
 	private static int nodeID = 10;
 	public static int portOff;
 	static boolean clientData;
 	private static boolean isMembers = true;
-	private static boolean lowMem;
+	static boolean lowMem;
 	private volatile boolean drawingFlames;
 	private int spriteDrawX;
 	private int spriteDrawY;
 	private final int[] anIntArray965 = { 0xffff00, 0xff0000, 65280, 65535,
 			0xff00ff, 0xffffff };
-	private Background aBackground_966;
-	private Background aBackground_967;
+	Background aBackground_966;
+	Background aBackground_967;
 	private final int[] anIntArray968;
 	private final int[] anIntArray969;
 	public final Decompressor[] decompressors;
@@ -19291,7 +18642,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	private static int baseY;
 	private int anInt1036;
 	private int anInt1037;
-	private int loginFailures;
+	int loginFailures;
 	private int anInt1039;
 	private int anInt1040;
 	private int anInt1041;
@@ -19362,15 +18713,15 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	int anInt1102;
 	public static boolean tabAreaAltered;
 	private int anInt1104;
-	private RSImageProducer aRSImageProducer_1107;
-	private RSImageProducer aRSImageProducer_1108;
-	private RSImageProducer aRSImageProducer_1109;
-	private RSImageProducer aRSImageProducer_1110;
-	private RSImageProducer aRSImageProducer_1111;
-	private RSImageProducer aRSImageProducer_1112;
-	private RSImageProducer aRSImageProducer_1113;
-	private RSImageProducer aRSImageProducer_1114;
-	private RSImageProducer aRSImageProducer_1115;
+	RSImageProducer aRSImageProducer_1107;
+	RSImageProducer aRSImageProducer_1108;
+	RSImageProducer aRSImageProducer_1109;
+	RSImageProducer aRSImageProducer_1110;
+	RSImageProducer aRSImageProducer_1111;
+	RSImageProducer aRSImageProducer_1112;
+	RSImageProducer aRSImageProducer_1113;
+	RSImageProducer aRSImageProducer_1114;
+	RSImageProducer aRSImageProducer_1115;
 	private static int anInt1117;
 	private int membersInt;
 	private String aString1121;
@@ -19406,7 +18757,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	private boolean aBoolean1159;
 	private boolean aBoolean1160;
 	public static int loopCycle;
-	private static final String validUserPassChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!\"\243$%^&*()-_=+[{]};:'@#~,<.>/?\\| ";
+	static final String validUserPassChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!\"\243$%^&*()-_=+[{]};:'@#~,<.>/?\\| ";
 	private RSImageProducer aRSImageProducer_1163;
 	private RSImageProducer mapEdgeIP;
 	private RSImageProducer aRSImageProducer_1164;
@@ -19454,7 +18805,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	private int anInt1213;
 	private int[][][] intGroundArray;
 	private long aLong1215;
-	private int loginScreenCursorPos;
+	int loginScreenCursorPos;
 	private final Sprite[] modIcons;
 	private long aLong1220;
 	public static int tabID;
@@ -19486,17 +18837,17 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	private int anInt1251;
 	private final boolean rsAlreadyLoaded;
 	private int anInt1253;
-	private boolean welcomeScreenRaised;
+	boolean welcomeScreenRaised;
 	private boolean messagePromptRaised;
 	private int anInt1257;
 	private byte[][][] byteGroundArray;
-	private int prevSong;
+	int prevSong;
 	private int destX;
 	private int destY;
 	private Sprite aClass30_Sub2_Sub1_Sub1_1263;
 	private int anInt1264;
 	private int anInt1265;
-	private String loginMessage1;
+	String loginMessage1;
 	String loginMessage2;
 	private int anInt1268;
 	private int anInt1269;
