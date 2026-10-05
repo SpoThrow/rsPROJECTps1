@@ -113,6 +113,7 @@ import ui.RSFont;
 import ui.RSImageProducer;
 import ui.RSInterface;
 import ui.RegenMeter;
+import ui.Renderer;
 import ui.SavedCharacters;
 import ui.SlayerTracker;
 import ui.Sprite;
@@ -793,17 +794,14 @@ public class client extends RSApplet {
 		if (producer == null || super.graphics == null) {
 			return;
 		}
-		producer.drawGraphics(classicY + loginOffsetY(), super.graphics, classicX + loginOffsetX());
+		Renderer.blit(producer, super.graphics, classicX + loginOffsetX(), classicY + loginOffsetY());
 	}
 
 	public void drawGameBuffer() {
 		if (aRSImageProducer_1165 == null) {
 			return;
 		}
-		if (GlPresent.presentGame(aRSImageProducer_1165, gameDrawX(), gameDrawY())) {
-			return;
-		}
-		aRSImageProducer_1165.drawGraphics(gameDrawY(), super.graphics, gameDrawX());
+		Renderer.presentGameFrame(aRSImageProducer_1165, super.graphics, gameDrawX(), gameDrawY());
 	}
 
 	void markSceneDirty() {
@@ -8916,7 +8914,7 @@ public class client extends RSApplet {
 				}
 			}
 			drawCount++;
-			super.fullGameScreen.drawGraphics(0, super.graphics, 0);
+			Renderer.blit(super.fullGameScreen, super.graphics, 0, 0);
 			return;
 		} else {
 			if (drawCount != 0) {
@@ -8926,17 +8924,17 @@ public class client extends RSApplet {
 		if (welcomeScreenRaised) {
 			welcomeScreenRaised = false;
 			if (isFixed()) {
-				topFrame.drawGraphics(0, super.graphics, 0);
-				leftFrame.drawGraphics(4, super.graphics, 0);
-				rightFrame.drawGraphics(4, super.graphics, 516);
-				mapEdgeIP.drawGraphics(4, super.graphics, 519);
+				Renderer.blit(topFrame, super.graphics, 0, 0);
+				Renderer.blit(leftFrame, super.graphics, 0, 4);
+				Renderer.blit(rightFrame, super.graphics, 516, 4);
+				Renderer.blit(mapEdgeIP, super.graphics, 519, 4);
 			}
 			needDrawTabArea = true;
 			inputTaken = true;
 			tabAreaAltered = true;
 			if (loadingStage != 2) {
 				drawGameBuffer();
-				aRSImageProducer_1164.drawGraphics(0, super.graphics, minimapDrawX());
+				Renderer.blit(aRSImageProducer_1164, super.graphics, minimapDrawX(), 0);
 			}
 		}
 		if (menuOpen && menuScreenArea == 1)
@@ -9012,7 +9010,7 @@ public class client extends RSApplet {
 			}
 			drawMinimap();
 			if (isFixed()) {
-				aRSImageProducer_1164.drawGraphics(0, super.graphics, minimapDrawX());
+				Renderer.blit(aRSImageProducer_1164, super.graphics, minimapDrawX(), 0);
 			}
 		}
 		if (!isFixed() && loadingStage == 2) {

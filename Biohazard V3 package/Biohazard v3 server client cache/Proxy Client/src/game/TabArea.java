@@ -108,6 +108,7 @@ import ui.RSFont;
 import ui.RSImageProducer;
 import ui.RSInterface;
 import ui.RegenMeter;
+import ui.Renderer;
 import ui.SavedCharacters;
 import ui.SlayerTracker;
 import ui.Sprite;
@@ -355,7 +356,7 @@ public final class TabArea {
 		if (owner.menuOpen && owner.menuScreenArea == 1 && isFixed())
 			owner.drawMenu();
 		if (isFixed()) {
-			owner.aRSImageProducer_1163.drawGraphics(owner.tabDrawY(), owner.graphics, owner.tabDrawX());
+			Renderer.blit(owner.aRSImageProducer_1163, owner.graphics, owner.tabDrawX(), owner.tabDrawY());
 		}
 		owner.aRSImageProducer_1165.initDrawingArea();
 		Texture.anIntArray1472 = owner.anIntArray1182;

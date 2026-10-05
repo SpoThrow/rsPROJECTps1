@@ -43,7 +43,11 @@ public final class RSImageProducer
 		DrawingArea.initDrawingArea(anInt317, anInt316, anIntArray315);
 	}
 
-	public void drawGraphics(int i, Graphics g, int k)
+	/**
+	 * Package-private since Phase 4.1a: {@link Renderer} is now the only way to
+	 * present a buffer, so the seam is enforced rather than merely documented.
+	 */
+	void drawGraphics(int i, Graphics g, int k)
 	{
 		if (!(anImage320 instanceof BufferedImage)) {
 			method239();
