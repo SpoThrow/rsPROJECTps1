@@ -197,7 +197,7 @@ public class client extends RSApplet {
 	public static int scenePlane;
 	boolean[] quickPrayers = new boolean[26];
 	boolean[] quickCurses = new boolean[20];
-	private boolean selectingQuickPrayers;
+	boolean selectingQuickPrayers;
 	private boolean quickPrayersOn;
 	private boolean chatBoxHidden;
 	private HashMap groundItemTimes = new HashMap();
@@ -242,7 +242,7 @@ public class client extends RSApplet {
 	private final ArrayList pendingClientSettings = new ArrayList();
 	Sprite loginMusicSprite;
 	Sprite loginMuteSprite;
-	private Sprite[] quickPraySprites = new Sprite[6];
+	Sprite[] quickPraySprites = new Sprite[6];
 	int loginMusicRestore;
 	public static int frameWidth = 765;
 	public static int frameHeight = 503;
@@ -270,22 +270,38 @@ public class client extends RSApplet {
 		return chatAreaResizable != null ? chatAreaResizable : chatArea;
 	}
 
-	private Sprite currentTabArea() {
-		if (isFixed()) {
-			return tabArea;
-		}
-		if (resizableInvTransparent && tabAreaResizableClear != null) {
-			return tabAreaResizableClear;
-		}
-		return tabAreaResizable != null ? tabAreaResizable : tabArea;
+	public TabArea tabAreaUi = new TabArea(this);
+
+	public void processTabClick() {
+		tabAreaUi.processTabClick();
+	}
+
+	private void drawTabArea() {
+		tabAreaUi.drawTabArea();
+	}
+
+	public void pmTabToReply() {
+		tabAreaUi.pmTabToReply();
+	}
+
+	public static void setTab(int id) {
+		TabArea.setTab(id);
+	}
+
+	private boolean isSkillTabLayer(int id) {
+		return tabAreaUi.isSkillTabLayer(id);
+	}
+
+	private int skillTabOriginX() {
+		return tabAreaUi.skillTabOriginX();
+	}
+
+	private int skillTabOriginY() {
+		return tabAreaUi.skillTabOriginY();
 	}
 
 	private Sprite currentMapArea() {
 		return !isFixed() && mapAreaResizable != null ? mapAreaResizable : mapArea;
-	}
-
-	private Sprite[] currentRedStones() {
-		return !isFixed() && redStonesResizable != null ? redStonesResizable : redStones;
 	}
 
 	private Sprite loadSpriteOrFallback(String path, Sprite fallback) {
@@ -1022,7 +1038,7 @@ public class client extends RSApplet {
 		}
 	}
 
-	private void copyWorldUnderHud(RSImageProducer dest, int srcX, int srcY) {
+	void copyWorldUnderHud(RSImageProducer dest, int srcX, int srcY) {
 		if (dest == null || aRSImageProducer_1165 == null) {
 			return;
 		}
@@ -3798,144 +3814,6 @@ public class client extends RSApplet {
 					+ runtimeexception.toString());
 			throw new RuntimeException();
 		}
-	}
-
-	public void drawSideIcons() {
-		/* Top sideIcons */
-		if (tabInterfaceIDs[0] != -1)// attack
-			sideIcons[0].drawSprite(10, 4);
-		if (tabInterfaceIDs[1] != -1)// stat
-			sideIcons[1].drawSprite(43, 4);
-		if (tabInterfaceIDs[2] != -1)// quest
-			sideIcons[2].drawSprite(76, 3);
-		if (tabInterfaceIDs[3] != -1)// inventory
-			sideIcons[3].drawSprite(111, 5);
-		if (tabInterfaceIDs[4] != -1)// equipment
-			sideIcons[4].drawSprite(140, 1);
-		if (tabInterfaceIDs[5] != -1)// prayer
-			sideIcons[5].drawSprite(174, 1);
-		if (tabInterfaceIDs[6] != -1)// magic
-			sideIcons[6].drawSprite(208, 4);
-		/* Bottom sideIcons */
-		if (tabInterfaceIDs[7] != -1)// clan
-			sideIcons[7].drawSprite(11, 303);
-		if (tabInterfaceIDs[8] != -1)// friends
-			sideIcons[8].drawSprite(46, 306);
-		if (tabInterfaceIDs[9] != -1)// ignore
-			sideIcons[9].drawSprite(79, 306);
-		if (tabInterfaceIDs[10] != -1)// options
-			sideIcons[10].drawSprite(113, 300);
-		if (tabInterfaceIDs[11] != -1)// options
-			sideIcons[11].drawSprite(145, 304);
-		if (tabInterfaceIDs[12] != -1)// emotes
-			sideIcons[12].drawSprite(181, 302);
-		if (tabInterfaceIDs[13] != -1)// music
-			sideIcons[13].drawSprite(213, 303);
-	}
-
-	public void drawRedStones() {
-		Sprite[] stones = currentRedStones();
-		if (tabInterfaceIDs[tabID] != -1) {
-			switch (tabID) {
-			case 0:
-				stones[0].drawSprite(3, 0);
-				break;
-			case 1:
-				stones[4].drawSprite(41, 0);
-				break;
-			case 2:
-				stones[4].drawSprite(74, 0);
-				break;
-			case 3:
-				stones[4].drawSprite(107, 0);
-				break;
-			case 4:
-				stones[4].drawSprite(140, 0);
-				break;
-			case 5:
-				stones[4].drawSprite(173, 0);
-				break;
-			case 6:
-				stones[1].drawSprite(206, 0);
-				break;
-			case 7:
-				stones[2].drawSprite(3, 298);
-				break;
-			case 8:
-				stones[4].drawSprite(41, 298);
-				break;
-			case 9:
-				stones[4].drawSprite(74, 298);
-				break;
-			case 10:
-				stones[4].drawSprite(107, 298);
-				break;
-			case 11:
-				stones[4].drawSprite(140, 298);
-				break;
-			case 12:
-				stones[4].drawSprite(173, 298);
-				break;
-			case 13:
-				stones[3].drawSprite(206, 298);
-				break;
-			}
-		}
-	}
-
-	private void drawTabArea() {
-		aRSImageProducer_1163.initDrawingArea();
-		Texture.anIntArray1472 = anIntArray1181;
-		if (!isFixed()) {
-			copyWorldUnderHud(aRSImageProducer_1163, tabDrawX(), tabDrawY());
-		}
-		currentTabArea().drawSprite(0, 0);
-		if (invOverlayInterfaceID == -1) {
-			drawRedStones();
-			drawSideIcons();
-		}
-		if (invOverlayInterfaceID != -1)
-			drawInterface(0, 28,
-					RSInterface.interfaceCache[invOverlayInterfaceID], 37);
-		else if (tabInterfaceIDs[tabID] != -1)
-			drawInterface(0, 28,
-					RSInterface.interfaceCache[tabInterfaceIDs[tabID]], 37);
-		drawSkillTooltip();
-		CombatLevelPlugin.apply(maxStats);
-		FriendListPlugin.updateTitle(friendsCount, anInt1046 == 1 ? 200 : 100);
-		int hpNow = widgetInt(4016);
-		int hpMax = widgetInt(4017);
-		int prayNow = widgetInt(4012);
-		int prayMax = widgetInt(4013);
-		if (hpNow < 0) {
-			hpNow = currentStats != null && currentStats.length > 3 ? currentStats[3] : 0;
-		}
-		if (hpMax < 1) {
-			hpMax = maxStats != null && maxStats.length > 3 ? maxStats[3] : 1;
-		}
-		if (prayNow < 0) {
-			prayNow = currentStats != null && currentStats.length > 5 ? currentStats[5] : 0;
-		}
-		if (prayMax < 1) {
-			prayMax = maxStats != null && maxStats.length > 5 ? maxStats[5] : 1;
-		}
-		Sprite hpIcon = ORBS != null && ORBS.length > 3 ? ORBS[3] : null;
-		Sprite prayIcon = ORBS != null && ORBS.length > 6 ? ORBS[6] : null;
-		StatusBars.draw(smallText, hpNow, hpMax, prayNow, prayMax, hpIcon, prayIcon);
-		StatusBars.hoverHeal = 0;
-		if (selectingQuickPrayers && tabID == 5) {
-			drawQuickPrayerSelection();
-		}
-		if (!menuOpen && MouseTooltips.enabled) {
-			drawTooltipOn(super.mouseX - tabDrawX(), super.mouseY - tabDrawY());
-		}
-		if (menuOpen && menuScreenArea == 1 && isFixed())
-			drawMenu();
-		if (isFixed()) {
-			aRSImageProducer_1163.drawGraphics(tabDrawY(), super.graphics, tabDrawX());
-		}
-		aRSImageProducer_1165.initDrawingArea();
-		Texture.anIntArray1472 = anIntArray1182;
 	}
 
 	public void method37(int j) {
@@ -7506,47 +7384,6 @@ public class client extends RSApplet {
 			return this;
 	}
 
-	public void pmTabToReply() {
-		if (messagePromptRaised || inputDialogState != 0) {
-			return;
-		}
-		String name = null;
-		for (int k = 0; k < 500; k++) {
-			if (chatMessages[k] == null) {
-				continue;
-			}
-			int l = chatTypes[k];
-			if (l == 3 || l == 7) {
-				name = chatNames[k];
-				break;
-			}
-		}
-
-		if (name == null) {
-			pushMessage(
-					"You haven't received any messages to which you can reply.",
-					0, "");
-			return;
-		}
-
-		if (name.startsWith("@cr")) {
-			name = name.substring(5);
-		}
-		name = name.trim();
-		if (name.length() == 0) {
-			return;
-		}
-
-		inputTaken = true;
-		inputDialogState = 0;
-		messagePromptRaised = true;
-		promptInput = "";
-		friendsListAction = 3;
-		aLong953 = TextClass.longForName(name);
-		aString1121 = "Enter message to send to " + TextClass.fixName(name);
-		chatTypeFocused = false;
-	}
-
 	// Camera zoom: linear OSRS-like steps (scales with current zoom).
 	// Bounds and mid sensitivity match the previous fixed *35 / 0–1200 feel.
 	// See: https://rune-server.org/threads/317-improved-camera-zooming.708578/
@@ -8694,118 +8531,6 @@ public class client extends RSApplet {
 		minimapZoom = 0;
 	}
 	
-	public static void setTab(int id) {
-        needDrawTabArea = true;
-        tabID = id;
-        tabAreaAltered = true;
-    }
-
-	public void processTabClick() {
-		if (super.clickMode3 != 1) {
-			return;
-		}
-		int tx = tabDrawX();
-		int ty = tabDrawY();
-		if (super.saveClickX >= tx + 5 && super.saveClickX <= tx + 42
-				&& super.saveClickY >= ty + 1 && super.saveClickY < ty + 37
-				&& tabInterfaceIDs[0] != -1) {
-			needDrawTabArea = true;
-			tabID = 0;
-			tabAreaAltered = true;
-		}
-		if (super.saveClickX >= tx + 43 && super.saveClickX <= tx + 75
-				&& super.saveClickY >= ty && super.saveClickY < ty + 37
-				&& tabInterfaceIDs[1] != -1) {
-			needDrawTabArea = true;
-			tabID = 1;
-			tabAreaAltered = true;
-		}
-		if (super.saveClickX >= tx + 76 && super.saveClickX <= tx + 107
-				&& super.saveClickY >= ty && super.saveClickY < ty + 37
-				&& tabInterfaceIDs[2] != -1) {
-			needDrawTabArea = true;
-			tabID = 2;
-			tabAreaAltered = true;
-		}
-		if (super.saveClickX >= tx + 108 && super.saveClickX <= tx + 141
-				&& super.saveClickY >= ty && super.saveClickY < ty + 35
-				&& tabInterfaceIDs[3] != -1) {
-			needDrawTabArea = true;
-			tabID = 3;
-			tabAreaAltered = true;
-		}
-		if (super.saveClickX >= tx + 142 && super.saveClickX <= tx + 174
-				&& super.saveClickY >= ty && super.saveClickY < ty + 37
-				&& tabInterfaceIDs[4] != -1) {
-			needDrawTabArea = true;
-			tabID = 4;
-			tabAreaAltered = true;
-		}
-		if (super.saveClickX >= tx + 175 && super.saveClickX <= tx + 206
-				&& super.saveClickY >= ty && super.saveClickY < ty + 37
-				&& tabInterfaceIDs[5] != -1) {
-			needDrawTabArea = true;
-			tabID = 5;
-			tabAreaAltered = true;
-		}
-		if (super.saveClickX >= tx + 207 && super.saveClickX <= tx + 246
-				&& super.saveClickY >= ty + 1 && super.saveClickY < ty + 37
-				&& tabInterfaceIDs[6] != -1) {
-			needDrawTabArea = true;
-			tabID = 6;
-			tabAreaAltered = true;
-		}
-		if (super.saveClickX >= tx + 5 && super.saveClickX <= tx + 42
-				&& super.saveClickY >= ty + 298 && super.saveClickY < ty + 335
-				&& tabInterfaceIDs[7] != -1) {
-			needDrawTabArea = true;
-			tabID = 7;
-			tabAreaAltered = true;
-		}
-		if (super.saveClickX >= tx + 43 && super.saveClickX <= tx + 75
-				&& super.saveClickY >= ty + 298 && super.saveClickY < ty + 335
-				&& tabInterfaceIDs[8] != -1) {
-			needDrawTabArea = true;
-			tabID = 8;
-			tabAreaAltered = true;
-		}
-		if (super.saveClickX >= tx + 76 && super.saveClickX <= tx + 108
-				&& super.saveClickY >= ty + 298 && super.saveClickY < ty + 335
-				&& tabInterfaceIDs[9] != -1) {
-			needDrawTabArea = true;
-			tabID = 9;
-			tabAreaAltered = true;
-		}
-		if (super.saveClickX >= tx + 108 && super.saveClickX <= tx + 145
-				&& super.saveClickY >= ty + 298 && super.saveClickY < ty + 335
-				&& tabInterfaceIDs[10] != -1) {
-			needDrawTabArea = true;
-			tabID = 10;
-			tabAreaAltered = true;
-		}
-		if (super.saveClickX >= tx + 142 && super.saveClickX <= tx + 175
-				&& super.saveClickY >= ty + 298 && super.saveClickY < ty + 335
-				&& tabInterfaceIDs[11] != -1) {
-			needDrawTabArea = true;
-			tabID = 11;
-			tabAreaAltered = true;
-		}
-		if (super.saveClickX >= tx + 176 && super.saveClickX <= tx + 206
-				&& super.saveClickY >= ty + 298 && super.saveClickY < ty + 335
-				&& tabInterfaceIDs[12] != -1) {
-			needDrawTabArea = true;
-			tabID = 12;
-			tabAreaAltered = true;
-		}
-		if (super.saveClickX >= tx + 207 && super.saveClickX <= tx + 246
-				&& super.saveClickY >= ty + 298 && super.saveClickY < ty + 334
-				&& tabInterfaceIDs[13] != -1) {
-			needDrawTabArea = true;
-			tabID = 13;
-			tabAreaAltered = true;
-		}
-	}
-
 	private void resetImageProducers2() {
 		if (aRSImageProducer_1166 != null)
 			return;
@@ -11145,7 +10870,7 @@ public class client extends RSApplet {
 		return mx >= x && my >= y && mx < x + w && my < y + h;
 	}
 
-	private void drawInterface(int j, int k, RSInterface class9, int l) {
+	void drawInterface(int j, int k, RSInterface class9, int l) {
 		if (class9.type != 0 || class9.children == null)
 			return;
 		if (class9.isMouseoverTriggered && anInt1026 != class9.id
@@ -12893,26 +12618,6 @@ public class client extends RSApplet {
 		}
 	}
 
-	private void drawTooltipOn(int mx, int my) {
-		if (menuActionRow < 2 && itemSelected == 0 && spellSelected == 0) {
-			return;
-		}
-		String s;
-		if (itemSelected == 1 && menuActionRow < 2)
-			s = "Use " + selectedItemName + " with...";
-		else if (spellSelected == 1 && menuActionRow < 2)
-			s = spellTooltip + "...";
-		else
-			s = menuActionName[menuActionRow - 1];
-		if (menuActionRow > 2)
-			s = s + "@whi@ / " + (menuActionRow - 2) + " more options";
-		if (MouseTooltips.enabled) {
-			MouseTooltips.drawAtMouse(this, s, mx, my);
-		} else {
-			FriendNotes.drawHover(this, s, mx, my);
-		}
-	}
-
 	/*public void drawMinimap() {
 		aRSImageProducer_1164.initDrawingArea();
 		if (anInt1021 == 2) {
@@ -13578,16 +13283,16 @@ public class client extends RSApplet {
 		610, 611, 612, 613, 614, 615, 616, 617, 618, 619,
 		620, 621, 622, 623, 624, 625, 626, 627, 628, 629
 	};
-	private static final int[] QUICK_CURSE_X = {
+	static final int[] QUICK_CURSE_X = {
 		2, 40, 76, 113, 150, 2, 39, 76, 113, 151,
 		2, 40, 77, 114, 153, 2, 40, 78, 114, 151
 	};
-	private static final int[] QUICK_CURSE_Y = {
+	static final int[] QUICK_CURSE_Y = {
 		5, 5, 5, 5, 5, 45, 45, 45, 45, 45,
 		82, 82, 82, 83, 83, 120, 120, 120, 120, 120
 	};
 
-	private boolean cursesBook() {
+	boolean cursesBook() {
 		return tabInterfaceIDs != null && tabInterfaceIDs.length > 5 && tabInterfaceIDs[5] == 22500;
 	}
 
@@ -13968,64 +13673,8 @@ public class client extends RSApplet {
 		return "Defensive";
 	}
 
-	private void ensureQuickPraySprites() {
-		if (quickPraySprites[0] != null) {
-			return;
-		}
-		for (int i = 0; i < quickPraySprites.length; i++) {
-			try {
-				Sprite sprite = new Sprite("Prayer/Quick/" + i);
-				if (sprite.myWidth > 0 && sprite.myHeight > 0) {
-					if (i == 1 || i == 2) {
-						sprite.setTransparency(0, 0, 0);
-					}
-					quickPraySprites[i] = sprite;
-				}
-			} catch (Exception ignored) {
-			}
-		}
-	}
-
-	private static final int[] QUICK_PRAY_X = { 6, 42, 78, 114, 150, 6, 42, 78, 116, 152, 6, 42, 78, 116, 152, 6, 42, 78, 116, 150, 6, 44, 80, 116, 150, 6 };
-	private static final int[] QUICK_PRAY_Y = { 4, 4, 4, 4, 4, 40, 40, 40, 40, 40, 76, 76, 76, 76, 76, 112, 112, 112, 112, 112, 148, 148, 148, 148, 148, 184 };
-
-	private void drawQuickPrayerSelection() {
-		ensureQuickPraySprites();
-		int ox = 28;
-		int oy = 37;
-		if (quickPraySprites[0] != null) {
-			quickPraySprites[0].drawSprite1(ox, oy + 22);
-		} else {
-			DrawingArea.method335(0x3a3a3a, oy + 22, 190, 212, 90, ox);
-		}
-		if (quickPraySprites[3] != null) {
-			quickPraySprites[3].drawSprite(ox, oy + 20);
-			quickPraySprites[3].drawSprite(ox, oy + 232);
-		}
-		boolean curses = cursesBook();
-		int[] xs = curses ? QUICK_CURSE_X : QUICK_PRAY_X;
-		int[] ys = curses ? QUICK_CURSE_Y : QUICK_PRAY_Y;
-		boolean[] selected = curses ? quickCurses : quickPrayers;
-		for (int i = 0; i < selected.length && i < xs.length; i++) {
-			Sprite tick = selected[i] ? quickPraySprites[2] : quickPraySprites[1];
-			if (tick != null) {
-				tick.drawSprite(ox + xs[i] - 2, oy + ys[i] - 2);
-			} else if (selected[i]) {
-				DrawingArea.fillPixels(ox + xs[i], 34, 34, 0xE2C04A, oy + ys[i]);
-			}
-		}
-		int cx = ox;
-		int cy = oy + 224;
-		boolean hover = super.mouseX >= tabDrawX() + cx && super.mouseX < tabDrawX() + cx + 190
-				&& super.mouseY >= tabDrawY() + cy && super.mouseY < tabDrawY() + cy + 24;
-		Sprite confirm = hover && quickPraySprites[4] != null ? quickPraySprites[4] : quickPraySprites[5];
-		if (confirm == null) {
-			confirm = quickPraySprites[4];
-		}
-		if (confirm != null) {
-			confirm.drawSprite(cx, cy);
-		}
-	}
+	static final int[] QUICK_PRAY_X = { 6, 42, 78, 114, 150, 6, 42, 78, 116, 152, 6, 42, 78, 116, 152, 6, 42, 78, 116, 150, 6, 44, 80, 116, 150, 6 };
+	static final int[] QUICK_PRAY_Y = { 4, 4, 4, 4, 4, 40, 40, 40, 40, 40, 76, 76, 76, 76, 76, 112, 112, 112, 112, 112, 148, 148, 148, 148, 148, 184 };
 
 	private void finishQuickPrayerSetup() {
 		selectingQuickPrayers = false;
@@ -14663,7 +14312,7 @@ public class client extends RSApplet {
 		font.method385(color, text, y, x);
 	}
 
-	private String skillDisplayName(int skill) {
+	String skillDisplayName(int skill) {
 		if (skill < 0 || skill >= Skills.skillNames.length) {
 			return "Total";
 		}
@@ -14813,85 +14462,7 @@ public class client extends RSApplet {
 		}
 	}
 
-	private void drawSkillTooltip() {
-		if (tabInterfaceIDs[tabID] != 3917) {
-			return;
-		}
-		int mx = super.mouseX - skillTabOriginX();
-		int my = super.mouseY - skillTabOriginY();
-		int skill = hoveredSkill(mx, my);
-		if (skill == -2) {
-			return;
-		}
-		String[] lines;
-		if (skill == -1) {
-			long total = 0;
-			for (int i = 0; i < currentExp.length; i++) {
-				total += currentExp[i];
-			}
-			lines = new String[] { "Total XP: " + formatNumber((int) Math.min(total, 2147483647L)) };
-		} else {
-			int xp = currentExp[skill];
-			int level = maxStats[skill];
-			int next = level >= 99 ? anIntArray1019[97] : anIntArray1019[level - 1];
-			if (level <= 1) {
-				next = anIntArray1019[0];
-			}
-			int remain = next - xp;
-			if (remain < 0 || level >= 99) {
-				remain = 0;
-			}
-			lines = new String[] {
-				skillDisplayName(skill) + " XP: " + formatNumber(xp),
-				"Next level at: " + formatNumber(next),
-				"Remaining XP: " + formatNumber(remain)
-			};
-		}
-		int width = 10;
-		for (int i = 0; i < lines.length; i++) {
-			int w = smallText.getTextWidth(lines[i]) + 8;
-			if (w > width) {
-				width = w;
-			}
-		}
-		int height = 6 + lines.length * 12;
-		int boxX;
-		int boxY = my + 2;
-		if (mx < 95 && mx + 10 + width <= 190) {
-			boxX = mx + 10;
-		} else {
-			boxX = mx - width - 4;
-		}
-		if (boxY + height > 250) {
-			boxY = my - height;
-		}
-		if (boxX < 0) {
-			boxX = 0;
-		}
-		if (boxY < 0) {
-			boxY = 0;
-		}
-		DrawingArea.method335(0x000000, boxY, width, height, 180, boxX);
-		DrawingArea.fillPixels(boxX, width, height, 0x5A4933, boxY);
-		for (int i = 0; i < lines.length; i++) {
-			smallText.method385(0xff981f, lines[i], boxY + 12 + i * 12, boxX + 4);
-		}
-	}
-
-	private int skillTabOriginX() {
-		return tabDrawX() + 28;
-	}
-
-	private int skillTabOriginY() {
-		return tabDrawY() + 37;
-	}
-
-	private boolean isSkillTabLayer(int id) {
-		return id == 3917 || id == 3918 || id == 3925 || id == 3932 || id == 3939
-				|| id == 3946 || id == 3953 || id == 4148;
-	}
-
-	private int hoveredSkill(int mx, int my) {
+	int hoveredSkill(int mx, int my) {
 		if (mx < 0 || mx >= 192 || my < 0) {
 			return -2;
 		}
@@ -15590,7 +15161,7 @@ public class client extends RSApplet {
 		}
 	}
 
-	private int widgetInt(int id) {
+	int widgetInt(int id) {
 		if (id < 0 || RSInterface.interfaceCache == null || id >= RSInterface.interfaceCache.length
 				|| RSInterface.interfaceCache[id] == null || RSInterface.interfaceCache[id].message == null) {
 			return -1;
@@ -18254,7 +17825,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	private Sprite logIconH;
 	private Sprite logIconC;
         private Sprite[] chatButtons;
-	private Sprite[] ORBS = new Sprite[16];
+	Sprite[] ORBS = new Sprite[16];
 
 	public client() {
 		/**
@@ -18445,9 +18016,9 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	private Sprite chatArea;
 	private Sprite chatAreaResizable;
 	private Background mapBack;
-	private Sprite tabArea;
-	private Sprite tabAreaResizable;
-	private Sprite tabAreaResizableClear;
+	Sprite tabArea;
+	Sprite tabAreaResizable;
+	Sprite tabAreaResizableClear;
 	private Sprite xpOrb;
 	private Sprite xpOrbOn;
 	private Sprite xpBar;
@@ -18455,7 +18026,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	private Sprite[] skillXpIcons;
 	private Sprite mapArea;
 	private Sprite mapAreaResizable;
-	private Sprite[] redStonesResizable;
+	Sprite[] redStonesResizable;
 	/**/
 
 	private RSImageProducer leftFrame;
@@ -18498,8 +18069,8 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	int yCameraCurve;
 	int xCameraCurve;
 	private int myPrivilege;
-	private final int[] currentExp;
-	private Sprite[] redStones;
+	final int[] currentExp;
+	Sprite[] redStones;
 	private Sprite mapFlag;
 	private Sprite mapMarker;
 	private boolean aBoolean872;
@@ -18511,7 +18082,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	private volatile boolean drawFlames;
 	private String reportAbuseInput;
 	private int unknownInt10;
-	private boolean menuOpen;
+	boolean menuOpen;
 	private int anInt886;
 	private String inputString;
 	private final int maxPlayers;
@@ -18523,7 +18094,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	private int[] anIntArray894;
 	private Stream[] aStreamArray895s;
 	private int viewRotationOffset;
-	private int friendsCount;
+	int friendsCount;
 	private int anInt900;
 	private int[][] anIntArrayArray901;
 	private byte[] aByteArray912;
@@ -18533,7 +18104,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	private int crossIndex;
 	private int crossType;
 	int plane;
-	private final int[] currentStats;
+	final int[] currentStats;
 	private static int anInt924;
 	private final long[] ignoreListAsLongs;
 	private boolean loadingError;
@@ -18547,18 +18118,18 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	private int anInt936;
 	private int anInt937;
 	private int anInt938;
-	private final int[] chatTypes;
-	private final String[] chatNames;
-	private final String[] chatMessages;
+	final int[] chatTypes;
+	final String[] chatNames;
+	final String[] chatMessages;
 	private int anInt945;
 	private WorldController worldController;
-	private Sprite[] sideIcons;
-	private int menuScreenArea;
+	Sprite[] sideIcons;
+	int menuScreenArea;
 	private int menuOffsetX;
 	private int menuOffsetY;
 	private int menuWidth;
 	private int menuHeight;
-	private long aLong953;
+	long aLong953;
 	private boolean aBoolean954;
 	private long[] friendsListAsLongs;
 	int currentSong;
@@ -18628,7 +18199,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	private int anInt1016;
 	private boolean aBoolean1017;
 	public static int anInt1018;
-	private static final int[] anIntArray1019;
+	static final int[] anIntArray1019;
 	private int anInt1021;
 	private int anInt1022;
 	int loadingStage;
@@ -18647,9 +18218,9 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	private int anInt1040;
 	private int anInt1041;
 	private int dialogID;
-	private final int[] maxStats;
+	final int[] maxStats;
 	final int[] anIntArray1045;
-	private int anInt1046;
+	int anInt1046;
 	private boolean aBoolean1047;
 	public TextDrawingArea smallText;
 	public TextDrawingArea aTextDrawingArea_1271;
@@ -18673,7 +18244,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	private static int anInt1061;
 	private int anInt1062;
 	private final int barFillColor;
-	private int friendsListAction;
+	int friendsListAction;
 	private final int[] anIntArray1065;
 	private int mouseInvInterfaceIndex;
 	private int lastActiveInvInterface;
@@ -18724,7 +18295,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	RSImageProducer aRSImageProducer_1115;
 	private static int anInt1117;
 	private int membersInt;
-	private String aString1121;
+	String aString1121;
 	private Sprite compass;
 	private RSImageProducer aRSImageProducer_1125;
 	public static Player myPlayer;
@@ -18736,10 +18307,10 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	private int cameraOffsetY;
 	public int menuActionRow;
 	private static int anInt1134;
-	private int spellSelected;
+	int spellSelected;
 	private int anInt1137;
 	private int spellUsableOn;
-	private String spellTooltip;
+	String spellTooltip;
 	private Sprite[] aClass30_Sub2_Sub1_Sub1Array1140;
 	private boolean aBoolean1141;
 	private static int anInt1142;
@@ -18758,10 +18329,10 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	private boolean aBoolean1160;
 	public static int loopCycle;
 	static final String validUserPassChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!\"\243$%^&*()-_=+[{]};:'@#~,<.>/?\\| ";
-	private RSImageProducer aRSImageProducer_1163;
+	RSImageProducer aRSImageProducer_1163;
 	private RSImageProducer mapEdgeIP;
 	private RSImageProducer aRSImageProducer_1164;
-	private RSImageProducer aRSImageProducer_1165;
+	RSImageProducer aRSImageProducer_1165;
 	private RSImageProducer aRSImageProducer_1166;
 	private int daysSinceRecovChange;
 	private RSSocket socketStream;
@@ -18776,15 +18347,15 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	private int reportAbuseInterfaceID;
 	private NodeList aClass19_1179;
 	private int[] anIntArray1180;
-	private int[] anIntArray1181;
-	private int[] anIntArray1182;
+	int[] anIntArray1181;
+	int[] anIntArray1182;
 	private byte[][] aByteArrayArray1183;
 	private int anInt1184;
 	private static int viewRotation;
 	private int anInt1186;
 	private int anInt1187;
 	private static int anInt1188;
-	private int invOverlayInterfaceID;
+	int invOverlayInterfaceID;
 	private int[] anIntArray1190;
 	private int[] anIntArray1191;
 	private Stream stream;
@@ -18801,7 +18372,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	private int anInt1208;
 	private static int minimapRotation;
 	public static int anInt1211;
-	private String promptInput;
+	String promptInput;
 	private int anInt1213;
 	private int[][][] intGroundArray;
 	private long aLong1215;
@@ -18811,7 +18382,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	public static int tabID;
 	private int anInt1222;
 	public static boolean inputTaken;
-	private int inputDialogState;
+	int inputDialogState;
 	private static int anInt1226;
 	private int nextSong;
 	public boolean songChanging;
@@ -18838,7 +18409,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	private final boolean rsAlreadyLoaded;
 	private int anInt1253;
 	boolean welcomeScreenRaised;
-	private boolean messagePromptRaised;
+	boolean messagePromptRaised;
 	private int anInt1257;
 	private byte[][][] byteGroundArray;
 	int prevSong;
@@ -18856,12 +18427,12 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	private int cameraOffsetX;
 	private int[] bigX;
 	private int[] bigY;
-	private int itemSelected;
+	int itemSelected;
 	private int anInt1283;
 	private int anInt1284;
 	private int anInt1285;
 	public Sprite magicAuto;
-	private String selectedItemName;
+	String selectedItemName;
 	private int publicChatMode;
 	private static int anInt1288;
 	private int anInt1289;
