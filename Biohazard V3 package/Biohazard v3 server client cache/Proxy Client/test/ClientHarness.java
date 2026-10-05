@@ -96,6 +96,7 @@ public final class ClientHarness {
 		gpuRendererWiresBothSeams();
 		decliningRendererFallsThrough();
 		rendererSettingIsItsOwnKey();
+		rasterPinsAreStanding();
 		packetTapProducesDiffableLog();
 		itemDefOutOfRangeIdIsSafe();
 		itemDefCertTemplateWithoutCertIdIsSafe();
@@ -1405,7 +1406,8 @@ public final class ClientHarness {
 			System.out.println("  NOTE  Textured golden hash not pinned yet. Observed: " + actual);
 			check("Textured triangle rasteriser: framebuffer hash is pinned", false);
 			return;
-		}		boolean ok = TEXTURED_GOLDEN_HASH.equals(actual);
+		}
+		boolean ok = TEXTURED_GOLDEN_HASH.equals(actual);
 		if (!ok) {
 			System.out.println("  NOTE  Textured rasterisation changed. Expected " + TEXTURED_GOLDEN_HASH);
 			System.out.println("  NOTE                                 Observed " + actual);
@@ -1645,6 +1647,57 @@ public final class ClientHarness {
 		}
 		check("Ground rasteriser seam: uninstalling restores the software path",
 				SceneRasterizer.implementation() == null);
+	}
+
+	// ------------------------- the standing raster gate, consolidated (Phase 4.3)
+
+	/**
+	 * Asserts the three raster pins are REAL pins, not sentinels.
+	 *
+	 * <p>Why this exists as its own assertion: Phase 4.3's job is to make the
+	 * framebuffer hashes the standing objective oracle for the renderer seam. Three
+	 * separate tests already compare a workload against a pinned hash and each one
+	 * already fails if its constant is still the all-zeros sentinel - but nothing
+	 * asserted, in one place, that the pins exist as a set and are the values the plan
+	 * claims. A pin quietly reset to zeros would otherwise be visible only as three
+	 * scattered "not pinned yet" notes.
+	 *
+	 * <p>The pins, and what each covers:
+	 * <ul>
+	 *   <li>{@link #RASTER_GOLDEN_HASH} - the 2D substrate ({@code DrawingArea} +
+	 *       {@code Sprite}), from Phase 4.1b</li>
+	 *   <li>{@link #TRIANGLE_GOLDEN_HASH} - the FLAT triangle rasteriser
+	 *       ({@code Texture.method374}), from Phase 4.1c-2a</li>
+	 *   <li>{@link #TEXTURED_GOLDEN_HASH} - the TEXTURED triangle rasteriser
+	 *       ({@code Texture.method378}), the 4.1c-2c precondition</li>
+	 * </ul>
+	 *
+	 * <p>{@code gradlew check} depends on the harness, so these run on every build and
+	 * a moved hash fails it - that is what makes them a gate rather than a report.
+	 */
+	private static void rasterPinsAreStanding() {
+		check("Raster gate: the substrate pin is a real value, not the sentinel",
+				isRealHash(RASTER_GOLDEN_HASH));
+		check("Raster gate: the flat-triangle pin is a real value, not the sentinel",
+				isRealHash(TRIANGLE_GOLDEN_HASH));
+		check("Raster gate: the textured-triangle pin is a real value, not the sentinel",
+				isRealHash(TEXTURED_GOLDEN_HASH));
+		check("Raster gate: the three pins are distinct (one per workload, not copy-pasted)",
+				!RASTER_GOLDEN_HASH.equals(TRIANGLE_GOLDEN_HASH)
+						&& !TRIANGLE_GOLDEN_HASH.equals(TEXTURED_GOLDEN_HASH)
+						&& !RASTER_GOLDEN_HASH.equals(TEXTURED_GOLDEN_HASH));
+	}
+
+	private static boolean isRealHash(String h) {
+		if (h == null || h.length() != 64) {
+			return false;
+		}
+		for (int i = 0; i < h.length(); i++) {
+			if (h.charAt(i) != '0') {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	// ------------------------------------------------------------------ plumbing
