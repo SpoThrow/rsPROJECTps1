@@ -9,9 +9,12 @@ import def.ItemDef;
 import def.ObjectDef;
 import def.VarBit;
 import def.Varp;
+import model.Model;
+import model.Texture;
 import net.PacketTap;
 import net.Stream;
 import scene.CollisionMap;
+import scene.Fog;
 import scene.ObjectManager;
 import scene.WorldController;
 import ui.DrawingArea;
@@ -75,6 +78,9 @@ public final class ClientHarness {
 		rasterFramebufferHashIsPinned();
 		rasterFramebufferHashIsDeterministic();
 		rasterFramebufferHashDetectsAChangedDrawOp();
+		triangleRasteriserIsPinned();
+		triangleRasteriserIsDeterministic();
+		triangleRasteriserDetectsAChangedTriangle();
 		packetTapProducesDiffableLog();
 		itemDefOutOfRangeIdIsSafe();
 		itemDefCertTemplateWithoutCertIdIsSafe();
@@ -1180,6 +1186,105 @@ public final class ClientHarness {
 		String normal = framebufferHash(rasterWorkload(0));
 		String perturbed = framebufferHash(rasterWorkload(1));
 		check("Raster: gate has teeth (a single altered draw op changes the hash)",
+				!normal.equals(perturbed));
+	}
+
+	// ---------------------------------------- triangle rasteriser gate (Phase 4.1c-2a)
+
+	/**
+	 * Gate for the scene's triangle rasterisation - the surface a GPU path actually
+	 * intercepts, and the one 4.1c-2b will route through a swappable entry.
+	 *
+	 * <p><b>Why this is separate from the 4.1b substrate gate.</b> That one covers the
+	 * generic 2D drawing surface ({@link DrawingArea} + {@link Sprite}). It does NOT
+	 * cover the triangle rasterisers, which are what {@code Model.method443} ultimately
+	 * calls to paint the 3D scene. Without this, a change to the scene rasteriser would
+	 * be gated by nothing but a human looking at the screen - the gap 4.1c-2a exists to
+	 * close.
+	 *
+	 * <p><b>How it drives the real rasteriser without a cache.</b>
+	 * {@code Model.method443} delegates to exactly three public entry points -
+	 * {@link Texture#method374} (flat), {@link Texture#method376} and
+	 * {@link Texture#method378} (textured). This gate drives {@code method374} directly
+	 * with fixed integer coordinates, so no {@link Model} has to be constructed: a Model
+	 * would require either hand-synthesised model bytes or a cache fixture the repo does
+	 * not have.
+	 *
+	 * <p><b>Setup, and one deliberate trick.</b> {@link Texture#method364} derives the
+	 * row-offset table and texture centres from the current {@link DrawingArea} size, so
+	 * it must run after {@code initDrawingArea}. {@code Fog.sceneDepth} is set to 0 so
+	 * that {@code method374}'s guard ({@code Fog.sceneDepth > 50 && client.fogStrength > 0})
+	 * short-circuits on its first operand - which keeps the gate from loading the
+	 * {@code client} class at all. That matters: {@code client} has heavy static
+	 * initialisers and is not safely loadable headlessly.
+	 *
+	 * <p><b>Known gap, stated rather than implied:</b> this covers the FLAT path. The
+	 * textured paths ({@code method376}/{@code method378}) need the texture pixel tables
+	 * from {@code Texture.method371}/{@code method317} and are not yet driven here.
+	 */
+	private static int[] triangleWorkload(int perturb) {
+		int[] buf = new int[RASTER_W * RASTER_H];
+		DrawingArea.initDrawingArea(RASTER_H, RASTER_W, buf);
+		DrawingArea.setAllPixels(0);
+		Texture.method364();
+		Fog.sceneDepth = 0;
+		Texture.anInt1465 = 0;
+		Texture.aBoolean1462 = false;
+		Texture.aBoolean1464 = true;
+
+		// Install a DETERMINISTIC colour palette.
+		//
+		// Do NOT call Texture.method372 here: its first statement adds
+		//   Math.random() * 0.03 - 0.015
+		// to the brightness, so the client's real palette is deliberately jittered on
+		// every load and is not reproducible. That is fine for play but fatal for a gate,
+		// so the palette is filled deterministically instead. This gate pins the
+		// RASTERISER (geometry, span stepping, the write path), not the palette.
+		int[] palette = Texture.anIntArray1482;
+		for (int i = 0; i < palette.length; i++) {
+			int v = ((i & 0xFF) << 16) | (((i >> 3) & 0xFF) << 8) | ((i * 5) & 0xFF);
+			palette[i] = (v == 0 ? 1 : v);
+		}
+
+		// method374(y0, y1, y2, x0, x1, x2, c0, c1, c2) - flat-shaded triangles.
+		// Colours are 16-BIT model face colours (indices into the palette above), NOT
+		// 24-bit RGB: passing RGB overruns the 65536-entry palette.
+		Texture.method374(10, 90, 50, 12, 40, 150, 0x1234 + perturb, 0x5678, 0x9ABC);
+		Texture.method374(20, 100, 40, 30, 170, 80, 0x2468, 0x1357, 0x0F0F);
+		Texture.method374(5, 60, 110, 5, 180, 60, 0x7FFF, 0x3FFF, 0xBFFF);
+
+		return buf;
+	}
+
+	private static final String TRIANGLE_GOLDEN_HASH =
+			"57838498b8af2b9c834b7a82bcd37305712f1014665926449b3aaa9c88732d67";
+
+	private static void triangleRasteriserIsPinned() {
+		String actual = framebufferHash(triangleWorkload(0));
+		if (TRIANGLE_GOLDEN_HASH.equals("0000000000000000000000000000000000000000000000000000000000000000")) {
+			System.out.println("  NOTE  Triangle golden hash not pinned yet. Observed: " + actual);
+			check("Triangle rasteriser: framebuffer hash is pinned", false);
+			return;
+		}
+		boolean ok = TRIANGLE_GOLDEN_HASH.equals(actual);
+		if (!ok) {
+			System.out.println("  NOTE  Triangle rasterisation changed. Expected " + TRIANGLE_GOLDEN_HASH);
+			System.out.println("  NOTE                                  Observed " + actual);
+		}
+		check("Triangle rasteriser: fixed triangle workload hashes to the pinned value", ok);
+	}
+
+	private static void triangleRasteriserIsDeterministic() {
+		String first = framebufferHash(triangleWorkload(0));
+		String second = framebufferHash(triangleWorkload(0));
+		check("Triangle rasteriser: workload is deterministic (two runs agree exactly)",
+				first.equals(second));
+	}
+
+	private static void triangleRasteriserDetectsAChangedTriangle() {
+		String normal = framebufferHash(triangleWorkload(0));
+		String perturbed = framebufferHash(triangleWorkload(1));
+		check("Triangle rasteriser: gate has teeth (one altered triangle colour changes the hash)",
 				!normal.equals(perturbed));
 	}
 
