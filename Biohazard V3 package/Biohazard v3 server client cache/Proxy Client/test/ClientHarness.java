@@ -11,6 +11,7 @@ import def.ItemDef;
 import def.ObjectDef;
 import def.VarBit;
 import def.Varp;
+import model.Frames;
 import model.Model;
 import model.Texture;
 import net.PacketTap;
@@ -120,6 +121,11 @@ public final class ClientHarness {
 		curseFrameRemapLeavesOriginalFrameSlotsAlone();
 		curseAnimationLoaderRefusesSlotsOutsideTheRemapRange();
 		curseFrameSlotsCannotCollideWithTheOriginalRange();
+		animationFrameTranslateTransformIsExact();
+		animationFrameScaleTransformIsExact();
+		animationFrameTransformLeavesTheSourceModelUntouched();
+		animationFrameTransformCompoundsOnTheSameModel();
+		animationFrameTransformIsDeterministic();
 		packetTapProducesDiffableLog();
 		itemDefOutOfRangeIdIsSafe();
 		itemDefCertTemplateWithoutCertIdIsSafe();
@@ -2088,6 +2094,12 @@ public final class ClientHarness {
 		b[off + 1] = (byte) value;
 	}
 
+	/** Big-endian word at a moving cursor; returns the cursor past the word written. */
+	private static int word(byte[] b, int off, int value) {
+		putWord(b, off, value);
+		return off + 2;
+	}
+
 	/**
 	 * Parses the fixture through the client's REAL loader and returns the built model.
 	 *
@@ -2460,6 +2472,247 @@ public final class ClientHarness {
 		} catch (Exception e) {
 			throw new RuntimeException("could not invoke remapSequenceFrames", e);
 		}
+	}
+
+	// ------------------- Phase 6.2 animation transform contract (the safety net)
+
+	/**
+	 * Frame file ids above every real range the loader can reach: packed 474 occupies
+	 * 0..3229, the loose files are ~1.7k-3.5k, and the CursePack owns 28000..28006. The
+	 * key must also keep {@code (file << 16)} inside a POSITIVE int, i.e. file <= 32767.
+	 */
+	private static final int FIXTURE_ANIM_FILE_TRANSLATE = 30000;
+	private static final int FIXTURE_ANIM_FILE_SCALE = 30001;
+
+	/** Label per vertex: 0 and 1 share label 5, vertex 2 gets label 6. */
+	private static final int FIXTURE_SKIN_LABELS[] = { 5, 5, 6 };
+	/**
+	 * The origin opcode 0 must compute: the mean of the label-5 vertices (0,0,0) and
+	 * (10,20,30), which is (5,10,15), PLUS the frame's own encoded delta (1,2,3).
+	 * ⚠️ The delta is non-zero on purpose - with a zero delta, dropping the "+ delta" term
+	 * in opcode 0 changes nothing and the assertion silently stops testing it.
+	 */
+	private static final int FIXTURE_ORIGIN[] = { 6, 12, 18 };
+	/** Vertex 2 before any transform. */
+	private static final int FIXTURE_VERTEX2[] = { 20, 30, 40 };
+
+	private static final int FIXTURE_SKIN_MODEL_ID = 70010;
+
+	/**
+	 * A model in the REAL old format that additionally carries a SKIN stream, so the
+	 * animation pipeline has labels to transform.
+	 *
+	 * <p>⚠️ The skin stream is the whole point: `method470` is a no-op without
+	 * `anIntArrayArray1657`, and that is only built by {@code method469} from the
+	 * per-vertex labels this fixture encodes. Setting the arrays by hand would prove the
+	 * transform reads the fields the test wrote; parsing them proves the fields are the
+	 * right ones - the same distinction 5.3's real-format parse was built to make.
+	 *
+	 * <pre>
+	 *   0..2   vertex flags (bit0=x delta, bit1=y, bit2=z)
+	 *   3      face index type (1 = three explicit deltas)
+	 *   4..6   SKIN: one LABEL per vertex
+	 *   7..9   face index deltas
+	 *   10..11 face colour
+	 *   12..20 x/y/z delta streams   (positions 0,10,20 / 0,20,30 / 0,30,40)
+	 *   21..38 footer, with the 5th flag (k1) set so the SKIN stream is present
+	 * </pre>
+	 */
+	private static byte[] buildSkinModelFixture() {
+		byte[] b = new byte[39];
+
+		b[0] = 7; b[1] = 7; b[2] = 7;          // all three deltas present
+		b[3] = 1;                               // face index type 1
+		b[4] = (byte) FIXTURE_SKIN_LABELS[0];   // SKIN stream
+		b[5] = (byte) FIXTURE_SKIN_LABELS[1];
+		b[6] = (byte) FIXTURE_SKIN_LABELS[2];
+		b[7] = delta(0); b[8] = delta(1); b[9] = delta(1);   // face 0 -> vertices 0,1,2
+		putWord(b, 10, 0xF800);                 // face colour
+		b[12] = delta(0); b[13] = delta(10); b[14] = delta(10);
+		b[15] = delta(0); b[16] = delta(20); b[17] = delta(10);
+		b[18] = delta(0); b[19] = delta(30); b[20] = delta(10);
+
+		putWord(b, 21, 3);   // vertex count
+		putWord(b, 23, 1);   // face count
+		b[25] = 0;           // texture count
+		b[26] = 0;           // k  - render types ABSENT
+		b[27] = 0;           // l  - priorities absent
+		b[28] = 0;           // i1 - alphas absent
+		b[29] = 0;           // j1 - texture pointers absent
+		b[30] = 1;           // k1 - SKIN PRESENT
+		putWord(b, 31, 3);   // x delta stream length
+		putWord(b, 33, 3);   // y delta stream length
+		putWord(b, 35, 3);   // z delta stream length
+		putWord(b, 37, 3);   // face index stream length
+		return b;
+	}
+
+	private static Model parseSkinModel() {
+		try {
+			Model.method459(FIXTURE_SKIN_MODEL_ID, null);
+			Model.method460(buildSkinModelFixture(), FIXTURE_SKIN_MODEL_ID);
+			java.lang.reflect.Constructor<Model> c =
+					Model.class.getDeclaredConstructor(int.class);
+			c.setAccessible(true);
+			Model m = c.newInstance(FIXTURE_SKIN_MODEL_ID);
+			// method469 is what turns the per-vertex labels into the label->vertices map
+			// that method470 needs; the live client calls it at Player.java:300.
+			m.method469();
+			return m;
+		} catch (Exception e) {
+			throw new RuntimeException("could not parse the skin fixture", e);
+		}
+	}
+
+	/**
+	 * A frame file in the REAL format, containing ONE frame that sets the origin from
+	 * label 5 and then applies {@code label6Opcode} to label 6.
+	 *
+	 * <p>Layout from {@code Frames.decodeFrames}: a Skin, then a frame count, then per
+	 * frame a frame index, a group count, and one flag byte per label - with 2-byte
+	 * deltas present only when the corresponding flag bit is set.
+	 */
+	private static byte[] buildFramesFixture(int label6Opcode, int dx, int dy, int dz) {
+		byte[] b = new byte[58];
+		int p = 0;
+
+		p = word(b, p, 7);                                     // label count
+		for (int i = 0; i < 7; i++) {
+			p = word(b, p, i == 6 ? label6Opcode : 0);          // opcode per label
+		}
+		for (int i = 0; i < 7; i++) {
+			p = word(b, p, i >= 5 ? 1 : 0);                    // member count per label
+		}
+		p = word(b, p, 5);                                     // label 5's member: label id 5
+		p = word(b, p, 6);                                     // label 6's member: label id 6
+
+		p = word(b, p, 1);                                     // frame count
+		p = word(b, p, 0);                                     // frame index 0
+		b[p++] = 7;                                               // group count: labels 0..6
+		for (int i = 0; i < 5; i++) {
+			b[p++] = 0;                                           // labels 0..4 inactive
+		}
+		b[p++] = 7;                                               // label 5: all three deltas
+		p = word(b, p, 1);                                        // ...deliberately NON-ZERO, so the
+		p = word(b, p, 2);                                        //    "+ delta" term in opcode 0 is
+		p = word(b, p, 3);                                        //    actually exercised
+		b[p++] = 7;                                               // label 6: all three deltas
+		p = word(b, p, dx);
+		p = word(b, p, dy);
+		p = word(b, p, dz);
+		if (p != b.length) {
+			throw new IllegalStateException("frames fixture wrote " + p + " of " + b.length);
+		}
+		return b;
+	}
+
+	/** Encodes a frame key the way {@code Animation.anIntArray353} does. */
+	private static int frameKey(int file, int frame) {
+		return (file << 16) | frame;
+	}
+
+	private static void animationFrameTranslateTransformIsExact() {
+		Frames.load(FIXTURE_ANIM_FILE_TRANSLATE, buildFramesFixture(1, 7, 8, 9));
+		Model m = parseSkinModel();
+		m.method470(frameKey(FIXTURE_ANIM_FILE_TRANSLATE, 0));
+
+		check("Animation transform: the label-5 vertices are UNTOUCHED by a translate frame"
+				+ " (were 0,0,0 and 10,20,30)",
+				m.vertexXs()[0] == 0 && m.vertexYs()[0] == 0 && m.vertexZs()[0] == 0
+						&& m.vertexXs()[1] == 10 && m.vertexYs()[1] == 20 && m.vertexZs()[1] == 30);
+		check("Animation transform: the label-6 vertex moves by EXACTLY the encoded delta"
+				+ " (20,30,40 + 7,8,9 = 27,38,49) - got "
+				+ m.vertexXs()[2] + "," + m.vertexYs()[2] + "," + m.vertexZs()[2],
+				m.vertexXs()[2] == 27 && m.vertexYs()[2] == 38 && m.vertexZs()[2] == 49);
+		check("Animation transform: opcode 0 set the origin to the MEAN of the label-5 vertices"
+				+ " (5,10,15) PLUS the frame delta (1,2,3) = 6,12,18",
+				((Integer) readStatic(Model.class, "anInt1681")) == FIXTURE_ORIGIN[0]
+						&& ((Integer) readStatic(Model.class, "anInt1682")) == FIXTURE_ORIGIN[1]
+						&& ((Integer) readStatic(Model.class, "anInt1683")) == FIXTURE_ORIGIN[2]);
+	}
+
+	/**
+	 * Opcode 3 scales about the origin opcode 0 just set, which is the part a
+	 * translate-only test would never reach.
+	 */
+	private static void animationFrameScaleTransformIsExact() {
+		Frames.load(FIXTURE_ANIM_FILE_SCALE, buildFramesFixture(3, 64, 64, 64));
+		Model m = parseSkinModel();
+		m.method470(frameKey(FIXTURE_ANIM_FILE_SCALE, 0));
+
+		// origin is (5,10,15) + the frame's delta (1,2,3) = (6,12,18)
+		// (v - origin) * 64 / 128 + origin, integer division:
+		// x (20-6)=14 -> 7 + 6  = 13 ; y (30-12)=18 -> 9 + 12 = 21 ; z (40-18)=22 -> 11 + 18 = 29
+		check("Animation transform: a scale frame scales the label-6 vertex about the origin"
+				+ " by 64/128 (expected 13,21,29) - got "
+				+ m.vertexXs()[2] + "," + m.vertexYs()[2] + "," + m.vertexZs()[2],
+				m.vertexXs()[2] == 13 && m.vertexYs()[2] == 21 && m.vertexZs()[2] == 29);
+		check("Animation transform: scaling leaves the label-5 vertices alone",
+				m.vertexXs()[1] == 10 && m.vertexYs()[1] == 20 && m.vertexZs()[1] == 30);
+	}
+
+	/**
+	 * Transforms a COPY, exactly as the live client does, and requires the source to be
+	 * untouched.
+	 *
+	 * <p>⚠️ <b>This is the invariant that keeps animation from drifting, and it is easy to
+	 * break by accident.</b> {@code method470} mutates `anIntArray1627/1628/1629` IN PLACE,
+	 * so a model re-transformed every frame would accumulate. What prevents that is
+	 * {@code method464}: the client transforms a shared scratch model
+	 * (`Model.aModel_1621`, Player.java:308) after {@code method464} has COPIED the base
+	 * vertices into it. This test pins the copy.
+	 */
+	private static void animationFrameTransformLeavesTheSourceModelUntouched() {
+		Frames.load(FIXTURE_ANIM_FILE_TRANSLATE, buildFramesFixture(1, 7, 8, 9));
+		Model source = parseSkinModel();
+		int sx = source.vertexXs()[2], sy = source.vertexYs()[2], sz = source.vertexZs()[2];
+
+		Model scratch = parseSkinModel();
+		scratch.method464(source, false);
+		scratch.method470(frameKey(FIXTURE_ANIM_FILE_TRANSLATE, 0));
+
+		check("Animation transform: the SOURCE model is untouched when the transform runs on a copy"
+				+ " (this is what stops animations drifting frame over frame)",
+				source.vertexXs()[2] == sx && source.vertexYs()[2] == sy
+						&& source.vertexZs()[2] == sz);
+		check("Animation transform: the COPY is the one that moved",
+				scratch.vertexXs()[2] == 27 && scratch.vertexYs()[2] == 38
+						&& scratch.vertexZs()[2] == 49);
+	}
+
+	/**
+	 * The flip side, recorded so the reason for the copy above is not lost: applied twice
+	 * to the SAME model, the transform compounds.
+	 */
+	private static void animationFrameTransformCompoundsOnTheSameModel() {
+		Frames.load(FIXTURE_ANIM_FILE_TRANSLATE, buildFramesFixture(1, 7, 8, 9));
+		Model m = parseSkinModel();
+		int key = frameKey(FIXTURE_ANIM_FILE_TRANSLATE, 0);
+		m.method470(key);
+		m.method470(key);
+
+		check("Animation transform: applying the SAME frame twice COMPOUNDS on one model"
+				+ " (27,38,49 -> 34,46,58), which is exactly why the client transforms a copy - got "
+				+ m.vertexXs()[2] + "," + m.vertexYs()[2] + "," + m.vertexZs()[2],
+				m.vertexXs()[2] == 34 && m.vertexYs()[2] == 46 && m.vertexZs()[2] == 58);
+	}
+
+	private static void animationFrameTransformIsDeterministic() {
+		Frames.load(FIXTURE_ANIM_FILE_TRANSLATE, buildFramesFixture(1, 7, 8, 9));
+		int key = frameKey(FIXTURE_ANIM_FILE_TRANSLATE, 0);
+
+		Model a = parseSkinModel();
+		a.method470(key);
+		Model b = parseSkinModel();
+		b.method470(key);
+
+		boolean same = true;
+		for (int i = 0; i < 3; i++) {
+			same = same && a.vertexXs()[i] == b.vertexXs()[i]
+					&& a.vertexYs()[i] == b.vertexYs()[i]
+					&& a.vertexZs()[i] == b.vertexZs()[i];
+		}
+		check("Animation transform: two independent models given the same frame agree exactly", same);
 	}
 
 	// ------------------------- the standing raster gate, consolidated (Phase 4.3)
