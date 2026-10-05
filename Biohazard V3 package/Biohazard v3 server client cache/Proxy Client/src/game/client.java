@@ -4058,86 +4058,29 @@ public class client extends RSApplet {
 		}
 	}
 
+	/**
+	 * Camera/view subsystem, lifted out of this class in Phase 3.2.2.
+	 */
+	public Camera camera = new Camera(this);
+
+	// Facade: the camera methods live in game.Camera now. These entry points are kept so
+	// that every existing caller - mainGameProcessor, the parsePacket camera block,
+	// setScreenMode, RSApplet's mouse-wheel handler and ClientSettings' resetCameraZoom -
+	// keeps working unchanged.
+	public static void adjustCameraZoom(int rotation) {
+		Camera.adjustCameraZoom(rotation);
+	}
+
+	public static void clampCameraZoom() {
+		Camera.clampCameraZoom();
+	}
+
 	public void calcCameraPos() {
-		if (super.mouseWheelDown) {
-			return;
-		}
-		int i = anInt1098 * 128 + 64;
-		int j = anInt1099 * 128 + 64;
-		int k = method42(plane, j, i) - anInt1100;
-		if (xCameraPos < i) {
-			xCameraPos += anInt1101 + ((i - xCameraPos) * anInt1102) / 1000;
-			if (xCameraPos > i)
-				xCameraPos = i;
-		}
-		if (xCameraPos > i) {
-			xCameraPos -= anInt1101 + ((xCameraPos - i) * anInt1102) / 1000;
-			if (xCameraPos < i)
-				xCameraPos = i;
-		}
-		if (zCameraPos < k) {
-			zCameraPos += anInt1101 + ((k - zCameraPos) * anInt1102) / 1000;
-			if (zCameraPos > k)
-				zCameraPos = k;
-		}
-		if (zCameraPos > k) {
-			zCameraPos -= anInt1101 + ((zCameraPos - k) * anInt1102) / 1000;
-			if (zCameraPos < k)
-				zCameraPos = k;
-		}
-		if (yCameraPos < j) {
-			yCameraPos += anInt1101 + ((j - yCameraPos) * anInt1102) / 1000;
-			if (yCameraPos > j)
-				yCameraPos = j;
-		}
-		if (yCameraPos > j) {
-			yCameraPos -= anInt1101 + ((yCameraPos - j) * anInt1102) / 1000;
-			if (yCameraPos < j)
-				yCameraPos = j;
-		}
-		i = anInt995 * 128 + 64;
-		j = anInt996 * 128 + 64;
-		k = method42(plane, j, i) - anInt997;
-		int l = i - xCameraPos;
-		int i1 = k - zCameraPos;
-		int j1 = j - yCameraPos;
-		int k1 = (int) Math.sqrt(l * l + j1 * j1);
-		int l1 = (int) (Math.atan2(i1, k1) * 325.94900000000001D) & 0x7ff;
-		int i2 = (int) (Math.atan2(l, j1) * -325.94900000000001D) & 0x7ff;
-		if (l1 < 128)
-			l1 = 128;
-		if (l1 > 383)
-			l1 = 383;
-		if (yCameraCurve < l1) {
-			yCameraCurve += anInt998 + ((l1 - yCameraCurve) * anInt999) / 1000;
-			if (yCameraCurve > l1)
-				yCameraCurve = l1;
-		}
-		if (yCameraCurve > l1) {
-			yCameraCurve -= anInt998 + ((yCameraCurve - l1) * anInt999) / 1000;
-			if (yCameraCurve < l1)
-				yCameraCurve = l1;
-		}
-		int j2 = i2 - xCameraCurve;
-		if (j2 > 1024)
-			j2 -= 2048;
-		if (j2 < -1024)
-			j2 += 2048;
-		if (j2 > 0) {
-			xCameraCurve += anInt998 + (j2 * anInt999) / 1000;
-			xCameraCurve &= 0x7ff;
-		}
-		if (j2 < 0) {
-			xCameraCurve -= anInt998 + (-j2 * anInt999) / 1000;
-			xCameraCurve &= 0x7ff;
-		}
-		int k2 = i2 - xCameraCurve;
-		if (k2 > 1024)
-			k2 -= 2048;
-		if (k2 < -1024)
-			k2 += 2048;
-		if (k2 < 0 && j2 > 0 || k2 > 0 && j2 < 0)
-			xCameraCurve = i2;
+		camera.calcCameraPos();
+	}
+
+	public void setCameraPos(int j, int k, int l, int i1, int j1, int k1) {
+		camera.setCameraPos(j, k, l, i1, j1, k1);
 	}
 
 	public void drawMenu() {
@@ -4227,7 +4170,7 @@ public class client extends RSApplet {
 		throw new RuntimeException();
 	}
 
-	private int method42(int i, int j, int k) {
+	int method42(int i, int j, int k) {
 		int l = k >> 7;
 		int i1 = j >> 7;
 		if (l < 0 || i1 < 0 || l > 103 || i1 > 103)
@@ -7627,11 +7570,6 @@ public class client extends RSApplet {
 	// Camera zoom: linear OSRS-like steps (scales with current zoom).
 	// Bounds and mid sensitivity match the previous fixed *35 / 0–1200 feel.
 	// See: https://rune-server.org/threads/317-improved-camera-zooming.708578/
-	private static final int CAMERA_ZOOM_MIN = 0;
-	private static final int CAMERA_ZOOM_MAX = 1200;
-	private static final int CAMERA_ZOOM_STEP_MIN = 20;
-	private static final int CAMERA_ZOOM_STEP_MAX = 50;
-
 	public static String zoomSensitivityLabel() {
 		if (zoomSensitivity == ZOOM_SENSITIVITY_DEFAULT) {
 			return zoomSensitivity + "% (default)";
@@ -7639,43 +7577,6 @@ public class client extends RSApplet {
 		return zoomSensitivity + "%";
 	}
 
-
-	public static void adjustCameraZoom(int rotation) {
-		if (instance == null || !instance.loggedIn || rotation == 0) {
-			return;
-		}
-		int step = (int) Math.round(interpolate(cameraZoom, CAMERA_ZOOM_MIN, CAMERA_ZOOM_MAX,
-				CAMERA_ZOOM_STEP_MIN, CAMERA_ZOOM_STEP_MAX) * zoomSensitivity / 100.0);
-		if (step < 1) {
-			step = 1;
-		}
-		cameraZoom += step * rotation;
-		clampCameraZoom();
-		instance.markSceneDirty();
-	}
-
-	public static void clampCameraZoom() {
-		if (cameraZoom < CAMERA_ZOOM_MIN) {
-			cameraZoom = CAMERA_ZOOM_MIN;
-		}
-		if (cameraZoom > CAMERA_ZOOM_MAX) {
-			cameraZoom = CAMERA_ZOOM_MAX;
-		}
-	}
-
-	private static double interpolate(double value, double minValue, double maxValue,
-			double minResult, double maxResult) {
-		if (value < minValue) {
-			value = minValue;
-		}
-		if (value > maxValue) {
-			value = maxValue;
-		}
-		if (maxValue <= minValue) {
-			return minResult;
-		}
-		return minResult + (value - minValue) * (maxResult - minResult) / (maxValue - minValue);
-	}
 
 	public void mouseWheelDragged(int i, int j) {
 		if (!mouseWheelDown) {
@@ -17468,38 +17369,6 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 
 	}
 
-	public void setCameraPos(int j, int k, int l, int i1, int j1, int k1) {
-		int l1 = 2048 - k & 0x7ff;
-		int i2 = 2048 - j1 & 0x7ff;
-		int j2 = 0;
-		int k2 = 0;
-		int l2 = j;
-		if (l1 != 0) {
-			int i3 = Model.modelIntArray1[l1];
-			int k3 = Model.modelIntArray2[l1];
-			int i4 = k2 * k3 - l2 * i3 >> 16;
-			l2 = k2 * i3 + l2 * k3 >> 16;
-			k2 = i4;
-		}
-		if (i2 != 0) {
-			/*
-			 * xxx if(cameratoggle){ if(zoom == 0) zoom = k2; if(lftrit == 0)
-			 * lftrit = j2; if(fwdbwd == 0) fwdbwd = l2; k2 = zoom; j2 = lftrit;
-			 * l2 = fwdbwd; }
-			 */
-			int j3 = Model.modelIntArray1[i2];
-			int l3 = Model.modelIntArray2[i2];
-			int j4 = l2 * j3 + j2 * l3 >> 16;
-			l2 = l2 * l3 - j2 * j3 >> 16;
-			j2 = j4;
-		}
-		xCameraPos = l - j2;
-		zCameraPos = i1 - k2;
-		yCameraPos = k1 - l2;
-		yCameraCurve = k;
-		xCameraCurve = j1;
-	}
-
 	public void updateStrings(String str, int i) {
 		switch (i) {
 		case 1675:
@@ -19272,11 +19141,11 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	private static int anInt854;
 	private int anInt855;
 	public static int openInterfaceID;
-	private int xCameraPos;
-	private int zCameraPos;
-	private int yCameraPos;
-	private int yCameraCurve;
-	private int xCameraCurve;
+	int xCameraPos;
+	int zCameraPos;
+	int yCameraPos;
+	int yCameraCurve;
+	int xCameraCurve;
 	private int myPrivilege;
 	private final int[] currentExp;
 	private Sprite[] redStones;
@@ -19312,7 +19181,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	private int crossY;
 	private int crossIndex;
 	private int crossType;
-	private int plane;
+	int plane;
 	private final int[] currentStats;
 	private static int anInt924;
 	private final long[] ignoreListAsLongs;
@@ -19376,11 +19245,11 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	private final int[] anIntArray990;
 	private static boolean aBoolean993;
 	private final boolean aBoolean994;
-	private int anInt995;
-	private int anInt996;
-	private int anInt997;
-	private int anInt998;
-	private int anInt999;
+	int anInt995;
+	int anInt996;
+	int anInt997;
+	int anInt998;
+	int anInt999;
 	private ISAACRandomGen encryption;
 	private Sprite mapEdge;
 	public static final int[][] anIntArrayArray1003 = {
@@ -19486,11 +19355,11 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	private Sprite[] skullIcons;
 	private Sprite[] headIconsHint;
 	private static int anInt1097;
-	private int anInt1098;
-	private int anInt1099;
-	private int anInt1100;
-	private int anInt1101;
-	private int anInt1102;
+	int anInt1098;
+	int anInt1099;
+	int anInt1100;
+	int anInt1101;
+	int anInt1102;
 	public static boolean tabAreaAltered;
 	private int anInt1104;
 	private RSImageProducer aRSImageProducer_1107;
