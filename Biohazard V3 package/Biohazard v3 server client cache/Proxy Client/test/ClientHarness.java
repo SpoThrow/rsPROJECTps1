@@ -11,6 +11,7 @@ import def.ItemDef;
 import def.ObjectDef;
 import def.VarBit;
 import def.Varp;
+import model.FrameSlots;
 import model.Frames;
 import model.Model;
 import model.Texture;
@@ -127,6 +128,9 @@ public final class ClientHarness {
 		animationFrameTransformCompoundsOnTheSameModel();
 		animationFrameTransformIsDeterministic();
 		sceneSeamIsOfferedTheTransformedVerticesNotTheRestPose();
+		frameSlotBudgetIsStatedInOnePlace();
+		curseSourceIdsWouldHaveCollidedWithoutTheOffset();
+		anInjectionDoesNotDisturbTheOriginalFrameSlots();
 		packetTapProducesDiffableLog();
 		itemDefOutOfRangeIdIsSafe();
 		itemDefCertTemplateWithoutCertIdIsSafe();
@@ -2443,12 +2447,15 @@ public final class ClientHarness {
 	 * is the invariant - not any one constant in isolation.
 	 */
 	private static void curseFrameSlotsCannotCollideWithTheOriginalRange() {
-		int base = (Integer) readStatic(CurseData667.class, "ANIM_FILE_BASE");
+		int base = FrameSlots.CURSE_BASE;
 		int[] files = (int[]) readStatic(CurseData667.class, "CURSE_ANIM_FILES");
 
 		check("CursePack: ANIM_FILE_BASE is 28000 (the whole invariant is this number)",
 				base == 28000);
 		check("CursePack: there are 7 curse source animation files", files.length == 7);
+		check("CursePack: FrameSlots.CURSE_COUNT agrees with the CURSE_ANIM_FILES array,"
+				+ " so the budget and the data cannot drift apart",
+				files.length == FrameSlots.CURSE_COUNT);
 
 		int maxSource = 0;
 		for (int i = 0; i < files.length; i++) {
@@ -2807,6 +2814,101 @@ public final class ClientHarness {
 		} finally {
 			GpuRenderer.install(null);
 		}
+	}
+
+	// --------------- Phase 6.5.2 the frame-slot budget has a single owner
+
+	/**
+	 * The measured shape of the packed 474 frame store, read from the real `Frames.dat`:
+	 * 3230 compressed entries with ids 0..3229, dense. Recorded here as a literal because
+	 * it is a property of the DATA, not of the code - which is exactly why the code cannot
+	 * assert it and a test has to.
+	 */
+	private static final int MEASURED_PACKED_FRAME_MAX_ID = 3229;
+
+	private static void frameSlotBudgetIsStatedInOnePlace() {
+		check("Slot budget: the CursePack window is [28000, 28007) as one range",
+				FrameSlots.CURSE_BASE == 28000 && FrameSlots.CURSE_END == 28007);
+		check("Slot budget: the loose-numeric floor is 100",
+				FrameSlots.LOOSE_MIN_ID == 100);
+		check("Slot budget: MAX_FILE_ID is 32767, because the frame key packs the file into"
+				+ " the HIGH 16 bits and (file << 16) must stay a positive int",
+				FrameSlots.MAX_FILE_ID == 32767);
+
+		check("Slot budget: every CursePack slot is key-addressable"
+				+ " (28007-1 <= 32767)", FrameSlots.isKeyAddressable(FrameSlots.CURSE_END - 1));
+		check("Slot budget: a file id past 32767 is NOT key-addressable, so the predicate"
+				+ " would catch it", !FrameSlots.isKeyAddressable(FrameSlots.MAX_FILE_ID + 1));
+		check("Slot budget: isCurseSlot accepts both ends and refuses just outside",
+				FrameSlots.isCurseSlot(FrameSlots.CURSE_BASE)
+						&& FrameSlots.isCurseSlot(FrameSlots.CURSE_END - 1)
+						&& !FrameSlots.isCurseSlot(FrameSlots.CURSE_END)
+						&& !FrameSlots.isCurseSlot(FrameSlots.CURSE_BASE - 1));
+	}
+
+	/**
+	 * The invariant the offset exists for, checked against the MEASURED packed range rather
+	 * than against an assumption: the CursePack's source ids sit inside it, so loading them
+	 * under their own ids would overwrite 474 content.
+	 */
+	private static void curseSourceIdsWouldHaveCollidedWithoutTheOffset() {
+		int[] files = (int[]) readStatic(CurseData667.class, "CURSE_ANIM_FILES");
+		int maxSource = 0;
+		int minSource = Integer.MAX_VALUE;
+		for (int i = 0; i < files.length; i++) {
+			if (files[i] > maxSource) maxSource = files[i];
+			if (files[i] < minSource) minSource = files[i];
+		}
+
+		check("Slot budget: the CursePack's SOURCE ids (" + minSource + ".." + maxSource
+				+ ") really are INSIDE the measured packed range 0.."
+				+ MEASURED_PACKED_FRAME_MAX_ID + " - which is why the offset exists",
+				minSource >= 0 && maxSource <= MEASURED_PACKED_FRAME_MAX_ID);
+		check("Slot budget: the CursePack window starts ABOVE that measured range",
+				FrameSlots.CURSE_BASE > MEASURED_PACKED_FRAME_MAX_ID);
+		check("Slot budget: the loose loader WOULD also accept the CursePack's slot names,"
+				+ " so the two writers are only separated by the offset, not by the loader",
+				FrameSlots.isContestedByLooseLoading(FrameSlots.CURSE_BASE));
+	}
+
+	/**
+	 * 6.5.2's stated minimum bar: "a test that asserts the 474 slots still decode identically
+	 * after an injection".
+	 *
+	 * <p>Both slots are driven through the SAME transform path, so a difference in the
+	 * output can only come from the frame data - not from the harness.
+	 */
+	private static void anInjectionDoesNotDisturbTheOriginalFrameSlots() {
+		final int ORIGINAL_SLOT = 500;   // inside the packed 474 range
+
+		Frames.load(ORIGINAL_SLOT, buildFramesFixture(1, 7, 8, 9));
+		Model before = parseSkinModel();
+		before.method470(frameKey(ORIGINAL_SLOT, 0));
+		int bx = before.vertexXs()[2], by = before.vertexYs()[2], bz = before.vertexZs()[2];
+
+		// The injection, into the CursePack's own window.
+		Frames.load(FrameSlots.CURSE_BASE, buildFramesFixture(1, 100, 100, 100));
+		Model injected = parseSkinModel();
+		injected.method470(frameKey(FrameSlots.CURSE_BASE, 0));
+
+		Model after = parseSkinModel();
+		after.method470(frameKey(ORIGINAL_SLOT, 0));
+		int ax = after.vertexXs()[2], ay = after.vertexYs()[2], az = after.vertexZs()[2];
+
+		check("Slot budget: the injection really landed at " + FrameSlots.CURSE_BASE
+				+ " carrying its OWN data (expected 120,130,140) - got "
+				+ injected.vertexXs()[2] + "," + injected.vertexYs()[2] + ","
+				+ injected.vertexZs()[2],
+				injected.vertexXs()[2] == 120 && injected.vertexYs()[2] == 130
+						&& injected.vertexZs()[2] == 140);
+		check("Slot budget: the two slots genuinely hold DIFFERENT data, so the comparison"
+				+ " below is not vacuous",
+				injected.vertexXs()[2] != bx || injected.vertexYs()[2] != by
+						|| injected.vertexZs()[2] != bz);
+		check("Slot budget: the ORIGINAL 474-range slot (" + ORIGINAL_SLOT + ") still decodes"
+				+ " IDENTICALLY after the injection (was " + bx + "," + by + "," + bz + ", now "
+				+ ax + "," + ay + "," + az + ")",
+				ax == bx && ay == by && az == bz);
 	}
 
 	// ------------------------- the standing raster gate, consolidated (Phase 4.3)

@@ -6,6 +6,7 @@ import java.io.FileInputStream;
 import java.util.zip.GZIPInputStream;
 
 import sign.signlink;import cache.FileOperations;
+import model.FrameSlots;
 import model.Frames;
 import model.Model;
 import net.Stream;
@@ -46,8 +47,8 @@ public final class CurseData667 {
 	private static final int[] CURSE_ANIM_FILES = {
 		2998, 3012, 3013, 3016, 3018, 3019, 3020
 	};
-	/** Safe high Class36 slots — keep clear of OG cache frame files. */
-	private static final int ANIM_FILE_BASE = 28000;
+	// The frame-slot budget is owned in ONE place (Phase 6.5.2): see model.FrameSlots.
+	// Re-deriving these bounds here is how three writers were able to drift apart.
 
 	public static File root;
 	public static boolean active;
@@ -119,8 +120,11 @@ public final class CurseData667 {
 	 * Only serves remapped curse frame slots. Never hijacks OG file IDs.
 	 */
 	public static boolean loadAnimationFile(int id) {
-		int local = id - ANIM_FILE_BASE;
-		if (local < 0 || local >= CURSE_ANIM_FILES.length) {
+		if (!FrameSlots.isCurseSlot(id)) {
+			return false;
+		}
+		int local = id - FrameSlots.CURSE_BASE;
+		if (local >= CURSE_ANIM_FILES.length) {
 			return false;
 		}
 		return loadIntoSlot(CURSE_ANIM_FILES[local], id);
@@ -129,7 +133,7 @@ public final class CurseData667 {
 	private static int remapFile(int originalFile) {
 		for (int i = 0; i < CURSE_ANIM_FILES.length; i++) {
 			if (CURSE_ANIM_FILES[i] == originalFile) {
-				return ANIM_FILE_BASE + i;
+				return FrameSlots.CURSE_BASE + i;
 			}
 		}
 		return originalFile;
@@ -155,7 +159,7 @@ public final class CurseData667 {
 
 	private static void preloadRemappedAnimFiles() {
 		for (int i = 0; i < CURSE_ANIM_FILES.length; i++) {
-			loadIntoSlot(CURSE_ANIM_FILES[i], ANIM_FILE_BASE + i);
+			loadIntoSlot(CURSE_ANIM_FILES[i], FrameSlots.CURSE_BASE + i);
 		}
 	}
 

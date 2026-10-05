@@ -87,7 +87,8 @@ public final class Frames {
 					continue;
 				}
 				int id = Integer.parseInt(base);
-				if (id >= 100) {
+				// The slot budget is owned in ONE place (Phase 6.5.2), not by this literal.
+				if (FrameSlots.isLooseSlot(id)) {
 					ensureFileSlot(id);
 					load_647(id);
 				}
