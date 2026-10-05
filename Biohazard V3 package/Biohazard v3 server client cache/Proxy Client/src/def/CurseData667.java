@@ -217,6 +217,8 @@ public final class CurseData667 {
 				if (Animation.anims[j] == null) {
 					Animation.anims[j] = new Animation();
 				}
+				// Phase 6.5.3: the 474 reader IS the 667 reader for every opcode the pack
+				// actually uses - see skipSequence() for the one recorded divergence (12).
 				Animation.anims[j].readValues(stream);
 				remapSequenceFrames(Animation.anims[j]);
 				// Slow Wrath cloud slightly so telegraph is readable
@@ -242,6 +244,31 @@ public final class CurseData667 {
 		}
 	}
 
+	/**
+	 * Walks one UNWANTED sequence, consuming exactly the bytes its definition occupies.
+	 *
+	 * <p>Phase 6.5.3 - why this is a hand-written walk rather than a second call to
+	 * {@link Animation#readValues}: the readers ALLOCATE per entry (opcode 1 builds three
+	 * int[] of length n), so reusing them to walk the ~15k unwanted entries of the pack
+	 * would churn garbage for data that is immediately discarded. This walk exists for
+	 * that reason, not by neglect.
+	 *
+	 * <p>The cost of that choice is a SECOND copy of the opcode knowledge, which is
+	 * exactly the kind of duplication Phase 6.5.3 exists to make visible and bounded.
+	 * The two tables are therefore pinned against each other opcode by opcode in the
+	 * harness ({@code seqSkipTableMatchesThe474ReaderForEveryOpcodeItHandles}), and
+	 * there is exactly ONE known divergence, deliberately recorded rather than tidied:
+	 *
+	 * <p><b>Opcode 12.</b> This walk consumes one byte for it; {@link Animation#readValues}
+	 * has NO case for 12 and consumes nothing, printing "Unrecognized seq.dat config
+	 * code: 12". That is a real difference in where the cursor lands, so it is latent
+	 * only as long as no entry uses opcode 12 - which was MEASURED against the real pack
+	 * (15371 entries, 2516296 bytes): the opcodes actually present are
+	 * 0,1,2,3,5,6,7,8,9,10,11, with opcode 12 occurring ZERO times, and no opcode above
+	 * 11 occurring at all. Both tables walk the file to exactly EOF with zero bad
+	 * opcodes. Removing this case, or "tidying" it to match the reader, would therefore
+	 * change nothing today and would silently break the pack the day it does use 12.
+	 */
 	private static void skipSequence(Stream stream) {
 		do {
 			int i = stream.readUnsignedByte();
@@ -300,13 +327,25 @@ public final class CurseData667 {
 					SpotAnim.cache[j] = new SpotAnim();
 				}
 				SpotAnim.cache[j].anInt404 = j;
-				SpotAnim.cache[j].readValues667(stream);
+				SpotAnim.cache[j].readValues(stream);
 			} else {
 				skipSpotAnim(stream);
 			}
 		}
 	}
 
+	/**
+	 * Walks one UNWANTED spotanim, consuming exactly the bytes its definition occupies.
+	 *
+	 * <p>Same trade-off as {@link #skipSequence} (the readers allocate, so unwanted
+	 * entries are walked instead of decoded), but with a better outcome: unlike the seq
+	 * table, this one has NO divergence from {@link SpotAnim#readValues}. Both consume
+	 * opcodes 1, 2, 4, 5 and 6 as a word, 7 and 8 as a byte, and 40 as a count followed
+	 * by that many (word, word) pairs. That is pinned by
+	 * {@code spotAnimSkipTableMatchesThe474ReaderForEveryOpcodeItHandles}, and it is
+	 * consistent with the measured pack: {@code spotanim.dat} (2982 entries) uses only
+	 * opcodes 0, 1, 2, 4, 5, 6, 7, 8 and 40.
+	 */
 	private static void skipSpotAnim(Stream stream) {
 		do {
 			int i = stream.readUnsignedByte();

@@ -9,6 +9,7 @@ import def.Flo;
 import def.IDK;
 import def.ItemDef;
 import def.ObjectDef;
+import def.SpotAnim;
 import def.VarBit;
 import def.Varp;
 import model.FrameSlots;
@@ -122,6 +123,9 @@ public final class ClientHarness {
 		curseFrameRemapLeavesOriginalFrameSlotsAlone();
 		curseAnimationLoaderRefusesSlotsOutsideTheRemapRange();
 		curseFrameSlotsCannotCollideWithTheOriginalRange();
+		seqSkipTableMatchesThe474ReaderForEveryOpcodeItHandles();
+		seqSkipTableHandlesOpcode12WhichThe474ReaderDoesNot();
+		spotAnimSkipTableMatchesThe474ReaderForEveryOpcodeItHandles();
 		animationFrameTranslateTransformIsExact();
 		animationFrameScaleTransformIsExact();
 		animationFrameTransformLeavesTheSourceModelUntouched();
@@ -2480,6 +2484,221 @@ public final class ClientHarness {
 		} catch (Exception e) {
 			throw new RuntimeException("could not invoke remapSequenceFrames", e);
 		}
+	}
+
+	// ------------------- Phase 6.5.3 reader/skip equivalence (the drift guard)
+
+	/**
+	 * Phase 6.5.3: the CursePack decodes its WANTED entries with the 474 readers but walks
+	 * its UNWANTED ones with hand-written skippers. That leaves two copies of the opcode
+	 * knowledge, which is the drift risk these tests exist to bound: if a reader changes
+	 * how it consumes an opcode and the skipper is not updated to match, the stream
+	 * desynchronises and every definition after it is silently corrupted.
+	 *
+	 * <p>These tests deliberately compare CONSUMPTION (bytes consumed), not decoded values -
+	 * that is the property the two paths must share, and the only one that matters for
+	 * walking a file.
+	 */
+
+	/**
+	 * Builds {@code [opcode][payload][0]} for one seq opcode, with the payload the reader
+	 * expects.
+	 *
+	 * <p>⚠ The payload bytes are deliberately NON-OPCODE values (0x21 and up), and that is
+	 * load-bearing. The first version of this fixture used small payload values and was
+	 * INSENSITIVE: a mutated skipper that consumed one byte where the reader consumes two
+	 * landed on another VALID opcode and coincidentally re-synced, so the tests passed
+	 * while the two tables disagreed (mutation-proved by trying it). Poison payloads mean
+	 * any misalignment hits an unrecognised opcode and stops the walk early, which is what
+	 * makes a real difference visible.
+	 */
+	private static byte[] seqEntryFor(int opcode) {
+		java.io.ByteArrayOutputStream b = new java.io.ByteArrayOutputStream();
+		b.write(opcode);
+		if (opcode == 1) {
+			b.write(0);
+			b.write(2); // n = 2 frames
+			for (int i = 0; i < 2; i++) {
+				b.write(0);
+				b.write(0);
+				b.write(0);
+				b.write(0x21 + i); // frame dword
+			}
+			for (int i = 0; i < 2; i++) {
+				b.write(0x23 + i); // delay byte
+			}
+		} else if (opcode == 2) {
+			b.write(0x21);
+			b.write(0x22);
+		} else if (opcode == 3) {
+			b.write(2);
+			b.write(0x21);
+			b.write(0x22);
+		} else if (opcode == 4) {
+			// a bare flag: no payload
+		} else if (opcode == 5 || opcode == 8 || opcode == 9 || opcode == 10 || opcode == 11) {
+			b.write(0x21);
+		} else if (opcode == 6 || opcode == 7) {
+			b.write(0x21);
+			b.write(0x22);
+		}
+		b.write(0); // terminator
+		return b.toByteArray();
+	}
+
+	/** Builds {@code [opcode][payload][0]} for one spotanim opcode; payloads are poison too. */
+	private static byte[] spotEntryFor(int opcode) {
+		java.io.ByteArrayOutputStream b = new java.io.ByteArrayOutputStream();
+		b.write(opcode);
+		if (opcode == 1 || opcode == 2 || opcode == 4 || opcode == 5 || opcode == 6) {
+			b.write(0x21);
+			b.write(0x22);
+		} else if (opcode == 7 || opcode == 8) {
+			b.write(0x21);
+		} else if (opcode == 40) {
+			b.write(2);
+			for (int i = 0; i < 2; i++) {
+				b.write(0x21);
+				b.write(0x22);
+				b.write(0x23);
+				b.write(0x24); // recolor (word, word) pair
+			}
+		}
+		b.write(0); // terminator
+		return b.toByteArray();
+	}
+
+	/**
+	 * Concatenates entries into ONE stream. This matters: with a single stream, a
+	 * misalignment at entry i shifts every later boundary, so a one-byte disagreement
+	 * cannot hide behind a per-entry coincidence.
+	 */
+	private static byte[] concat(byte[][] parts) {
+		int total = 0;
+		for (int i = 0; i < parts.length; i++) {
+			total += parts[i].length;
+		}
+		byte[] all = new byte[total];
+		int at = 0;
+		for (int i = 0; i < parts.length; i++) {
+			System.arraycopy(parts[i], 0, all, at, parts[i].length);
+			at += parts[i].length;
+		}
+		return all;
+	}
+
+	/** Invokes one of CurseData667's private skippers on a live stream. */
+	private static void invokeSkip(Stream s, String method) {
+		try {
+			java.lang.reflect.Method m = CurseData667.class.getDeclaredMethod(method, Stream.class);
+			m.setAccessible(true);
+			m.invoke(null, s);
+		} catch (Exception e) {
+			throw new RuntimeException("could not invoke " + method, e);
+		}
+	}
+
+	/** Reports the first entry where two offset traces disagree, or null if they match. */
+	private static String firstOffsetDifference(int[] opcodes, int[] skipOffsets, int[] readOffsets) {
+		for (int i = 0; i < opcodes.length; i++) {
+			if (skipOffsets[i] != readOffsets[i]) {
+				return "opcode " + opcodes[i] + " skip=" + skipOffsets[i] + " read=" + readOffsets[i];
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * The seq skipper must mirror {@link Animation#readValues} for every opcode the reader
+	 * actually handles. A mismatch here means the pack would parse differently depending
+	 * only on whether an entry happened to be wanted.
+	 */
+	private static void seqSkipTableMatchesThe474ReaderForEveryOpcodeItHandles() {
+		int[] opcodes = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
+		byte[][] entries = new byte[opcodes.length][];
+		for (int i = 0; i < opcodes.length; i++) {
+			entries[i] = seqEntryFor(opcodes[i]);
+		}
+		byte[] all = concat(entries);
+
+		int[] skipOffsets = new int[opcodes.length];
+		Stream skipStream = new Stream(all);
+		for (int i = 0; i < opcodes.length; i++) {
+			invokeSkip(skipStream, "skipSequence");
+			skipOffsets[i] = skipStream.currentOffset;
+		}
+
+		int[] readOffsets = new int[opcodes.length];
+		Stream readStream = new Stream(all);
+		for (int i = 0; i < opcodes.length; i++) {
+			new Animation().readValues(readStream);
+			readOffsets[i] = readStream.currentOffset;
+		}
+
+		String firstDiff = firstOffsetDifference(opcodes, skipOffsets, readOffsets);
+		check("6.5.3 seq: the CursePack skip table and Animation.readValues land on the SAME"
+				+ " offset after every one of the " + opcodes.length + " handled opcodes"
+				+ (firstDiff == null ? "" : " - first difference: " + firstDiff), firstDiff == null);
+		check("6.5.3 seq: both paths walk the whole buffer to its LAST byte, so neither can"
+				+ " silently stop short",
+				skipOffsets[opcodes.length - 1] == all.length
+						&& readOffsets[opcodes.length - 1] == all.length);
+	}
+
+	/**
+	 * The ONE recorded divergence, pinned so it cannot be "tidied" away by accident.
+	 *
+	 * <p>The seq skipper consumes one byte for opcode 12; {@link Animation#readValues} has
+	 * no case for 12 and consumes nothing. That is a genuine difference in where the
+	 * cursor lands, so it is safe only while no entry uses opcode 12 - which was measured
+	 * against the real pack: 15371 entries use 0,1,2,3,5,6,7,8,9,10,11, opcode 12 occurs
+	 * ZERO times, and both tables walk the file to exactly EOF with zero bad opcodes.
+	 * Dropping this case would change nothing today and would break the pack the day 12
+	 * appears, so the divergence is asserted rather than removed.
+	 */
+	private static void seqSkipTableHandlesOpcode12WhichThe474ReaderDoesNot() {
+		byte[] entry = new byte[] { 12, 0x21, 0 };
+		Stream s = new Stream(entry);
+		invokeSkip(s, "skipSequence");
+		check("6.5.3 seq: the skip table consumes exactly one byte for opcode 12 and still"
+				+ " reaches the terminator (3 of 3 bytes) - the ONE recorded divergence from"
+				+ " Animation.readValues, which has no case for 12", s.currentOffset == entry.length);
+	}
+
+	/**
+	 * Unlike the seq table, the spotanim skipper has NO divergence from the reader, which
+	 * is consistent with the measurement: the real {@code spotanim.dat} (2982 entries)
+	 * uses only opcodes 0, 1, 2, 4, 5, 6, 7, 8, 40 - all handled identically by both paths.
+	 */
+	private static void spotAnimSkipTableMatchesThe474ReaderForEveryOpcodeItHandles() {
+		int[] opcodes = { 1, 2, 4, 5, 6, 7, 8, 40 };
+		byte[][] entries = new byte[opcodes.length][];
+		for (int i = 0; i < opcodes.length; i++) {
+			entries[i] = spotEntryFor(opcodes[i]);
+		}
+		byte[] all = concat(entries);
+
+		int[] skipOffsets = new int[opcodes.length];
+		Stream skipStream = new Stream(all);
+		for (int i = 0; i < opcodes.length; i++) {
+			invokeSkip(skipStream, "skipSpotAnim");
+			skipOffsets[i] = skipStream.currentOffset;
+		}
+
+		int[] readOffsets = new int[opcodes.length];
+		Stream readStream = new Stream(all);
+		for (int i = 0; i < opcodes.length; i++) {
+			new SpotAnim().readValues(readStream);
+			readOffsets[i] = readStream.currentOffset;
+		}
+
+		String firstDiff = firstOffsetDifference(opcodes, skipOffsets, readOffsets);
+		check("6.5.3 spotanim: the CursePack skip table and SpotAnim.readValues land on the SAME"
+				+ " offset after every one of the " + opcodes.length + " handled opcodes"
+				+ (firstDiff == null ? "" : " - first difference: " + firstDiff), firstDiff == null);
+		check("6.5.3 spotanim: both paths walk the whole buffer to its LAST byte",
+				skipOffsets[opcodes.length - 1] == all.length
+						&& readOffsets[opcodes.length - 1] == all.length);
 	}
 
 	// ------------------- Phase 6.2 animation transform contract (the safety net)

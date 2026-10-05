@@ -51,11 +51,21 @@ public final class SpotAnim {
 		cache = grown;
 	}
 
-	void readValues667(Stream stream) {
-		readValues(stream);
-	}
-
-	private void readValues(Stream stream) {
+	/**
+	 * The 474 spotanim reader - reused verbatim for 667 spotanims, because the
+	 * formats AGREE (Phase 6.5.3, measured rather than assumed).
+	 *
+	 * <p>This was previously reached through a pass-through alias named
+	 * {@code readValues667}, whose name implied the 667 format differed. It does
+	 * not: the real {@code CursePack/spotanim.dat} (2982 entries) uses only
+	 * opcodes 0, 1, 2, 4, 5, 6, 7, 8 and 40, every one of which this reader
+	 * consumes exactly as the CursePack skip path does (pinned by
+	 * {@code spotAnimSkipTableMatchesThe474ReaderForEveryOpcodeItHandles}).
+	 * The alias was in fact only a VISIBILITY shim: this method was private and
+	 * {@link CurseData667} lives in the same package but needed to call it.
+	 * It is now reachable directly instead of via a differently-named copy.
+	 */
+	public void readValues(Stream stream) {
 		do {
 			int i = stream.readUnsignedByte();
 			if (i == 0) {
