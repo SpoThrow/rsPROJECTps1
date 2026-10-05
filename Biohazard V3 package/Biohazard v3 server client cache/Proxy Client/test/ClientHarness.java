@@ -82,6 +82,9 @@ public final class ClientHarness {
 		triangleRasteriserIsPinned();
 		triangleRasteriserIsDeterministic();
 		triangleRasteriserDetectsAChangedTriangle();
+		texturedTriangleRasteriserIsPinned();
+		texturedTriangleRasteriserIsDeterministic();
+		texturedTriangleRasteriserDetectsAChangedTriangle();
 		sceneRasterizerIsInertByDefault();
 		sceneRasterizerInterceptsWhenInstalled();
 		packetTapProducesDiffableLog();
@@ -1221,9 +1224,12 @@ public final class ClientHarness {
 	 * {@code client} class at all. That matters: {@code client} has heavy static
 	 * initialisers and is not safely loadable headlessly.
 	 *
-	 * <p><b>Known gap, stated rather than implied:</b> this covers the FLAT path. The
-	 * textured paths ({@code method376}/{@code method378}) need the texture pixel tables
-	 * from {@code Texture.method371}/{@code method317} and are not yet driven here.
+	 * <p><b>Scope.</b> This covers the FLAT path ({@code method374}). The TEXTURED path
+	 * ({@code method378}) is covered separately by {@link #texturedTriangleWorkload},
+	 * added because the ground draws through {@code method378} and that is reachable in
+	 * normal play. {@code method376} is still not driven: it calls {@link Fog#applyFlat}
+	 * unconditionally, and {@code applyFlat} reads {@code client.fogStrength}, which
+	 * would load the {@code client} class.
 	 */
 	private static int[] triangleWorkload(int perturb) {
 		int[] buf = new int[RASTER_W * RASTER_H];
@@ -1288,6 +1294,127 @@ public final class ClientHarness {
 		String normal = framebufferHash(triangleWorkload(0));
 		String perturbed = framebufferHash(triangleWorkload(1));
 		check("Triangle rasteriser: gate has teeth (one altered triangle colour changes the hash)",
+				!normal.equals(perturbed));
+	}
+
+	// ------------------------------------ textured triangle gate (extends 4.1c-2a)
+
+	/**
+	 * Gate for the TEXTURED triangle rasteriser - {@link Texture#method378}.
+	 *
+	 * <p><b>Why the flat gate was not enough.</b> 4.1c-2a drives
+	 * {@link Texture#method374}, which is the flat path. The ground draws through
+	 * {@code method378} at 5 of its 11 rasteriser call sites, and that path is
+	 * reachable in normal play - {@code client.java:3812} sets
+	 * {@code Texture.lowMem = false} under high detail, which is exactly the
+	 * condition enabling it. So without this the textured path would be covered by
+	 * nothing but the live screen.
+	 *
+	 * <p><b>Why {@code method378} and not {@code method376}.</b> {@code method376}
+	 * calls {@link Fog#applyFlat} unconditionally, and {@code applyFlat} reads
+	 * {@code client.fogStrength} - so it would load the {@code client} class, whose
+	 * static initialisers are not headless-safe. {@code method378}'s fog use sits
+	 * behind {@code Fog.sceneDepth > 50}, so setting {@code sceneDepth = 0}
+	 * short-circuits it and avoids {@code client} entirely.
+	 *
+	 * <p><b>How the texture is supplied without loading anything.</b>
+	 * {@link Texture#method371} returns immediately when
+	 * {@code anIntArrayArray1479[tid] != null}, BEFORE it touches
+	 * {@code aBackgroundArray1474s} or the free pool. So parking a synthetic texture
+	 * array in that slot is enough to drive the real textured span routine
+	 * ({@link Texture#method379}) with no cache, no {@code Background} and no loader.
+	 */
+	private static final int TEXTURED_TEX_ID = 3;
+
+	private static int[] texturedTriangleWorkload(int perturb) {
+		int[] buf = new int[RASTER_W * RASTER_H];
+		DrawingArea.initDrawingArea(RASTER_H, RASTER_W, buf);
+		DrawingArea.setAllPixels(0);
+		Texture.method364();
+		Fog.sceneDepth = 0;
+		Texture.anInt1465 = 0;
+		Texture.aBoolean1462 = false;
+		Texture.aBoolean1464 = true;
+
+		// Same reasoning as the flat gate: the real palette is jittered per load by
+		// Texture.method372 (Math.random()), so it is filled deterministically here.
+		int[] palette = Texture.anIntArray1482;
+		for (int i = 0; i < palette.length; i++) {
+			int v = ((i & 0xFF) << 16) | (((i >> 3) & 0xFF) << 8) | ((i * 5) & 0xFF);
+			palette[i] = (v == 0 ? 1 : v);
+		}
+
+		// Synthetic texture: parked in the loaded-texture slot so method371 returns it
+		// instead of trying to build one from a Background. lowMem is true here (its
+		// default), so method379 samples with 64x64 addressing inside 16384 entries.
+		//
+		// The slot is private, and it is deliberately NOT widened to public: production
+		// visibility should not be relaxed to suit a test. The harness already reaches
+		// private state by reflection elsewhere, so it does so here too.
+		int[] tex = new int[16384];
+		for (int i = 0; i < tex.length; i++) {
+			tex[i] = (((i * 7) & 0xFF) << 16) | (((i * 3) & 0xFF) << 8) | (i & 0xFF);
+		}
+		parkTexture(TEXTURED_TEX_ID, tex);
+
+		// method378(y0,y1,y2, x0,x1,x2, c0,c1,c2, sx0,sx1,sx2, sy0,sy1,sy2, sz0,sz1,sz2, tid)
+		// y/x are screen coords; colours are 16-bit palette indices; s* are the
+		// per-vertex camera-space coords the texture is mapped through.
+		Texture.method378(10, 90, 50, 12, 40, 150, 0x1234 + perturb, 0x5678, 0x9ABC,
+				100, 300, 200, 120, 400, 250, 300, 500, 350, TEXTURED_TEX_ID);
+		Texture.method378(20, 100, 40, 30, 170, 80, 0x2468, 0x1357, 0x0F0F,
+				150, 120, 380, 90, 300, 200, 280, 340, 420, TEXTURED_TEX_ID);
+
+		return buf;
+	}
+
+	/**
+	 * Parks a synthetic texture in {@code Texture}'s loaded-texture slot so that
+	 * {@link Texture#method371} returns it at its early return rather than trying to
+	 * build one from a {@code Background} (which would need a cache).
+	 *
+	 * <p>Done by reflection on purpose: the field is private, and relaxing production
+	 * visibility to make a test easier is the wrong trade.
+	 */
+	private static void parkTexture(int tid, int[] tex) {
+		try {
+			java.lang.reflect.Field f = Texture.class.getDeclaredField("anIntArrayArray1479");
+			f.setAccessible(true);
+			int[][] loaded = (int[][]) f.get(null);
+			loaded[tid] = tex;
+		} catch (Exception e) {
+			throw new RuntimeException("could not park synthetic texture " + tid, e);
+		}
+	}
+
+	private static final String TEXTURED_GOLDEN_HASH =
+			"018753a038c2c05a895f7c341a176a8f77436093f7c5d419df22154fd721efe1";
+
+	private static void texturedTriangleRasteriserIsPinned() {
+		String actual = framebufferHash(texturedTriangleWorkload(0));
+		if (TEXTURED_GOLDEN_HASH.startsWith("0000000000000000000000000000000000000000000000000000000000000000")) {
+			System.out.println("  NOTE  Textured golden hash not pinned yet. Observed: " + actual);
+			check("Textured triangle rasteriser: framebuffer hash is pinned", false);
+			return;
+		}		boolean ok = TEXTURED_GOLDEN_HASH.equals(actual);
+		if (!ok) {
+			System.out.println("  NOTE  Textured rasterisation changed. Expected " + TEXTURED_GOLDEN_HASH);
+			System.out.println("  NOTE                                 Observed " + actual);
+		}
+		check("Textured triangle rasteriser: fixed workload hashes to the pinned value", ok);
+	}
+
+	private static void texturedTriangleRasteriserIsDeterministic() {
+		String first = framebufferHash(texturedTriangleWorkload(0));
+		String second = framebufferHash(texturedTriangleWorkload(0));
+		check("Textured triangle rasteriser: workload is deterministic (two runs agree exactly)",
+				first.equals(second));
+	}
+
+	private static void texturedTriangleRasteriserDetectsAChangedTriangle() {
+		String normal = framebufferHash(texturedTriangleWorkload(0));
+		String perturbed = framebufferHash(texturedTriangleWorkload(1));
+		check("Textured triangle rasteriser: gate has teeth (one altered triangle colour changes the hash)",
 				!normal.equals(perturbed));
 	}
 
