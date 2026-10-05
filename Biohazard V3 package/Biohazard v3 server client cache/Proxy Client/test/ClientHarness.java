@@ -3,6 +3,7 @@ import java.io.FileInputStream;
 import java.security.MessageDigest;
 import cache.StreamLoader;
 import def.Animation;
+import def.ContentRegistry;
 import def.CurseData667;
 import def.EntityDef;
 import def.Flo;
@@ -135,6 +136,10 @@ public final class ClientHarness {
 		frameSlotBudgetIsStatedInOnePlace();
 		curseSourceIdsWouldHaveCollidedWithoutTheOffset();
 		anInjectionDoesNotDisturbTheOriginalFrameSlots();
+		contentRegistryDeclarationsAreSafe();
+		contentRegistryLoadsADeclaredSourceIntoItsSlot();
+		contentRegistryReportsAMissingSourceRatherThanPassingSilently();
+		contentRegistryValidateCatchesADriftedDeclaration();
 		packetTapProducesDiffableLog();
 		itemDefOutOfRangeIdIsSafe();
 		itemDefCertTemplateWithoutCertIdIsSafe();
@@ -2486,19 +2491,218 @@ public final class ClientHarness {
 		}
 	}
 
-	// ------------------- Phase 6.5.3 reader/skip equivalence (the drift guard)
+	// ------------------- Phase 6.5.5 content registry (declared external frame sources)
+	//
+	// Phase 6.5.5: the registry declares which external frame files the hand-written
+	// animations depend on, so an absent or repointed source becomes a REPORTED condition
+	// instead of silent missing frames.
+	//
+	// The defect these pin: Animation.java writes 25 animations by hand, and each frame
+	// literal packs its source file into the high 16 bits (frame = file << 16 | index), so
+	// the dependency is a magic number inside the animation's own data. Deriving
+	// frame >>> 16 for all of them shows anims 4000, 4001 and 4002 need files 3403 and
+	// 3353, while the packed 474 archive stops at 3229 and the cache root holds only
+	// 1777/2160/3502. Nothing supplied 3353/3403, so Frames.method531 returned null and
+	// those animations rendered with NO FRAMES.
 
 	/**
-	 * Phase 6.5.3: the CursePack decodes its WANTED entries with the 474 readers but walks
-	 * its UNWANTED ones with hand-written skippers. That leaves two copies of the opcode
-	 * knowledge, which is the drift risk these tests exist to bound: if a reader changes
-	 * how it consumes an opcode and the skipper is not updated to match, the stream
-	 * desynchronises and every definition after it is silently corrupted.
-	 *
-	 * <p>These tests deliberately compare CONSUMPTION (bytes consumed), not decoded values -
-	 * that is the property the two paths must share, and the only one that matters for
-	 * walking a file.
+	 * &#9888; The property that makes loading a declared source safe at all: every declared
+	 * slot must be OUTSIDE both ranges that already have owners. Writing into the packed 474
+	 * range would overwrite real frame data, and writing into the CursePack window would
+	 * clobber the curse remap - both silently, because {@code Frames.load} does not look
+	 * before it writes.
 	 */
+	private static void contentRegistryDeclarationsAreSafe() {
+		ContentRegistry.FrameSource[] sources = ContentRegistry.FRAME_SOURCES;
+		check("Registry: at least one external frame source is declared", sources.length > 0);
+
+		java.util.HashSet<Integer> slots = new java.util.HashSet<Integer>();
+		java.util.HashSet<Integer> declaredAnims = new java.util.HashSet<Integer>();
+		boolean duplicateSlot = false;
+		boolean unaddressable = false;
+		boolean insidePackedRange = false;
+		boolean insideCurseWindow = false;
+		boolean badAsset = false;
+		boolean emptyDependency = false;
+		boolean duplicateAnim = false;
+
+		for (int i = 0; i < sources.length; i++) {
+			ContentRegistry.FrameSource s = sources[i];
+			if (!slots.add(s.slot)) {
+				duplicateSlot = true;
+			}
+			if (!FrameSlots.isKeyAddressable(s.slot)) {
+				unaddressable = true;
+			}
+			if (s.slot >= 0 && s.slot <= MEASURED_PACKED_FRAME_MAX_ID) {
+				insidePackedRange = true;
+			}
+			if (FrameSlots.isCurseSlot(s.slot)) {
+				insideCurseWindow = true;
+			}
+			if (s.asset == null || s.asset.length() == 0 || !s.asset.endsWith(".gz")) {
+				badAsset = true;
+			}
+			if (s.requiredByAnimIds == null || s.requiredByAnimIds.length == 0) {
+				emptyDependency = true;
+			} else {
+				for (int k = 0; k < s.requiredByAnimIds.length; k++) {
+					if (!declaredAnims.add(s.requiredByAnimIds[k])) {
+						duplicateAnim = true;
+					}
+				}
+			}
+		}
+
+		check("Registry: no two sources claim the same slot", !duplicateSlot);
+		check("Registry: every declared slot is key-addressable, so frame << 16 stays positive",
+				!unaddressable);
+		check("Registry: no declared slot lands inside the packed 474 range 0.."
+				+ MEASURED_PACKED_FRAME_MAX_ID + " - that would overwrite real frame data",
+				!insidePackedRange);
+		check("Registry: no declared slot lands inside the CursePack window "
+				+ FrameSlots.CURSE_BASE + ".." + FrameSlots.CURSE_END,
+				!insideCurseWindow);
+		check("Registry: every declared asset is a .gz path", !badAsset);
+		check("Registry: every source names the animations that need it", !emptyDependency);
+		check("Registry: no animation is claimed by two different sources", !duplicateAnim);
+	}
+
+	/**
+	 * The loader, driven against a REAL pack layout for the declared asset (a temp folder
+	 * containing anims/{id}.gz), so this exercises the shipping path rather than a stub.
+	 */
+	private static void contentRegistryLoadsADeclaredSourceIntoItsSlot() {
+		ContentRegistry.FrameSource source = ContentRegistry.FRAME_SOURCES[0];
+		File root = makeTempPackRoot("content-registry-loads");
+		File asset = new File(root, source.asset);
+		asset.getParentFile().mkdirs();
+		writeGz(asset, buildFramesFixture(1, 3, 4, 5));
+
+		File savedRoot = ContentRegistry.root;
+		try {
+			ContentRegistry.root = root;
+			int loaded = ContentRegistry.loadAll();
+			check("Registry: loadAll() loads the declared source it can find (" + source.asset + ")",
+					loaded == 1);
+			check("Registry: the loaded source really lands in its declared slot " + source.slot,
+					Frames.fileFrameCount(source.slot) > 0);
+			check("Registry: isSourceLoaded agrees with the frame store",
+					ContentRegistry.isSourceLoaded(source));
+		} finally {
+			ContentRegistry.root = savedRoot;
+		}
+	}
+
+	/**
+	 * The sensitivity check for the one above - and the whole point of the phase. A loader
+	 * that reported success whether or not the file existed is exactly how this defect
+	 * survived, so an ABSENT source must load zero and leave the slot empty.
+	 */
+	private static void contentRegistryReportsAMissingSourceRatherThanPassingSilently() {
+		ContentRegistry.FrameSource source = ContentRegistry.FRAME_SOURCES[1];
+		File root = makeTempPackRoot("content-registry-missing");
+		// The asset is deliberately NOT written.
+
+		File savedRoot = ContentRegistry.root;
+		try {
+			ContentRegistry.root = root;
+			int loaded = ContentRegistry.loadAll();
+			check("Registry: a pack root with no declared assets loads exactly ZERO"
+					+ " (an absent source must not look like a loaded one)", loaded == 0);
+			check("Registry: an absent source leaves its slot EMPTY rather than half-populated",
+					Frames.fileFrameCount(source.slot) == 0);
+		} finally {
+			ContentRegistry.root = savedRoot;
+		}
+	}
+
+	/**
+	 * The drift guard for the DECLARATION itself: validate() must be clean when every
+	 * declared animation's frames decode to its declared slot, and must CATCH a frame
+	 * repointed at an undeclared file. Without the second half this would be a test that
+	 * cannot fail.
+	 */
+	private static void contentRegistryValidateCatchesADriftedDeclaration() {
+		Animation[] saved = Animation.anims;
+		try {
+			int highest = 0;
+			for (int i = 0; i < ContentRegistry.FRAME_SOURCES.length; i++) {
+				int[] ids = ContentRegistry.FRAME_SOURCES[i].requiredByAnimIds;
+				for (int k = 0; k < ids.length; k++) {
+					if (ids[k] > highest) {
+						highest = ids[k];
+					}
+				}
+			}
+			Animation.anims = new Animation[highest + 1];
+			for (int i = 0; i < ContentRegistry.FRAME_SOURCES.length; i++) {
+				ContentRegistry.FrameSource s = ContentRegistry.FRAME_SOURCES[i];
+				for (int k = 0; k < s.requiredByAnimIds.length; k++) {
+					Animation a = new Animation();
+					a.anIntArray353 = new int[] { (s.slot << 16) | 1 };
+					Animation.anims[s.requiredByAnimIds[k]] = a;
+				}
+			}
+			check("Registry: validate() is CLEAN when every declared animation's frames decode"
+					+ " to its declared slot", ContentRegistry.validate().length() == 0);
+
+			Animation drifted =
+					Animation.anims[ContentRegistry.FRAME_SOURCES[1].requiredByAnimIds[0]];
+			drifted.anIntArray353[0] = (9999 << 16) | 1;
+			String report = ContentRegistry.validate();
+			check("Registry: validate() CATCHES a frame repointed at an undeclared file"
+					+ " (reported: " + report.trim() + ")", report.length() > 0);
+		} finally {
+			Animation.anims = saved;
+		}
+	}
+
+	/** A clean temp pack root with an empty `anims/` folder, for the registry tests. */
+	private static File makeTempPackRoot(String name) {
+		File dir = new File(System.getProperty("java.io.tmpdir"), name);
+		deleteRecursively(dir);
+		new File(dir, "anims").mkdirs();
+		return dir;
+	}
+
+	/** Writes a real gzip file, which is the layout the registry reads. */
+	private static void writeGz(File target, byte[] payload) {
+		try {
+			java.io.FileOutputStream out = new java.io.FileOutputStream(target);
+			out.write(gzip(payload));
+			out.close();
+		} catch (Exception e) {
+			throw new RuntimeException("could not write gz fixture " + target, e);
+		}
+	}
+
+	private static void deleteRecursively(File f) {
+		if (f == null || !f.exists()) {
+			return;
+		}
+		if (f.isDirectory()) {
+			File[] kids = f.listFiles();
+			if (kids != null) {
+				for (int i = 0; i < kids.length; i++) {
+					deleteRecursively(kids[i]);
+				}
+			}
+		}
+		f.delete();
+	}
+
+	// ------------------- Phase 6.5.3 reader/skip equivalence (the drift guard)
+	//
+	// Phase 6.5.3: the CursePack decodes its WANTED entries with the 474 readers but walks
+	// its UNWANTED ones with hand-written skippers. That leaves two copies of the opcode
+	// knowledge, which is the drift risk these tests exist to bound: if a reader changes
+	// how it consumes an opcode and the skipper is not updated to match, the stream
+	// desynchronises and every definition after it is silently corrupted.
+	//
+	// These tests deliberately compare CONSUMPTION (bytes consumed), not decoded values -
+	// that is the property the two paths must share, and the only one that matters for
+	// walking a file.
 
 	/**
 	 * Builds {@code [opcode][payload][0]} for one seq opcode, with the payload the reader

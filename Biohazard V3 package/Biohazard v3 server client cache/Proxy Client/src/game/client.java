@@ -37,6 +37,7 @@ import cache.Decompressor;
 import cache.FileOperations;
 import cache.StreamLoader;
 import def.Animation;
+import def.ContentRegistry;
 import def.CurseData667;
 import def.EntityDef;
 import def.Flo;
@@ -8257,6 +8258,12 @@ public class client extends RSApplet {
 			IDK.unpackConfig(streamLoader);
 			SpotAnim.unpackConfig(streamLoader);
 			CurseData667.inject();
+			// Externally-sourced 667 frame files (Phase 6.5.5). Runs after Animation.unpackConfig
+			// so the declared animations exist to be validated against, and before anything can
+			// play them. Loads into slots 3353/3403 - above the packed 474 range, outside the
+			// CursePack window - so it cannot overwrite existing frame content.
+			ContentRegistry.init();
+			ContentRegistry.loadAll();
 			Varp.unpackConfig(streamLoader);
 			VarBit.unpackConfig(streamLoader);
 			ItemDef.isMembers = isMembers;

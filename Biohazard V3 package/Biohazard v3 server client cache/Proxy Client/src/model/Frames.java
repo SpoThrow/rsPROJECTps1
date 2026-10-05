@@ -110,6 +110,22 @@ public final class Frames {
 		return skinData[i2];
 	}
 
+	/**
+	 * Number of decoded frame SLOTS held for a file, or 0 when the file is not loaded.
+	 *
+	 * <p>Read-only, and exists so callers and tests can ask "did this file actually
+	 * resolve?" without reflecting into {@link #animationlist} or guessing a frame index.
+	 * That matters because frame indices are NOT dense - a file may legitimately have no
+	 * frame 0 - so {@link #method531} is the wrong probe for "is this file present".
+	 */
+	public static int fileFrameCount(int file) {
+		if (animationlist == null || file < 0 || file >= animationlist.length
+				|| animationlist[file] == null) {
+			return 0;
+		}
+		return animationlist[file].length;
+	}
+
 	public static void load_647(int file) {
 		try {
 			ensureFileSlot(file);
