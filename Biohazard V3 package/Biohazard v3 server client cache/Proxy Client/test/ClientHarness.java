@@ -18,6 +18,8 @@ import scene.Fog;
 import scene.ObjectManager;
 import scene.WorldController;
 import ui.DrawingArea;
+import ui.GpuFloatBuffer;
+import ui.GpuIntBuffer;
 import ui.GpuRenderer;
 import ui.RSImageProducer;
 import ui.RendererConfig;
@@ -101,6 +103,12 @@ public final class ClientHarness {
 		modelGeometryDecodesRenderTypeAndTexture();
 		modelGeometryHandlesAbsentAttributes();
 		modelGeometryTextureArraysAreIndexedByTextureNotFace();
+		gpuBufferReusesStorageAfterClear();
+		gpuBufferGrowsAndPreservesContents();
+		gpuBufferEnsureCapacityIsMonotonic();
+		gpuBufferFailsFastOnBadSizesAndIndices();
+		gpuBufferBulkCopyHonoursTheWindow();
+		gpuIntBufferMirrorsTheFloatBuffer();
 		packetTapProducesDiffableLog();
 		itemDefOutOfRangeIdIsSafe();
 		itemDefCertTemplateWithoutCertIdIsSafe();
@@ -1765,6 +1773,160 @@ public final class ClientHarness {
 		}
 		check("Ground rasteriser seam: uninstalling restores the software path",
 				SceneRasterizer.implementation() == null);
+	}
+
+	// ------------------------------- Phase 5.2 geometry buffers
+
+	/**
+	 * The property the buffers exist for: after a warm-up, a steady frame must
+	 * reuse the same backing array. Asserted by ARRAY IDENTITY, not by capacity,
+	 * because a capacity that happens to match would still hide a reallocation.
+	 */
+	private static void gpuBufferReusesStorageAfterClear() {
+		GpuFloatBuffer b = new GpuFloatBuffer(2);
+		b.put(1);
+		b.put(2, 3, 4); // forces a grow past the initial capacity
+
+		float[] afterGrowth = b.array();
+		int grownCapacity = b.capacity();
+
+		check("GpuFloatBuffer: position counts entries written, not capacity",
+				b.position() == 4 && grownCapacity >= 4);
+
+		b.clear();
+		check("GpuFloatBuffer: clear resets the position", b.position() == 0 && b.isEmpty());
+		check("GpuFloatBuffer: clear KEEPS the capacity (emptying must not mean freeing)",
+				b.capacity() == grownCapacity);
+
+		b.put(1);
+		b.put(2, 3, 4);
+		check("GpuFloatBuffer: refilling to the same size reuses the SAME array - no reallocation",
+				b.array() == afterGrowth);
+		check("GpuFloatBuffer: ... and the reused buffer is filled identically",
+				b.position() == 4 && b.get(0) == 1 && b.get(3) == 4);
+	}
+
+	private static void gpuBufferGrowsAndPreservesContents() {
+		GpuFloatBuffer b = new GpuFloatBuffer(2);
+		b.put(10);
+		b.put(20);
+		b.put(30); // grows here
+		check("GpuFloatBuffer: grows on demand rather than failing",
+				b.capacity() >= 3 && b.position() == 3);
+		check("GpuFloatBuffer: growth preserves the entries already written",
+				b.get(0) == 10 && b.get(1) == 20 && b.get(2) == 30);
+	}
+
+	private static void gpuBufferEnsureCapacityIsMonotonic() {
+		GpuFloatBuffer b = new GpuFloatBuffer(16);
+		b.ensureCapacity(4);
+		check("GpuFloatBuffer: ensureCapacity below the current capacity is a no-op",
+				b.capacity() == 16);
+		b.ensureCapacity(100);
+		int grown = b.capacity();
+		check("GpuFloatBuffer: ensureCapacity grows when the request exceeds capacity",
+				grown >= 100);
+		b.ensureCapacity(5);
+		check("GpuFloatBuffer: ensureCapacity does not shrink back on a smaller request",
+				b.capacity() == grown);
+		check("GpuFloatBuffer: ensureCapacity does not disturb the write position",
+				b.position() == 0);
+	}
+
+	/**
+	 * A buffer that returns stale data past its position is the classic silent
+	 * corruption: the upload reads garbage, and nothing throws. Failing fast is the
+	 * whole point of the bound check.
+	 */
+	private static void gpuBufferFailsFastOnBadSizesAndIndices() {
+		boolean threw = false;
+		try {
+			new GpuFloatBuffer(0);
+		} catch (IllegalArgumentException e) {
+			threw = true;
+		}
+		check("GpuFloatBuffer: rejects a non-positive initial capacity", threw);
+
+		GpuFloatBuffer b = new GpuFloatBuffer(8);
+		b.put(1, 2);
+
+		threw = false;
+		try {
+			b.get(2);
+		} catch (IndexOutOfBoundsException e) {
+			threw = true;
+		}
+		check("GpuFloatBuffer: reading past the position fails fast instead of returning stale data", threw);
+
+		threw = false;
+		try {
+			b.get(-1);
+		} catch (IndexOutOfBoundsException e) {
+			threw = true;
+		}
+		check("GpuFloatBuffer: a negative index fails fast", threw);
+	}
+
+	private static void gpuBufferBulkCopyHonoursTheWindow() {
+		GpuFloatBuffer b = new GpuFloatBuffer(16);
+		b.put(new float[] { 1, 2, 3, 4, 5 }, 1, 3);
+		check("GpuFloatBuffer: bulk copy takes exactly the requested window, not the whole array",
+				b.position() == 3 && b.get(0) == 2 && b.get(1) == 3 && b.get(2) == 4);
+		b.put(new float[] { 9 }, 0, 0);
+		check("GpuFloatBuffer: a zero-length bulk copy is a no-op", b.position() == 3);
+
+		GpuFloatBuffer grown = new GpuFloatBuffer(2);
+		grown.put(new float[] { 1, 2, 3, 4, 5, 6 }, 0, 6);
+		check("GpuFloatBuffer: bulk copy grows the array when the window does not fit, preserving data",
+				grown.position() == 6 && grown.get(0) == 1 && grown.get(5) == 6);
+	}
+
+	/**
+	 * The divergence guard. The two buffers are near-identical classes with no
+	 * shared base, so nothing but a test stops them drifting apart. Run the same
+	 * sequence through both and require identical reported behaviour.
+	 */
+	private static void gpuIntBufferMirrorsTheFloatBuffer() {
+		GpuFloatBuffer f = new GpuFloatBuffer(2);
+		GpuIntBuffer i = new GpuIntBuffer(2);
+		for (int n = 1; n <= 40; n++) {
+			f.put(n);
+			i.put(n);
+		}
+		check("GpuIntBuffer: position matches GpuFloatBuffer for an identical write sequence",
+				i.position() == f.position());
+		check("GpuIntBuffer: capacity matches GpuFloatBuffer for an identical write sequence (same growth policy)",
+				i.capacity() == f.capacity());
+
+		float[] fArray = f.array();
+		int[] iArray = i.array();
+		f.clear();
+		i.clear();
+		check("GpuIntBuffer: clear keeps capacity, exactly as the float buffer does",
+				i.capacity() == f.capacity() && i.position() == 0 && f.position() == 0);
+		check("Gpu buffers: clear does not reallocate, in EITHER buffer",
+				i.array() == iArray && f.array() == fArray);
+
+		GpuIntBuffer t = new GpuIntBuffer(4);
+		t.putTriangle(7, 8, 9);
+		check("GpuIntBuffer: putTriangle appends three indices in winding order",
+				t.position() == 3 && t.get(0) == 7 && t.get(1) == 8 && t.get(2) == 9);
+
+		boolean threw = false;
+		try {
+			new GpuIntBuffer(0);
+		} catch (IllegalArgumentException e) {
+			threw = true;
+		}
+		check("GpuIntBuffer: rejects a non-positive initial capacity", threw);
+
+		threw = false;
+		try {
+			t.get(3);
+		} catch (IndexOutOfBoundsException e) {
+			threw = true;
+		}
+		check("GpuIntBuffer: reading past the position fails fast", threw);
 	}
 
 	// ------------------------- the standing raster gate, consolidated (Phase 4.3)
