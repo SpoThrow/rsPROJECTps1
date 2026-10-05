@@ -1,5 +1,7 @@
 import java.io.File;
-import java.io.FileInputStream;import cache.StreamLoader;
+import java.io.FileInputStream;
+import java.security.MessageDigest;
+import cache.StreamLoader;
 import def.EntityDef;
 import def.Flo;
 import def.IDK;
@@ -12,6 +14,8 @@ import net.Stream;
 import scene.CollisionMap;
 import scene.ObjectManager;
 import scene.WorldController;
+import ui.DrawingArea;
+import ui.Sprite;
 
 
 
@@ -68,6 +72,9 @@ public final class ClientHarness {
 		streamG2G4Aliases();
 		streamBitAccess();
 		streamOutOfRangeReadIsSilentAndWrong();
+		rasterFramebufferHashIsPinned();
+		rasterFramebufferHashIsDeterministic();
+		rasterFramebufferHashDetectsAChangedDrawOp();
 		packetTapProducesDiffableLog();
 		itemDefOutOfRangeIdIsSafe();
 		itemDefCertTemplateWithoutCertIdIsSafe();
@@ -1031,6 +1038,149 @@ public final class ClientHarness {
 		} catch (java.io.IOException e) {
 			throw new RuntimeException(e);
 		}
+	}
+
+	// ------------------------------------------------- raster framebuffer gate (Phase 4.1b)
+
+	/**
+	 * The framebuffer-hash gate for Phase 4.1.
+	 *
+	 * <p><b>Why this exists.</b> Phase 4.1c moves ~3,700 lines of software rasteriser
+	 * ({@code WorldController}, {@code Model}, {@code Texture}) that all write through the
+	 * {@code static} {@link DrawingArea} substrate. A wrong pixel there is not obvious by
+	 * eye and is not something a compiler can see, so "it still looks fine" is not
+	 * evidence. This renders a fixed, deterministic workload through the REAL raster
+	 * primitives and pins the resulting framebuffer by SHA-256, so any refactor that moves
+	 * a single pixel fails here instead of shipping.
+	 *
+	 * <p><b>Why the workload is synthetic rather than a real scene.</b> The real cache is
+	 * runtime-configured and is not in the repo (see the plan's open item), so a
+	 * cache-backed scene cannot be rendered headlessly today. This covers the DRAWING
+	 * SUBSTRATE - {@link DrawingArea} and {@link Sprite} - which is exactly the shared
+	 * surface 4.1c must capture behind the seam. It does NOT yet cover {@code Model} or
+	 * {@code WorldController} geometry; that needs a cache fixture and is a separate step.
+	 * Stated plainly rather than implied, because a gate that quietly covers less than it
+	 * appears to is worse than a smaller honest one.
+	 *
+	 * <p><b>What it pins.</b> The exact byte content of the framebuffer after the workload,
+	 * including clipping behaviour ({@code setDrawingArea}) and the alpha blend path. The
+	 * hash is over the buffer's little-endian byte expansion, so it is sensitive to a
+	 * change in any channel of any pixel.
+	 */
+	private static final int RASTER_W = 192;
+	private static final int RASTER_H = 128;
+
+	/**
+	 * The pinned framebuffer hash.
+	 *
+	 * <p>Regenerate ONLY when a change to the raster output is intentional and reviewed.
+	 * If this test fails, the first assumption should be that the refactor changed a
+	 * pixel, not that the constant is stale. To re-pin, set the constant to all zeros,
+	 * run the harness, and read the value it prints as {code Observed}.
+	 */
+	private static final String RASTER_GOLDEN_HASH =
+			"775ffc78fd316faf03cbf1499cb9da547f9b12a7b9e6a2117f936c3776a9e39e";
+
+	/**
+	 * Runs a fixed raster workload and returns the framebuffer.
+	 *
+	 * @param perturb when non-zero, one draw operation is deliberately altered, so the
+	 *                caller can prove the gate notices a changed draw call.
+	 */
+	private static int[] rasterWorkload(int perturb) {
+		int[] buf = new int[RASTER_W * RASTER_H];
+		DrawingArea.initDrawingArea(RASTER_H, RASTER_W, buf);
+
+		DrawingArea.setAllPixels(0x102030);
+
+		// Horizontal lines: the plain clipped fill path.
+		for (int i = 0; i < 16; i++) {
+			DrawingArea.drawHorizontalLine(i * 7 + 1, 0x204060 + i * 2731, 100 + i * 5, i * 3);
+		}
+
+		// Alpha-blended fill: the blend path, which is easy to get subtly wrong.
+		DrawingArea.method335(0x8899AA + perturb, 12, 70, 40, 160, 9);
+
+		// A sprite blit and a sub-region blit, with deterministic source pixels.
+		Sprite sp = new Sprite(32, 24);
+		for (int i = 0; i < sp.myPixels.length; i++) {
+			sp.myPixels[i] = 0xFF000000 | (int) ((i * 2654435761L) & 0xFFFFFF);
+		}
+		sp.drawSprite(8, 8);
+		sp.drawSpriteRegion(60, 30, 4, 2, 20, 12);
+
+		// Clipped drawing: a rectangle that overhangs the region must be cut, not wrapped.
+		DrawingArea.setDrawingArea(100, 40, 150, 20);
+		DrawingArea.drawHorizontalLine(60, 0xF0E0D0, 200, 10);
+		DrawingArea.method335(0x123456, 55, 120, 60, 128, 30);
+		DrawingArea.defaultDrawingAreaSize();
+
+		return buf;
+	}
+
+	private static String framebufferHash(int[] buf) {
+		try {
+			MessageDigest md = MessageDigest.getInstance("SHA-256");
+			byte[] bytes = new byte[buf.length * 4];
+			for (int i = 0; i < buf.length; i++) {
+				bytes[i * 4] = (byte) (buf[i] & 0xff);
+				bytes[i * 4 + 1] = (byte) ((buf[i] >>> 8) & 0xff);
+				bytes[i * 4 + 2] = (byte) ((buf[i] >>> 16) & 0xff);
+				bytes[i * 4 + 3] = (byte) ((buf[i] >>> 24) & 0xff);
+			}
+			byte[] digest = md.digest(bytes);
+			StringBuilder sb = new StringBuilder(digest.length * 2);
+			for (int i = 0; i < digest.length; i++) {
+				int v = digest[i] & 0xff;
+				if (v < 16) {
+					sb.append('0');
+				}
+				sb.append(Integer.toHexString(v));
+			}
+			return sb.toString();
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+	}
+
+	private static void rasterFramebufferHashIsPinned() {
+		String actual = framebufferHash(rasterWorkload(0));
+		if (RASTER_GOLDEN_HASH.equals("0000000000000000000000000000000000000000000000000000000000000000")) {
+			// Unpinned: report the value so it can be pinned, and FAIL rather than pass
+			// quietly, because an unpinned gate that reports success is worthless.
+			System.out.println("  NOTE  Raster golden hash not pinned yet. Observed: " + actual);
+			check("Raster: framebuffer hash is pinned", false);
+			return;
+		}
+		boolean ok = RASTER_GOLDEN_HASH.equals(actual);
+		if (!ok) {
+			System.out.println("  NOTE  Raster framebuffer changed. Expected " + RASTER_GOLDEN_HASH);
+			System.out.println("  NOTE                              Observed " + actual);
+		}
+		check("Raster: fixed framebuffer workload hashes to the pinned value (Phase 4.1b gate)", ok);
+	}
+
+	/**
+	 * A hash that cannot be reproduced is worthless as a gate, so determinism is asserted
+	 * rather than assumed: two independent runs of the workload must agree exactly.
+	 */
+	private static void rasterFramebufferHashIsDeterministic() {
+		String first = framebufferHash(rasterWorkload(0));
+		String second = framebufferHash(rasterWorkload(0));
+		check("Raster: framebuffer workload is deterministic (two runs agree exactly)",
+				first.equals(second));
+	}
+
+	/**
+	 * The teeth proof, and the reason this gate is worth having: a gate that always passes
+	 * is worse than no gate. Perturbing ONE draw operation must change the hash, which is
+	 * exactly the failure mode a rasteriser refactor would produce.
+	 */
+	private static void rasterFramebufferHashDetectsAChangedDrawOp() {
+		String normal = framebufferHash(rasterWorkload(0));
+		String perturbed = framebufferHash(rasterWorkload(1));
+		check("Raster: gate has teeth (a single altered draw op changes the hash)",
+				!normal.equals(perturbed));
 	}
 
 	// ------------------------------------------------------------------ plumbing
