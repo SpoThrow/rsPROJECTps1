@@ -2990,14 +2990,18 @@ public final class Model extends Animable {
 	// SEMANTICS, verified against the real draw path (method484, not inferred):
 	//   - faceRenderTypes: low 2 bits are the render type (0 flat-gouraud,
 	//     1 flat-single, 2 textured-gouraud, 3 textured-flat); the value >> 2 is
-	//     the texture id. Use faceRenderType/faceTextureId for the decoded forms.
+	//     the TEXTURE-COORDINATE INDEX, i.e. which entry of the texture arrays
+	//     below to use - NOT the id of the texture to sample. See faceTextureId.
 	//   - faceCornerColourA/B/C: per-corner LIT colours, computed by method479.
 	//     They are populated during the draw, so they are only meaningful after a
 	//     lighting pass has run.
-	//   - faceBaseColours: the face's unlit colour from the cache.
+	//   - faceBaseColours: the face's unlit colour from the cache. ⚠️ FOR A
+	//     TEXTURED FACE THIS SLOT HOLDS THE TEXTURE ID, NOT A COLOUR - see
+	//     faceTextureId for the evidence. Do not render it as a colour.
 	//   - faceAlphas: 0-255, only defined for faces of a textured model.
-	//   - texture arrays are indexed by TEXTURE ID, not by face, and hold vertex
-	//     indices into the model - length is textureCount(), not faceCount().
+	//   - texture arrays are indexed by TEXTURE-COORDINATE INDEX, not by face, and
+	//     hold vertex indices into the model - length is textureCount(), not
+	//     faceCount().
 	// ---------------------------------------------------------------------
 
 	/** Number of model-local vertices. Valid indices for the vertex accessors. */
@@ -3105,9 +3109,40 @@ public final class Model extends Animable {
 		return anIntArray1637 == null ? 0 : anIntArray1637[face] & 3;
 	}
 
-	/** Decoded texture id of a face; -1 when the model carries no render types. */
-	public int faceTextureId(int face) {
+	/**
+	 * Which texture-coordinate entry this face uses, i.e. the index into the
+	 * {@link #textureVertexA()}/{@link #textureVertexB()}/{@link #textureVertexC()}
+	 * arrays. This is {@code anIntArray1637[face] >> 2}.
+	 *
+	 * <p>⚠️ <b>This is NOT the texture id, and conflating the two is the mistake Phase
+	 * 5.3 caught.</b> It selects <i>which</i> set of texture coordinates to use; the id
+	 * of the texture to sample comes from {@link #faceTextureId(int)}. Returns -1 when
+	 * the model carries no render types.
+	 */
+	public int faceTextureIndex(int face) {
 		return anIntArray1637 == null ? -1 : anIntArray1637[face] >> 2;
+	}
+
+	/**
+	 * The id of the texture the rasteriser samples for this face, or -1 for a face that
+	 * is not textured.
+	 *
+	 * <p>⚠️ <b>Read the reason, because it is the least obvious thing in this class.</b>
+	 * For a textured face the id is stored in the face <i>colour</i> slot
+	 * ({@code anIntArray1640}), not in the render-type word. That is the old-format
+	 * convention, and it is not a quirk of this codebase: the parser reads it from the
+	 * colour stream, {@code method481} skips shading it entirely for textured faces
+	 * ({@code if ((renderType & 2) == 2) ...}), and every {@code method378} call site
+	 * passes {@code anIntArray1640[face]} straight to {@code method371} as the id.
+	 *
+	 * <p>So a textured face's entry in {@link #faceBaseColours()} is <b>not a colour</b>,
+	 * and must not be rendered as one.
+	 */
+	public int faceTextureId(int face) {
+		if (anIntArray1637 == null || (anIntArray1637[face] & 2) != 2) {
+			return -1;
+		}
+		return anIntArray1640 == null ? -1 : anIntArray1640[face];
 	}
 
 	/** Vertex index used as the texture's first coordinate. May be null. */

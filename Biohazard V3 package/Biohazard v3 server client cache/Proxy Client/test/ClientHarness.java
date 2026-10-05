@@ -101,6 +101,7 @@ public final class ClientHarness {
 		rasterPinsAreStanding();
 		modelGeometryExposesLocalVertices();
 		modelGeometryDecodesRenderTypeAndTexture();
+		modelGeometryTextureIdComesFromTheColourSlot();
 		modelGeometryHandlesAbsentAttributes();
 		modelGeometryTextureArraysAreIndexedByTextureNotFace();
 		gpuBufferReusesStorageAfterClear();
@@ -109,6 +110,10 @@ public final class ClientHarness {
 		gpuBufferFailsFastOnBadSizesAndIndices();
 		gpuBufferBulkCopyHonoursTheWindow();
 		gpuIntBufferMirrorsTheFloatBuffer();
+		realModelExportMatchesTheParsedFormat();
+		realModelExportIndicesAreInRangeForTheRasteriser();
+		realModelExportDecodeMatchesTheRasteriser();
+		realModelExportDrivesTheRasteriser();
 		packetTapProducesDiffableLog();
 		itemDefOutOfRangeIdIsSafe();
 		itemDefCertTemplateWithoutCertIdIsSafe();
@@ -921,10 +926,39 @@ public final class ClientHarness {
 		writeField(m, "anIntArray1637", new int[] { 2 | (5 << 2), 3 });
 		check("Model geometry: render type is the LOW 2 BITS of the render-type word",
 				m.faceRenderType(0) == 2);
-		check("Model geometry: texture id is the render-type word shifted right by 2",
-				m.faceTextureId(0) == 5);
-		check("Model geometry: a purely flat face decodes to texture id 0",
-				m.faceRenderType(1) == 3 && m.faceTextureId(1) == 0);
+		check("Model geometry: the texture-COORDINATE INDEX is the render-type word shifted right by 2",
+				m.faceTextureIndex(0) == 5);
+		check("Model geometry: a purely flat face decodes to texture-coordinate index 0",
+				m.faceRenderType(1) == 3 && m.faceTextureIndex(1) == 0);
+	}
+
+	/**
+	 * The distinction Phase 5.3 caught by driving the real rasteriser: the texture ID
+	 * lives in the face COLOUR slot for textured faces, while {@code renderType >> 2}
+	 * only selects which texture-coordinate entry to use.
+	 *
+	 * <p>⚠️ This is asserted deliberately with the two values set to DIFFERENT numbers,
+	 * so a regression that collapses them into one (as the first draft of 5.1 did) fails
+	 * rather than coincidentally passing.
+	 */
+	private static void modelGeometryTextureIdComesFromTheColourSlot() {
+		Model m = bareModel();
+		// render type 2 (textured), texture-coordinate index 5, texture id 99.
+		writeField(m, "anIntArray1637", new int[] { 2 | (5 << 2) });
+		writeField(m, "anIntArray1640", new int[] { 99 });
+		check("Model geometry: a textured face's texture ID comes from the COLOUR slot",
+				m.faceTextureId(0) == 99);
+		check("Model geometry: ... and is a DIFFERENT value from the texture-coordinate index",
+				m.faceTextureIndex(0) == 5 && m.faceTextureId(0) != m.faceTextureIndex(0));
+
+		// A flat face keeps its colour and has no texture id at all.
+		Model flat = bareModel();
+		writeField(flat, "anIntArray1637", new int[] { 0 });
+		writeField(flat, "anIntArray1640", new int[] { 0xF800 });
+		check("Model geometry: a FLAT face has no texture ID, even though its colour slot is set",
+				flat.faceTextureId(0) == -1);
+		check("Model geometry: ... and its colour slot really is a colour",
+				flat.faceBaseColours()[0] == 0xF800);
 	}
 
 	/**
@@ -937,7 +971,9 @@ public final class ClientHarness {
 		check("Model geometry: a model with no render types reports so", !m.hasFaceRenderTypes());
 		check("Model geometry: absent render types decode to type 0 without throwing",
 				m.faceRenderType(0) == 0);
-		check("Model geometry: absent render types decode to texture id -1, NOT 0 (which is a real texture)",
+		check("Model geometry: absent render types decode to texture-coordinate index -1, NOT 0",
+				m.faceTextureIndex(0) == -1);
+		check("Model geometry: absent render types decode to texture ID -1",
 				m.faceTextureId(0) == -1);
 		check("Model geometry: a model with no textures reports so", !m.hasTextures());
 		check("Model geometry: texture count is 0 when there are no textures", m.textureCount() == 0);
@@ -1927,6 +1963,394 @@ public final class ClientHarness {
 			threw = true;
 		}
 		check("GpuIntBuffer: reading past the position fails fast", threw);
+	}
+
+	// ------------------------------- Phase 5.3 real-format geometry cross-check
+
+	/** A model id far above anything the client loads, so the parse cannot collide. */
+	private static final int FIXTURE_MODEL_ID = 70000;
+
+	/** The vertex positions the fixture encodes, in x/y/z order. */
+	private static final int[][] FIXTURE_VERTICES = {
+			{ 1, 10, 100 }, { 2, 20, 200 }, { 3, 30, 300 }
+	};
+
+	/** Face 0 is FLAT (render type 0) so its colour slot really is a colour. */
+	private static final int FIXTURE_FLAT_COLOUR = 0xF800;
+	/** Face 1 is TEXTURED (render type 2), texture-coordinate index 0, texture id 0. */
+	private static final int FIXTURE_TEXTURE_ID = 0;
+
+	/**
+	 * Builds a model in the client's REAL 622-era file format.
+	 *
+	 * <p><b>Why craft bytes rather than assign fields.</b> Phase 5.1's tests wrote the
+	 * private arrays directly, which proves the accessors read <i>those fields</i> but
+	 * cannot prove the fields are the <i>right ones</i> - a self-consistent swap would
+	 * pass. Here the PARSER decides which field holds x, y and z, following the real
+	 * format; so if an accessor reads the wrong array, the values come back permuted
+	 * and the assertions fail. That is the gap 5.1 explicitly left open, and closing it
+	 * is what exposed the texture-id convention.
+	 *
+	 * <p><b>Two faces on purpose, one of each kind:</b> a flat face (whose colour slot
+	 * holds a colour) and a textured face (whose colour slot holds a TEXTURE ID). A
+	 * single-face fixture of either kind cannot tell the two conventions apart, which is
+	 * how the original texture-id mistake survived Phase 5.1.
+	 *
+	 * <p><b>Layout, from {@code method460} + {@code readOldModel} (not guessed).</b>
+	 * The body is laid out in exactly the order {@code method460} computes its offsets,
+	 * and the trailing 18 bytes are the footer it reads from {@code length - 18}:
+	 * <pre>
+	 *   0..2   vertex flags (bit0=x delta, bit1=y delta, bit2=z delta)
+	 *   3..4   face index types (1 = three explicit deltas)
+	 *   5..6   face render types (0 = flat, 2 = textured-gouraud)
+	 *   7..12  face index deltas        (method421 encoded)
+	 *   13..16 face colour slots         (flat colour, then the texture id)
+	 *   17..22 texture coordinates       (3 words: vertex indices 0,1,2)
+	 *   23..25 x deltas                  (method421 encoded)
+	 *   26..28 y deltas
+	 *   29..34 z deltas                  (100 needs the two-byte form)
+	 *   35..52 footer: counts, 5 presence flags, 4 stream lengths
+	 * </pre>
+	 * The last footer word is 0x0006, so the final two bytes are not 0xFF 0xFF and the
+	 * parse takes the <b>old</b> format branch - which is what the offsets assume.
+	 *
+	 * <p>Face topology is delta-coded and cumulative: face 0's deltas (0,1,1) give
+	 * vertices 0,1,2; face 1's deltas (0,-1,-1) then give 2,1,0, which exercises the
+	 * cumulative decode rather than just repeating one triangle.
+	 */
+	private static byte[] buildOldFormatFixture() {
+		byte[] b = new byte[53];
+
+		// Vertex flags: all three deltas present for all three vertices.
+		b[0] = 7; b[1] = 7; b[2] = 7;
+		// Both face index types are 1 (three explicit deltas).
+		b[3] = 1; b[4] = 1;
+		// Face 0 flat, face 1 textured.
+		b[5] = 0; b[6] = 2;
+		// Face 0 deltas 0,1,1 -> vertices 0,1,2. Face 1 deltas 0,-1,-1 -> 2,1,0.
+		b[7] = delta(0); b[8] = delta(1); b[9] = delta(1);
+		b[10] = delta(0); b[11] = delta(-1); b[12] = delta(-1);
+		// Face 0 colour, big-endian; face 1's slot holds the texture id.
+		putWord(b, 13, FIXTURE_FLAT_COLOUR);
+		putWord(b, 15, FIXTURE_TEXTURE_ID);
+		// Texture coordinates: vertex indices 0, 1, 2.
+		putWord(b, 17, 0); putWord(b, 19, 1); putWord(b, 21, 2);
+		// x deltas of 1, y of 10, z of 100 - cumulative, so positions differ per vertex.
+		b[23] = delta(1); b[24] = delta(1); b[25] = delta(1);
+		b[26] = delta(10); b[27] = delta(10); b[28] = delta(10);
+		putDelta2(b, 29, 100); putDelta2(b, 31, 100); putDelta2(b, 33, 100);
+
+		// Footer at 35: counts, then the five presence flags, then four stream lengths.
+		putWord(b, 35, 3);           // vertex count
+		putWord(b, 37, 2);           // face count
+		b[39] = 1;                   // texture count
+		b[40] = 1;                   // render types present
+		b[41] = 0;                   // priorities absent
+		b[42] = 0;                   // alphas absent
+		b[43] = 0;                   // texture pointers absent
+		b[44] = 0;                   // skin absent
+		putWord(b, 45, 3);           // x delta stream length
+		putWord(b, 47, 3);           // y delta stream length
+		putWord(b, 49, 6);           // z delta stream length
+		putWord(b, 51, 6);           // face index stream length
+		return b;
+	}
+
+	/**
+	 * Encodes one delta in {@code Stream.method421}'s one-byte form: a byte below 128
+	 * is read back as {@code value - 64}. Only valid for deltas in [-64, 63].
+	 */
+	private static byte delta(int d) {
+		if (d < -64 || d > 63) {
+			throw new IllegalArgumentException("delta " + d + " needs the two-byte form: " + d);
+		}
+		return (byte) (d + 64);
+	}
+
+	/** The two-byte form: the first byte must be >= 128, and it reads back as {@code word - 49152}. */
+	private static void putDelta2(byte[] b, int off, int d) {
+		int word = d + 49152;
+		b[off] = (byte) (word >> 8);
+		b[off + 1] = (byte) word;
+		if ((b[off] & 0xFF) < 128) {
+			throw new IllegalArgumentException("delta " + d + " would encode as a one-byte value");
+		}
+	}
+
+	private static void putWord(byte[] b, int off, int value) {
+		b[off] = (byte) (value >> 8);
+		b[off + 1] = (byte) value;
+	}
+
+	/**
+	 * Parses the fixture through the client's REAL loader and returns the built model.
+	 *
+	 * <p>Uses {@code Model.method459} to initialise the model store, {@code method460}
+	 * to parse, and the private {@code Model(int)} constructor - the same three steps
+	 * the client takes at runtime. {@code null} is passed for the on-demand fetcher,
+	 * which {@code method459} merely stores.
+	 */
+	private static Model parseFixtureModel() {
+		try {
+			Model.method459(FIXTURE_MODEL_ID, null);
+			Model.method460(buildOldFormatFixture(), FIXTURE_MODEL_ID);
+			java.lang.reflect.Constructor<Model> c =
+					Model.class.getDeclaredConstructor(int.class);
+			c.setAccessible(true);
+			return c.newInstance(FIXTURE_MODEL_ID);
+		} catch (Exception e) {
+			throw new RuntimeException("could not parse the fixture model", e);
+		}
+	}
+
+	private static Object readStatic(Class<?> owner, String name) {
+		try {
+			java.lang.reflect.Field f = owner.getDeclaredField(name);
+			f.setAccessible(true);
+			return f.get(null);
+		} catch (Exception e) {
+			throw new RuntimeException("could not read static field " + name, e);
+		}
+	}
+
+	private static void writeStatic(Class<?> owner, String name, Object value) {
+		try {
+			java.lang.reflect.Field f = owner.getDeclaredField(name);
+			f.setAccessible(true);
+			f.set(null, value);
+		} catch (Exception e) {
+			throw new RuntimeException("could not write static field " + name, e);
+		}
+	}
+
+	/**
+	 * The headline check: the exported geometry equals what the REAL PARSER produced.
+	 *
+	 * <p>Exact values, not ranges. The parser places each delta stream into a specific
+	 * field (x from one stream, y from another, z from a third), so a permuted mapping
+	 * in the accessors cannot produce these values.
+	 */
+	private static void realModelExportMatchesTheParsedFormat() {
+		Model m = parseFixtureModel();
+
+		check("Real model: counts come from the parsed footer, not from defaults",
+				m.vertexCount() == 3 && m.faceCount() == 2 && m.textureCount() == 1);
+
+		int[] xs = m.vertexXs();
+		int[] ys = m.vertexYs();
+		int[] zs = m.vertexZs();
+		boolean positionsMatch = xs.length == 3 && ys.length == 3 && zs.length == 3;
+		for (int i = 0; positionsMatch && i < 3; i++) {
+			positionsMatch = xs[i] == FIXTURE_VERTICES[i][0]
+					&& ys[i] == FIXTURE_VERTICES[i][1]
+					&& zs[i] == FIXTURE_VERTICES[i][2];
+		}
+		check("Real model: exported vertices equal the encoded positions, x/y/z in the right fields"
+				+ (positionsMatch ? "" : " - got x=" + java.util.Arrays.toString(xs)
+						+ " y=" + java.util.Arrays.toString(ys) + " z=" + java.util.Arrays.toString(zs)),
+				positionsMatch);
+
+		check("Real model: vertex arrays are sized by the parsed vertex count",
+				xs.length == m.vertexCount());
+		check("Real model: face arrays are sized by the parsed face count",
+				m.faceVertexA().length == m.faceCount()
+						&& m.faceVertexB().length == m.faceCount()
+						&& m.faceVertexC().length == m.faceCount());
+
+		check("Real model: face 0's topology is what the parser decoded (0,1,2)",
+				m.faceVertexA()[0] == 0 && m.faceVertexB()[0] == 1 && m.faceVertexC()[0] == 2);
+		check("Real model: face 1's topology follows the CUMULATIVE delta decode (2,1,0)",
+				m.faceVertexA()[1] == 2 && m.faceVertexB()[1] == 1 && m.faceVertexC()[1] == 0);
+		check("Real model: texture coords are the encoded vertex indices",
+				m.hasTextures() && m.textureVertexA()[0] == 0
+						&& m.textureVertexB()[0] == 1 && m.textureVertexC()[0] == 2);
+		check("Real model: an absent attribute is null, not a zero-filled array (alphas)",
+				m.faceAlphas() == null);
+		check("Real model: an absent attribute is null, not a zero-filled array (priorities)",
+				m.facePriorities() == null);
+	}
+
+	/**
+	 * The invariant the rasteriser depends on and never checks itself.
+	 *
+	 * <p>{@code method484} reads {@code anIntArray1666[anIntArray1631[i]]} with no bounds
+	 * test, so an out-of-range index would read past the scratch array rather than throw.
+	 * Asserting every exported index is within the vertex count is therefore a property
+	 * of the EXPORT that the rasteriser's safety rests on.
+	 */
+	private static void realModelExportIndicesAreInRangeForTheRasteriser() {
+		Model m = parseFixtureModel();
+		int vc = m.vertexCount();
+		boolean ok = true;
+		for (int i = 0; i < m.faceCount(); i++) {
+			int a = m.faceVertexA()[i];
+			int b = m.faceVertexB()[i];
+			int c = m.faceVertexC()[i];
+			if (a < 0 || b < 0 || c < 0 || a >= vc || b >= vc || c >= vc) {
+				ok = false;
+			}
+		}
+		check("Real model: every face index is inside the vertex range the rasteriser indexes unchecked",
+				ok);
+	}
+
+	/**
+	 * The export's decode must agree with the expressions {@code method484} uses, and the
+	 * ids it hands the rasteriser must resolve.
+	 *
+	 * <p>⚠️ Honest about what this is: the draw routine is {@code word & 3} and the
+	 * coordinate index is {@code word >> 2}, and the accessors use the same expressions,
+	 * so that agreement is a <b>drift guard</b> rather than independent evidence. The
+	 * substantive assertions are the literal expected values - and, above all, that the
+	 * texture ID comes from the COLOUR slot, which is the convention Phase 5.1 got wrong
+	 * and which this check is what caught.
+	 */
+	private static void realModelExportDecodeMatchesTheRasteriser() {
+		Model m = parseFixtureModel();
+
+		// Quoted from method484: it branches on `anIntArray1637[i] & 3` for the draw
+		// routine, uses `anIntArray1637[i] >> 2` to pick the texture-COORDINATE entry,
+		// and passes `anIntArray1640[i]` to method378 as the texture TO SAMPLE.
+		int face0 = m.faceRenderTypes()[0];
+		int face1 = m.faceRenderTypes()[1];
+
+		check("Real model: face 0's render type decodes to the encoded value (0 = flat)",
+				m.faceRenderType(0) == 0);
+		check("Real model: face 1's render type decodes to the encoded value (2 = textured)",
+				m.faceRenderType(1) == 2);
+
+		check("Real model: a FLAT face's colour slot is a colour, as the format intends",
+				m.faceBaseColours()[0] == FIXTURE_FLAT_COLOUR);
+		check("Real model: a FLAT face reports NO texture id, even though the slot is populated",
+				m.faceTextureId(0) == -1);
+
+		check("Real model: a TEXTURED face's texture id comes from the COLOUR slot, not the render word",
+				m.faceTextureId(1) == FIXTURE_TEXTURE_ID);
+		check("Real model: ... and its texture-coordinate index is the render word shifted right by 2",
+				m.faceTextureIndex(1) == (face1 >> 2));
+
+		check("Real model: the export's draw-routine decode agrees with the rasteriser's own expression",
+				m.faceRenderType(0) == (face0 & 3) && m.faceRenderType(1) == (face1 & 3));
+
+		boolean resolves = true;
+		for (int i = 0; i < m.faceCount(); i++) {
+			int tid = m.faceTextureId(i);
+			int coord = m.faceTextureIndex(i);
+			if (tid >= 0 && tid >= 4096) {
+				resolves = false;
+			}
+			if (coord >= 0 && coord >= m.textureCount()) {
+				resolves = false;
+			}
+		}
+		check("Real model: every texture id and coordinate index resolves inside the texture arrays",
+				resolves);
+	}
+
+	/**
+	 * The integration check: the parsed model's own face data drives the REAL per-face
+	 * rasteriser, and it plots pixels.
+	 *
+	 * <p>Drives {@code method484} - the routine {@code method443} calls per face - for
+	 * BOTH faces, so both rasteriser paths are exercised from parsed data: face 0 is flat
+	 * ({@code method374}, colours only) and face 1 is textured ({@code method378}, which
+	 * resolves its texture through {@link Model#faceTextureId}).
+	 *
+	 * <p>⚠️ <b>This is the check that caught the texture-id mistake.</b> The first draft
+	 * encoded a textured face whose colour slot held 0xF800, which the rasteriser then
+	 * used as a texture id and blew up on - proving the slot is not a colour for textured
+	 * faces. A parse-and-inspect test cannot find that, because the export and the parser
+	 * agreed with each other; only driving the real draw disputes it.
+	 *
+	 * <p>Screen-space and camera-space coordinates are parked rather than transformed, so
+	 * the test does not depend on a camera. That is deliberate: the question here is
+	 * whether the model's face data drives the rasteriser, not whether projection works.
+	 */
+	private static void realModelExportDrivesTheRasteriser() {
+		Model m = parseFixtureModel();
+
+		int w = 256;
+		int h = 256;
+		int[] buf = new int[w * h];
+		DrawingArea.initDrawingArea(h, w, buf);
+		DrawingArea.setAllPixels(0);
+		Texture.method364();
+		Fog.sceneDepth = 0;
+		Texture.anInt1465 = 0;
+		Texture.aBoolean1462 = false;
+		Texture.aBoolean1464 = true;
+
+		// Same reasoning as the 4.1c-2a gate: Texture.method372 jitters the palette with
+		// Math.random(), so fill it deterministically here.
+		int[] palette = Texture.anIntArray1482;
+		for (int i = 0; i < palette.length; i++) {
+			int v = ((i & 0xFF) << 16) | (((i >> 3) & 0xFF) << 8) | ((i * 5) & 0xFF);
+			palette[i] = (v == 0 ? 1 : v);
+		}
+
+		// Park a texture at the id the parsed model names for its textured face, so
+		// method371 returns it instead of trying to build one from a Background.
+		int[] tex = new int[16384];
+		for (int i = 0; i < tex.length; i++) {
+			tex[i] = (((i * 7) & 0xFF) << 16) | (((i * 3) & 0xFF) << 8) | (i & 0xFF);
+		}
+		parkTexture(m.faceTextureId(1), tex);
+
+		// The transform would normally fill these; park a visible triangle instead, in the
+		// slots the model's own vertex and texture-coordinate indices tell method484 to read.
+		int[] xs = (int[]) readStatic(Model.class, "anIntArray1665");
+		int[] ys = (int[]) readStatic(Model.class, "anIntArray1666");
+		int[] sx = (int[]) readStatic(Model.class, "anIntArray1668");
+		int[] sy = (int[]) readStatic(Model.class, "anIntArray1669");
+		int[] sz = (int[]) readStatic(Model.class, "anIntArray1670");
+		for (int i = 0; i < 3; i++) {
+			xs[i] = new int[] { 40, 160, 100 }[i];
+			ys[i] = new int[] { 20, 30, 150 }[i];
+			sx[i] = new int[] { 100, 300, 200 }[i];
+			sy[i] = new int[] { 120, 400, 250 }[i];
+			sz[i] = new int[] { 300, 500, 350 }[i];
+		}
+		// The lit colours normally come from method479; supply them directly so this test
+		// is about rasterisation rather than lighting.
+		writeField(m, "anIntArray1634", new int[] { 0x1234, 0x2345 });
+		writeField(m, "anIntArray1635", new int[] { 0x5678, 0x6789 });
+		writeField(m, "anIntArray1636", new int[] { 0x9ABC, 0xABCD });
+
+		java.lang.reflect.Method draw;
+		try {
+			draw = Model.class.getDeclaredMethod("method484", int.class);
+			draw.setAccessible(true);
+		} catch (Exception e) {
+			check("Real model: could reach the per-face rasteriser entry point", false);
+			return;
+		}
+
+		String beforeFlat = framebufferHash(buf);
+		try {
+			draw.invoke(m, 0);
+		} catch (Exception e) {
+			Throwable cause = e.getCause() != null ? e.getCause() : e;
+			check("Real model: the rasteriser draws the parsed FLAT face without error"
+					+ " - got " + cause.getClass().getName() + ": " + cause.getMessage(), false);
+			return;
+		}
+		check("Real model: the rasteriser draws the parsed flat face without error", true);
+		String afterFlat = framebufferHash(buf);
+		check("Real model: the flat face's draw plotted pixels", !beforeFlat.equals(afterFlat));
+
+		String beforeTextured = framebufferHash(buf);
+		try {
+			draw.invoke(m, 1);
+		} catch (Exception e) {
+			Throwable cause = e.getCause() != null ? e.getCause() : e;
+			check("Real model: the rasteriser draws the parsed TEXTURED face without error"
+					+ " - got " + cause.getClass().getName() + ": " + cause.getMessage(), false);
+			return;
+		}
+		check("Real model: the rasteriser draws the parsed textured face without error"
+				+ " (its texture id resolved from the colour slot)", true);
+		check("Real model: the textured face's draw plotted pixels",
+				!beforeTextured.equals(framebufferHash(buf)));
 	}
 
 	// ------------------------- the standing raster gate, consolidated (Phase 4.3)
