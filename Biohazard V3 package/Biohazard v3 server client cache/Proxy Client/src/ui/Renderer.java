@@ -46,12 +46,19 @@ public final class Renderer {
 	 * The game-frame present - the one a GPU path is expected to take over
 	 * wholesale.
 	 *
-	 * <p>Keeps the pre-existing hook and fallback exactly as {@code
-	 * client.drawGameBuffer} performed them before this class existed: ask
-	 * {@link GlPresent#presentGame} first, and only blit in software if it
-	 * declines.
+	 * <p>The fallback order is unchanged from before this class existed, with the
+	 * Phase 4.2a facade prepended as the first ask:
+	 * {@link GpuRenderer#presentGameFrame} (declines when no renderer is installed),
+	 * then the pre-existing {@link GlPresent#presentGame} hook, then the software
+	 * blit. ⚠️ {@code GlPresent.presentGame} is still a dead stub that returns
+	 * {@code false} unconditionally; it is kept here rather than removed so the
+	 * order stays identical, and it is already listed for deletion in Phase 8.2 -
+	 * deleting it is that step's job, not this one.
 	 */
 	public static void presentGameFrame(RSImageProducer producer, Graphics hostGraphics, int destX, int destY) {
+		if (GpuRenderer.presentGameFrame(producer, destX, destY)) {
+			return;
+		}
 		if (GlPresent.presentGame(producer, destX, destY)) {
 			return;
 		}

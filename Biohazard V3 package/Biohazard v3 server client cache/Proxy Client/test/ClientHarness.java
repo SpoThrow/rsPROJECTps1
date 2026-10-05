@@ -18,6 +18,8 @@ import scene.Fog;
 import scene.ObjectManager;
 import scene.WorldController;
 import ui.DrawingArea;
+import ui.GpuRenderer;
+import ui.RSImageProducer;
 import ui.SceneRasterizer;
 import ui.Sprite;
 
@@ -89,6 +91,8 @@ public final class ClientHarness {
 		sceneRasterizerInterceptsWhenInstalled();
 		groundSeamIsInertByDefault();
 		groundSeamInterceptsWhenInstalled();
+		gpuRendererIsInertByDefault();
+		gpuRendererWiresBothSeams();
 		packetTapProducesDiffableLog();
 		itemDefOutOfRangeIdIsSafe();
 		itemDefCertTemplateWithoutCertIdIsSafe();
@@ -1438,10 +1442,18 @@ public final class ClientHarness {
 	 * {@code Model.aModel_1621} is an empty model that {@code method443} would
 	 * otherwise cull and return from before drawing anything, proves the dispatch
 	 * sits at the TOP of the method rather than after the culling.
+	 *
+	 * <p>Installed through {@link GpuRenderer} rather than
+	 * {@code SceneRasterizer.install}, which is package-private precisely so the
+	 * facade is the only install point - so this exercises the real path.
 	 */
 	private static void sceneRasterizerInterceptsWhenInstalled() {
 		final int[] calls = new int[1];
-		SceneRasterizer.install(new SceneRasterizer.Implementation() {
+		GpuRenderer.install(new GpuRenderer.Implementation() {
+			public boolean presentGameFrame(RSImageProducer producer, int destX, int destY) {
+				return true;
+			}
+
 			public void drawModel(Model model, int orientation, int camA, int camB, int camC,
 					int camD, int dx, int dy, int dz, int uid) {
 				calls[0]++;
@@ -1458,10 +1470,61 @@ public final class ClientHarness {
 			check("Scene rasteriser: an installed rasteriser intercepts method443",
 					calls[0] == 1);
 		} finally {
-			SceneRasterizer.install(null);
+			GpuRenderer.install(null);
 		}
 		check("Scene rasteriser: uninstalling restores the software path",
 				SceneRasterizer.implementation() == null);
+	}
+
+	// --------------------------------------------- the renderer facade (Phase 4.2a)
+
+	/**
+	 * The facade must be inert with nothing installed - the property that makes
+	 * prepending it to the present path safe.
+	 *
+	 * <p>The producer is deliberately {@code null}: with nothing installed
+	 * {@code presentGameFrame} returns {@code false} without touching it, and that
+	 * "declines without dereferencing" is part of what is being asserted.
+	 */
+	private static void gpuRendererIsInertByDefault() {
+		check("Renderer facade: no renderer is installed by default",
+				GpuRenderer.implementation() == null);
+		check("Renderer facade: presentGameFrame declines when nothing is installed",
+				!GpuRenderer.presentGameFrame(null, 0, 0));
+	}
+
+	/**
+	 * The point of the facade: installing once wires BOTH seams, and uninstalling
+	 * once clears both, so a caller cannot leave half a renderer installed.
+	 */
+	private static void gpuRendererWiresBothSeams() {
+		final int[] present = new int[1];
+		GpuRenderer.install(new GpuRenderer.Implementation() {
+			public boolean presentGameFrame(RSImageProducer producer, int destX, int destY) {
+				present[0]++;
+				return true;
+			}
+
+			public void drawModel(Model model, int orientation, int camA, int camB, int camC,
+					int camD, int dx, int dy, int dz, int uid) {
+			}
+
+			public void drawGroundTriangle(int x0, int y0, int x1, int y1, int x2, int y2,
+					int colour0, int colour1, int colour2, int textureId, boolean flatMesh,
+					int t0, int t1, int t2, int t3, int t4, int t5, int t6, int t7, int t8) {
+			}
+		});
+		try {
+			check("Renderer facade: one install wires the SCENE seam too",
+					SceneRasterizer.implementation() != null
+							&& SceneRasterizer.implementation() == GpuRenderer.implementation());
+			check("Renderer facade: the present call reaches the installed renderer",
+					GpuRenderer.presentGameFrame(null, 1, 2) && present[0] == 1);
+		} finally {
+			GpuRenderer.install(null);
+		}
+		check("Renderer facade: one uninstall clears BOTH seams",
+				GpuRenderer.implementation() == null && SceneRasterizer.implementation() == null);
 	}
 
 	// ------------------------------------ ground triangle seam (Phase 4.1c-2c)
@@ -1489,7 +1552,11 @@ public final class ClientHarness {
 	private static void groundSeamInterceptsWhenInstalled() {
 		final int[] seen = new int[20];
 		final int[] calls = new int[1];
-		SceneRasterizer.install(new SceneRasterizer.Implementation() {
+		GpuRenderer.install(new GpuRenderer.Implementation() {
+			public boolean presentGameFrame(RSImageProducer producer, int destX, int destY) {
+				return true;
+			}
+
 			public void drawModel(Model model, int orientation, int camA, int camB, int camC,
 					int camD, int dx, int dy, int dz, int uid) {
 				calls[0] += 1000;
@@ -1517,7 +1584,7 @@ public final class ClientHarness {
 			check("Ground rasteriser seam: the whole payload arrives in order (coords, colours, "
 					+ "textureId, flatMesh, t0..t8)", orderOk);
 		} finally {
-			SceneRasterizer.install(null);
+			GpuRenderer.install(null);
 		}
 		check("Ground rasteriser seam: uninstalling restores the software path",
 				SceneRasterizer.implementation() == null);

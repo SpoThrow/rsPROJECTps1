@@ -8,9 +8,10 @@ import model.Model;
  * <p><b>What this is.</b> {@link Model#method443} is the point at which the 3D
  * scene submits a model for drawing: one call means "draw this model, placed
  * here, with this camera rotation" - the method loops over the model's own
- * triangles internally. There are 22 call sites, all inside
- * {@code scene.WorldController.method313}, and they share a single shape. This
- * class names that operation so it can be replaced in one place.
+ * triangles internally. There are 22 call sites and they share a single shape:
+ * 21 inside {@code scene.WorldController.method314} (the per-tile scene drawer),
+ * plus one delegating wrapper at {@code model.Animable.method443}. This class
+ * names that operation so it can be replaced in one place.
  *
  * <p><b>Why the dispatch is at the TOP of method443 rather than at the 22 call
  * sites.</b> Routing each call site would mean editing 22 lines, and a site
@@ -26,12 +27,20 @@ import model.Model;
  * 4.1c-2a framebuffer hash must stay unmoved, and that is the proof this step is
  * behaviour-neutral. No GL code is written anywhere in Phase 4.
  *
- * <p><b>Known gap, stated rather than implied.</b> This seam covers MODELS:
- * objects, walls, roofs, NPCs and players. It does NOT cover the ground, because
- * {@code WorldController.method316} draws the landscape mesh with 11 direct
- * rasteriser calls and never routes through {@code method443}. A GPU path needs
- * both, so the ground is a separate step (4.1c-2c) and the scene rasteriser
- * should not be described as seamed until that is done too.
+ * <p><b>The GROUND is covered too (4.1c-2c), so the scene rasteriser is now seamed
+ * as a whole.</b> The ground never routes through {@code method443} - it is drawn
+ * by {@code WorldController.method315} (the {@code Class43} floor mesh) and
+ * {@code WorldController.method316} (the {@code Class40} overlay mesh), which call
+ * the triangle rasterisers directly - so it is handled by the separate
+ * {@link #dispatchGroundTriangle} operation below, hooked in three places.
+ *
+ * <p><b>Coverage boundary, stated so it is not over-read.</b> This covers scene
+ * <i>submission</i> - models and ground - which is what a GPU path needs. It is not
+ * a claim that every rasteriser entry point is seamed:
+ * {@code WorldController.method319}/{@code method321}/{@code method305-309}/
+ * {@code method323-324} and {@code Model}'s own triangle helpers
+ * ({@code method472}, {@code method479}, {@code method483}, {@code method485},
+ * {@code method480-486}) are untouched.
  */
 public final class SceneRasterizer {
 
@@ -52,7 +61,7 @@ public final class SceneRasterizer {
 				int dx, int dy, int dz, int uid);
 
 		/**
-		 * A GORD triangle submission, already projected to screen space.
+		 * A GROUND triangle submission, already projected to screen space.
 		 *
 		 * <p>One call = "draw this projected triangle", mirroring what the software
 		 * rasteriser receives at each of the ground's call sites. The arguments are the
@@ -84,8 +93,14 @@ public final class SceneRasterizer {
 	private SceneRasterizer() {
 	}
 
-	/** Install the rasteriser that will handle scene models. */
-	public static void install(Implementation impl) {
+	/**
+	 * Install the rasteriser that will handle scene models.
+	 *
+	 * <p>Package-private on purpose: {@link GpuRenderer#install} is the single install
+	 * point, so a scene rasteriser cannot be installed independently of the present
+	 * half. The same enforcement pattern as {@code RSImageProducer.drawGraphics}.
+	 */
+	static void install(Implementation impl) {
 		implementation = impl;
 	}
 
