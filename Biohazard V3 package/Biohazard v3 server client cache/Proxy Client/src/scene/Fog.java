@@ -109,6 +109,20 @@ public final class Fog {
 		return fadeRgb(rgb, depth);
 	}
 
+	/**
+	 * The colour the scene background is filled with, as a {@code 0x00RRGGBB}.
+	 *
+	 * <p><b>Why this is a named operation rather than a caller reading {@link #fogRgb()}.</b>
+	 * The software does not clear to the fog colour unconditionally - {@code client.method146}
+	 * branches: it calls {@link #fillBackground()} when fog is on and
+	 * {@code DrawingArea.setAllPixelsToZero()} when it is not, so the background is BLACK at
+	 * strength zero and {@link #fogRgb()} above it. A GL frame has to be cleared to the same
+	 * thing, and reproducing that branch at the call site would be a second copy of it.
+	 */
+	public static int sceneBackgroundRgb() {
+		return client.fogStrength <= 0 ? 0 : fogRgb();
+	}
+
 	public static void fillBackground() {
 		int[] pixels = DrawingArea.pixels;
 		if (pixels == null || client.fogStrength <= 0) {

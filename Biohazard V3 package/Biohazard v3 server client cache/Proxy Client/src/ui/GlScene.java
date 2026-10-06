@@ -38,7 +38,12 @@ import org.lwjgl.opengl.GL30;
  */
 public final class GlScene {
 
-	/** The scene viewport the context is created for, matching the fixed game area. */
+	/**
+	 * The size the frame target starts at, before anything has said what the drawing area
+	 * is. ⚠️ <b>NOT the live size, and no longer assumed to be "the fixed game area"</b> -
+	 * that assumption was wrong in both modes and is what the live gate refuted (2026-10-06).
+	 * The real size arrives as the parameter of {@link #ensure(int, int)}; see its doc.
+	 */
 	public static final int DEFAULT_WIDTH = 765;
 	public static final int DEFAULT_HEIGHT = 503;
 
@@ -59,23 +64,45 @@ public final class GlScene {
 	}
 
 	/**
-	 * Creates the context if it has not been attempted yet, and reports whether it is
-	 * usable. Idempotent: the attempt happens once, and a later call returns the same
-	 * answer without retrying, so a failed driver is not retried every frame.
+	 * Creates the frame target AT THE SIZE THE CALLER IS ABOUT TO DRAW, and reports whether
+	 * it is usable.
+	 *
+	 * <p>⚠️ <b>The size is a PARAMETER because the constant it replaced could never
+	 * match - and the live gate is what proved it (2026-10-06).</b> The old viewport was
+	 * {@code DEFAULT_WIDTH/HEIGHT} (765x503), on the assumption that this was "the fixed
+	 * game area". It is not: in FIXED mode the game raster is 512x334, and in RESIZABLE
+	 * mode {@code Jframe.setCanvasSize} sizes the FRAME to {@code width +
+	 * PluginSidebar.eastWidth() + insets} by {@code height + TitleBar.barHeight() + insets}
+	 * and the game component then STRETCHES to fill it - so the drawing area is at least
+	 * 907x666 and grows with the window. <b>Neither mode, at any window size, yields
+	 * 765x503</b>, so the size gate in {@code GlSceneRenderer} declined every frame,
+	 * permanently, in every configuration. A live client printed it: {@code GL viewport
+	 * 765x503 does not match the drawing area 907x666}.</p>
+	 *
+	 * <p>Brings up on the first call, and RESTATES the frame target on a later call whose
+	 * drawing area differs - which is what a window resize or a fixed/resizable switch looks
+	 * like from here. Nothing draws to the window's own framebuffer (the hidden window
+	 * exists only to own the context), so a restate is two {@code glRenderbufferStorage}
+	 * calls and a completeness check, not a context rebuild.</p>
 	 *
 	 * <p>Must be called from the GAME THREAD - see the class doc. The context is left
 	 * current on the calling thread, which is what makes later draws from that thread
 	 * work without a second {@code makeContextCurrent}.
 	 *
-	 * @return {@code true} if a context and framebuffer are ready to draw into
+	 * @param width  the drawing area's width in pixels, {@code > 0}
+	 * @param height the drawing area's height in pixels, {@code > 0}
+	 * @return {@code true} if a context and framebuffer are ready to draw into at that size
 	 */
-	public static synchronized boolean ensure() {
+	public static synchronized boolean ensure(int width, int height) {
 		if (attempted) {
-			return available;
+			if (!available) {
+				return false;
+			}
+			return restate(width, height);
 		}
 		attempted = true;
 		try {
-			create();
+			create(width, height);
 			available = true;
 		} catch (Throwable t) {
 			// Deliberately Throwable, not Exception: the realistic failures here include
@@ -88,7 +115,44 @@ public final class GlScene {
 		return available;
 	}
 
-	private static void create() {
+	/**
+	 * Re-states the frame target's size, and reports whether it is complete afterwards.
+	 *
+	 * <p>Declines rather than throws. A failure here is deliberately TERMINAL for the
+	 * session: the FBO's attachments would be in an unknown state, and rebuilding the
+	 * context to recover is not worth the risk while the software path remains the
+	 * fallback the client keeps.
+	 */
+	private static boolean restate(int newWidth, int newHeight) {
+		if (newWidth <= 0 || newHeight <= 0) {
+			return false;
+		}
+		if (newWidth == width && newHeight == height) {
+			return true;
+		}
+		try {
+			GL30.glBindRenderbuffer(GL30.GL_RENDERBUFFER, colourBuffer);
+			GL30.glRenderbufferStorage(GL30.GL_RENDERBUFFER, GL11.GL_RGBA8, newWidth, newHeight);
+			GL30.glBindRenderbuffer(GL30.GL_RENDERBUFFER, depthBuffer);
+			GL30.glRenderbufferStorage(GL30.GL_RENDERBUFFER, GL30.GL_DEPTH_COMPONENT24, newWidth,
+					newHeight);
+			width = newWidth;
+			height = newHeight;
+			GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, framebuffer);
+			if (GL30.glCheckFramebufferStatus(GL30.GL_FRAMEBUFFER) == GL30.GL_FRAMEBUFFER_COMPLETE) {
+				return true;
+			}
+			unavailableReason = "the frame target is incomplete at " + newWidth + "x" + newHeight;
+		} catch (Throwable t) {
+			unavailableReason = describe(t);
+		}
+		available = false;
+		return false;
+	}
+
+	private static void create(int initialWidth, int initialHeight) {
+		width = initialWidth;
+		height = initialHeight;
 		if (!GLFW.glfwInit()) {
 			throw new IllegalStateException("glfwInit returned false");
 		}

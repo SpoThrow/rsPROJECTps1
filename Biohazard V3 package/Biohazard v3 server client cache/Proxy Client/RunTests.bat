@@ -19,7 +19,7 @@ if exist "%OUT%" rmdir /s /q "%OUT%"
 mkdir "%OUT%"
 
 echo Compiling tests against bin...
-%JAVAC% -nowarn -cp bin -d "%OUT%" -sourcepath test test\ClientHarness.java
+%JAVAC% -nowarn -encoding UTF-8 -cp bin -d "%OUT%" -sourcepath test test\ClientHarness.java
 if errorlevel 1 (
 	echo.
 	echo Test compile failed.

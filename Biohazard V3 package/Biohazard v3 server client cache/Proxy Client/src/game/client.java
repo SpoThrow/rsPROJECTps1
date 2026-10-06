@@ -89,6 +89,7 @@ import ui.FriendNotes;
 import ui.GlPresent;
 import ui.RendererConfig;
 import ui.GroundMarkers;
+import ui.GpuRenderer;
 import ui.HiscoresPanel;
 import ui.HudEditor;
 import ui.HudLayout;
@@ -15664,6 +15665,18 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 		worldController.method313(xCameraPos, yCameraPos, xCameraCurve,
 				zCameraPos, j, yCameraCurve);
 		worldController.clearObj5Cache();
+		// The scene-finished seam (Phase 7.2c). Everything ABOVE this line is 3D scene
+		// submission - the ground and the models, interleaved per tile by method314 - and
+		// everything BELOW it draws software 2D over the result: NPC indicator hulls, the
+		// anti-alias pass, item names, head icons and the 3D screen overlays. A GPU scene
+		// therefore has to be read back HERE, at this boundary and nowhere else. Two
+		// tempting alternatives are both wrong: reading back at the present would erase the
+		// HUD, which is composited into this same buffer first, and reading back earlier
+		// would cut off part of the scene. saveSceneBackup() runs after this point too, so
+		// an fpsUnlocked frame cache then preserves the GPU scene rather than the software
+		// one it replaced. Declines with nothing installed, so the software path is
+		// untouched when no renderer is selected.
+		GpuRenderer.sceneFinished(aRSImageProducer_1165);
 		drawNpcIndicatorHulls();
 		if (aaStrength >= 1 && aRSImageProducer_1165 != null) {
 			Fog.antiAliasEdges(aRSImageProducer_1165.anIntArray315, aRSImageProducer_1165.anInt316,

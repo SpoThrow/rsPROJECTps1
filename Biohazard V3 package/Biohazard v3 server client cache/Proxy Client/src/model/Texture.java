@@ -124,21 +124,30 @@ public final class Texture extends DrawingArea {
 	}
 
 	/**
-	 * Whether a texture with this id was loaded, i.e. whether the software renderer
-	 * could sample it at all.
+	 * Whether a texture with this id can actually be obtained, i.e. whether
+	 * {@code method371} would return something for it.
 	 *
-	 * <p>{@code unpack} swallows a per-texture failure ({@code catch (Exception)}), so
-	 * a gap in the 51 slots is a real possibility rather than a theoretical one - and a
+	 * <p>⚠️ <b>Both slots count, and that mirrors {@code method371} rather than being
+	 * generous.</b> {@code method371} returns immediately when the LOADED slot
+	 * ({@code anIntArrayArray1479}) is non-null, and only otherwise builds from the
+	 * {@code Background} array - so a texture is obtainable if EITHER is present. Asking
+	 * only about the {@code Background} would report a usable texture as missing.
+	 *
+	 * <p>{@code unpack} swallows a per-texture failure ({@code catch (Exception)}), so a
+	 * gap in the 51 slots is a real possibility rather than a theoretical one - and a
 	 * renderer that assumed every id in {@code 0..50} exists would upload an empty
 	 * texture and silently paint it black.
 	 */
 	public static boolean hasTexture(int id) {
-		return id >= 0 && id < aBackgroundArray1474s.length && aBackgroundArray1474s[id] != null;
+		if (id < 0 || id >= aBackgroundArray1474s.length) {
+			return false;
+		}
+		return aBackgroundArray1474s[id] != null || anIntArrayArray1479[id] != null;
 	}
 
 	/**
-	 * Side, in texels, of the square array {@link #texturePixels} returns - or 0 when
-	 * there is no such texture.
+	 * Side, in texels, of the square single-layer texture the GL array uploads, or
+	 * {@code 0} when there is no such texture.
 	 *
 	 * <p>⚠️ <b>This is not the source {@code Background}'s own size.</b>
 	 * {@code method371} RESAMPLES into a square working texture, and which square

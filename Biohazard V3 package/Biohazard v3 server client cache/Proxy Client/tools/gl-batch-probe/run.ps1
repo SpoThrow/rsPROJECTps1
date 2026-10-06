@@ -34,12 +34,16 @@
 #   flip     - drop the readback Y flip          (expect the top/bottom checks to fail)
 #   alpha    - write 0xFF into the alpha byte     (expect the alpha checks to fail)
 #   swizzle  - remove aCol.bgra from the shader   (expect red/blue to swap)
+#   block    - read the brightness block from the wrong bits (expect the shade sweep)
+#   layer    - ignore the layer attribute         (expect mapping + cutout to fail)
+#   divide   - drop the per-pixel UV divide       (expect the mapping check)
+#   rowcol   - read the texel from the transpose  (expect the mapping check)
 #
 # Exit code: 0 when the expectation holds (including "mutation was caught"), else 1.
 # ---------------------------------------------------------------------------
 param(
 	[switch]$Mutate,
-	[ValidateSet('flip', 'alpha', 'swizzle')]
+	[ValidateSet('flip', 'alpha', 'swizzle', 'block', 'layer', 'divide', 'rowcol')]
 	[string]$Mutation = 'flip'
 )
 
@@ -89,6 +93,26 @@ if ($Mutate) {
 		'swizzle' {
 			# Drop the byte-order swizzle, so (b,g,r,a) is used as if it were RGBA.
 			$src = $src.Replace('vCol = aCol.bgra;', 'vCol = aCol;')
+		}
+		'block' {
+			# Read the brightness block from the wrong bit range, so the shade sweep must
+			# disagree with the harness-pinned GlTextures policy.
+			$src = $src.Replace('"    int block = (shade >> 4) & 3;\n"', '"    int block = (shade >> 5) & 3;\n"')
+		}
+		'layer' {
+			# Ignore the layer attribute and always sample layer 0, which is empty - so
+			# every textured fragment must come out transparent instead of its texel.
+			$src = $src.Replace('ivec3(texel, vLayer)', 'ivec3(texel, 0)')
+		}
+		'divide' {
+			# Drop the per-pixel divide, so the texture coordinate is affine instead of
+			# the software's interpolate-then-divide.
+			$src = $src.Replace('vec2 uv = vUvW.xy / vUvW.z;', 'vec2 uv = vUvW.xy;')
+		}
+		'rowcol' {
+			# Swap the row and column order, so a texel is read from the transpose.
+			$src = $src.Replace('uvec4 t = texelFetch(uAtlas, ivec3(texel, vLayer), 0);',
+				'uvec4 t = texelFetch(uAtlas, ivec3(texel.yx, vLayer), 0);')
 		}
 	}
 
@@ -147,8 +171,9 @@ if ($Mutate) {
 
 if ($probeExit -eq 0) {
 	Write-Host "OK: GlBatcher draws and reads back correctly - colours, Y orientation,"
-	Write-Host "    the 0x00RRGGBB alpha contract, depth order, and the undrawn control."
+	Write-Host "    the 0x00RRGGBB alpha contract, depth order, the undrawn control,"
+	Write-Host "    and the textured path (shade policy, texel mapping, cutout)."
 } else {
-	Write-Host "FAIL: GlBatcher's draw/readback contract is broken."
+	Write-Host "FAIL: GlBatcher's draw/readback/texture contract is broken."
 }
 exit $probeExit

@@ -46,8 +46,11 @@ public interface TriangleSink {
 	 * rather than as a hint.</b> A face this sink cannot draw is counted as
 	 * {@link GlFacePipeline#NEEDS_TEXTURE} rather than submitted and silently dropped,
 	 * which is the difference between {@link GlFacePipeline#allRepresentable()} being a
-	 * fact and being a hope. {@link GlBatcher} answers {@code false} today: it has no
-	 * atlas, no UV attribute and no sampler.
+	 * fact and being a hope. {@link GlBatcher} answers {@code true} as of Phase 7.2b-2f -
+	 * it has an atlas, a UV attribute and a sampler - but it may still answer {@code false}
+	 * at runtime, because the texture array is built in its own guard: a driver that
+	 * refuses integer 3D textures costs the texture path while the flat path keeps
+	 * drawing.
 	 *
 	 * @return {@code true} if {@link #textured} can actually draw something
 	 */
@@ -56,13 +59,29 @@ public interface TriangleSink {
 	/**
 	 * Accepts one textured triangle.
 	 *
-	 * <p>⚠ <b>{@code u/v/w} are CAMERA-SPACE, not normalised texture coordinates, and
-	 * that is deliberate.</b> They are the software's {@code anIntArray1668/1669/1670} -
-	 * the values {@code Texture.method378} hands {@code method379}, which divides by
-	 * {@code w} per PIXEL to get a perspective-correct sample. Handing over coordinates
-	 * that were already divided and letting the GPU interpolate those affinely would be
-	 * the same error the near-plane clipper refuses to make (see {@link GlClipper}), so
-	 * the divide is left to the one layer that can do it once per pixel.
+	 * <p>⚠⚠ <b>{@code u/v/w} ARE THE SOFTWARE'S RAMP NUMERATORS, *NOT* CAMERA-SPACE
+	 * COORDINATES AND *NOT* A NORMALISED TEXTURE COORDINATE.</b> They are the three
+	 * screen-affine values {@code Texture.method378} builds from its nine camera-space
+	 * slots - {@code l4/i5/j5} and friends, the 2x2 minors - evaluated at this vertex.
+	 * The sink interpolates them <b>linearly in screen space</b> and DIVIDES per fragment,
+	 * so that {@code u/w} and {@code v/w} come out perspective-correct.
+	 *
+	 * <p>⚠ <b>Why the attribute is the numerator and not the triple, which is what this
+	 * seam carried until Phase 7.2b-2l.</b> Handing over camera-space {@code (u,v,w)} and
+	 * dividing the interpolated values is a DIFFERENT shape, and it was measured against
+	 * the real rasteriser: it matches at <b>12 of 10962</b> pixels, while interpolating
+	 * the ramps' numerators and dividing matches at <b>92.5%</b>. The software's mapping
+	 * is a ratio of two screen-affine functions, so the two affine halves are the only
+	 * thing that may cross the seam.
+	 *
+	 * <p>✅ <b>And the numerator form needs no further emulation, which was measured
+	 * rather than assumed:</b> the software truncates its denominator before dividing
+	 * ({@code wNum >> 12} or {@code >> 14}), which is <i>not</i> algebraically the plain
+	 * ratio - but at both detail levels the two agree at 99.9% of pixels, so the sink may
+	 * simply divide and skip the shift. See {@link TextureRamps}.
+	 *
+	 * <p>⚠ <b>The denominator can be ZERO</b> where the triangle is edge-on or the
+	 * geometry wrapped; a sink must handle it rather than assume {@code w != 0}.
 	 *
 	 * <p>⚠ <b>{@code shade} is the model's raw per-corner value, NOT a colour.</b> For a
 	 * textured face {@code Model.method481} returns {@code 127 - clamp(light)} with no
@@ -75,7 +94,7 @@ public interface TriangleSink {
 	 *
 	 * @param x0,y0,z0  first vertex, pixel x/y with y growing DOWN, z in {@code [0,1]}
 	 *                  where 0 is nearest
-	 * @param u0,v0,w0  first vertex camera-space texture coordinates
+	 * @param u0,v0,w0  first vertex RAMP NUMERATORS, screen-affine, divided per fragment
 	 * @param shade0    first vertex model shade code
 	 * @param textureId the texture to sample, {@code Model.faceTextureId}
 	 * @return {@code true} if the triangle was accepted; {@code false} means the sink

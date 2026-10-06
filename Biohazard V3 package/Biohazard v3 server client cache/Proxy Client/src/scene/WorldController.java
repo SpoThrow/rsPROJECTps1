@@ -1679,7 +1679,32 @@ label0:
 			// Ground rasterisation seam (Phase 4.1c-2c). Declines when no rasteriser is
 			// installed, so the software path below runs unchanged. It sits AFTER the tile
 			// picking above, which must keep running either way.
-			if (!SceneRasterizer.dispatchGroundTriangle(i6, j6, k6, l6, k5, l5, class43.anInt718, class43.anInt719, class43.anInt717, class43.anInt720, class43.aBoolean721, i2, i3, l1, l3, i4, k4, k2, j2, j3))
+			//
+			// Phase 7.2b-2h CORRECTED the nine camera-space values this passes. The seam
+			// must carry what the software rasteriser receives - and the software does NOT
+			// use one set for this triangle: the flat and non-flat branches of the fallback
+			// below pass different variables (i2 vs l2 for the same vertex's u, and so on),
+			// because a flat tile takes a cheaper route through the projection. This hook
+			// previously always passed the flat set, so a NON-FLAT tile reached a listener
+			// with a whole corner's worth of coordinates belonging to another tile shape.
+			//
+			// The selection mirrors the software's own ternary rather than asserting the
+			// two sets are the same set reordered - they are not, so proving one stands in
+			// for the other is not available. Repeating the software's branch keeps the seam
+			// faithful by construction: whatever the software would have rasterised with is
+			// exactly what a listener is handed, for both shapes.
+			// ⚠ Phase 7.2c-2 adds the tile's DEPTH as the final argument, and it is read from
+			// Fog.sceneDepth rather than recomputed: the assignment a few lines above
+			// (Fog.sceneDepth = (k2 + j2 + k3 + j3) / 4) IS the value the software rasterisers
+			// fog this tile with, so passing the field is passing the software's own number
+			// instead of a second derivation of it. All four corner depths are still live here
+			// (the perspective divides below do not write them), and both triangles of this
+			// tile share the one value - which is the software's granularity, not a shortcut.
+			boolean flatGround = class43.aBoolean721;
+			if (!SceneRasterizer.dispatchGroundTriangle(i6, j6, k6, l6, k5, l5, class43.anInt718, class43.anInt719, class43.anInt717, class43.anInt720, flatGround,
+					flatGround ? i2 : l2, flatGround ? i3 : l1, flatGround ? l1 : i3,
+					flatGround ? l3 : j4, flatGround ? i4 : k4, flatGround ? k4 : i4,
+					flatGround ? k2 : k3, flatGround ? j2 : j3, flatGround ? j3 : j2, Fog.sceneDepth))
 			{
 				if(class43.anInt720 == -1)
 				{
@@ -1715,7 +1740,7 @@ label0:
 			// Ground rasterisation seam (Phase 4.1c-2c). Declines when no rasteriser is
 			// installed, so the software path below runs unchanged. It sits AFTER the tile
 			// picking above, which must keep running either way.
-			if (!SceneRasterizer.dispatchGroundTriangle(i5, j5, k5, l5, k6, l6, class43.anInt716, class43.anInt717, class43.anInt719, class43.anInt720, class43.aBoolean721, i2, i3, l1, l3, i4, k4, k2, j2, j3))
+			if (!SceneRasterizer.dispatchGroundTriangle(i5, j5, k5, l5, k6, l6, class43.anInt716, class43.anInt717, class43.anInt719, class43.anInt720, class43.aBoolean721, i2, i3, l1, l3, i4, k4, k2, j2, j3, Fog.sceneDepth))
 			{
 				if(class43.anInt720 == -1)
 				{
@@ -1972,7 +1997,10 @@ label0:
 				// Ground rasterisation seam (Phase 4.1c-2c). Declines when no rasteriser is
 				// installed, so the software path below runs unchanged. It sits AFTER the tile
 				// picking above, which must keep running either way.
-				if (!SceneRasterizer.dispatchGroundTriangle(i4, l4, j4, i5, k4, j5, class40.anIntArray676[j2], class40.anIntArray677[j2], class40.anIntArray678[j2], (class40.anIntArray682 == null ? -1 : class40.anIntArray682[j2]), class40.aBoolean683, Class40.anIntArray690[l2], Class40.anIntArray690[j3], Class40.anIntArray690[l3], Class40.anIntArray691[l2], Class40.anIntArray691[j3], Class40.anIntArray691[l3], Class40.anIntArray692[l2], Class40.anIntArray692[j3], Class40.anIntArray692[l3]))
+				// ⚠ Phase 7.2c-2: the depth is method316's own per-MESH value, assigned once
+				// before this loop (Fog.sceneDepth = (dx + dy) * 96 + 300) - so every triangle
+				// of the overlay mesh shares it, exactly as the software fogs them.
+				if (!SceneRasterizer.dispatchGroundTriangle(i4, l4, j4, i5, k4, j5, class40.anIntArray676[j2], class40.anIntArray677[j2], class40.anIntArray678[j2], (class40.anIntArray682 == null ? -1 : class40.anIntArray682[j2]), class40.aBoolean683, Class40.anIntArray690[l2], Class40.anIntArray690[j3], Class40.anIntArray690[l3], Class40.anIntArray691[l2], Class40.anIntArray691[j3], Class40.anIntArray691[l3], Class40.anIntArray692[l2], Class40.anIntArray692[j3], Class40.anIntArray692[l3], Fog.sceneDepth))
 				{
 					if(class40.anIntArray682 == null || class40.anIntArray682[j2] == -1)
 					{

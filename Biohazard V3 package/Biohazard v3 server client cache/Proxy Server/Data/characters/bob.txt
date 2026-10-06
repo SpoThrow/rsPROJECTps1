@@ -4,7 +4,7 @@ character-password = 9cdfb439c7876e703e307864c9167a15
 [CHARACTER]
 character-height = 0
 character-posx = 3087
-character-posy = 3492
+character-posy = 3491
 character-rights = 3
 donator = 0
 respected = 0
@@ -123,7 +123,7 @@ character-look = 12	0
 character-skill = 0	99	29840996
 character-skill = 1	99	29634552
 character-skill = 2	99	32486396
-character-skill = 3	95	19866888
+character-skill = 3	99	19866888
 character-skill = 4	99	31352652
 character-skill = 5	26	27435172
 character-skill = 6	99	30183388

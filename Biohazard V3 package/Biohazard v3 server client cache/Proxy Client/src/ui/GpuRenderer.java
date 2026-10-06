@@ -57,6 +57,35 @@ public final class GpuRenderer {
 		 *         must not blit in software; {@code false} to decline.
 		 */
 		boolean presentGameFrame(RSImageProducer producer, int destX, int destY);
+
+		/**
+		 * The 3D scene for this frame is finished, and {@code producer} holds it
+		 * (Phase 7.2c).
+		 *
+		 * <p><b>Why the present is the wrong place for this, and why a second operation
+		 * had to exist.</b> {@link #presentGameFrame} runs AFTER the HUD is composited
+		 * into the same buffer - minimap, tabs, chat and the XP overlays all land on top
+		 * of the scene first. So a renderer that read its offscreen scene back at present
+		 * time would erase every one of them. The scene has its own boundary, and this
+		 * names it: {@code client.method146} submits the whole 3D scene and then draws
+		 * software 2D over it, and the seam sits exactly between the two.
+		 *
+		 * <p><b>Declining is the safe answer, and it is what a software renderer must
+		 * do.</b> It is called once per frame, whether or not the renderer took the
+		 * scene.
+		 *
+		 * <p>⚠ Abstract rather than a {@code default} returning {@code false}, and the
+		 * reason is not the Java level - this tree targets 8, so a default method would
+		 * compile. It is that the frame boundary is the thing a renderer either takes or
+		 * does not, and inheriting an answer would let a future renderer skip the question
+		 * entirely. Declaring it makes {@code return false} an explicit "I draw in
+		 * software, there is nothing to composite back" rather than a default nobody reads.
+		 *
+		 * @param producer the buffer the scene was drawn into - the same one the HUD is
+		 *                 about to be composited onto
+		 * @return {@code true} if the renderer replaced the scene in {@code producer}
+		 */
+		boolean sceneFinished(RSImageProducer producer);
 	}
 
 	private static Implementation implementation;
@@ -91,5 +120,24 @@ public final class GpuRenderer {
 			return false;
 		}
 		return impl.presentGameFrame(producer, destX, destY);
+	}
+
+	/**
+	 * Tells the installed renderer that this frame's 3D scene is complete (Phase 7.2c).
+	 *
+	 * <p>Called from the game loop's scene-finished seam, between the scene submission and
+	 * the software 2D drawn over it - see
+	 * {@link Implementation#sceneFinished(RSImageProducer)} for why the present is the
+	 * wrong boundary.
+	 *
+	 * @return {@code true} if a renderer replaced the scene in {@code producer}, or
+	 *         {@code false} if there is none installed, or it declined
+	 */
+	public static boolean sceneFinished(RSImageProducer producer) {
+		Implementation impl = implementation;
+		if (impl == null) {
+			return false;
+		}
+		return impl.sceneFinished(producer);
 	}
 }

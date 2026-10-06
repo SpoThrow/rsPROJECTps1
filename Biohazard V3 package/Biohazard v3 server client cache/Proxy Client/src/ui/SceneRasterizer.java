@@ -80,24 +80,65 @@ public final class SceneRasterizer {
 		 *
 		 * <p>The variant is conveyed rather than hidden, because the software path
 		 * branches on it: {@code textureId == -1} means untextured, otherwise the
-		 * triangle is textured via {@code t0..t8}, whose ordering is selected by
-		 * {@code flatMesh} exactly as it selects between the two {@code method378}
-		 * call shapes. {@code Texture.lowMem} is global and still readable, so the
-		 * third (low-detail textured) variant is disambiguated too.
+		 * triangle is textured via {@code t0..t8}. {@code Texture.lowMem} is global and
+		 * still readable, so the third (low-detail textured) variant is disambiguated too.
+		 *
+		 * <p>⚠ <b>The nine values are carried exactly as the software rasteriser receives them,
+		 * and Phase 7.2b-2h found that this is not one canonical triple - the two hooks pass
+		 * DIFFERENT things, because the software itself does.</b> Their layout is
+		 * {@code Texture.method378}'s own: three planes of three, {@code s0..s8}, which
+		 * {@code method379} divides per pixel. The planes are <i>not</i> in a single vertex
+		 * order - in the flat set the {@code u} plane is {@code (i2,i3,l1)} while the
+		 * {@code w} plane is {@code (k2,j2,j3)}, i.e. two different orderings of the same
+		 * three corners. Do not normalise one into the other when consuming this: the
+		 * software's arithmetic depends on the layout as given.
+		 *
+		 * <p>⚠⚠ <b>Two subtleties a consumer must not paper over.</b> (1) The first hook's
+		 * software fallback branches on {@code flatMesh} and the two branches use genuinely
+		 * different variables for the same vertex ({@code i2} vs {@code l2} and so on), so
+		 * the seam repeats that branch rather than assuming an equivalent set - the two are
+		 * not the same set reordered. (2) The second hook's software fallback has NO such
+		 * branch and always passes the flat set, even for a non-flat tile; the seam therefore
+		 * also passes the flat set there unconditionally, which is faithful to the software
+		 * but is worth knowing before trusting these coordinates on non-flat tiles.
+		 *
+		 * <p>Consequence for a listener: these values are an input description, not a
+		 * semantic {@code (u,v,w)} triple you can reorder. Mirror the software.
+		 *
+		 * <p>⚠⚠ <b>{@code depth} is the CAMERA-SPACE DISTANCE the software itself fogs
+		 * this tile with, and it is carried rather than derived (Phase 7.2c-2).</b> It is
+		 * the drawer's own {@code Fog.sceneDepth} at the instant it calls the rasteriser -
+		 * {@code (k2 + j2 + k3 + j3) / 4}, the mean of the tile's four post-rotation corner
+		 * depths, for {@code method315}; {@code (dx + dy) * 96 + 300} for {@code method316}'s
+		 * overlay mesh. It is <b>absolute</b> (distance from the camera origin), in the same
+		 * fixed-point units as {@code Model.method443}'s per-vertex camera depths - which is
+		 * what lets a listener depth-composite ground and models on one axis.
+		 *
+		 * <p>⚠ <b>It is a per-TILE quantity, not per-vertex, and that mirrors the
+		 * software's own granularity</b> - {@code method315} submits a whole tile as a unit
+		 * in painter order and fogs it with the one mean depth. A listener that needs a
+		 * gradient across the tile must take it from the {@code w} plane of the nine rather
+		 * than from here; a listener reproducing the software's fog wants exactly this.
+		 *
+		 * <p>⚠ <b>Do not re-derive it from the nine.</b> The {@code w} plane is the
+		 * per-vertex form of the same quantity, but its ORDERING is not one vertex order and
+		 * its mean is not this number; the two are consistent, not interchangeable.
 		 *
 		 * @param x0,y0..x2,y2 the projected screen triangle
 		 * @param colour0..2   the 16-bit model face colours (palette indices)
 		 * @param textureId    the texture, or {@code -1} when untextured
-		 * @param flatMesh     the mesh's flat flag, which selects the texture-coordinate
-		 *                     ordering - the same flag the software path branches on
-		 * @param t0..t8       the nine camera-space values used for texture mapping, in
-		 *                     the order the software rasteriser receives them
+		 * @param flatMesh     the mesh's flat flag, as the software's first-hook branch reads it
+		 * @param t0..t8       the nine camera-space values used for texture mapping, in the
+		 *                     order the software rasteriser receives them
+		 * @param depth        the tile's absolute camera-space depth, {@code Fog.sceneDepth}
+		 *                     at the call site - see above
 		 * @return {@code true} if handled, {@code false} to DECLINE and let the caller
 		 *         fall through to software
 		 */
 		boolean drawGroundTriangle(int x0, int y0, int x1, int y1, int x2, int y2,
 				int colour0, int colour1, int colour2, int textureId, boolean flatMesh,
-				int t0, int t1, int t2, int t3, int t4, int t5, int t6, int t7, int t8);
+				int t0, int t1, int t2, int t3, int t4, int t5, int t6, int t7, int t8,
+				int depth);
 	}
 
 	private static Implementation implementation;
@@ -150,15 +191,21 @@ public final class SceneRasterizer {
 	 * {@code method443}, both of them interleave tile picking with drawing inside the
 	 * same triangle loop, so an early return would silently drop tile markers and
 	 * hover once a rasteriser is installed.
+	 *
+	 * <p><b>The {@code depth} argument (Phase 7.2c-2).</b> Both drawers already compute a
+	 * camera-space depth for the tile - it is the value they hand the software rasteriser as
+	 * its fog distance - so it is threaded through here rather than reconstructed by a
+	 * listener. See {@link Implementation#drawGroundTriangle} for what it is and what it is
+	 * not.
 	 */
 	public static boolean dispatchGroundTriangle(int x0, int y0, int x1, int y1, int x2, int y2,
 			int colour0, int colour1, int colour2, int textureId, boolean flatMesh,
-			int t0, int t1, int t2, int t3, int t4, int t5, int t6, int t7, int t8) {
+			int t0, int t1, int t2, int t3, int t4, int t5, int t6, int t7, int t8, int depth) {
 		Implementation impl = implementation;
 		if (impl == null) {
 			return false;
 		}
 		return impl.drawGroundTriangle(x0, y0, x1, y1, x2, y2, colour0, colour1, colour2,
-				textureId, flatMesh, t0, t1, t2, t3, t4, t5, t6, t7, t8);
+				textureId, flatMesh, t0, t1, t2, t3, t4, t5, t6, t7, t8, depth);
 	}
 }

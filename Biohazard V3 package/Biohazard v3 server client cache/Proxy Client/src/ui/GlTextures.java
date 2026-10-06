@@ -135,9 +135,13 @@ public final class GlTextures {
 	 *
 	 * <p><b>Which is what {@code method379}'s {@code i = l1 / l5} works out to.</b> The
 	 * rasteriser divides the interpolated texture PLANE by the interpolated DEPTH plane
-	 * per pixel - so the ratio is perspective-correct rather than affine, which is the
-	 * whole reason the seam carries camera-space {@code u/v/w} instead of projected
-	 * coordinates - and {@code i >> 7} is the texel index, giving {@code (u/w) * size}.
+	 * per pixel - so the ratio is perspective-correct rather than affine, which is why the
+	 * seam carries the three ramp NUMERATORS ({@code uNum/vNum/wNum}) and not projected
+	 * coordinates and not camera-space ones either: dividing the interpolated numerators is
+	 * what reproduces {@code method379}, and dividing an interpolated camera-space triple
+	 * is the different shape {@link ui.TextureRamps} measures at 12 of 10962 pixels. The
+	 * texel index is then {@code i >> 6} at size 64 and {@code i >> 7} at size 128, i.e.
+	 * {@code (uNum/wNum) * size} in both cases.
 	 *
 	 * <p>⚠️ <b>The clamp is the software's, and it is asymmetric.</b> {@code method379}
 	 * clamps to {@code [7, size*size - size]}, i.e. to a seven-{@code size}ths inset at
@@ -162,5 +166,19 @@ public final class GlTextures {
 	 */
 	public static boolean available(int id) {
 		return Texture.hasTexture(id);
+	}
+
+	/**
+	 * Side, in texels, of EVERY texture the client holds - and therefore the side of
+	 * every layer of a texture array, which requires all layers to agree.
+	 *
+	 * <p>⚠️ <b>It is a global property rather than a per-texture one, and it changes when
+	 * the detail level changes.</b> {@code Texture.lowMem} selects 64 or 128, and
+	 * {@code client.main} calls {@code setHighMem()} before anything else, so the 128
+	 * side is the one that actually runs in play. An uploader must therefore read this
+	 * rather than hardcode a side, and must rebuild if the flag moves.
+	 */
+	public static int layerSize() {
+		return Texture.lowMem ? 64 : 128;
 	}
 }

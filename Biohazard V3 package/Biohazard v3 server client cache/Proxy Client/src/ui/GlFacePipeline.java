@@ -44,22 +44,25 @@ import scene.WorldController;
  * assumed.</b> One thing the software path can draw is still not representable here, and
  * it is counted rather than dropped:
  * <ul>
- *   <li><b>Textured faces</b> (render type 2 or 3). ⚠ <b>7.2b-2e changed WHAT is missing
- *       here, not whether something is.</b> This class now RESOLVES a textured face
- *       completely - the texture id out of the face's colour slot, the camera-space
- *       {@code u/v/w} triple read at the {@code renderType >> 2} texture-coordinate
- *       index, and the raw per-corner shade code - and hands it to
- *       {@link TriangleSink#textured}. What is still missing is the SINK:
- *       {@link GlBatcher#supportsTextures()} returns {@code false} because it has no
- *       atlas, no UV attribute and no sampler. So a textured face is still counted as
- *       {@link #NEEDS_TEXTURE}, but that outcome now means "the sink cannot draw this"
- *       rather than "this class cannot describe it".</li>
+ *   <li><b>Textured faces</b> (render type 2 or 3). ⚠ <b>7.2b-2f closed the sink half of
+ *       this.</b> This class RESOLVES a textured face completely - the texture id out of
+ *       the face's colour slot, the screen-affine ramp NUMERATORS read at the
+ *       {@code renderType >> 2} texture-coordinate index, and the raw per-corner shade
+ *       code - and hands it to {@link TriangleSink#textured}, and
+ *       {@link GlBatcher#supportsTextures()} now answers {@code true} because it has an
+ *       atlas, a UV attribute and a sampler. So in the client a textured face is drawn
+ *       rather than counted. ⚠ <b>The sink can still decline per face and the outcome is
+ *       still counted rather than dropped:</b> a face whose texture is not in the loaded
+ *       cache, or whose ramp numerators wrapped a 32-bit int, comes back
+ *       {@link #NEEDS_TEXTURE}. That is exactly why the answer is asked for per face
+ *       instead of assumed once.</li>
  * </ul>
- * ⚠ <b>The near plane is NO LONGER on that list.</b> {@code method485}'s camera-space
- * clipper is reproduced by {@link GlClipper} and reached through the {@link #CLIPPED}
- * branch, so a face the near plane cuts is rebuilt and drawn here the way the software
- * draws it. What remains unrepresentable is only a cut face whose edge leaves the
- * clipper's reciprocal table - {@link #NEEDS_CLIPPING} - which is a divergence in the
+ * ⚠ <b>The near plane is NO LONGER on that list, for TEXTURED faces either.</b>
+ * {@code method485}'s camera-space clipper is reproduced by {@link GlClipper} and reached
+ * through the {@link #CLIPPED} branch, so a face the near plane cuts is rebuilt and drawn
+ * here the way the software draws it - including a CUT TEXTURED face, which until 7.2b-2n
+ * was the common decline. What remains unrepresentable is only a cut face whose edge leaves
+ * the clipper's reciprocal table - {@link #NEEDS_CLIPPING} - which is a divergence in the
  * SOFTWARE too (it aborts the model mid-draw there).
  *
  * <p>⚠ {@link #NEEDS_TEXTURE}, {@link #NEEDS_CLIPPING} and {@link #NO_COLOUR} are the
@@ -67,6 +70,16 @@ import scene.WorldController;
  * scene over WHOLE or not at all, so it needs to ask this question about the frame before
  * committing to it. The honest answer today is still "not yet", but now for TEXTURES
  * alone rather than for every face close to the camera.
+ *
+ * <p>⚠⚠ <b>And asking WHETHER is not the same as knowing WHAT, which is why
+ * {@link #declineReason()} exists.</b> The first live GL run (7.4) ended at exactly that
+ * gap: the client printed that the frame was withheld because "a model face the GL path
+ * cannot represent", which names this file rather than the fault - and the eight distinct
+ * failures behind {@link #NEEDS_TEXTURE} alone (see the {@code TEXTURE_*} constants) call
+ * for completely different fixes. The reason is therefore recorded at each {@code return}
+ * site and reported with its census, rather than being reconstructed from the counts
+ * afterwards. {@link #allRepresentable()} stays a cheap count test so the per-model path
+ * allocates nothing; only the frame that is actually withheld pays for its own explanation.
  *
  * <p><b>⚠ One colour difference that is real and is not hidden.</b> The software
  * interpolates the 16-bit colour CODE across a face and looks each interpolated code up
@@ -99,9 +112,10 @@ public final class GlFacePipeline {
 	 * when its rebuilt polygon is back-facing, and the software draws nothing either.
 	 *
 	 * <p>⚠ Whether a face was cut <i>at all</i> is a separate question, reported by
-	 * {@link #clipped()}. A cut TEXTURED face is {@link #NEEDS_TEXTURE}, and a cut face
-	 * whose corner colour will not resolve is {@link #NO_COLOUR} - so folding the cut
-	 * flag into the outcome would make the clip oracle agree for the wrong reason.
+	 * {@link #clipped()}. A cut face can come out {@link #CLIPPED} whether or not its
+	 * corner colour resolves - a cut face whose corner colour will not resolve is
+	 * {@link #NO_COLOUR} - so folding the cut flag into the outcome would make the clip
+	 * oracle agree for the wrong reason.
 	 */
 	public static final int CLIPPED = 2;
 
@@ -113,11 +127,13 @@ public final class GlFacePipeline {
 	public static final int NEEDS_CLIPPING = 3;
 
 	/**
-	 * Render type 2 or 3 - textured - and the sink could not draw it. Since 7.2b-2e this
-	 * means the SINK is missing rather than the description: the face has already been
-	 * fully resolved (texture id, camera-space {@code u/v/w}, raw shade codes) and
-	 * {@link TriangleSink#textured} was either refused by
-	 * {@link TriangleSink#supportsTextures()} or declined the submission.
+	 * Render type 2 or 3 - textured - and the sink could not draw it. Since 7.2b-2n this
+	 * means one of three things rather than a missing description: the SINK cannot sample
+	 * textures, the face's ramp numerators wrapped a 32-bit int (so the mapping is no longer
+	 * affine), or {@link TriangleSink#textured} declined the submission itself.
+	 * {@link TriangleSink#supportsTextures()} and
+	 * {@link TriangleSink#textured} are the two questions, and the near plane is not one of
+	 * them any more.
 	 */
 	public static final int NEEDS_TEXTURE = 4;
 
@@ -156,6 +172,75 @@ public final class GlFacePipeline {
 	public static final int OUTCOME_COUNT = 8;
 
 	/**
+	 * Why the last {@link #emit} produced {@link #NEEDS_TEXTURE} - one of the
+	 * {@code TEXTURE_*} constants below, or {@link #TEXTURE_OK} when it produced none.
+	 *
+	 * <p>⚠⚠ <b>This exists because {@link #declineReason()} used to be unable to say
+	 * anything, and that cost a live run.</b> {@code NEEDS_TEXTURE} covers at least eight
+	 * genuinely different failures - a model with no texture coordinates, an index outside
+	 * the model's own arrays, a colour slot holding no id, ramp numerators that wrapped a
+	 * 32-bit int, a sink with no atlas, and a sink that simply refused - and they call for
+	 * completely different fixes. Reporting only the OUTCOME (as the first wiring step did)
+	 * leaves a live client printing "a model face the GL path cannot represent (see
+	 * GlFacePipeline)", which names the file and not the fault. The sub-reason is recorded
+	 * at each {@code return} site, so it is the actual code path rather than a
+	 * reconstruction.
+	 */
+	public static final int TEXTURE_OK = 0;
+	/** The model's per-corner lit colours are absent, so a textured face has no shade. */
+	public static final int TEXTURE_NO_COLOURS = 1;
+	/** {@link TriangleSink#supportsTextures()} is false - no atlas, so nothing to sample. */
+	public static final int TEXTURE_UNSUPPORTED = 2;
+	/** {@code Model.hasTextures()} is false: the model carries no texture coordinates. */
+	public static final int TEXTURE_NOT_TEXTURED = 3;
+	/** The face's texture-coordinate index is outside the model's own texture arrays. */
+	public static final int TEXTURE_BAD_COORDS = 4;
+	/** The texture-coordinate entry names a vertex outside the model. */
+	public static final int TEXTURE_BAD_VERTICES = 5;
+	/** The face's colour slot holds no texture id ({@code < 0}). */
+	public static final int TEXTURE_BAD_ID = 6;
+	/** The ramp numerators wrapped a 32-bit int, so the mapping is no longer affine. */
+	public static final int TEXTURE_RAMP_OVERFLOW = 7;
+	/** {@link TriangleSink#textured} declined the submission itself. */
+	public static final int TEXTURE_SINK_DECLINED = 8;
+	/**
+	 * A null from {@link #texturedRamps} that recorded no reason of its own - a catch-all,
+	 * so the census can never claim a reason it did not observe.
+	 */
+	public static final int TEXTURE_UNKNOWN = 9;
+
+	/** Number of distinct texture sub-reasons; valid indices for the name tables. */
+	public static final int TEXTURE_REASON_COUNT = 10;
+
+	private static final String[] OUTCOME_NAMES = { "DRAWN", "CULLED", "CLIPPED",
+			"NEEDS_CLIPPING", "NEEDS_TEXTURE", "NO_COLOUR", "SKIPPED", "TEXTURED" };
+
+	private static final String[] TEXTURE_DECLINE_NAMES = { "TEXTURE_OK", "TEXTURE_NO_COLOURS",
+			"TEXTURE_UNSUPPORTED", "TEXTURE_NOT_TEXTURED", "TEXTURE_BAD_COORDS",
+			"TEXTURE_BAD_VERTICES", "TEXTURE_BAD_ID", "TEXTURE_RAMP_OVERFLOW",
+			"TEXTURE_SINK_DECLINED", "TEXTURE_UNKNOWN" };
+
+	private static final String[] TEXTURE_DECLINE_DETAILS = { "no decline",
+			"the model has no lit corner colours, so the face has no shade to carry",
+			"the sink cannot sample textures (no atlas), so the face was not submitted",
+			"the model carries no texture coordinates at all",
+			"the face's texture-coordinate index is outside the model's own texture arrays",
+			"the texture-coordinate entry names a vertex outside the model",
+			"the face's colour slot holds no texture id",
+			"the ramp numerators wrapped a 32-bit int, so the mapping is the software's wrap "
+					+ "and is no longer affine",
+			"the sink declined the submission - its texture id is not in the loaded cache, or "
+					+ "the three wNum numerators are zero or cross zero inside the triangle",
+			"the face could not be described for a reason the resolver did not record" };
+
+	private static final String DETAIL_NEEDS_CLIPPING =
+			"a clipped edge left the clipper's reciprocal table, which diverges in the "
+					+ "software too (method443 aborts the model mid-draw there)";
+
+	private static final String DETAIL_NO_COLOUR =
+			"the model has no lit corner colours, or a corner code is outside the palette";
+
+	/**
 	 * The depth at each end of the {@code z} window {@link #depthToZ} maps onto
 	 * {@code [0,1]}: the camera-space depth range the scene straddles.
 	 *
@@ -191,10 +276,30 @@ public final class GlFacePipeline {
 
 	private final int[] counts = new int[OUTCOME_COUNT];
 
+	/**
+	 * The FIRST texture sub-reason of the last {@link #emit}, or {@link #TEXTURE_OK}.
+	 *
+	 * <p>⚠ FIRST rather than last, matching {@code GlSceneRenderer.declineFrame}: the first
+	 * unrepresentable thing is the one to fix, and a later, more common one would otherwise
+	 * mask an earlier, rarer one.
+	 */
+	private int textureDecline;
+
 	private int triangles;
 	private int lastSceneDepth;
 	private int lastVertexCount;
 	private int lastFaceCount;
+
+	/**
+	 * The texture id resolved by the last {@link #texturedRamps} call.
+	 *
+	 * <p>⚠ <b>A scratch field rather than a second return value, and not by preference:</b>
+	 * the whole reason this path exists is to stop allocating per frame, and returning the
+	 * ramps and the id as one object would allocate twice per textured face instead of
+	 * once. It is read immediately after the helper and never across a face, exactly like
+	 * {@link #clipX} and friends.
+	 */
+	private int texturedId;
 
 	/**
 	 * Projects {@code model}, walks its faces exactly as {@code method483} does, and
@@ -221,9 +326,11 @@ public final class GlFacePipeline {
 		triangles = 0;
 		lastVertexCount = 0;
 		lastFaceCount = 0;
+		textureDecline = TEXTURE_OK;
 		for (int i = 0; i < OUTCOME_COUNT; i++) {
 			counts[i] = 0;
 		}
+		textureDecline = TEXTURE_OK;
 		if (model == null || sink == null) {
 			return 0;
 		}
@@ -290,7 +397,7 @@ public final class GlFacePipeline {
 				outcome = CULLED;
 			} else if (renderTypes != null && (renderTypes[face] & 2) != 0) {
 				outcome = submitTextured(model, face, renderTypes, colourA, colourB, colourC,
-						lit, a, b, c, sink);
+						lit, a, b, c, centreX, centreY, sink);
 			} else if (!lit) {
 				outcome = NO_COLOUR;
 			} else if ((renderTypes == null ? 0 : renderTypes[face] & 1) != 0) {
@@ -309,9 +416,9 @@ public final class GlFacePipeline {
 				if (flat < 0) {
 					outcome = NO_COLOUR;
 				} else {
-					sink.triangle(vertexX[a], vertexY[a], depthToZ(vertexDepth[a]), OPAQUE | flat,
-							vertexX[b], vertexY[b], depthToZ(vertexDepth[b]), OPAQUE | flat,
-							vertexX[c], vertexY[c], depthToZ(vertexDepth[c]), OPAQUE | flat);
+					sink.triangle(vertexX[a], vertexY[a], absoluteZ(vertexDepth[a]), OPAQUE | flat,
+							vertexX[b], vertexY[b], absoluteZ(vertexDepth[b]), OPAQUE | flat,
+							vertexX[c], vertexY[c], absoluteZ(vertexDepth[c]), OPAQUE | flat);
 					triangles++;
 				}
 			} else {
@@ -329,9 +436,9 @@ public final class GlFacePipeline {
 					// software path painted, and those are 0x00RRGGBB. The batcher's
 					// input is ARGB and blending is off, so the byte is inert either
 					// way - but it is stated rather than left to chance.
-					sink.triangle(vertexX[a], vertexY[a], depthToZ(vertexDepth[a]), OPAQUE | ca,
-							vertexX[b], vertexY[b], depthToZ(vertexDepth[b]), OPAQUE | cb,
-							vertexX[c], vertexY[c], depthToZ(vertexDepth[c]), OPAQUE | cc);
+					sink.triangle(vertexX[a], vertexY[a], absoluteZ(vertexDepth[a]), OPAQUE | ca,
+							vertexX[b], vertexY[b], absoluteZ(vertexDepth[b]), OPAQUE | cb,
+							vertexX[c], vertexY[c], absoluteZ(vertexDepth[c]), OPAQUE | cc);
 					triangles++;
 				}
 			}
@@ -377,14 +484,54 @@ public final class GlFacePipeline {
 		}
 		int type = renderTypes == null ? 0 : renderTypes[face] & 3;
 		if ((type & 2) != 0) {
-			// ⚠ A cut TEXTURED face is the one combination 7.2b-2e does NOT describe, and
-			// it is a known remaining item rather than an impossibility: method485's
-			// textured branches pass the ORIGINAL, UNCLIPPED texture-coordinate triple
-			// (anIntArray1668/1669/1670 at the same >>2 indices) alongside the clipped
-			// screen triangles and the interpolated clip shades in anIntArray1680. So the
-			// data exists; what is missing is a submitClipped variant that carries it, and
-			// it is deliberately NOT written here rather than written untested.
-			return NEEDS_TEXTURE;
+			// ⚠⚠⚠ PHASE 7.2b-2n: A CUT TEXTURED FACE IS NOW DRAWN, NOT DECLINED. Until this
+			// step it returned NEEDS_TEXTURE, and that was the COMMON decline rather than a
+			// pathological one - the player's own model and anything you walk up to carry a
+			// textured face across the near plane - so a whole-frame accept/decline latch
+			// would have handed those frames back to the software in exactly the situation
+			// that matters.
+			//
+			// ⚠ The ramps come from the MODEL, not from the clipped polygon, and that is the
+			// finding this branch rests on: method485 hands method378 the SAME nine for both
+			// triangles of the quad, and method378's ramps depend only on the nine and the
+			// origin. So the mapping here is IDENTICAL to the uncut case, and only the screen
+			// triangles and the shades differ. See GlFacePipeline#texturedRamps.
+			if (!sink.supportsTextures()) {
+				return markTextureDecline(TEXTURE_UNSUPPORTED);
+			}
+			TextureRamps ramps = texturedRamps(model, face, centreX, centreY);
+			if (ramps == null) {
+				// texturedRamps recorded its own reason; TEXTURE_UNKNOWN only stands if it
+				// somehow returned null without one, so the census cannot claim more than it saw.
+				return markTextureDecline(TEXTURE_UNKNOWN);
+			}
+			int textureId = texturedId;
+			if (type == 3) {
+				// method485's render-type-3 branch passes anIntArray1634[i] three times - the
+				// RAW slot A, NOT the interpolated anIntArray1680 - which is the same flat
+				// treatment the uncut type-3 path gets, and for the same reason.
+				int flat = colourA[face];
+				if (!submitClippedTextured(0, 1, 2, flat, flat, flat, ramps, textureId, sink)) {
+					return markTextureDecline(TEXTURE_SINK_DECLINED);
+				}
+				if (points == 4 && !submitClippedTextured(0, 2, 3, flat, flat, flat, ramps,
+						textureId, sink)) {
+					return markTextureDecline(TEXTURE_SINK_DECLINED);
+				}
+			} else {
+				// method485's render-type-2 branch passes anIntArray1680[0..2] for the first
+				// triangle and [0],[2],[3] for the second - the INTERPOLATED clip shades, which
+				// is exactly what GlClipper writes into clipColour.
+				if (!submitClippedTextured(0, 1, 2, clipColour[0], clipColour[1], clipColour[2],
+						ramps, textureId, sink)) {
+					return markTextureDecline(TEXTURE_SINK_DECLINED);
+				}
+				if (points == 4 && !submitClippedTextured(0, 2, 3, clipColour[0], clipColour[2],
+						clipColour[3], ramps, textureId, sink)) {
+					return markTextureDecline(TEXTURE_SINK_DECLINED);
+				}
+			}
+			return CLIPPED;
 		}
 		if (type == 1) {
 			// ⚠ The FLAT colour from the face's ORIGINAL slot A - not the interpolated clip
@@ -422,10 +569,43 @@ public final class GlFacePipeline {
 	 * corners onto the plane and lose the depth ordering between clipped faces.
 	 */
 	private void submitClipped(int i0, int i1, int i2, int c0, int c1, int c2, TriangleSink sink) {
-		sink.triangle(clipX[i0], clipY[i0], depthToZ(clipDepth[i0]), OPAQUE | c0,
-				clipX[i1], clipY[i1], depthToZ(clipDepth[i1]), OPAQUE | c1,
-				clipX[i2], clipY[i2], depthToZ(clipDepth[i2]), OPAQUE | c2);
+		sink.triangle(clipX[i0], clipY[i0], absoluteZ(clipDepth[i0]), OPAQUE | c0,
+				clipX[i1], clipY[i1], absoluteZ(clipDepth[i1]), OPAQUE | c1,
+				clipX[i2], clipY[i2], absoluteZ(clipDepth[i2]), OPAQUE | c2);
 		triangles++;
+	}
+
+	/**
+	 * One TEXTURED triangle of a clipped polygon (Phase 7.2b-2n).
+	 *
+	 * <p>⚠ <b>The ramps are the UNCUT face's, passed in rather than rebuilt here, and that
+	 * is the substance of the step rather than an optimisation.</b> {@code method485}'s
+	 * textured branches hand {@code method378} the same nine for both clipped triangles, so
+	 * the mapping is the face's and not the polygon's; the polygon only says WHERE to
+	 * rasterise it and which shades to use. Rebuilding the ramps from the clipped points
+	 * would produce a different, wrong mapping that would look plausible.
+	 *
+	 * <p>⚠ <b>The shades are the CLIP shades, not the corner shades</b> - except for render
+	 * type 3, whose caller passes slot A three times because {@code method485}'s type-3
+	 * branch does. Each point carries its OWN depth for the same reason
+	 * {@link #submitClipped} does: a clipped polygon mixes front vertices with
+	 * intersections sitting on the near plane.
+	 */
+	private boolean submitClippedTextured(int i0, int i1, int i2, int s0, int s1, int s2,
+			TextureRamps ramps, int textureId, TriangleSink sink) {
+		int[] n0 = ramps.attributeAt(clipX[i0], clipY[i0]);
+		int[] n1 = ramps.attributeAt(clipX[i1], clipY[i1]);
+		int[] n2 = ramps.attributeAt(clipX[i2], clipY[i2]);
+		boolean accepted = sink.textured(
+				clipX[i0], clipY[i0], absoluteZ(clipDepth[i0]), n0[0], n0[1], n0[2], s0,
+				clipX[i1], clipY[i1], absoluteZ(clipDepth[i1]), n1[0], n1[1], n1[2], s1,
+				clipX[i2], clipY[i2], absoluteZ(clipDepth[i2]), n2[0], n2[1], n2[2], s2,
+				textureId);
+		if (!accepted) {
+			return false;
+		}
+		triangles++;
+		return true;
 	}
 
 	/**
@@ -438,13 +618,14 @@ public final class GlFacePipeline {
 	 *   <li><b>The texture id</b> comes from the face's COLOUR slot, not from the render
 	 *       type word ({@link Model#faceTextureId}). For a textured face that slot holds
 	 *       no colour at all, which is why it must never be rendered as one.</li>
-	 *   <li><b>The {@code u/v/w} triple</b> is read per corner from the CAMERA-SPACE
-	 *       arrays at the vertex indices {@code renderType >> 2} selects
-	 *       ({@link Model#faceTextureIndex}) - and those indices are DIFFERENT vertex
-	 *       indices from the face's own corners, which is the whole point of the
-	 *       indirection. {@code w} is recovered as {@code depth + sceneDepth} rather than
-	 *       from a third projected array, exactly as {@link GlClipper} does, so the two
-	 *       cannot drift.</li>
+	 *   <li><b>The nine camera-space values</b> are read at the vertex indices
+	 *       {@code renderType >> 2} selects ({@link Model#faceTextureIndex}) - and those
+	 *       indices are DIFFERENT vertex indices from the face's own corners, which is the
+	 *       whole point of the indirection. {@code w} is recovered as
+	 *       {@code depth + sceneDepth} rather than from a third projected array, exactly as
+	 *       {@link GlClipper} does, so the two cannot drift. They become the three ramp
+	 *       NUMERATORS per triangle vertex - see {@link #texturedRamps} for why that is the
+	 *       form the sink must be handed rather than the triple.</li>
 	 *   <li><b>The shade codes</b> are the raw per-corner values, with render type 3
 	 *       taking slot A three times because {@code method484}'s type-3 branch never
 	 *       reads 1635/1636 - the same flat/gouraud distinction the untextured path
@@ -465,9 +646,78 @@ public final class GlFacePipeline {
 	 * @return {@link #TEXTURED} if the sink accepted, {@link #NEEDS_TEXTURE} otherwise
 	 */
 	private int submitTextured(Model model, int face, int[] renderTypes, int[] colourA,
-			int[] colourB, int[] colourC, boolean lit, int a, int b, int c, TriangleSink sink) {
-		if (!lit || !sink.supportsTextures() || !model.hasTextures()) {
-			return NEEDS_TEXTURE;
+			int[] colourB, int[] colourC, boolean lit, int a, int b, int c, int centreX,
+			int centreY, TriangleSink sink) {
+		if (!lit) {
+			return markTextureDecline(TEXTURE_NO_COLOURS);
+		}
+		if (!sink.supportsTextures()) {
+			return markTextureDecline(TEXTURE_UNSUPPORTED);
+		}
+		TextureRamps ramps = texturedRamps(model, face, centreX, centreY);
+		if (ramps == null) {
+			// texturedRamps recorded its own reason; see the same note in clipFace.
+			return markTextureDecline(TEXTURE_UNKNOWN);
+		}
+		int textureId = texturedId;
+		// Type 3 passes slot A three times - method484's type-3 branch reads no other slot.
+		int shadeA = colourA[face];
+		int shadeB = (renderTypes[face] & 3) == 3 ? shadeA : colourB[face];
+		int shadeC = (renderTypes[face] & 3) == 3 ? shadeA : colourC[face];
+		// The ramps are anchored at the screen ORIGIN and evaluated at the FACE's own
+		// projected vertices - the two being different vertices is fine, and is the point:
+		// the mapping is a function of screen position, and the triangle only bounds where
+		// it is rasterised.
+		int[] na = ramps.attributeAt(vertexX[a], vertexY[a]);
+		int[] nb = ramps.attributeAt(vertexX[b], vertexY[b]);
+		int[] nc = ramps.attributeAt(vertexX[c], vertexY[c]);
+		boolean accepted = sink.textured(
+				vertexX[a], vertexY[a], absoluteZ(vertexDepth[a]), na[0], na[1], na[2], shadeA,
+				vertexX[b], vertexY[b], absoluteZ(vertexDepth[b]), nb[0], nb[1], nb[2], shadeB,
+				vertexX[c], vertexY[c], absoluteZ(vertexDepth[c]), nc[0], nc[1], nc[2], shadeC,
+				textureId);
+		if (!accepted) {
+			return markTextureDecline(TEXTURE_SINK_DECLINED);
+		}
+		triangles++;
+		return TEXTURED;
+	}
+
+	/**
+	 * The ramp form for a textured face, or {@code null} when the face cannot be described.
+	 * On success the resolved texture id is left in {@link #texturedId}.
+	 *
+	 * <p>⚠⚠ <b>SHARED BY THE UNCUT AND THE CLIPPED TEXTURED PATHS, AND THAT SHARING IS THE
+	 * WHOLE CONTENT OF PHASE 7.2b-2n RATHER THAN A TIDINESS.</b> {@code method485}'s
+	 * textured branches hand {@code method378} the <b>same nine</b> for both triangles of a
+	 * clipped quad -
+	 * {@code anIntArray1668/1669/1670[anIntArray1643/1644/1645[renderType >> 2]]}, the
+	 * model's texture-coordinate vertices, unchanged. And {@code method378} builds its ramps
+	 * (the {@code << 14}/{@code << 8}/{@code << 5} minors) from <b>the nine and the screen
+	 * origin alone</b>: its screen arguments are used only to walk spans. So the mapping
+	 * attached to a textured face is a property of the MODEL and the ORIGIN, and is
+	 * <b>completely independent of the screen triangle</b>. Two consequences, and the second
+	 * is what makes the clipped case cheap:
+	 * <ol>
+	 *   <li>Clipping changes WHICH SCREEN REGION is rasterised and the INTERPOLATED SHADES.
+	 *       It never changes the mapping.</li>
+	 *   <li>So a clipped textured face needs no texture data carried through the clipper at
+	 *       all - and a caller that rebuilt the ramps from the clipped polygon would get a
+	 *       DIFFERENT, wrong mapping rather than an equivalent one. Building them once here
+	 *       is what stops the two paths from drifting apart.</li>
+	 * </ol>
+	 *
+	 * <p>⚠ The nine are read at the TEXTURE-COORDINATE vertices ({@code anIntArray1643/1644/1645}),
+	 * which are NOT the face's corners - the indirection 7.2k measured. The shades and the
+	 * screen triangle come from the corners; the mapping does not. Keeping that split is the
+	 * point, so this method deliberately does not take the corners at all.
+	 *
+	 * @return the ramps, or {@code null} if the model has no usable textured face here
+	 */
+	private TextureRamps texturedRamps(Model model, int face, int centreX, int centreY) {
+		if (!model.hasTextures()) {
+			noteTextureDecline(TEXTURE_NOT_TEXTURED);
+			return null;
 		}
 		int index = model.faceTextureIndex(face);
 		int[] textureVertexA = model.textureVertexA();
@@ -475,36 +725,42 @@ public final class GlFacePipeline {
 		int[] textureVertexC = model.textureVertexC();
 		if (index < 0 || index >= textureVertexA.length
 				|| index >= textureVertexB.length || index >= textureVertexC.length) {
-			return NEEDS_TEXTURE;
+			noteTextureDecline(TEXTURE_BAD_COORDS);
+			return null;
 		}
 		int vertices = model.vertexCount();
 		int ta = textureVertexA[index];
 		int tb = textureVertexB[index];
 		int tc = textureVertexC[index];
 		if (ta < 0 || ta >= vertices || tb < 0 || tb >= vertices || tc < 0 || tc >= vertices) {
-			return NEEDS_TEXTURE;
+			noteTextureDecline(TEXTURE_BAD_VERTICES);
+			return null;
 		}
 		int textureId = model.faceTextureId(face);
 		if (textureId < 0) {
-			return NEEDS_TEXTURE;
+			noteTextureDecline(TEXTURE_BAD_ID);
+			return null;
 		}
-		// Type 3 passes slot A three times - method484's type-3 branch reads no other slot.
-		int shadeA = colourA[face];
-		int shadeB = (renderTypes[face] & 3) == 3 ? shadeA : colourB[face];
-		int shadeC = (renderTypes[face] & 3) == 3 ? shadeA : colourC[face];
-		boolean accepted = sink.textured(
-				vertexX[a], vertexY[a], depthToZ(vertexDepth[a]),
-				vertexCamX[ta], vertexCamY[ta], vertexDepth[ta] + lastSceneDepth, shadeA,
-				vertexX[b], vertexY[b], depthToZ(vertexDepth[b]),
-				vertexCamX[tb], vertexCamY[tb], vertexDepth[tb] + lastSceneDepth, shadeB,
-				vertexX[c], vertexY[c], depthToZ(vertexDepth[c]),
-				vertexCamX[tc], vertexCamY[tc], vertexDepth[tc] + lastSceneDepth, shadeC,
-				textureId);
-		if (!accepted) {
-			return NEEDS_TEXTURE;
+		// ⚠ The nine, in method378's own order: the u plane, the v plane, then the w plane,
+		// read at (ta, tb, tc). w is recovered as depth + sceneDepth rather than from a third
+		// projected array, exactly as GlClipper does, so the two cannot drift.
+		int wa = vertexDepth[ta] + lastSceneDepth;
+		int wb = vertexDepth[tb] + lastSceneDepth;
+		int wc = vertexDepth[tc] + lastSceneDepth;
+		int size = GlTextures.layerSize();
+		TextureRamps ramps = TextureRamps.of(vertexCamX[ta], vertexCamX[tb], vertexCamX[tc],
+				vertexCamY[ta], vertexCamY[tb], vertexCamY[tc], wa, wb, wc, centreX, centreY,
+				TextureRamps.denShiftFor(size), TextureRamps.colShiftFor(size), size);
+		if (ramps.overflows()) {
+			// ⚠ The ramps wrapped a 32-bit int, so the mapping is the software's WRAP and is
+			// no longer affine - a shader cannot reproduce it by interpolating numerators.
+			// Declining is the honest answer; the frame falls back to the software path, which
+			// reproduces the wrap exactly.
+			noteTextureDecline(TEXTURE_RAMP_OVERFLOW);
+			return null;
 		}
-		triangles++;
-		return TEXTURED;
+		texturedId = textureId;
+		return ramps;
 	}
 
 	/**
@@ -536,17 +792,23 @@ public final class GlFacePipeline {
 	}
 
 	/**
-	 * Maps {@code method443}'s camera-space depth to the {@code [0,1]} {@code z} the
+	 * Maps a {@code method443} camera-space depth to the {@code [0,1]} {@code z} the
 	 * batcher expects, {@code 0} being nearest.
 	 *
-	 * <p>{@code anIntArray1667} grows with distance and starts negative for a vertex
-	 * nearer than the model's origin, so the window is centred on zero rather than
-	 * starting there; clamping covers the far vertex of a model that straddles the far
-	 * plane, which {@code method443} admits. Monotone across the whole window, which is
-	 * the property the depth test needs - the constant offset is shared by every face of
-	 * every model, so it cannot reorder anything.
+	 * <p>⚠⚠ <b>The {@code depth} this takes must be ABSOLUTE - distance from the camera
+	 * origin - and callers holding a value relative to a model's origin must go through
+	 * {@link #absoluteZ} instead.</b> {@code method443} stores the RELATIVE form
+	 * ({@code anIntArray1667[v] = camZ - k2}) because the software buckets faces within one
+	 * model; a shared GL depth buffer needs the absolute one, or every model would sit at
+	 * {@code z = 0.5} at its own origin and two models at different distances would become
+	 * incomparable. See {@link #absoluteZ}.
 	 *
-	 * @param depth {@code method443}'s depth, {@code i8 - k2}
+	 * <p>The window is {@code +/- }{@link #DEPTH_SPAN} about zero. An absolute camera depth
+	 * is never negative, so in practice this uses the upper half of the range; that is a
+	 * deliberate rounding-free choice rather than an oversight, and it stays monotone, which
+	 * is the property the depth test actually needs.
+	 *
+	 * @param depth an ABSOLUTE camera-space depth; see {@link #absoluteZ} for the relative form
 	 * @return the {@code z} to hand the batcher, in {@code [0,1]}
 	 */
 	public static float depthToZ(int depth) {
@@ -559,6 +821,28 @@ public final class GlFacePipeline {
 		}
 		return z;
 	}
+
+	/**
+	 * {@link #depthToZ} for a depth carried RELATIVE to the model's origin - i.e. the
+	 * {@code vertexDepth}/{@code clipDepth} this class and {@link GlClipper} work in.
+	 *
+	 * <p>⚠ <b>Why this exists rather than a bare {@code depthToZ} call, and it is a
+	 * correction rather than a wrapper.</b> {@code method443} writes
+	 * {@code anIntArray1667[v] = camZ - k2}, and {@code k2} DIFFERS PER MODEL - so the raw
+	 * value cannot be the depth a shared buffer compares. Adding {@code k2} back (that is
+	 * {@link #lastSceneDepth}, the value {@code method443} also assigns to
+	 * {@code Fog.sceneDepth}) recovers {@code camZ}, which is monotone in real distance and is
+	 * the same quantity the ground seam carries, so ground and models land on one axis.
+	 *
+	 * <p>⚠ The projection is deliberately NOT the place this is fixed: {@link GlModelProjection}
+	 * mirrors {@code anIntArray1667} exactly and {@link GlClipper} consumes that same relative
+	 * form, so making the projected array absolute would break the clipper and the oracle that
+	 * pins the projection to the software.
+	 */
+	private float absoluteZ(int relativeDepth) {
+		return depthToZ(relativeDepth + lastSceneDepth);
+	}
+
 
 	/**
 	 * The colour a 16-bit model colour code becomes on screen, or {@code -1} if the
@@ -643,9 +927,9 @@ public final class GlFacePipeline {
 	 * The software's own flag for it is {@code aBooleanArray1664}, set in {@code method483}
 	 * the moment the near-plane test fires - before the clipper has run and before anything
 	 * is known about the render type. Deriving "was it cut" from the outcome would make the
-	 * oracle agree for the wrong reason: a cut TEXTURED face reports
-	 * {@link #NEEDS_TEXTURE}, and a cut face with an unusable colour reports
-	 * {@link #NO_COLOUR}, and neither of those is evidence about the near plane.
+	 * oracle agree for the wrong reason: a cut face can report {@link #CLIPPED},
+	 * {@link #NO_COLOUR} or {@link #NEEDS_TEXTURE}, and none of those is evidence about the
+	 * near plane on its own.
 	 *
 	 * @return the flags, or an empty array if nothing has been emitted
 	 */
@@ -683,20 +967,157 @@ public final class GlFacePipeline {
 	 * drawn, textured, culled or skipped, and none needed a texture the sink could not
 	 * sample or a clip the clipper could not perform.
 	 *
-	 * <p>⚠ <b>This is the question the 7.2b-2 wiring step has to ask, and today the answer
-	 * is still "no" for a model with a textured face - but for a narrower reason than
-	 * before.</b> The scene must go over WHOLE or not at all, because the software path
-	 * interleaves ground and models per tile and a partial takeover has no correct merge
-	 * order - so a frame accumulates this across every model before it commits. Since
-	 * 7.2b-2e the textured faces themselves are described completely; what still forces
-	 * "no" is that {@link TriangleSink#supportsTextures()} is {@code false} on the
-	 * production sink, so {@link GlBatcher} cannot sample them. ⚠ {@link #CLIPPED}
-	 * deliberately does NOT appear here: a clipped face is representable, however it came
-	 * out.
+	 * <p>⚠ <b>This is the question the 7.2b-2 wiring step has to ask.</b> The scene must go
+	 * over WHOLE or not at all, because the software path interleaves ground and models per
+	 * tile and a partial takeover has no correct merge order - so a frame accumulates this
+	 * across every model before it commits. ⚠ <b>As of 7.2b-2n what remains is genuinely
+	 * rare and not the common case it once was:</b> an id missing from the loaded cache, ramp
+	 * numerators that wrapped a 32-bit int, a clipped edge outside the clipper's reciprocal
+	 * table, or a colour code outside the palette. A CUT TEXTURED face - once the single
+	 * most common reason a gameplay frame would have been refused - is now represented.
+	 * ⚠ {@link #CLIPPED} deliberately does NOT appear here: a clipped face is representable,
+	 * however it came out.
+	 *
+	 * <p>⚠ <b>A {@code false} from here is only half an answer, and a caller that stops at
+	 * it is the reason 7.4's first run could not name its blocker:</b> ask
+	 * {@link #declineReason()} for WHICH outcome, which face, and - for a textured face -
+	 * which of the eight sub-cases. This method is the cheap test that decides whether that
+	 * is worth building the sentence for.
 	 */
 	public boolean allRepresentable() {
-		return counts[NEEDS_CLIPPING] == 0 && counts[NEEDS_TEXTURE] == 0
-				&& counts[NO_COLOUR] == 0;
+		// ⚠ Expressed through isUnrepresentable() rather than as three inline comparisons, so
+		// this predicate and declineReason() cannot disagree about what "unrepresentable"
+		// means - a disagreement would make the frame-decline path report a reason for a
+		// frame that was actually whole, or report none for one that was not. The loop is
+		// OUTCOME_COUNT iterations over ints and allocates nothing, which is what lets it sit
+		// on the per-model path.
+		for (int outcome = 0; outcome < OUTCOME_COUNT; outcome++) {
+			if (isUnrepresentable(outcome) && counts[outcome] != 0) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Whether an outcome is one that stops the whole frame going to GL.
+	 *
+	 * <p>⚠ <b>{@link #CLIPPED} is deliberately not one, and that is the distinction the
+	 * early steps turned on:</b> a clipped face is representable however it came out (the
+	 * clipper legitimately submits nothing for a face that is wholly behind the near plane
+	 * or comes out back-facing, and the software draws nothing there either). Ditto
+	 * {@link #CULLED}, {@link #SKIPPED} and {@link #TEXTURED}.
+	 *
+	 * @param outcome one of the {@code OUTCOME_*} constants
+	 * @return {@code true} if a frame containing this outcome must stay in software
+	 */
+	public static boolean isUnrepresentable(int outcome) {
+		return outcome == NEEDS_CLIPPING || outcome == NEEDS_TEXTURE || outcome == NO_COLOUR;
+	}
+
+	/** The name of an outcome, for a log line or a census. Never {@code null}. */
+	public static String outcomeName(int outcome) {
+		return outcome >= 0 && outcome < OUTCOME_COUNT ? OUTCOME_NAMES[outcome] : "UNKNOWN";
+	}
+
+	/** The name of a {@code TEXTURE_*} sub-reason, for a log line or a census. */
+	public static String textureDeclineName(int reason) {
+		return reason >= 0 && reason < TEXTURE_REASON_COUNT
+				? TEXTURE_DECLINE_NAMES[reason] : "UNKNOWN";
+	}
+
+	/**
+	 * The FIRST texture sub-reason of the last {@link #emit}, or {@link #TEXTURE_OK}.
+	 *
+	 * <p>Exposed because {@code NEEDS_TEXTURE} alone is not actionable: see the
+	 * {@code TEXTURE_*} constants for why the eight cases behind it need different fixes.
+	 */
+	public int textureDecline() {
+		return textureDecline;
+	}
+
+	/**
+	 * WHY the last {@link #emit} is not fully representable, or {@code null} if it is.
+	 *
+	 * <p>⚠⚠ <b>This is the answer a live run needs, and its absence is what made the first
+	 * GL gate run end at "something declined".</b> {@link #allRepresentable()} says only
+	 * THAT the frame is not whole, and the eight sub-cases behind {@link #NEEDS_TEXTURE}
+	 * alone call for completely different fixes - a missing atlas, a wrapped ramp, a
+	 * texture id that is not in the loaded cache - so the outcome alone is a filename, not a
+	 * fault. The message carries three things: the CENSUS (every unrepresentable outcome
+	 * with its face count, so a second bar to a fix is not hidden behind the first), the
+	 * first face that hit the primary outcome, and the primary outcome's own detail
+	 * including the recorded texture sub-reason.
+	 *
+	 * <p>⚠ <b>It allocates, deliberately, and is therefore NOT on the hot path:</b> a caller
+	 * should test {@link #allRepresentable()} first and only ask for the text when it is
+	 * false and the text will be used. {@code GlSceneRenderer.drawModel} does exactly that.
+	 *
+	 * @return the reason, or {@code null} when {@link #allRepresentable()} is true
+	 */
+	public String declineReason() {
+		int primary = -1;
+		int kinds = 0;
+		StringBuilder census = new StringBuilder();
+		for (int outcome = 0; outcome < OUTCOME_COUNT; outcome++) {
+			if (!isUnrepresentable(outcome) || counts[outcome] == 0) {
+				continue;
+			}
+			if (primary < 0) {
+				primary = outcome;
+			}
+			if (kinds > 0) {
+				census.append(", ");
+			}
+			census.append(outcomeName(outcome)).append(" x").append(counts[outcome]);
+			kinds++;
+		}
+		if (primary < 0) {
+			return null;
+		}
+		return "a model face the GL path cannot represent: " + census + " of " + lastFaceCount
+				+ " faces, first at face " + firstFaceWith(primary) + ": " + outcomeDetail(primary);
+	}
+
+	/** The primary outcome's own explanation, including the texture sub-reason when it is one. */
+	private String outcomeDetail(int outcome) {
+		if (outcome == NEEDS_TEXTURE) {
+			return "a textured face (render type 2 or 3) - " + textureDeclineName(textureDecline)
+					+ ": " + textureDeclineDetail();
+		}
+		if (outcome == NEEDS_CLIPPING) {
+			return DETAIL_NEEDS_CLIPPING;
+		}
+		return DETAIL_NO_COLOUR;
+	}
+
+	private String textureDeclineDetail() {
+		return textureDecline >= 0 && textureDecline < TEXTURE_REASON_COUNT
+				? TEXTURE_DECLINE_DETAILS[textureDecline] : "unknown texture decline";
+	}
+
+	/** Records {@code reason} unless an earlier face already recorded one; see {@link #textureDecline}. */
+	private void noteTextureDecline(int reason) {
+		if (textureDecline == TEXTURE_OK) {
+			textureDecline = reason;
+		}
+	}
+
+	/** Records a texture decline AND yields the outcome it implies, so the ties cannot drift. */
+	private int markTextureDecline(int reason) {
+		noteTextureDecline(reason);
+		return NEEDS_TEXTURE;
+	}
+
+	/** The index of the first face that got {@code outcome}, or {@code -1}. */
+	private int firstFaceWith(int outcome) {
+		int faces = Math.min(lastFaceCount, outcomes.length);
+		for (int face = 0; face < faces; face++) {
+			if (outcomes[face] == outcome) {
+				return face;
+			}
+		}
+		return -1;
 	}
 
 	/** Grows the scratch to the model's size. Never shrinks, so a busy frame allocates once. */
