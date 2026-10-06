@@ -24,6 +24,13 @@ import scene.Fog;
 import scene.ObjectManager;
 import scene.WorldController;
 import ui.DrawingArea;
+import ui.GlBatcher;
+import ui.GlClipper;
+import ui.GlFacePipeline;
+import ui.GlModelProjection;
+import ui.GlScene;
+import ui.GlSceneRenderer;
+import ui.GlTextures;
 import ui.GpuFloatBuffer;
 import ui.GpuIntBuffer;
 import ui.GpuRenderer;
@@ -31,6 +38,7 @@ import ui.RSImageProducer;
 import ui.RendererConfig;
 import ui.SceneRasterizer;
 import ui.Sprite;
+import ui.TriangleSink;
 
 
 
@@ -104,6 +112,8 @@ public final class ClientHarness {
 		gpuRendererWiresBothSeams();
 		decliningRendererFallsThrough();
 		rendererSettingIsItsOwnKey();
+		glRendererDeclinesAndContextFailureIsNotFatal();
+		glBatcherDegradesAndTheArgbContractHolds();
 		rasterPinsAreStanding();
 		modelGeometryExposesLocalVertices();
 		modelGeometryDecodesRenderTypeAndTexture();
@@ -120,6 +130,21 @@ public final class ClientHarness {
 		realModelExportIndicesAreInRangeForTheRasteriser();
 		realModelExportDecodeMatchesTheRasteriser();
 		realModelExportDrivesTheRasteriser();
+		// ✅ The ordering constraint the projection test used to carry is GONE, and the
+		// cause is no longer unidentified. It drove a real `Model.method443`, which left
+		// the `private static` `aBooleanArray1664` set for the faces it drew; the
+		// rasteriser test above reads that array and so took the CLIPPER branch instead of
+		// the flat-rasteriser branch. That test now resets the two flags itself, so these
+		// two are independent - verified by running this one FIRST, which now passes.
+		modelProjectionMatchesTheSoftwarePath();
+		modelFacesAreCulledExactlyAsTheSoftwareCullsThem();
+		modelFaceColoursMatchTheSoftwareRasteriser();
+		shadeModelWritesOnlyTheSlotsEachRenderTypeUses();
+		flatFacesAreEmittedAsOneColour();
+		flatFacesMatchTheSoftwareFlatFill();
+		nearPlaneClipperMatchesTheSoftwareClipper();
+		texturedFacesResolveTheSoftwareTextureInputs();
+		glTexturesMatchTheSoftwareShadeBlocks();
 		curseFrameRemapRedirectsCurseFilesToTheHighSlots();
 		curseFrameRemapLeavesOriginalFrameSlotsAlone();
 		curseAnimationLoaderRefusesSlotsOutsideTheRemapRange();
@@ -1772,6 +1797,2178 @@ public final class ClientHarness {
 				RendererConfig.SOFTWARE.equals(RendererConfig.requestedName()));
 		check("Renderer setting: the default leaves the software path installed",
 				SceneRasterizer.implementation() == null);
+		check("Renderer setting: the GL arm has its OWN value, distinct from software and placeholder",
+				!"gl".equals(RendererConfig.SOFTWARE)
+						&& !"gl".equals(RendererConfig.PLACEHOLDER_NAME)
+						&& "gl".equals(RendererConfig.GL_NAME));
+	}
+
+	// ---------------------------------------- the GL arm's bring-up (Phase 7.2a)
+
+	/**
+	 * The GL arm must decline everything until 7.2b gives it something to draw, and a
+	 * missing GL runtime must not take the client down.
+	 *
+	 * <p><b>Why declining is the property worth pinning, not a formality.</b> The scene
+	 * seam treats an installed renderer as authoritative unless it says otherwise, so a
+	 * GL renderer that ACCEPTED a submission without drawing it would make models and
+	 * ground disappear. And a PARTIAL GL scene cannot compose correctly either: the
+	 * software path interleaves ground and models per tile, so the scene has to be taken
+	 * over whole or not at all.
+	 *
+	 * <p><b>What this exercises on a normal machine.</b> The first scene submission is
+	 * what calls {@code GlScene.ensure()}, so this drives the real lifecycle entry point
+	 * on the harness's own thread. {@code deps/lwjgl3} is deliberately absent from the
+	 * harness classpath, so here it takes the DEGRADATION path - which is the robustness
+	 * property: the LWJGL 3 jars may genuinely be missing at runtime (Run.bat controls
+	 * that classpath), and the answer must be the software path, never an exception. The
+	 * SUCCESSFUL path needs a real GPU and belongs to the live gate (7.4).
+	 */
+	private static void glRendererDeclinesAndContextFailureIsNotFatal() {
+		GpuRenderer.install(new GlSceneRenderer("harness-test"));
+		try {
+			check("GL arm: does not consume a model",
+					!SceneRasterizer.dispatch(Model.aModel_1621, 0, 0, 0, 0, 0, 0, 0, 0, 0));
+			check("GL arm: does not consume a ground triangle",
+					!SceneRasterizer.dispatchGroundTriangle(1, 2, 3, 4, 5, 6, 7, 8, 9, -1, false,
+							11, 12, 13, 14, 15, 16, 17, 18, 19));
+			check("GL arm: declines the present, so the UI still composites in software",
+					!GpuRenderer.presentGameFrame(null, 0, 0));
+		} finally {
+			GpuRenderer.install(null);
+		}
+
+		boolean ready = GlScene.ensure();
+		check("GL context: ensure() reports a result instead of throwing",
+				GlScene.attempted());
+		check("GL context: an unavailable context records WHY, so it is not a silent no-op",
+				ready || GlScene.unavailableReason() != null);
+		check("GL context: describe() is answerable whether or not it came up",
+				GlScene.describe() != null && GlScene.describe().length() > 0);
+
+		// Idempotence: a failed attempt must not be retried per frame.
+		boolean second = GlScene.ensure();
+		check("GL context: ensure() is idempotent - a failure is not retried every frame",
+				second == ready);
+	}
+
+	// ------------------------------------ GL triangle sink (Phase 7.2b-1)
+
+	/**
+	 * {@code ui.GlBatcher} must DECLINE rather than throw when GL is unavailable, and
+	 * its readback must obey the client's pixel format.
+	 *
+	 * <p><b>The degradation half is the property worth pinning headlessly.</b>
+	 * {@code deps/lwjgl3} is deliberately absent from the harness classpath, so this
+	 * drives the real {@code ensure()} failure path. That path is reachable in
+	 * production too - {@code Run.bat} controls the classpath, and a machine with no
+	 * driver fails the same way - and the required answer is the software path, never
+	 * an exception.
+	 *
+	 * <p><b>The format half is pinned here rather than left to the GPU probe</b>
+	 * because it is a pure calculation and can be checked with no GPU at all: the
+	 * client's buffers are {@code 0x00RRGGBB} (see {@code RSImageProducer}'s
+	 * {@code DirectColorModel(32, 0xff0000, 0xff00, 0xff)}), so the alpha byte must
+	 * stay zero. The GPU probe ({@code tools/gl-batch-probe}) covers the parts that
+	 * genuinely need a GPU - byte order, Y orientation, depth - and is mutation-proved.
+	 */
+	private static void glBatcherDegradesAndTheArgbContractHolds() {
+		ui.GlBatcher batcher = new ui.GlBatcher();
+
+		boolean ready = batcher.ensure();
+		check("GL batcher: ensure() reports a result instead of throwing", batcher.ready() == ready);
+		check("GL batcher: an unavailable batcher records WHY, so it is not a silent no-op",
+				ready || batcher.failureReason() != null);
+		check("GL batcher: describe() is answerable whether or not it came up",
+				batcher.describe() != null && batcher.describe().length() > 0);
+
+		// Every operation must DECLINE when there is no GL, so the caller keeps the
+		// software path - the same property the renderer seam already relies on.
+		check("GL batcher: beginFrame declines when GL is unavailable", !batcher.beginFrame(0));
+		check("GL batcher: triangle declines when GL is unavailable",
+				!batcher.triangle(0, 0, 0, 0, 1, 1, 1, 0, 2, 2, 2, 0));
+		check("GL batcher: flush declines when GL is unavailable", !batcher.flush());
+		check("GL batcher: readInto declines when GL is unavailable",
+				!batcher.readInto(new int[4], 2, 0, 0));
+		check("GL batcher: readInto declines a null destination rather than throwing",
+				!batcher.readInto(null, 2, 0, 0));
+
+		// Idempotence, as for GlScene: a failure must not be retried every frame.
+		check("GL batcher: ensure() is idempotent - a failure is not retried every frame",
+				batcher.ensure() == ready);
+
+		// The pixel-format contract, checked without a GPU: the values the readback
+		// writes must have a zero alpha byte, because that is what the software path
+		// writes and what the 4.1b framebuffer hash covers.
+		int packed = (0xd3 << 16) | (0x7a << 8) | 0x21;
+		check("GL batcher: the readback pixel format is 0x00RRGGBB (alpha byte zero)",
+				(packed >>> 24) == 0 && ((packed >> 16) & 0xff) == 0xd3
+						&& ((packed >> 8) & 0xff) == 0x7a && (packed & 0xff) == 0x21);
+		check("GL batcher: 0x00FF0000 decodes as RED, not blue - the byte-order contract",
+				((0x00FF0000 >> 16) & 0xff) == 0xff && (0x00FF0000 & 0xff) == 0);
+	}
+
+	// ------------------------------------ GL model projection (Phase 7.2b-2a)
+
+	/**
+	 * {@code ui.GlModelProjection} must reproduce {@code Model.method443}'s projection
+	 * EXACTLY, and it is checked against the REAL method443 rather than a fixture.
+	 *
+	 * <p><b>Why an oracle and not expected values.</b> Hand-computing the screen
+	 * coordinates would only prove the implementation agrees with the same reading of
+	 * {@code method443} that produced it - the exact trap 5.3 caught when a self-consistent
+	 * wrong texture-id contract survived every test that agreed with itself. So instead
+	 * the REAL {@code method443} is driven here, the REAL {@code anIntArray1665/1666/1667}
+	 * it leaves behind are read back, and this class must match them integer-for-integer.
+	 * The software path is the authority; this either agrees with it or is wrong.
+	 *
+	 * <p><b>The CONTROL, and it is the one that matters most.</b> Those three arrays are
+	 * {@code private static} scratch - shared by every model and valid only mid-draw
+	 * (5.1's finding), which is exactly why the GL path cannot borrow them. {@code
+	 * method443} also CULLS on the model's bounding box before projecting, in which case
+	 * the arrays still hold the PREVIOUS model's data. So they are filled with a sentinel
+	 * first and the test asserts every vertex was actually rewritten: without that, a
+	 * culled draw would have this test comparing a stale array against a fresh projection
+	 * and possibly calling it a match.
+	 */
+	private static void modelProjectionMatchesTheSoftwarePath() {
+		int centreX = 382;
+		int centreY = 251;
+		int extent = 382;
+
+		int savedCenterX = DrawingArea.centerX;
+		int savedCenterY = DrawingArea.centerY;
+		int savedExtent = DrawingArea.anInt1387;
+		// ⚠ method443 does not just compute - it RASTERISES, straight into whatever buffer
+		// DrawingArea currently points at. Left alone, that paints into another test's
+		// framebuffer and, because the 5.3 rasteriser test compares its buffer before and
+		// after its OWN draw, a pre-painted buffer makes its draw look like it plotted
+		// nothing. So this test draws onto scratch of its own and puts the drawing area
+		// back exactly as it found it.
+		int[] savedPixels = DrawingArea.pixels;
+		int savedWidth = DrawingArea.width;
+		int savedHeight = DrawingArea.height;
+		int savedTopX = DrawingArea.topX;
+		int savedBottomX = DrawingArea.bottomX;
+		int savedTopY = DrawingArea.topY;
+		int savedBottomY = DrawingArea.bottomY;
+		Object savedTextureInt1 = readStatic(model.Texture.class, "textureInt1");
+		Object savedTextureInt2 = readStatic(model.Texture.class, "textureInt2");
+		// ⚠ These six are the SHARED static scratch {@code method443} projects into, of
+		// which 1668/1669/1670 are also the camera-space slots the 5.3 rasteriser test
+		// parks. Driving a real {@code method443} overwrites all of them, so they are
+		// snapshotted and restored - borrowing shared state and leaving it modified is
+		// how one test silently breaks another.
+		String[] scratchNames = { "anIntArray1665", "anIntArray1666", "anIntArray1667",
+				"anIntArray1668", "anIntArray1669", "anIntArray1670" };
+		int[][] savedScratch = new int[scratchNames.length][];
+		for (int i = 0; i < scratchNames.length; i++) {
+			savedScratch[i] = ((int[]) readStatic(Model.class, scratchNames[i])).clone();
+		}
+		try {
+			// method443 reads the screen centre from Texture and culls against the
+			// drawing area, so both must be set to values the test can reason about.
+			DrawingArea.centerX = centreX;
+			DrawingArea.centerY = centreY;
+			DrawingArea.anInt1387 = extent;
+			DrawingArea.initDrawingArea(503, 765, new int[765 * 503]);
+			writeStatic(model.Texture.class, "textureInt1", centreX);
+			writeStatic(model.Texture.class, "textureInt2", centreY);
+
+			Model model = parseFixtureModel();
+			// The camera distance only feeds method443's bounding-box cull, not the
+			// per-vertex transform, so pinning it makes the draw deterministic without
+			// altering the arithmetic under test.
+			model.anInt1650 = 500;
+
+			Object savedOrientationCos = readStatic(Model.class, "modelIntArray1");
+			Object savedOrientationSin = readStatic(Model.class, "modelIntArray2");
+			int[] orientationCos = new int[8];
+			int[] orientationSin = new int[8];
+			orientationCos[3] = 46341;
+			orientationSin[3] = 46341;
+			writeStatic(Model.class, "modelIntArray1", orientationCos);
+			writeStatic(Model.class, "modelIntArray2", orientationSin);
+			try {
+				// ⚠ Four DISTINCT camera terms, and non-zero dx/dy/dz, on purpose - a symmetric
+				// camera (all four equal) or a zero offset would make an AXIS SWAP invisible,
+				// because the terms would be interchangeable. These are not a physically real
+				// camera pair; method443 is pure fixed-point arithmetic and the oracle is the
+				// real method443 given the same numbers, so what is being pinned is the
+				// arithmetic and the axis assignment within it.
+				assertProjectionMatchesSoftware(model, 0, 56756, 32768, 40000, 50000,
+						10, 20, 50, centreX, centreY, "no orientation");
+				// The orientation branch is a separate rotation, applied before the camera's,
+				// so it is a genuinely untested code path unless it is driven too.
+				assertProjectionMatchesSoftware(model, 3, 56756, 32768, 40000, 50000,
+						10, 20, 50, centreX, centreY, "with orientation 3");
+			} finally {
+				writeStatic(Model.class, "modelIntArray1", savedOrientationCos);
+				writeStatic(Model.class, "modelIntArray2", savedOrientationSin);
+			}
+		} finally {
+			DrawingArea.centerX = savedCenterX;
+			DrawingArea.centerY = savedCenterY;
+			DrawingArea.anInt1387 = savedExtent;
+			DrawingArea.pixels = savedPixels;
+			DrawingArea.width = savedWidth;
+			DrawingArea.height = savedHeight;
+			DrawingArea.topX = savedTopX;
+			DrawingArea.bottomX = savedBottomX;
+			DrawingArea.topY = savedTopY;
+			DrawingArea.bottomY = savedBottomY;
+			writeStatic(model.Texture.class, "textureInt1", savedTextureInt1);
+			writeStatic(model.Texture.class, "textureInt2", savedTextureInt2);
+			for (int i = 0; i < scratchNames.length; i++) {
+				System.arraycopy(savedScratch[i], 0,
+						(int[]) readStatic(Model.class, scratchNames[i]), 0, savedScratch[i].length);
+			}
+		}
+		check("GL projection: the camera and screen state the test borrowed is restored",
+				DrawingArea.centerX == savedCenterX && DrawingArea.centerY == savedCenterY
+						&& DrawingArea.anInt1387 == savedExtent);
+	}
+
+	/**
+	 * Drives the REAL {@code Model.method443} and requires {@link GlModelProjection} to
+	 * reproduce the projected arrays it leaves behind.
+	 *
+	 * <p>The sentinel-oracle pattern is described on the caller; the part that lives here
+	 * is the CONTROL. The three arrays are {@code private static} scratch shared by every
+	 * model, so a CULLED draw leaves the previous model's data in them - and a test that
+	 * did not check for that could compare a stale array against a fresh projection and
+	 * call the agreement a pass. Filling them first and requiring every vertex to be
+	 * rewritten is what makes the comparison mean something.
+	 */
+	private static void assertProjectionMatchesSoftware(Model model, int orientation,
+			int camA, int camB, int camC, int camD, int dx, int dy, int dz,
+			int centreX, int centreY, String label) {
+		int[] softwareX = (int[]) readStatic(Model.class, "anIntArray1665");
+		int[] softwareY = (int[]) readStatic(Model.class, "anIntArray1666");
+		int[] softwareDepth = (int[]) readStatic(Model.class, "anIntArray1667");
+		int[] softwareCamX = (int[]) readStatic(Model.class, "anIntArray1668");
+		int[] softwareCamY = (int[]) readStatic(Model.class, "anIntArray1669");
+		int[] softwareCamZ = (int[]) readStatic(Model.class, "anIntArray1670");
+
+		int sentinel = 0x7EEDBEEF;
+		java.util.Arrays.fill(softwareX, sentinel);
+		java.util.Arrays.fill(softwareY, sentinel);
+		java.util.Arrays.fill(softwareDepth, sentinel);
+		java.util.Arrays.fill(softwareCamX, sentinel);
+		java.util.Arrays.fill(softwareCamY, sentinel);
+		java.util.Arrays.fill(softwareCamZ, sentinel);
+
+		// ⚠ The camera-space trio is written by method443 only `if (flag || anInt1642 > 0)` -
+		// flag being "some vertex is behind the near plane" and anInt1642 being the model's
+		// TEXTURE COUNT. This fixture need not trip either, and a skipped write would leave
+		// the sentinel behind and quietly shrink the comparison to nothing, so the model is
+		// declared textured for the duration. That is enough to force the write for every
+		// vertex; it cannot reach the textured DRAW path, which is selected by a face's
+		// render type and not by this count.
+		writeField(model, "anInt1642", 1);
+
+		model.method443(orientation, camA, camB, camC, camD, dx, dy, dz, 0);
+		int count = model.vertexCount();
+		int rewritten = 0;
+		int camRewritten = 0;
+		for (int i = 0; i < count; i++) {
+			if (softwareDepth[i] != sentinel) {
+				rewritten++;
+			}
+			if (softwareCamZ[i] != sentinel) {
+				camRewritten++;
+			}
+		}
+		check("GL projection oracle [" + label + "]: the software draw really projects, so the "
+				+ "comparison is not against stale scratch", rewritten == count);
+		check("GL projection oracle [" + label + "]: the software wrote its CAMERA-SPACE slots "
+				+ "too, so the clipper's inputs are compared and not sentinels",
+				camRewritten == count);
+
+		int[] glX = new int[count];
+		int[] glY = new int[count];
+		int[] glDepth = new int[count];
+		int[] glCamX = new int[count];
+		int[] glCamY = new int[count];
+		int projected = GlModelProjection.project(model, orientation, camA, camB, camC, camD,
+				dx, dy, dz, centreX, centreY, glX, glY, glDepth, glCamX, glCamY);
+		check("GL projection [" + label + "]: projects the fixture's vertices", projected == count);
+
+		boolean xMatches = true;
+		boolean yMatches = true;
+		boolean depthMatches = true;
+		boolean camMatches = true;
+		boolean projectedAny = false;
+		for (int i = 0; i < count; i++) {
+			if (glX[i] != softwareX[i]) {
+				xMatches = false;
+			}
+			if (glDepth[i] != softwareDepth[i]) {
+				depthMatches = false;
+			}
+			// The clipper's inputs, compared for EVERY vertex including the ones behind the
+			// near plane - those are exactly the ones it needs, and exactly the ones the
+			// screen-space comparison cannot check.
+			if (glCamX[i] != softwareCamX[i] || glCamY[i] != softwareCamY[i]) {
+				camMatches = false;
+			}
+			if (glX[i] != GlModelProjection.OFFSCREEN) {
+				projectedAny = true;
+				// Y is only meaningful where method443 projected the vertex; elsewhere it
+				// leaves Y untouched, and matching that is part of the contract.
+				if (glY[i] != softwareY[i]) {
+					yMatches = false;
+				}
+			}
+		}
+		check("GL projection [" + label + "]: screen X matches the software path exactly", xMatches);
+		check("GL projection [" + label + "]: method443's depth matches exactly", depthMatches);
+		check("GL projection [" + label + "]: screen Y matches where the vertex was projected",
+				yMatches);
+		check("GL projection [" + label + "]: the CAMERA-SPACE pair matches for every vertex, "
+				+ "including the ones the near plane removes", camMatches);
+		check("GL projection [" + label + "]: at least one vertex lands on screen", projectedAny);
+
+		// Non-vacuity: a materially different camera must break the match. If it does not,
+		// the exact-match checks above are comparing something that cannot differ.
+		//
+		// ⚠ The delta has to be LARGE, and that is a measured property rather than a
+		// convenience: a one-unit change to a camera term is absorbed by the `>> 16`
+		// truncation and produces byte-identical output, so a +1 mutation would "pass"
+		// while testing nothing - the same trap as 6.2's zero-delta origin fixture.
+		int[] altX = new int[count];
+		GlModelProjection.project(model, orientation, camA, camB, camC, 20000,
+				dx, dy, dz, centreX, centreY, altX, new int[count], new int[count],
+				new int[count], new int[count]);
+		boolean differed = false;
+		for (int i = 0; i < count; i++) {
+			if (altX[i] != softwareX[i]) {
+				differed = true;
+			}
+		}
+		check("GL projection [" + label + "]: a changed camera produces different output, so the "
+				+ "exact match is not vacuous", differed);
+	}
+
+	// ------------------------------------ GL face pipeline (Phase 7.2b-2b)
+
+	/**
+	 * The fixture geometry the two face-step tests use, stated directly rather than
+	 * encoded into model bytes.
+	 *
+	 * <p><b>Why the geometry is written onto a parsed model instead of into the model
+	 * bytes.</b> {@code buildOldFormatFixture()} exists to pin the PARSER, and it is
+	 * exactly right for that: three collinear vertices, two faces. Collinear is fatal
+	 * here - the signed-area test is zero for a degenerate triangle, so nothing would
+	 * ever be culled and the culling oracle would pass vacuously. Rather than grow the
+	 * byte fixture into a second job, the parse is taken as read (it has its own tests)
+	 * and the shape is set on the instance. Everything below is read back by the REAL
+	 * {@code method443} on the next line, so the oracle is unaffected: it is the same
+	 * arrays a byte fixture would have produced.
+	 *
+	 * <p><b>⚠ The pairs are the point, not the individual faces.</b> Every face here has
+	 * a TWIN with reversed winding ({@code (0,1,2)} vs {@code (1,0,2)}), so exactly one
+	 * of each pair is front-facing whatever the camera does - which is what makes the
+	 * oracle's coverage independent of which way the triangles happen to face. Without
+	 * the twins a camera change could leave nothing drawn and every check vacuous.
+	 */
+	private static Model buildFaceFixture() {
+		Model m = parseFixtureModel();
+		// Four vertices: the corner and the three axis points of a quarter-tetrahedron.
+		// Deliberately not coplanar and not collinear, so every face has real area.
+		m.anIntArray1627 = new int[] { 0, 120, 0, 0 };
+		m.anIntArray1628 = new int[] { 0, 0, 120, 0 };
+		m.anIntArray1629 = new int[] { 0, 0, 0, 120 };
+		writeField(m, "anInt1626", 4);
+
+		// 0/2 flat with three DISTINCT corner colours (the association pair)
+		// 1/6 flat with one repeated colour (the whole-triangle single-colour oracle)
+		// 3/4 textured (the render type the batcher cannot do yet)
+		// 5   render type -1, which method483 skips before any test
+		m.anIntArray1631 = new int[] { 0, 0, 1, 0, 1, 0, 1 };
+		m.anIntArray1632 = new int[] { 1, 1, 0, 1, 0, 1, 0 };
+		m.anIntArray1633 = new int[] { 2, 3, 2, 2, 2, 3, 3 };
+		writeField(m, "anInt1630", 7);
+		writeField(m, "anIntArray1637", new int[] { 0, 0, 0, 2, 2, -1, 0 });
+		writeField(m, "anIntArray1634", new int[] { 0x1111, 0x0ABC, 0x1111, 0x4444, 0x4444, 0x7777, 0x0ABC });
+		writeField(m, "anIntArray1635", new int[] { 0x2222, 0x0ABC, 0x2222, 0x4444, 0x4444, 0x7777, 0x0ABC });
+		writeField(m, "anIntArray1636", new int[] { 0x3333, 0x0ABC, 0x3333, 0x4444, 0x4444, 0x7777, 0x0ABC });
+		// The textured pair samples anIntArray1640 as a texture ID, so it must name a
+		// texture the test parks - otherwise method378 throws and method443's catch
+		// ABORTS the rest of the draw, truncating the buckets the oracle reads.
+		writeField(m, "anIntArray1640", new int[] { FIXTURE_TEXTURE_ID, FIXTURE_TEXTURE_ID,
+				FIXTURE_TEXTURE_ID, FIXTURE_TEXTURE_ID, FIXTURE_TEXTURE_ID,
+				FIXTURE_TEXTURE_ID, FIXTURE_TEXTURE_ID });
+
+		// The bucket index is meanDepth + anInt1653 and the table is anIntArrayArray1672,
+		// so the two bounds have to cover this model's own depth spread. method466
+		// computes them from the vertices, but its anInt1653 is the HORIZONTAL radius,
+		// which is not a bound once the camera rotates the model. Set generously - the
+		// table is 1500 long and 512 wide per row, and seven faces cannot overflow it.
+		writeField(m, "anInt1653", 400);
+		writeField(m, "anInt1652", 800);
+		// method443 culls on this radius before projecting; 500 keeps the fixture in
+		// frame without altering the per-vertex arithmetic.
+		m.anInt1650 = 500;
+		return m;
+	}
+
+	/** The texture the face fixture's textured pair names, parked by the tests. */
+	private static int[] faceFixtureTexture() {
+		int[] tex = new int[16384];
+		for (int i = 0; i < tex.length; i++) {
+			tex[i] = (((i * 11) & 0xFF) << 16) | (((i * 5) & 0xFF) << 8) | (i & 0xFF);
+		}
+		return tex;
+	}
+
+	/**
+	 * The 4.1c-2a style deterministic palette, in one place so a test that needs the
+	 * software rasteriser and the pipeline to agree cannot install two different ones.
+	 *
+	 * <p>{@code Texture.method372} is deliberately NOT used: it jitters the brightness
+	 * with {@code Math.random()} on every call, which is fine for play and fatal for a
+	 * comparison. Also returns whether the fixture's three distinct codes really do
+	 * resolve to three distinct colours, which is what makes a swapped corner visible.
+	 */
+	private static void installDeterministicPalette() {
+		int[] palette = Texture.anIntArray1482;
+		for (int i = 0; i < palette.length; i++) {
+			int v = ((i & 0xFF) << 16) | (((i >> 3) & 0xFF) << 8) | ((i * 5) & 0xFF);
+			palette[i] = (v == 0 ? 1 : v);
+		}
+	}
+
+	/** Saves the {@link DrawingArea} fields a scene draw reads and writes. */
+	private static int[] saveDrawingArea() {
+		return new int[] { DrawingArea.width, DrawingArea.height, DrawingArea.topX,
+				DrawingArea.bottomX, DrawingArea.topY, DrawingArea.bottomY,
+				DrawingArea.centerX, DrawingArea.centerY, DrawingArea.anInt1387 };
+	}
+
+	private static void restoreDrawingArea(int[] saved, int[] pixels) {
+		DrawingArea.pixels = pixels;
+		DrawingArea.width = saved[0];
+		DrawingArea.height = saved[1];
+		DrawingArea.topX = saved[2];
+		DrawingArea.bottomX = saved[3];
+		DrawingArea.topY = saved[4];
+		DrawingArea.bottomY = saved[5];
+		DrawingArea.centerX = saved[6];
+		DrawingArea.centerY = saved[7];
+		DrawingArea.anInt1387 = saved[8];
+	}
+
+	/**
+	 * A {@link TriangleSink} that records instead of drawing, so the pipeline can be
+	 * checked against the software path with no GL context anywhere in sight.
+	 *
+	 * <p>⚠ Triangles arrive in FACE-INDEX order, because {@link GlFacePipeline} emits
+	 * them that way on purpose (see its class doc). That is what lets a recorded
+	 * triangle be matched back to the face it came from: walk the outcomes array and
+	 * take the drawn faces in order.
+	 */
+	private static final class RecordingSink implements TriangleSink {
+		private static final int CAPACITY = 64;
+		private static final int FLOATS_PER_TRIANGLE = 12;
+		/** x/y/z + u/v/w per corner: 6 floats x 3 corners. */
+		private static final int FLOATS_PER_TEXTURED = 18;
+		/** shade per corner, then the texture id. */
+		private static final int INTS_PER_TEXTURED = 4;
+		private final float[] floats = new float[FLOATS_PER_TRIANGLE * CAPACITY];
+		private final float[] texturedFloats = new float[FLOATS_PER_TEXTURED * CAPACITY];
+		private final int[] texturedInts = new int[INTS_PER_TEXTURED * CAPACITY];
+		int triangles;
+		int texturedTriangles;
+
+		/**
+		 * ⚠ <b>False by default, deliberately.</b> The face-step tests that existed before
+		 * 7.2b-2e assert a one-to-one mapping between a {@code DRAWN} outcome and a
+		 * recorded coloured triangle; if this sink claimed texture support, the fixture's
+		 * two textured faces would stop being {@link GlFacePipeline#NEEDS_TEXTURE} and
+		 * that mapping would change under them. Only the textured test turns it on.
+		 */
+		private final boolean textures;
+
+		RecordingSink() {
+			this(false);
+		}
+
+		RecordingSink(boolean textures) {
+			this.textures = textures;
+		}
+
+		@Override
+		public boolean supportsTextures() {
+			return textures;
+		}
+
+		@Override
+		public boolean triangle(float x0, float y0, float z0, int argb0,
+				float x1, float y1, float z1, int argb1,
+				float x2, float y2, float z2, int argb2) {
+			if (triangles >= CAPACITY) {
+				// Loudly, not silently: the fixture emits at most seven, so reaching this
+				// means the pipeline emitted something it should not have, and a silently
+				// dropped triangle would turn a real failure into a passing test.
+				throw new IllegalStateException("recording sink overflow");
+			}
+			int o = triangles * FLOATS_PER_TRIANGLE;
+			floats[o] = x0; floats[o + 1] = y0; floats[o + 2] = z0; floats[o + 3] = argb0;
+			floats[o + 4] = x1; floats[o + 5] = y1; floats[o + 6] = z1; floats[o + 7] = argb1;
+			floats[o + 8] = x2; floats[o + 9] = y2; floats[o + 10] = z2; floats[o + 11] = argb2;
+			triangles++;
+			return true;
+		}
+
+		@Override
+		public boolean textured(float x0, float y0, float z0, float u0, float v0, float w0,
+				int shade0,
+				float x1, float y1, float z1, float u1, float v1, float w1, int shade1,
+				float x2, float y2, float z2, float u2, float v2, float w2, int shade2,
+				int textureId) {
+			if (texturedTriangles >= CAPACITY) {
+				throw new IllegalStateException("recording sink textured overflow");
+			}
+			int o = texturedTriangles * FLOATS_PER_TEXTURED;
+			texturedFloats[o] = x0;
+			texturedFloats[o + 1] = y0;
+			texturedFloats[o + 2] = z0;
+			texturedFloats[o + 3] = u0;
+			texturedFloats[o + 4] = v0;
+			texturedFloats[o + 5] = w0;
+			texturedFloats[o + 6] = x1;
+			texturedFloats[o + 7] = y1;
+			texturedFloats[o + 8] = z1;
+			texturedFloats[o + 9] = u1;
+			texturedFloats[o + 10] = v1;
+			texturedFloats[o + 11] = w1;
+			texturedFloats[o + 12] = x2;
+			texturedFloats[o + 13] = y2;
+			texturedFloats[o + 14] = z2;
+			texturedFloats[o + 15] = u2;
+			texturedFloats[o + 16] = v2;
+			texturedFloats[o + 17] = w2;
+			int p = texturedTriangles * INTS_PER_TEXTURED;
+			texturedInts[p] = shade0;
+			texturedInts[p + 1] = shade1;
+			texturedInts[p + 2] = shade2;
+			texturedInts[p + 3] = textureId;
+			texturedTriangles++;
+			return true;
+		}
+
+		int texturedId(int tri) {
+			return texturedInts[tri * INTS_PER_TEXTURED + 3];
+		}
+
+		int texturedShade(int tri, int corner) {
+			return texturedInts[tri * INTS_PER_TEXTURED + corner];
+		}
+
+		float texturedComponent(int tri, int corner, int which) {
+			int o = tri * FLOATS_PER_TEXTURED + corner * 6 + which;
+			return texturedFloats[o];
+		}
+
+		float x(int tri, int corner) {
+			return floats[tri * FLOATS_PER_TRIANGLE + corner * 4];
+		}
+
+		float y(int tri, int corner) {
+			return floats[tri * FLOATS_PER_TRIANGLE + corner * 4 + 1];
+		}
+
+		float z(int tri, int corner) {
+			return floats[tri * FLOATS_PER_TRIANGLE + corner * 4 + 2];
+		}
+
+		int colour(int tri, int corner) {
+			return (int) floats[tri * FLOATS_PER_TRIANGLE + corner * 4 + 3];
+		}
+	}
+
+	/**
+	 * The face-step oracle: culling, clipping classification, geometry and depth, all
+	 * checked against the REAL {@code Model.method443}.
+	 *
+	 * <p><b>Where the authority comes from, and it is not me.</b> {@code method483}
+	 * leaves the faces it decided to draw in the per-depth buckets
+	 * {@code anIntArrayArray1672}, with {@code anIntArray1671} as the per-row counts -
+	 * so the software path's own culling DECISION is readable after the draw, face for
+	 * face. It also leaves {@code aBooleanArray1664[face] = true} for exactly the faces
+	 * it routed to {@code method485}'s clipper, which is the software's own verdict on
+	 * "the near plane cuts this one". Both are read back here and required to match
+	 * {@link GlFacePipeline}'s census. A hand-computed expectation could only prove the
+	 * pipeline agrees with the same reading of {@code method483} that produced it, which
+	 * is 5.3's trap.
+	 *
+	 * <p><b>⚠ Two controls, both needed.</b> First, {@code method443} culls on the
+	 * model's bounding box BEFORE it does anything, and a culled draw leaves the buckets
+	 * holding the PREVIOUS model's faces - so the counts are sentinel-filled first and
+	 * the test requires the software to have rewritten them. Second, the fixture pairs
+	 * every triangle with a reversed twin, so the test requires at least one face to have
+	 * SURVIVED and at least one to have been CULLED: an "all culled" or "none culled"
+	 * run would otherwise make the face-for-face comparison meaningless.
+	 */
+	private static void modelFacesAreCulledExactlyAsTheSoftwareCullsThem() {
+		int centreX = 382;
+		int centreY = 251;
+		int[] savedArea = saveDrawingArea();
+		int[] savedPixels = DrawingArea.pixels;
+		Object savedTextureInt1 = readStatic(Texture.class, "textureInt1");
+		Object savedTextureInt2 = readStatic(Texture.class, "textureInt2");
+		int savedSceneDepth = Fog.sceneDepth;
+		Object savedOrientationCos = readStatic(Model.class, "modelIntArray1");
+		Object savedOrientationSin = readStatic(Model.class, "modelIntArray2");
+		String[] scratch = { "anIntArray1665", "anIntArray1666", "anIntArray1667",
+				"anIntArray1668", "anIntArray1669", "anIntArray1670", "anIntArray1671" };
+		int[][] savedScratch = new int[scratch.length][];
+		for (int i = 0; i < scratch.length; i++) {
+			savedScratch[i] = ((int[]) readStatic(Model.class, scratch[i])).clone();
+		}
+		try {
+			DrawingArea.initDrawingArea(503, 765, new int[765 * 503]);
+			Texture.method364();
+			DrawingArea.centerX = centreX;
+			DrawingArea.centerY = centreY;
+			writeStatic(Texture.class, "textureInt1", centreX);
+			writeStatic(Texture.class, "textureInt2", centreY);
+			installDeterministicPalette();
+			Fog.sceneDepth = 0;
+			Texture.anInt1465 = 0;
+			Texture.aBoolean1462 = false;
+			Texture.aBoolean1464 = true;
+			parkTexture(FIXTURE_TEXTURE_ID, faceFixtureTexture());
+
+			Model m = buildFaceFixture();
+			int[] orientationCos = new int[8];
+			int[] orientationSin = new int[8];
+			orientationCos[3] = 46341;
+			orientationSin[3] = 46341;
+			writeStatic(Model.class, "modelIntArray1", orientationCos);
+			writeStatic(Model.class, "modelIntArray2", orientationSin);
+
+			GlFacePipeline pipeline = new GlFacePipeline();
+			// An unrotated camera 700 units back, so the fixture's 120-unit extent lands
+			// around the middle of the drawing area: on screen, which the colour test
+			// needs, and in front of the near plane, so no face is routed to the clipper
+			// by accident. camB and camD are the identity for method443's two rotations.
+			assertCensusMatchesSoftware(pipeline, m, 0, 0, 65536, 0, 65536,
+					10, 20, 700, centreX, centreY, "no orientation");
+			// The same camera with the model itself rotated 45 degrees, which changes the
+			// model's own winding relative to the view without moving it off screen.
+			assertCensusMatchesSoftware(pipeline, m, 3, 0, 65536, 0, 65536,
+					10, 20, 700, centreX, centreY, "with orientation 3");
+		} finally {
+			restoreDrawingArea(savedArea, savedPixels);
+			writeStatic(Texture.class, "textureInt1", savedTextureInt1);
+			writeStatic(Texture.class, "textureInt2", savedTextureInt2);
+			Fog.sceneDepth = savedSceneDepth;
+			writeStatic(Model.class, "modelIntArray1", savedOrientationCos);
+			writeStatic(Model.class, "modelIntArray2", savedOrientationSin);
+			for (int i = 0; i < scratch.length; i++) {
+				System.arraycopy(savedScratch[i], 0,
+						(int[]) readStatic(Model.class, scratch[i]), 0, savedScratch[i].length);
+			}
+		}
+	}
+
+	/** One oracle round: drive the real method443, then require the census to match it. */
+	private static void assertCensusMatchesSoftware(GlFacePipeline pipeline, Model m,
+			int orientation, int camA, int camB, int camC, int camD,
+			int dx, int dy, int dz, int centreX, int centreY, String label) {
+		int[] counts = (int[]) readStatic(Model.class, "anIntArray1671");
+		int[][] buckets = (int[][]) readStatic(Model.class, "anIntArrayArray1672");
+		boolean[] clipped = (boolean[]) readStatic(Model.class, "aBooleanArray1664");
+		int[] softwareX = (int[]) readStatic(Model.class, "anIntArray1665");
+		int[] softwareY = (int[]) readStatic(Model.class, "anIntArray1666");
+		int[] softwareDepth = (int[]) readStatic(Model.class, "anIntArray1667");
+
+		// CONTROL 1: a culled draw leaves the previous model's buckets in place, so a
+		// stale read would look like agreement. Sentinel first, require a rewrite.
+		java.util.Arrays.fill(counts, -1);
+		java.util.Arrays.fill(clipped, false);
+
+		m.method443(orientation, camA, camB, camC, camD, dx, dy, dz, 0);
+
+		int faceCount = m.faceCount();
+		boolean[] survived = new boolean[faceCount];
+		int survivors = 0;
+		for (int row = 0; row < counts.length; row++) {
+			if (counts[row] < 0) {
+				continue;
+			}
+			for (int j = 0; j < counts[row]; j++) {
+				int face = buckets[row][j];
+				if (face >= 0 && face < faceCount) {
+					if (!survived[face]) {
+						survivors++;
+					}
+					survived[face] = true;
+				}
+			}
+		}
+		check("Face census [" + label + "]: the software draw really ran, so the comparison "
+				+ "is not against stale buckets", counts[0] >= 0);
+
+		RecordingSink sink = new RecordingSink();
+		pipeline.emit(m, orientation, camA, camB, camC, camD, dx, dy, dz, centreX, centreY, sink);
+		int[] outcomes = pipeline.outcomes();
+		boolean[] pipelineClipped = pipeline.clipped();
+
+		check("Face census [" + label + "]: every face got exactly one outcome",
+				pipeline.count(GlFacePipeline.DRAWN) + pipeline.count(GlFacePipeline.CULLED)
+						+ pipeline.count(GlFacePipeline.CLIPPED)
+						+ pipeline.count(GlFacePipeline.NEEDS_CLIPPING)
+						+ pipeline.count(GlFacePipeline.NEEDS_TEXTURE)
+						+ pipeline.count(GlFacePipeline.NO_COLOUR)
+						+ pipeline.count(GlFacePipeline.SKIPPED)
+						+ pipeline.count(GlFacePipeline.TEXTURED) == faceCount);
+
+		// ⚠ THE ORACLE, face for face. The software draws a face unless it is culled or
+		// skipped, so those two outcomes and only those two must line up with "absent
+		// from the buckets".
+		boolean cullMatches = true;
+		boolean clipMatches = true;
+		String firstCullMismatch = null;
+		String firstClipMismatch = null;
+		for (int face = 0; face < faceCount; face++) {
+			boolean softwareKept = survived[face];
+			boolean pipelineKept = outcomes[face] != GlFacePipeline.CULLED
+					&& outcomes[face] != GlFacePipeline.SKIPPED;
+			if (softwareKept != pipelineKept) {
+				cullMatches = false;
+				if (firstCullMismatch == null) {
+					firstCullMismatch = "face " + face + " softwareKept=" + softwareKept
+							+ " outcome=" + outcomes[face];
+				}
+			}
+			// aBooleanArray1664 is method483's OWN flag for "a vertex of this face is at
+			// the near plane, hand it to method485". ⚠ Compared against pipeline.clipped()
+			// and NOT against an outcome: a cut face can come out CLIPPED, NEEDS_TEXTURE or
+			// NO_COLOUR, so an outcome can never be evidence about the near plane.
+			if (softwareKept && pipelineClipped[face] != clipped[face]) {
+				clipMatches = false;
+				if (firstClipMismatch == null) {
+					firstClipMismatch = "face " + face + " clipped=" + clipped[face]
+							+ " pipelineClipped=" + pipelineClipped[face]
+							+ " outcome=" + outcomes[face];
+				}
+			}
+		}
+		check("Face census [" + label + "]: culling matches the software's own buckets face "
+				+ "for face" + (firstCullMismatch == null ? "" : " (" + firstCullMismatch + ")"),
+				cullMatches);
+		check("Face census [" + label + "]: the near-plane faces match the software's own "
+				+ "clipper flags" + (firstClipMismatch == null ? "" : " (" + firstClipMismatch + ")"),
+				clipMatches);
+
+		// CONTROL 2: the fixture pairs each triangle with a reversed twin, so BOTH
+		// outcomes must occur. Without this the face-for-face check above could agree on
+		// an all-kept or an all-culled run and prove nothing.
+		check("Face census [" + label + "]: the fixture really exercises both branches - at "
+				+ "least one face survived and at least one was culled",
+				survivors > 0 && survivors < faceCount);
+
+		// ⚠ The geometry block below maps submitted triangles back to faces by walking the
+		// outcomes in face-index order and taking the DRAWN ones. A CLIPPED face breaks that
+		// mapping - it submits 0, 1 or 2 triangles, interleaved with the uncut ones - so the
+		// checks are only valid while nothing was clipped, and rather than skip them silently
+		// the camera choice is pinned here. The clip path has its own oracle
+		// (nearPlaneClipperMatchesTheSoftwareClipper), which compares against the software's
+		// rebuilt polygon rather than against this mapping.
+		check("Face census [" + label + "]: this camera leaves the near plane alone, which is "
+				+ "what makes the one-triangle-per-drawn-face mapping below valid",
+				pipeline.count(GlFacePipeline.CLIPPED) == 0
+						&& pipeline.count(GlFacePipeline.NEEDS_CLIPPING) == 0);
+
+		// Geometry: the vertices submitted must be the software's own projection, at the
+		// face's own vertex indices. Exact integers, not approximations.
+		int[] faceA = m.faceVertexA();
+		int[] faceB = m.faceVertexB();
+		int[] faceC = m.faceVertexC();
+		int[] vertexOrder = { 0, 0, 0 };
+		boolean geometryMatches = true;
+		boolean depthInRange = true;
+		boolean depthMonotone = true;
+		String firstGeometryMismatch = null;
+		int tri = 0;
+		for (int face = 0; face < faceCount; face++) {
+			if (outcomes[face] != GlFacePipeline.DRAWN) {
+				continue;
+			}
+			vertexOrder[0] = faceA[face];
+			vertexOrder[1] = faceB[face];
+			vertexOrder[2] = faceC[face];
+			for (int corner = 0; corner < 3; corner++) {
+				int v = vertexOrder[corner];
+				if (sink.x(tri, corner) != softwareX[v]
+						|| sink.y(tri, corner) != softwareY[v]) {
+					geometryMatches = false;
+					if (firstGeometryMismatch == null) {
+						firstGeometryMismatch = "face " + face + " corner " + corner;
+					}
+				}
+				if (sink.z(tri, corner) < 0f || sink.z(tri, corner) > 1f) {
+					depthInRange = false;
+				}
+			}
+			// DEEPER MUST MEAN LARGER z, checked pairwise against the SOFTWARE's own
+			// depths - asserting it against depthToZ's own input would only re-run the
+			// function under test.
+			for (int p = 0; p < 3; p++) {
+				for (int q = p + 1; q < 3; q++) {
+					boolean softwareDeeper =
+							softwareDepth[vertexOrder[p]] < softwareDepth[vertexOrder[q]];
+					boolean pipelineDeeper = sink.z(tri, p) < sink.z(tri, q);
+					if (softwareDeeper != pipelineDeeper) {
+						depthMonotone = false;
+					}
+				}
+			}
+			tri++;
+		}
+		check("Face census [" + label + "]: every submitted vertex is the software's own "
+				+ "projection of that face's own vertex"
+				+ (firstGeometryMismatch == null ? "" : " (" + firstGeometryMismatch + ")"),
+				geometryMatches);
+		check("Face census [" + label + "]: submitted z stays inside [0,1]", depthInRange);
+		check("Face census [" + label + "]: a deeper vertex maps to a larger z, matching the "
+				+ "software's own depths", depthMonotone);
+		check("Face census [" + label + "]: one triangle was submitted per drawn face",
+				sink.triangles == pipeline.count(GlFacePipeline.DRAWN));
+		check("Face census [" + label + "]: the census found something to draw",
+				pipeline.count(GlFacePipeline.DRAWN) > 0);
+
+		// ⚠ NON-VACUITY: a changed camera must change what is submitted, or the
+		// face-for-face match above is comparing something that cannot differ. The delta
+		// is a real rotation - 8.8 degrees of pitch, sin 10000 / cos 64770 - rather than
+		// the +1 unit 7.2b-2a measured to be absorbed by the `>> 16` truncation and
+		// produce byte-identical output, which would "pass" while testing nothing.
+		RecordingSink alt = new RecordingSink();
+		pipeline.emit(m, orientation, 10000, 64770, camC, camD, dx, dy, dz, centreX, centreY, alt);
+		check("Face census [" + label + "]: a changed camera changes what is submitted, so "
+				+ "the match is not vacuous", !samePixels(sink, alt));
+	}
+
+	/** Whether two recordings submitted identical triangles. Used for the non-vacuity check. */
+	private static boolean samePixels(RecordingSink a, RecordingSink b) {
+		if (a.triangles != b.triangles) {
+			return false;
+		}
+		for (int t = 0; t < a.triangles; t++) {
+			for (int c = 0; c < 3; c++) {
+				if (a.x(t, c) != b.x(t, c) || a.y(t, c) != b.y(t, c)
+						|| a.z(t, c) != b.z(t, c) || a.colour(t, c) != b.colour(t, c)) {
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
+	// ------------------------------------ GL near-plane clipper (Phase 7.2b-2d)
+
+	/**
+	 * The identity camera every clipper case uses: camA 0, camB 1, camC 0, camD 1 in 16.16.
+	 * With it the camera transform is the identity, so a vertex's camera-space position is
+	 * simply its model-space position plus the camera offset - which is what lets a case be
+	 * designed by choosing vertex Z values instead of by solving for a camera.
+	 */
+	private static final int CLIP_CAM_A = 0;
+	private static final int CLIP_CAM_B = 65536;
+	private static final int CLIP_CAM_C = 0;
+	private static final int CLIP_CAM_D = 65536;
+
+	/**
+	 * {@code ui.GlClipper} must rebuild a near-plane-cut face EXACTLY as
+	 * {@code Model.method485} rebuilds it, and the oracle is the software's own scratch.
+	 *
+	 * <p><b>How the software's answer is read back.</b> {@code method485} writes its rebuilt
+	 * polygon into {@code anIntArray1678/1679/1680} - screen X, screen Y, and the
+	 * interpolated colour CODE - and those arrays are never cleared between faces, so after
+	 * a draw they hold the LAST clipped face's polygon followed by whatever was in them
+	 * before. They are therefore pre-filled with a sentinel, which makes the number of
+	 * points the software emitted recoverable as the run of non-sentinel entries: no guess
+	 * and no assumption about how big the polygon is.
+	 *
+	 * <p>⚠ <b>Which is exactly why each case is ONE face in its own model.</b> A second
+	 * clipped face would overwrite the scratch, and there is no way to ask the software which
+	 * polygon belonged to which face. So the interesting configurations are enumerated by
+	 * placing three vertices at chosen camera depths, not by building many faces into one
+	 * model - and the expected point count is asserted against the SOFTWARE first, so a case
+	 * that quietly stopped clipping fails loudly instead of comparing nothing.
+	 *
+	 * <p>⚠ <b>Nothing here is taken on trust from {@code GlModelProjection}.</b> The
+	 * clipper's inputs are the projection's camera-space outputs, which are themselves
+	 * oracle-checked above; and the scene depth it is handed is checked against the
+	 * software's own {@code k2}, recovered as {@code anIntArray1670 - anIntArray1667} rather
+	 * than read from {@code Fog} (which {@code method443} restores on the way out).
+	 */
+	private static void nearPlaneClipperMatchesTheSoftwareClipper() {
+		int centreX = 382;
+		int centreY = 251;
+		int[] savedArea = saveDrawingArea();
+		int[] savedPixels = DrawingArea.pixels;
+		Object savedTextureInt1 = readStatic(Texture.class, "textureInt1");
+		Object savedTextureInt2 = readStatic(Texture.class, "textureInt2");
+		int savedSceneDepth = Fog.sceneDepth;
+		String[] scratch = { "anIntArray1665", "anIntArray1666", "anIntArray1667",
+				"anIntArray1668", "anIntArray1669", "anIntArray1670", "anIntArray1671",
+				"anIntArray1678", "anIntArray1679", "anIntArray1680" };
+		int[][] savedScratch = new int[scratch.length][];
+		for (int i = 0; i < scratch.length; i++) {
+			savedScratch[i] = ((int[]) readStatic(Model.class, scratch[i])).clone();
+		}
+		GlFacePipeline pipeline = new GlFacePipeline();
+		int[] clipTotals = new int[2];
+		try {
+			DrawingArea.initDrawingArea(503, 765, new int[765 * 503]);
+			Texture.method364();
+			DrawingArea.centerX = centreX;
+			DrawingArea.centerY = centreY;
+			writeStatic(Texture.class, "textureInt1", centreX);
+			writeStatic(Texture.class, "textureInt2", centreY);
+			installDeterministicPalette();
+			Fog.sceneDepth = 0;
+			Texture.anInt1465 = 0;
+			Texture.aBoolean1462 = false;
+			Texture.aBoolean1464 = true;
+
+			// ⚠ The vertex Z values are what put each vertex on one side of the near plane:
+			// the camera transform is the identity and dz is 100, so camera Z is vertexZ +
+			// 100. A vertex at Z = -60 therefore sits at 40 - behind the plane - and one at
+			// Z = 200 sits at 300, well in front of it.
+			//
+			// ⚠ The X values are all NEGATIVE-LEADING on purpose, and it is not cosmetic.
+			// method485's winding test decides whether the rebuilt polygon is drawn at all,
+			// and this client's screen Y axis points down - so the emission order these cases
+			// produce is back-facing for positive X and front-facing for negative X. Getting
+			// it wrong does not fail loudly by itself: the oracle would compare four polygons
+			// and submit four zero-triangle draws, and every check here would still pass
+			// while the entire emission path went untested. That is why the triangle count is
+			// asserted rather than merely counted.
+			//
+			// One behind, TWO in front -> the software builds a QUAD and draws two
+			// triangles from it.
+			clipCase(pipeline, centreX, centreY, 100,
+					new int[] { 15, -15, 0 }, new int[] { -10, -10, 25 },
+					new int[] { -60, 200, 200 }, "one vertex behind", 4, 2, clipTotals);
+			// Two behind, one in front -> a TRIANGLE, built from a different emission order
+			// (the plane points come from vertices 0 and 1 rather than from an interspersed
+			// pair), and drawn as one triangle.
+			clipCase(pipeline, centreX, centreY, 100,
+					new int[] { 15, -15, 0 }, new int[] { -10, -10, 25 },
+					new int[] { -60, -60, 200 }, "two vertices behind", 3, 2, clipTotals);
+			// The FRONT vertex first and the two behind ones after it, which walks the third
+			// emission branch rather than the first.
+			clipCase(pipeline, centreX, centreY, 100,
+					new int[] { 0, 15, -15 }, new int[] { 25, -10, -10 },
+					new int[] { 200, -60, -60 }, "front vertex first", 3, 2, clipTotals);
+			// ALL THREE behind -> an empty polygon. The software still routes the face to
+			// method485 (it is bucketed without ever being winding-tested) and then draws
+			// nothing, which is the one clipped outcome that is easy to get wrong in the
+			// other direction by emitting a degenerate triangle.
+			clipCase(pipeline, centreX, centreY, 100,
+					new int[] { 15, -15, 0 }, new int[] { -10, -10, 25 },
+					new int[] { -60, -60, -60 }, "all three behind", 0, 0, clipTotals);
+
+			// ⚠ THE NON-VACUITY CHECK FOR THE EMISSION PATH, and it is the one that would have
+			// caught the winding mistake this test originally had. Four cases can all compare
+			// their polygons successfully and still submit nothing, so the triangles are
+			// totalled: 4 is exactly quad(2) + triangle(1) + triangle(1), and anything less
+			// means a configuration silently stopped drawing.
+			check("Clipper: the four configurations drew 4 triangles between them - a quad "
+					+ "split plus two single triangles - so the emission path is exercised "
+					+ "rather than every polygon landing back-facing (got " + clipTotals[1]
+					+ " from " + clipTotals[0] + " drawing case(s))", clipTotals[1] == 4);
+		} finally {
+			restoreDrawingArea(savedArea, savedPixels);
+			writeStatic(Texture.class, "textureInt1", savedTextureInt1);
+			writeStatic(Texture.class, "textureInt2", savedTextureInt2);
+			Fog.sceneDepth = savedSceneDepth;
+			for (int i = 0; i < scratch.length; i++) {
+				System.arraycopy(savedScratch[i], 0,
+						(int[]) readStatic(Model.class, scratch[i]), 0, savedScratch[i].length);
+			}
+		}
+	}
+
+	/**
+	 * One clipper case: a single-face model at chosen vertex positions, run through the REAL
+	 * {@code method443} and then through {@code GlClipper}, point for point.
+	 *
+	 * @param expectedPoints what the software's clipper must emit for this configuration -
+	 *                       asserted against the software FIRST, so the clipper is never
+	 *                       compared against a run that did not clip
+	 * @param expectedPlanePoints how many of those points should sit exactly on the near
+	 *                       plane, i.e. one per edge that crossed it
+	 * @param clipTotals     receives, at index 0, how many cases actually DREW and, at index
+	 *                       1, how many triangles they drew between them - the test's proof
+	 *                       that the emission path was exercised at all
+	 */
+	private static void clipCase(GlFacePipeline pipeline, int centreX, int centreY, int dz,
+			int[] vx, int[] vy, int[] vz, String label, int expectedPoints,
+			int expectedPlanePoints, int[] clipTotals) {
+		Model m = parseFixtureModel();
+		m.anIntArray1627 = vx.clone();
+		m.anIntArray1628 = vy.clone();
+		m.anIntArray1629 = vz.clone();
+		writeField(m, "anInt1626", vx.length);
+		m.anIntArray1631 = new int[] { 0 };
+		m.anIntArray1632 = new int[] { 1 };
+		m.anIntArray1633 = new int[] { 2 };
+		writeField(m, "anInt1630", 1);
+		writeField(m, "anIntArray1637", new int[] { 0 });
+		// Three DISTINCT corner codes, so an interpolated clip colour can only match if it
+		// came from the right pair of corners - a repeated colour would hide a swap.
+		writeField(m, "anIntArray1634", new int[] { 0x1000 });
+		writeField(m, "anIntArray1635", new int[] { 0x2000 });
+		writeField(m, "anIntArray1636", new int[] { 0x3000 });
+		// ⚠ Declares the model textured, purely to force method443 to write its camera-space
+		// slots for EVERY vertex. Left alone it writes them only from the first vertex that is
+		// behind the near plane onward, which would leave the clipper reading the previous
+		// draw's values for the earlier ones. It cannot reach the textured DRAW path: that is
+		// selected by a face's render type, and this face's is 0.
+		writeField(m, "anInt1642", 1);
+		writeField(m, "anInt1653", 400);
+		writeField(m, "anInt1652", 800);
+		m.anInt1650 = 500;
+
+		int[] swClipX = (int[]) readStatic(Model.class, "anIntArray1678");
+		int[] swClipY = (int[]) readStatic(Model.class, "anIntArray1679");
+		int[] swClipC = (int[]) readStatic(Model.class, "anIntArray1680");
+		int[] swDepth = (int[]) readStatic(Model.class, "anIntArray1667");
+		int[] swCamZ = (int[]) readStatic(Model.class, "anIntArray1670");
+		int[] swScrX = (int[]) readStatic(Model.class, "anIntArray1665");
+		int[] swScrY = (int[]) readStatic(Model.class, "anIntArray1666");
+		boolean[] swClipped = (boolean[]) readStatic(Model.class, "aBooleanArray1664");
+		int sentinel = 0x7EEDBEEF;
+		java.util.Arrays.fill(swClipX, sentinel);
+		java.util.Arrays.fill(swClipY, sentinel);
+		java.util.Arrays.fill(swClipC, sentinel);
+		java.util.Arrays.fill(swClipped, false);
+
+		m.method443(0, CLIP_CAM_A, CLIP_CAM_B, CLIP_CAM_C, CLIP_CAM_D, 0, 0, dz, 0);
+
+		check("Clipper [" + label + "]: the software really routed this face to method485, so "
+				+ "the comparison is against its clipper and not against untouched scratch",
+				swClipped[0]);
+
+		int softwarePoints = 0;
+		while (softwarePoints < swClipX.length && swClipX[softwarePoints] != sentinel) {
+			softwarePoints++;
+		}
+		check("Clipper [" + label + "]: the software emitted " + expectedPoints + " point(s) "
+				+ "for this configuration, so the case is the one intended (got "
+				+ softwarePoints + ")", softwarePoints == expectedPoints);
+
+		int sceneDepth = GlModelProjection.modelDepth(CLIP_CAM_A, CLIP_CAM_B, CLIP_CAM_C,
+				CLIP_CAM_D, 0, 0, dz);
+		// ⚠ k2 is not read from Fog, which method443 restores on the way out; it is DERIVED
+		// from the two arrays the software just wrote, since 1670 is camera Z and 1667 is
+		// camera Z minus k2.
+		check("Clipper [" + label + "]: the scene depth GlModelProjection reports is the "
+				+ "software's own k2, recovered from its camera-space and depth arrays",
+				sceneDepth == swCamZ[0] - swDepth[0]);
+
+		int count = m.vertexCount();
+		int[] glX = new int[count];
+		int[] glY = new int[count];
+		int[] glDepth = new int[count];
+		int[] glCamX = new int[count];
+		int[] glCamY = new int[count];
+		GlModelProjection.project(m, 0, CLIP_CAM_A, CLIP_CAM_B, CLIP_CAM_C, CLIP_CAM_D,
+				0, 0, dz, centreX, centreY, glX, glY, glDepth, glCamX, glCamY);
+
+		int[] cX = new int[GlClipper.MAX_POINTS];
+		int[] cY = new int[GlClipper.MAX_POINTS];
+		int[] cDepth = new int[GlClipper.MAX_POINTS];
+		int[] cColour = new int[GlClipper.MAX_POINTS];
+		int points = GlClipper.clip(m, 0, glX, glY, glCamX, glCamY, glDepth, sceneDepth,
+				centreX, centreY, cX, cY, cDepth, cColour);
+		check("Clipper [" + label + "]: GlClipper emits the same NUMBER of points the software "
+				+ "emitted", points == softwarePoints);
+
+		boolean xMatches = true;
+		boolean yMatches = true;
+		boolean colourMatches = true;
+		for (int i = 0; i < Math.min(points, softwarePoints); i++) {
+			if (cX[i] != swClipX[i]) {
+				xMatches = false;
+			}
+			if (cY[i] != swClipY[i]) {
+				yMatches = false;
+			}
+			if (cColour[i] != swClipC[i]) {
+				colourMatches = false;
+			}
+		}
+		check("Clipper [" + label + "]: every clipped screen X is the software's own", xMatches);
+		check("Clipper [" + label + "]: every clipped screen Y is the software's own", yMatches);
+		check("Clipper [" + label + "]: every interpolated colour CODE is the software's own",
+				colourMatches);
+
+		// ⚠ DEPTH, and it is the one thing the software has no array to lend here: it never
+		// records a depth for a clipped point, because its rasteriser is handed one. So the
+		// property is checked STRUCTURALLY instead - a point is either one of the face's own
+		// front vertices, keeping that vertex's software depth, or an intersection sitting
+		// exactly on the plane. The number on the plane must equal the number of edges that
+		// crossed it, which is what stops a clipper that stamped every point with the plane
+		// depth from passing.
+		// ⚠ The plane depth's ABSOLUTE value is reconstructed as
+		// `depth + sceneDepth == NEAR_PLANE` rather than compared against the clipper's own
+		// planeDepth, which would pass even if both were consistently wrong.
+		int planePoints = 0;
+		boolean depthsAccountedFor = true;
+		for (int i = 0; i < points; i++) {
+			if (cDepth[i] + sceneDepth == GlModelProjection.NEAR_PLANE) {
+				planePoints++;
+				continue;
+			}
+			boolean knownFrontVertexDepth = false;
+			for (int v = 0; v < count; v++) {
+				if (swCamZ[v] >= GlModelProjection.NEAR_PLANE && cDepth[i] == swDepth[v]) {
+					knownFrontVertexDepth = true;
+				}
+			}
+			if (!knownFrontVertexDepth) {
+				depthsAccountedFor = false;
+			}
+		}
+		check("Clipper [" + label + "]: " + expectedPlanePoints + " of the " + points
+				+ " point(s) sit at exactly the near plane's camera-space Z, one per crossing "
+				+ "edge (got " + planePoints + ")", planePoints == expectedPlanePoints);
+		check("Clipper [" + label + "]: every point that is not on the plane carries one of the "
+				+ "front vertices' own software depths", depthsAccountedFor);
+
+		// ⚠ END TO END, and the triangle count comes from the SOFTWARE's own clip polygon
+		// rather than from this test's expectation: the pipeline must reach the clipper and
+		// split the quad the way method485 splits it, and must submit NOTHING when the
+		// software's own polygon is back-facing or empty.
+		RecordingSink sink = new RecordingSink();
+		pipeline.emit(m, 0, CLIP_CAM_A, CLIP_CAM_B, CLIP_CAM_C, CLIP_CAM_D,
+				0, 0, dz, centreX, centreY, sink);
+		check("Clipper [" + label + "]: the pipeline reports the scene depth it fed the clipper",
+				pipeline.sceneDepth() == sceneDepth);
+		check("Clipper [" + label + "]: the pipeline classified the face as CLIPPED",
+				pipeline.count(GlFacePipeline.CLIPPED) == 1);
+		check("Clipper [" + label + "]: the pipeline flagged the face as near-plane cut",
+				pipeline.clipped()[0]);
+		boolean swFrontFacing = softwarePoints >= 3
+				&& GlFacePipeline.isFrontFacing(swClipX[0], swClipY[0], swClipX[1], swClipY[1],
+						swClipX[2], swClipY[2]);
+		int expectedTriangles = swFrontFacing ? (softwarePoints == 4 ? 2 : 1) : 0;
+		check("Clipper [" + label + "]: the pipeline submits exactly the triangles the "
+				+ "software's own clip polygon implies (expected " + expectedTriangles
+				+ ", got " + sink.triangles + ")", sink.triangles == expectedTriangles);
+		// ⚠ Non-vacuity for the whole emission path: at least one case must actually DRAW,
+		// or every triangle-level check above agrees on nothing at all. See the comment on
+		// the case list for why the winding had to be chosen rather than assumed.
+		if (expectedTriangles > 0) {
+			clipTotals[0]++;
+			clipTotals[1] += expectedTriangles;
+		}
+		// The submitted corners must be the SOFTWARE's rebuilt polygon, corner for corner -
+		// and the colours must be that polygon's codes resolved, not the original face's.
+		int[][] quadSplit = { { 0, 1, 2 }, { 0, 2, 3 } };
+		boolean submittedMatches = true;
+		boolean submittedDepthInRange = true;
+		for (int t = 0; t < sink.triangles && t < quadSplit.length; t++) {
+			for (int c = 0; c < 3; c++) {
+				int p = quadSplit[t][c];
+				if (sink.x(t, c) != swClipX[p] || sink.y(t, c) != swClipY[p]
+						|| (sink.colour(t, c) & 0xFFFFFF)
+								!= GlFacePipeline.resolveCornerColour(swClipC[p], sceneDepth)) {
+					submittedMatches = false;
+				}
+				if (sink.z(t, c) < 0f || sink.z(t, c) > 1f) {
+					submittedDepthInRange = false;
+				}
+			}
+		}
+		check("Clipper [" + label + "]: every submitted corner is the software's own rebuilt "
+				+ "point, with that point's interpolated colour resolved", submittedMatches);
+		check("Clipper [" + label + "]: every submitted clipped z stays inside [0,1]",
+				submittedDepthInRange);
+	}
+
+	// ------------------------------------ GL textured faces (Phase 7.2b-2e)
+
+	/**
+	 * The textured-face fixture: FOUR textured faces in two reversed pairs, so exactly one
+	 * face of each pair is front-facing whatever the camera does.
+	 *
+	 * <p>⚠ <b>Two pairs rather than one, and that is the whole design.</b> The members of a
+	 * pair differ in RENDER TYPE and in texture-coordinate index, so one round covers
+	 * render type 2 (gouraud textured) AND render type 3 (flat textured), together with a
+	 * zero and a non-zero {@code renderType >> 2}. A single pair would leave whichever
+	 * type happened to be culled untested, and it would do so SILENTLY - the exact failure
+	 * mode this plan keeps writing rules about.
+	 *
+	 * <p>⚠ <b>The shade values are chosen so a mistake cannot agree by accident.</b> For a
+	 * textured face {@code method481} returns {@code 127 - clamp(light)}, a SHADE and not a
+	 * colour code - and for render type 3 {@code method484} passes slot A three times
+	 * because {@code method479} writes no other slot for the odd render types. Slots B and
+	 * C are therefore given DIFFERENT values from slot A on every face, so a type-3 face
+	 * that wrongly read them fails instead of matching.
+	 */
+	private static Model buildTexturedFaceFixture() {
+		Model m = parseFixtureModel();
+		m.anIntArray1627 = new int[] { 0, 120, 0, 0 };
+		m.anIntArray1628 = new int[] { 0, 0, 120, 0 };
+		m.anIntArray1629 = new int[] { 0, 0, 0, 120 };
+		writeField(m, "anInt1626", 4);
+		// Faces 0/1 are reversed twins: render type 2 (GOURAUD textured), texture index 0.
+		// Faces 2/3 are reversed twins: render type 3 (FLAT textured), texture index 1.
+		m.anIntArray1631 = new int[] { 0, 1, 0, 3 };
+		m.anIntArray1632 = new int[] { 1, 0, 3, 0 };
+		m.anIntArray1633 = new int[] { 2, 2, 1, 1 };
+		writeField(m, "anInt1630", 4);
+		writeField(m, "anIntArray1637", new int[] { 2, 2, 7, 7 });
+		// Two texture-coordinate entries naming DIFFERENT vertices, so >>2 has to be read.
+		writeField(m, "anInt1642", 2);
+		writeField(m, "anIntArray1643", new int[] { 0, 2 });
+		writeField(m, "anIntArray1644", new int[] { 1, 3 });
+		writeField(m, "anIntArray1645", new int[] { 2, 0 });
+		writeField(m, "anIntArray1634", new int[] { 0x00, 0x08, 0x30, 0x38 });
+		writeField(m, "anIntArray1635", new int[] { 0x10, 0x18, 0x31, 0x39 });
+		writeField(m, "anIntArray1636", new int[] { 0x20, 0x28, 0x32, 0x3A });
+		// The texture ID lives in the COLOUR slot for a textured face.
+		writeField(m, "anIntArray1640", new int[] { FIXTURE_TEXTURE_ID, FIXTURE_TEXTURE_ID,
+				FIXTURE_TEXTURE_ID, FIXTURE_TEXTURE_ID });
+		// method483's bucket table is indexed by mean depth + anInt1653, so both bounds
+		// have to cover this model's depth spread or the software draw throws.
+		writeField(m, "anInt1653", 400);
+		writeField(m, "anInt1652", 800);
+		m.anInt1650 = 500;
+		return m;
+	}
+
+	/**
+	 * The textured-face oracle (Phase 7.2b-2e): every value the pipeline resolves for a
+	 * render type 2 or 3 face must be the value {@code method484} would have handed
+	 * {@code Texture.method378}.
+	 *
+	 * <p><b>What the software can be asked, and what it cannot - so the oracle is built
+	 * from the right side of that boundary.</b> {@code method378}'s arguments are not
+	 * recoverable after a draw: they are arithmetic in {@code method484}'s locals plus
+	 * reads of {@code anIntArray1634/1635/1636} and {@code anIntArray1668/1669/1670}. What
+	 * IS recoverable is precisely the part the pipeline can get wrong - the camera-space
+	 * arrays {@code method443} leaves behind, the per-corner codes, and the face's own
+	 * colour slot - so those are read back after driving the REAL {@code method443} and
+	 * required to match the submission corner for corner. A hand-written expectation could
+	 * only restate this class's own reading of the indirection; the software's own arrays
+	 * can dispute it.
+	 *
+	 * <p><b>⚠ The one thing this deliberately does NOT pin is the SHADE's meaning.</b> The
+	 * numbers are checked to be the right NUMBERS; what {@code method379} then does with
+	 * them - bits 4-5 selecting one of {@code Texture.method371}'s four darkness blocks,
+	 * bit 6 a further one-bit shift - is the BATCHER's problem, and is passed through raw
+	 * for that reason rather than pre-decoded here.
+	 */
+	private static void texturedFacesResolveTheSoftwareTextureInputs() {
+		int centreX = 382;
+		int centreY = 251;
+		int[] savedArea = saveDrawingArea();
+		int[] savedPixels = DrawingArea.pixels;
+		Object savedTextureInt1 = readStatic(Texture.class, "textureInt1");
+		Object savedTextureInt2 = readStatic(Texture.class, "textureInt2");
+		int savedSceneDepth = Fog.sceneDepth;
+		Object savedOrientationCos = readStatic(Model.class, "modelIntArray1");
+		Object savedOrientationSin = readStatic(Model.class, "modelIntArray2");
+		String[] scratch = { "anIntArray1665", "anIntArray1666", "anIntArray1667",
+				"anIntArray1668", "anIntArray1669", "anIntArray1670" };
+		int[][] savedScratch = new int[scratch.length][];
+		for (int i = 0; i < scratch.length; i++) {
+			savedScratch[i] = ((int[]) readStatic(Model.class, scratch[i])).clone();
+		}
+		try {
+			DrawingArea.initDrawingArea(503, 765, new int[765 * 503]);
+			Texture.method364();
+			DrawingArea.centerX = centreX;
+			DrawingArea.centerY = centreY;
+			writeStatic(Texture.class, "textureInt1", centreX);
+			writeStatic(Texture.class, "textureInt2", centreY);
+			installDeterministicPalette();
+			Fog.sceneDepth = 0;
+			Texture.anInt1465 = 0;
+			Texture.aBoolean1462 = false;
+			Texture.aBoolean1464 = true;
+			parkTexture(FIXTURE_TEXTURE_ID, faceFixtureTexture());
+
+			Model m = buildTexturedFaceFixture();
+			int[] orientationCos = new int[8];
+			int[] orientationSin = new int[8];
+			orientationCos[3] = 46341;
+			orientationSin[3] = 46341;
+			writeStatic(Model.class, "modelIntArray1", orientationCos);
+			writeStatic(Model.class, "modelIntArray2", orientationSin);
+
+			int sentinel = 0x7EEDBEEF;
+			for (String name : scratch) {
+				java.util.Arrays.fill((int[]) readStatic(Model.class, name), sentinel);
+			}
+
+			// The same camera the face census uses: unrotated, 700 units back, so the
+			// fixture lands on screen and no vertex nears the near plane.
+			int orientation = 0;
+			int camA = 0;
+			int camB = 65536;
+			int camC = 0;
+			int camD = 65536;
+			int dx = 10;
+			int dy = 20;
+			int dz = 700;
+
+			// CONTROL: method443 culls on the bounding box BEFORE it projects, so a culled
+			// draw would leave the sentinel in place and every check below would be a
+			// comparison against the sentinel.
+			m.method443(orientation, camA, camB, camC, camD, dx, dy, dz, 0);
+
+			int[] softwareX = (int[]) readStatic(Model.class, "anIntArray1665");
+			int[] softwareY = (int[]) readStatic(Model.class, "anIntArray1666");
+			int[] softwareDepth = (int[]) readStatic(Model.class, "anIntArray1667");
+			int[] softwareCamX = (int[]) readStatic(Model.class, "anIntArray1668");
+			int[] softwareCamY = (int[]) readStatic(Model.class, "anIntArray1669");
+			int[] softwareCamZ = (int[]) readStatic(Model.class, "anIntArray1670");
+			int rewritten = 0;
+			for (int v = 0; v < m.vertexCount(); v++) {
+				if (softwareCamZ[v] != sentinel) {
+					rewritten++;
+				}
+			}
+			check("Textured faces: the software draw really projected, so the oracle is not "
+					+ "reading stale scratch", rewritten == m.vertexCount());
+
+			GlFacePipeline pipeline = new GlFacePipeline();
+			RecordingSink sink = new RecordingSink(true);
+			pipeline.emit(m, orientation, camA, camB, camC, camD, dx, dy, dz, centreX, centreY,
+					sink);
+
+			int texturedFaces = 0;
+			int gouraud = 0;
+			int flat = 0;
+			int tri = 0;
+			boolean geometryMatches = true;
+			boolean uvMatches = true;
+			boolean depthMatches = true;
+			boolean shadeMatches = true;
+			boolean idMatches = true;
+			boolean indirectionLives = false;
+			int firstTextureSum = Integer.MIN_VALUE;
+			String detail = null;
+			int[] screen = new int[3];
+			int[] texture = new int[3];
+			int[] shade = new int[3];
+			for (int face = 0; face < m.faceCount(); face++) {
+				if (pipeline.outcomes()[face] != GlFacePipeline.TEXTURED) {
+					continue;
+				}
+				texturedFaces++;
+				int type = m.faceRenderType(face);
+				if (type == 2) {
+					gouraud++;
+				} else {
+					flat++;
+				}
+				screen[0] = m.faceVertexA()[face];
+				screen[1] = m.faceVertexB()[face];
+				screen[2] = m.faceVertexC()[face];
+				int index = m.faceTextureIndex(face);
+				texture[0] = m.textureVertexA()[index];
+				texture[1] = m.textureVertexB()[index];
+				texture[2] = m.textureVertexC()[index];
+				int slotA = m.faceCornerColoursA()[face];
+				shade[0] = slotA;
+				shade[1] = type == 3 ? slotA : m.faceCornerColoursB()[face];
+				shade[2] = type == 3 ? slotA : m.faceCornerColoursC()[face];
+
+				if (sink.texturedId(tri) != m.faceTextureId(face)
+						|| sink.texturedId(tri) != m.faceBaseColours()[face]) {
+					idMatches = false;
+				}
+				for (int k = 0; k < 3; k++) {
+					if (sink.texturedComponent(tri, k, 0) != softwareX[screen[k]]
+							|| sink.texturedComponent(tri, k, 1) != softwareY[screen[k]]) {
+						geometryMatches = false;
+						if (detail == null) {
+							detail = "face " + face + " corner " + k + " screen";
+						}
+					}
+					if (sink.texturedComponent(tri, k, 3) != softwareCamX[texture[k]]
+							|| sink.texturedComponent(tri, k, 4) != softwareCamY[texture[k]]
+							|| sink.texturedComponent(tri, k, 5) != softwareCamZ[texture[k]]) {
+						uvMatches = false;
+						if (detail == null) {
+							detail = "face " + face + " corner " + k + " uvw (pipeline "
+									+ sink.texturedComponent(tri, k, 3) + ","
+									+ sink.texturedComponent(tri, k, 4) + ","
+									+ sink.texturedComponent(tri, k, 5) + " expected "
+									+ softwareCamX[texture[k]] + "," + softwareCamY[texture[k]]
+									+ "," + softwareCamZ[texture[k]] + ")";
+						}
+					}
+					// depthToZ is public and already oracle-checked; the DEPTH it is handed
+					// here comes from the software, so this is not the function under test
+					// checking itself.
+					if (sink.texturedComponent(tri, k, 2)
+							!= GlFacePipeline.depthToZ(softwareDepth[screen[k]])) {
+						depthMatches = false;
+					}
+					if (sink.texturedShade(tri, k) != shade[k]) {
+						shadeMatches = false;
+						if (detail == null) {
+							detail = "face " + face + " corner " + k + " shade "
+									+ sink.texturedShade(tri, k) + " expected " + shade[k];
+						}
+					}
+				}
+				int textureSum = softwareCamZ[texture[0]] + softwareCamZ[texture[1]]
+						+ softwareCamZ[texture[2]];
+				if (firstTextureSum == Integer.MIN_VALUE) {
+					firstTextureSum = textureSum;
+				} else if (textureSum != firstTextureSum) {
+					indirectionLives = true;
+				}
+				tri++;
+			}
+
+			check("Textured faces: the fixture drew one face from EACH reversed pair, so both "
+					+ "render types and both texture-coordinate indices were exercised "
+					+ "(textured=" + texturedFaces + " gouraud=" + gouraud + " flat=" + flat + ")",
+					texturedFaces == 2 && gouraud == 1 && flat == 1);
+			check("Textured faces: one textured triangle was submitted per textured outcome",
+					sink.texturedTriangles == texturedFaces
+							&& pipeline.triangles() == pipeline.count(GlFacePipeline.DRAWN)
+									+ pipeline.count(GlFacePipeline.TEXTURED));
+			check("Textured faces: the submitted corners are the software's own projection of "
+					+ "that face's own vertex"
+					+ (detail == null ? "" : " (" + detail + ")"), geometryMatches);
+			check("Textured faces: the u/v/w triple is the software's CAMERA-SPACE coordinate "
+					+ "at the TEXTURE-coordinate vertex, not at the corner"
+					+ (detail == null ? "" : " (" + detail + ")"), uvMatches);
+			check("Textured faces: the submitted z is the software's own depth through "
+					+ "depthToZ", depthMatches);
+			check("Textured faces: render type 3 takes slot A three times and render type 2 "
+					+ "takes the three distinct slots"
+					+ (detail == null ? "" : " (" + detail + ")"), shadeMatches);
+			check("Textured faces: the texture id comes from the face's COLOUR slot, not the "
+					+ "render-type word", idMatches);
+			check("Textured faces: renderType >> 2 really selected a different set of "
+					+ "vertices, so the indirection is exercised and not just the zero case",
+					indirectionLives);
+
+			// The capability itself: a sink that cannot sample textures must leave these
+			// faces counted as unrepresentable rather than quietly dropped.
+			GlFacePipeline plain = new GlFacePipeline();
+			RecordingSink plainSink = new RecordingSink();
+			plain.emit(m, orientation, camA, camB, camC, camD, dx, dy, dz, centreX, centreY,
+					plainSink);
+			check("Textured faces: a sink without texture support gets NEEDS_TEXTURE rather "
+					+ "than a dropped submission, so allRepresentable() stays honest",
+					plain.count(GlFacePipeline.TEXTURED) == 0
+							&& plain.count(GlFacePipeline.NEEDS_TEXTURE) == texturedFaces
+							&& plainSink.texturedTriangles == 0
+							&& !plain.allRepresentable());
+		} finally {
+			restoreDrawingArea(savedArea, savedPixels);
+			writeStatic(Texture.class, "textureInt1", savedTextureInt1);
+			writeStatic(Texture.class, "textureInt2", savedTextureInt2);
+			Fog.sceneDepth = savedSceneDepth;
+			writeStatic(Model.class, "modelIntArray1", savedOrientationCos);
+			writeStatic(Model.class, "modelIntArray2", savedOrientationSin);
+			for (int i = 0; i < scratch.length; i++) {
+				System.arraycopy(savedScratch[i], 0,
+						(int[]) readStatic(Model.class, scratch[i]), 0, savedScratch[i].length);
+			}
+		}
+	}
+
+	/**
+	 * The GL texture shade policy (Phase 7.2b-2f), pinned against the software
+	 * rasteriser rather than against my reading of it.
+	 *
+	 * <p><b>What decision this test exists to settle.</b> A textured face's corner slots
+	 * hold {@code 127 - clamp(light)} - a SHADE, not a colour ({@code Model.method481})
+	 * - and {@code Texture.method379} turns that shade into brightness by folding part of
+	 * it into the texture's ARRAY INDEX and shifting by another part. Reading that out of
+	 * the decompiled fixed-point arithmetic is exactly the kind of thing this repo keeps
+	 * getting wrong, and reading it is what produced the question in the first place, so
+	 * it is settled by MEASUREMENT instead: the real {@code method378} is driven over a
+	 * whole sweep of shade codes and the painted pixels are asked what happened.
+	 *
+	 * <p><b>How the measurement can see the answer at all.</b> The texture is parked (the
+	 * harness's existing {@code parkTexture}, which short-circuits {@code method371}), and
+	 * its four brightness BLOCKS are filled with four KNOWN, mutually distinguishable
+	 * label colours. So a painted pixel is not just "a colour" - it names the block the
+	 * rasteriser read, and (because a {@code >>> 1} of a label is still a label) the shift
+	 * it applied. Nothing here restates the arithmetic: the labels are inputs on both
+	 * sides, and the OUTPUT is the software's.
+	 *
+	 * <p>⚠️ <b>The labels are chosen so all eight (block, shift) outcomes are distinct,
+	 * and that is asserted before anything is concluded.</b> Two blocks whose values
+	 * happened to collide under a shift would make the mapping ambiguous and the whole
+	 * sweep could "pass" while identifying nothing - the vacuity trap this phase has
+	 * already fallen into twice.
+	 *
+	 * <p>⚠️ <b>{@code lowMem} is pinned true because it changes the block STRIDE.</b> The
+	 * software's blocks sit 4096 apart in 64x64 mode ({@code lowMem}) and 16384 apart in
+	 * 128x128 mode; the harness runs in {@code lowMem} (its default) and the parked array
+	 * is sized to match. What is NOT asserted here is the block ARITHMETIC
+	 * ({@code k - (k >>> n) & 0xf8f8ff}) - see {@link GlTextures#blockColour}, which
+	 * transcribes it, and the note there about how it is verified.
+	 */
+	private static void glTexturesMatchTheSoftwareShadeBlocks() {
+		int width = 503;
+		int height = 765;
+		int[] savedArea = saveDrawingArea();
+		int[] savedPixels = DrawingArea.pixels;
+		int savedTextureInt1 = Texture.textureInt1;
+		int savedTextureInt2 = Texture.textureInt2;
+		Object savedLoaded = readStatic(Texture.class, "anIntArrayArray1479");
+		Object savedFlags = readStatic(Texture.class, "aBooleanArray1475");
+		int savedSceneDepth = Fog.sceneDepth;
+		boolean savedLowMem = Texture.lowMem;
+		int savedAnInt1465 = Texture.anInt1465;
+		boolean saved1462 = Texture.aBoolean1462;
+		boolean saved1464 = Texture.aBoolean1464;
+		int[] buf = new int[width * height];
+		try {
+			// Four labels that stay distinct under both shifts, so a painted pixel
+			// identifies (block, shift) unambiguously.
+			int[] labels = { 0x402010, 0x506070, 0x8090A0, 0xB0C0D0 };
+			int distinct = 0;
+			java.util.HashSet<Integer> seen = new java.util.HashSet<Integer>();
+			for (int b = 0; b < labels.length; b++) {
+				seen.add(labels[b]);
+				seen.add(labels[b] >>> 1);
+			}
+			distinct = seen.size();
+			check("GL textures: the four block labels stay distinct under both shifts, so a "
+					+ "painted pixel can name (block, shift) unambiguously", distinct == 8);
+
+			// lowMem layout: four blocks of 4096, which is the stride method379 indexes with.
+			int blockStride = 4096;
+			int[] tex = new int[4 * blockStride];
+			for (int b = 0; b < 4; b++) {
+				java.util.Arrays.fill(tex, b * blockStride, (b + 1) * blockStride, labels[b]);
+			}
+
+			DrawingArea.initDrawingArea(height, width, buf);
+			DrawingArea.setAllPixels(0);
+			Texture.method364();
+			DrawingArea.centerX = 382;
+			DrawingArea.centerY = 251;
+			writeStatic(Texture.class, "textureInt1", 382);
+			writeStatic(Texture.class, "textureInt2", 251);
+			installDeterministicPalette();
+			Fog.sceneDepth = 0;
+			Texture.anInt1465 = 0;
+			Texture.aBoolean1462 = false;
+			Texture.aBoolean1464 = true;
+			Texture.lowMem = true;
+			parkTexture(TEXTURED_TEX_ID, tex);
+
+			int[] blockSeen = new int[128];
+			int[] shiftSeen = new int[128];
+			boolean[] blockCovered = new boolean[4];
+			boolean[] shiftCovered = new boolean[2];
+			int ambiguous = 0;
+			int notUniform = 0;
+
+			for (int shade = 0; shade < 128; shade++) {
+				DrawingArea.setAllPixels(0);
+				// All three corners share the shade, so every painted pixel must agree -
+				// which is what makes "the painted value" a single well-defined answer.
+				Texture.method378(10, 90, 50, 12, 40, 150, shade, shade, shade,
+						100, 300, 200, 120, 400, 250, 300, 500, 350, TEXTURED_TEX_ID);
+
+				int painted = firstPaintedPixel(buf, width, height);
+				if (painted < 0) {
+					continue;
+				}
+				if (!everyPaintedPixelIs(buf, width, height, 0, painted)) {
+					notUniform++;
+				}
+				int matchB = -1;
+				int matchS = -1;
+				int matches = 0;
+				for (int b = 0; b < 4; b++) {
+					for (int s = 0; s <= 1; s++) {
+						if ((labels[b] >>> s) == painted) {
+							matches++;
+							matchB = b;
+							matchS = s;
+						}
+					}
+				}
+				if (matches != 1) {
+					ambiguous++;
+					continue;
+				}
+				blockSeen[shade] = matchB;
+				shiftSeen[shade] = matchS;
+				blockCovered[matchB] = true;
+				shiftCovered[matchS] = true;
+			}
+
+			check("GL textures: every painted pixel agrees with the other painted pixels, so "
+					+ "a constant shade really does give one answer", notUniform == 0);
+			check("GL textures: every painted pixel named exactly one block/shift, so the "
+					+ "labels discriminate rather than collide", ambiguous == 0);
+
+			// The sweep must actually reach every outcome, or "the policy matches" would
+			// be a statement about a handful of shades.
+			int covered = 0;
+			for (boolean b : blockCovered) {
+				if (b) {
+					covered++;
+				}
+			}
+			int shiftCount = 0;
+			for (boolean s : shiftCovered) {
+				if (s) {
+					shiftCount++;
+				}
+			}
+			check("GL textures: the shade sweep exercised ALL FOUR brightness blocks", covered == 4);
+			check("GL textures: the shade sweep exercised BOTH shift outcomes", shiftCount == 2);
+
+			int mismatchedBlock = 0;
+			int mismatchedShift = 0;
+			int firstBad = -1;
+			for (int shade = 0; shade < 128; shade++) {
+				if (GlTextures.brightnessBlock(shade) != blockSeen[shade]) {
+					if (firstBad < 0) {
+						firstBad = shade;
+					}
+					mismatchedBlock++;
+				}
+				if (GlTextures.extraShift(shade) != shiftSeen[shade]) {
+					mismatchedShift++;
+				}
+			}
+			check("GL textures: the software's brightness BLOCK is (shade >> 4) & 3 for every "
+					+ "shade code, as GlTextures.brightnessBlock claims"
+					+ (firstBad < 0 ? "" : " (first mismatch at shade " + firstBad
+							+ ": software block " + blockSeen[firstBad] + ", GlTextures "
+							+ GlTextures.brightnessBlock(firstBad) + ")"),
+					mismatchedBlock == 0);
+			check("GL textures: the software's extra SHIFT is shade >> 6 for every shade "
+					+ "code, as GlTextures.extraShift claims", mismatchedShift == 0);
+
+			System.out.println("  note  GL textures: observed block/shift per shade code:"
+					+ " 0-15 -> block " + blockSeen[0] + " shift " + shiftSeen[0]
+					+ ", 16-31 -> block " + blockSeen[16] + " shift " + shiftSeen[16]
+					+ ", 32-47 -> block " + blockSeen[32] + " shift " + shiftSeen[32]
+					+ ", 48-63 -> block " + blockSeen[48] + " shift " + shiftSeen[48]
+					+ ", 64-79 -> block " + blockSeen[64] + " shift " + shiftSeen[64]
+					+ ", 80-95 -> block " + blockSeen[80] + " shift " + shiftSeen[80]
+					+ ", 96-111 -> block " + blockSeen[96] + " shift " + shiftSeen[96]
+					+ ", 112-127 -> block " + blockSeen[112] + " shift " + shiftSeen[112]);
+		} finally {
+			writeStatic(Texture.class, "anIntArrayArray1479", savedLoaded);
+			writeStatic(Texture.class, "aBooleanArray1475", savedFlags);
+			Texture.textureInt1 = savedTextureInt1;
+			Texture.textureInt2 = savedTextureInt2;
+			Texture.lowMem = savedLowMem;
+			Texture.anInt1465 = savedAnInt1465;
+			Texture.aBoolean1462 = saved1462;
+			Texture.aBoolean1464 = saved1464;
+			Fog.sceneDepth = savedSceneDepth;
+			restoreDrawingArea(savedArea, savedPixels);
+		}
+	}
+
+	/**
+	 * The colour oracle: what the pipeline resolves must be the colour the REAL software
+	 * rasteriser paints.
+	 *
+	 * <p><b>Why a uniform-corner face is what makes this exact.</b> {@code method374}
+	 * interpolates the 16-bit colour CODE across the triangle and looks each interpolated
+	 * code up in the palette per pixel. If all three corner codes are the same that
+	 * interpolation is the identity, so every pixel of the triangle has one colour - and
+	 * then "does the pipeline agree with the software" becomes a check with no sample
+	 * point to argue about and no attribution to guess: every painted pixel must equal
+	 * the number the pipeline submitted. The fixture's faces 1 and 6 are that case.
+	 *
+	 * <p><b>⚠ And it is driven through the software's own entry point, in the software's
+	 * own argument order.</b> Not a re-derived formula: {@code method484} is invoked by
+	 * reflection, so the pixel is produced by the same code the client runs.
+	 *
+	 * <p><b>Fog is checked on purpose, not avoided.</b> {@code method443} sets
+	 * {@code Fog.sceneDepth} to the model's depth for the duration of the draw, and the
+	 * rasteriser fades each colour code through it before the palette lookup - so the
+	 * pipeline's fog distance is part of the contract. The test therefore runs the same
+	 * comparison twice, once with fog inactive and once with it active, and requires the
+	 * active run to be visibly different - otherwise "the fog path is tested" would mean
+	 * nothing.
+	 */
+	private static void modelFaceColoursMatchTheSoftwareRasteriser() {
+		int savedWidth = DrawingArea.width;
+		int savedHeight = DrawingArea.height;
+		int[] savedPixels = DrawingArea.pixels;
+		int savedTopX = DrawingArea.topX;
+		int savedBottomX = DrawingArea.bottomX;
+		int savedTopY = DrawingArea.topY;
+		int savedBottomY = DrawingArea.bottomY;
+		int savedCenterX = DrawingArea.centerX;
+		int savedCenterY = DrawingArea.centerY;
+		int savedExtent = DrawingArea.anInt1387;
+		Object savedTextureInt1 = readStatic(Texture.class, "textureInt1");
+		Object savedTextureInt2 = readStatic(Texture.class, "textureInt2");
+		int savedSceneDepth = Fog.sceneDepth;
+		int savedAlpha = Texture.anInt1465;
+		boolean savedClamp = Texture.aBoolean1462;
+		boolean savedHighDetail = Texture.aBoolean1464;
+		try {
+			int w = 765;
+			int h = 503;
+			int[] buf = new int[w * h];
+			DrawingArea.initDrawingArea(h, w, buf);
+			Texture.method364();
+			installDeterministicPalette();
+			Fog.sceneDepth = 0;
+			Texture.anInt1465 = 0;
+			Texture.aBoolean1462 = false;
+			Texture.aBoolean1464 = true;
+
+			// The three distinct codes must resolve to three different colours, or a
+			// swapped corner assignment would be invisible and the association check
+			// below would have no teeth.
+			int cA = GlFacePipeline.resolveCornerColour(0x1111, 0);
+			int cB = GlFacePipeline.resolveCornerColour(0x2222, 0);
+			int cC = GlFacePipeline.resolveCornerColour(0x3333, 0);
+			check("Face colour: the fixture's three distinct codes resolve to three distinct "
+					+ "colours, so a swapped corner cannot hide",
+					cA != cB && cB != cC && cA != cC && cA >= 0 && cB >= 0 && cC >= 0);
+
+			// ---- Part 1: the pipeline's own resolution, against the real rasteriser.
+			//
+			// Each case paints ONE triangle with method374 - exactly the call method484
+			// makes for a flat face - and requires every painted pixel to equal what the
+			// pipeline resolves for that code at that depth.
+			Texture.method374(60, 300, 180, 90, 200, 460, 0x0ABC, 0x0ABC, 0x0ABC);
+			boolean noFogMatches = everyPaintedPixelIs(buf, w, h, 0,
+					GlFacePipeline.resolveCornerColour(0x0ABC, 0));
+			check("Face colour: with fog inactive, every pixel the software rasteriser "
+					+ "painted is the colour the pipeline resolves", noFogMatches);
+
+			DrawingArea.setAllPixels(0);
+			Texture.method374(60, 300, 180, 90, 200, 460, 0x0ABC, 0x0ABC, 0x0ABC);
+			int foggedPixel = firstPaintedPixel(buf, w, h);
+			DrawingArea.setAllPixels(0);
+			Fog.sceneDepth = 5000;
+			Texture.method374(60, 300, 180, 90, 200, 460, 0x0ABC, 0x0ABC, 0x0ABC);
+			int softwareFogged = firstPaintedPixel(buf, w, h);
+			int pipelineFogged = GlFacePipeline.resolveCornerColour(0x0ABC, 5000);
+			check("Face colour: the scene depth the pipeline is given really changes the "
+					+ "colour, so the fog path is being exercised, not skipped",
+					softwareFogged != foggedPixel);
+			check("Face colour: with fog active, the software's pixel is the colour the "
+					+ "pipeline resolves at the same scene depth",
+					softwareFogged == pipelineFogged && softwareFogged >= 0);
+			Fog.sceneDepth = 0;
+
+			// ---- Part 2: the association. Corner colours must ride the face's OWN vertex
+			// indices, and be the palette's colours for the codes in the model's OWN
+			// corner-colour arrays - which is the pairing method484's call expression
+			// states (anIntArray1634/1635/1636 indexed by i, against anIntArray1631/1632/
+			// 1633 of the same i).
+			Model m = buildFaceFixture();
+			GlFacePipeline pipeline = new GlFacePipeline();
+			RecordingSink sink = new RecordingSink();
+			int centreX = 382;
+			int centreY = 251;
+			writeStatic(Texture.class, "textureInt1", centreX);
+			writeStatic(Texture.class, "textureInt2", centreY);
+			// The same unrotated camera the census test uses, so the model is on screen
+			// and both the distinct-corner and uniform-corner faces are really drawn.
+			pipeline.emit(m, 0, 0, 65536, 0, 65536, 10, 20, 700,
+					centreX, centreY, sink);
+			int[] outcomes = pipeline.outcomes();
+			int[] colourA = m.faceCornerColoursA();
+			int[] colourB = m.faceCornerColoursB();
+			int[] colourC = m.faceCornerColoursC();
+			int[] cornerCodes = new int[3];
+			int[] cornerColours = new int[3];
+			boolean associationMatches = true;
+			boolean distinctFacesSeen = false;
+			boolean uniformFacesSeen = false;
+			int tri = 0;
+			int sceneDepth = pipeline.sceneDepth();
+			for (int face = 0; face < m.faceCount(); face++) {
+				if (outcomes[face] != GlFacePipeline.DRAWN) {
+					continue;
+				}
+				cornerCodes[0] = colourA[face];
+				cornerCodes[1] = colourB[face];
+				cornerCodes[2] = colourC[face];
+				boolean distinct = cornerCodes[0] != cornerCodes[1]
+						&& cornerCodes[1] != cornerCodes[2] && cornerCodes[0] != cornerCodes[2];
+				boolean uniform = !distinct;
+				for (int corner = 0; corner < 3; corner++) {
+					cornerColours[corner] =
+							GlFacePipeline.resolveCornerColour(cornerCodes[corner], sceneDepth);
+					if (sink.colour(tri, corner) != (0xff000000 | cornerColours[corner])) {
+						associationMatches = false;
+					}
+				}
+				if (distinct) {
+					distinctFacesSeen = true;
+				}
+				if (uniform) {
+					uniformFacesSeen = true;
+				}
+				tri++;
+			}
+			check("Face colour: each submitted corner carries the palette colour of its own "
+					+ "vertex's corner code", associationMatches);
+			check("Face colour: the fixture drew a face with three DISTINCT corner codes, so "
+					+ "the association check above cannot pass by the corners being equal",
+					distinctFacesSeen);
+			check("Face colour: the fixture drew a uniform-cornered face too, which is the "
+					+ "case the exact pixel oracle is meaningful for", uniformFacesSeen);
+		} finally {
+			DrawingArea.pixels = savedPixels;
+			DrawingArea.width = savedWidth;
+			DrawingArea.height = savedHeight;
+			DrawingArea.topX = savedTopX;
+			DrawingArea.bottomX = savedBottomX;
+			DrawingArea.topY = savedTopY;
+			DrawingArea.bottomY = savedBottomY;
+			DrawingArea.centerX = savedCenterX;
+			DrawingArea.centerY = savedCenterY;
+			DrawingArea.anInt1387 = savedExtent;
+			writeStatic(Texture.class, "textureInt1", savedTextureInt1);
+			writeStatic(Texture.class, "textureInt2", savedTextureInt2);
+			Fog.sceneDepth = savedSceneDepth;
+			Texture.anInt1465 = savedAlpha;
+			Texture.aBoolean1462 = savedClamp;
+			Texture.aBoolean1464 = savedHighDetail;
+		}
+	}
+
+	/** The first pixel that is not the clear colour {@code 0}, or {@code -1} if none is. */
+	private static int firstPaintedPixel(int[] buf, int w, int h) {
+		for (int i = 0; i < w * h; i++) {
+			if (buf[i] != 0) {
+				return buf[i];
+			}
+		}
+		return -1;
+	}
+
+	// ------------------------------- the shade model, measured
+
+	/**
+	 * A model carrying BOTH colour regimes of {@code Model.method479} at once.
+	 *
+	 * <p>Four vertices of a quarter-tetrahedron (not coplanar, so every face has real
+	 * area), four faces alternating render type 0 and render type 1. Deliberately built
+	 * from bare geometry rather than parsed, because the point is to drive the REAL
+	 * {@code method479} over a known mix of render types and observe which slots it
+	 * touches.
+	 */
+	private static Model buildShadeFixture() {
+		Model m = parseFixtureModel();
+		m.anIntArray1627 = new int[] { 0, 120, 0, 0 };
+		m.anIntArray1628 = new int[] { 0, 0, 120, 0 };
+		m.anIntArray1629 = new int[] { 0, 0, 0, 120 };
+		writeField(m, "anInt1626", 4);
+
+		// Faces 0 and 2 are render type 0 (method374, three corner codes); faces 1 and 3
+		// are render type 1 (method376, ONE code). Same call, two regimes.
+		m.anIntArray1631 = new int[] { 0, 0, 0, 1 };
+		m.anIntArray1632 = new int[] { 1, 1, 2, 2 };
+		m.anIntArray1633 = new int[] { 2, 3, 3, 3 };
+		writeField(m, "anInt1630", 4);
+		writeField(m, "anIntArray1637", new int[] { 0, 1, 0, 1 });
+		// method479's flat path reads anIntArray1640 for the code it shades.
+		writeField(m, "anIntArray1640", new int[] { 0x0ABC, 0x0DEF, 0x0ABC, 0x0DEF });
+
+		// method479 ends by recomputing these from the vertices, but set them anyway so a
+		// failure inside that tail cannot be mistaken for a slot that was never written.
+		writeField(m, "anInt1653", 400);
+		writeField(m, "anInt1652", 800);
+		m.anInt1650 = 500;
+		return m;
+	}
+
+	/**
+	 * THE SHADE MODEL'S LAYOUT, MEASURED RATHER THAN ASSUMED: which of the three
+	 * per-corner colour slots {@code Model.method479} actually writes, per render type.
+	 *
+	 * <p><b>Why this is worth a test at all.</b> Phase 7.2b-2b recorded that the GL path
+	 * "consumes the per-corner colours as the software left them" and that reproducing
+	 * {@code method479}/{@code method481} was therefore still owed. Whether the first half
+	 * of that is SAFE depends on a fact that reading kept rendering ambiguously:
+	 * {@code method479} does NOT write all three slots for every render type.
+	 * {@code method484} reads only the slot its primitive needs - {@code anIntArray1634}
+	 * alone for render type 1 - so the software never notices. Any consumer that reads all
+	 * three, as a triangle-emitting pipeline must, reads slots that were never written.
+	 *
+	 * <p><b>Sentinels rather than inference.</b> Each slot is pre-filled with a value no
+	 * legal {@code method481} output can produce, so "untouched" is directly observable
+	 * instead of being confused with "computed to zero". This is also why the check is
+	 * worth more than a comment: with the slots pre-filled, the assertion distinguishes
+	 * "method479 does not write it" from "method479 writes zero there".
+	 */
+	private static void shadeModelWritesOnlyTheSlotsEachRenderTypeUses() {
+		Model m = buildShadeFixture();
+		int faces = m.faceCount();
+		int sentinel = 0x5A5A;
+		int[] a = new int[faces];
+		int[] b = new int[faces];
+		int[] c = new int[faces];
+		java.util.Arrays.fill(a, sentinel);
+		java.util.Arrays.fill(b, sentinel);
+		java.util.Arrays.fill(c, sentinel);
+		writeField(m, "anIntArray1634", a);
+		writeField(m, "anIntArray1635", b);
+		writeField(m, "anIntArray1636", c);
+
+		m.method479(64, 850, -30, -50, -30, true);
+
+		int[] renderTypes = m.faceRenderTypes();
+		boolean sawFlat = false;
+		boolean sawGouraud = false;
+		for (int f = 0; f < faces; f++) {
+			int type = renderTypes == null ? 0 : renderTypes[f] & 3;
+			boolean wroteA = a[f] != sentinel;
+			boolean wroteB = b[f] != sentinel;
+			boolean wroteC = c[f] != sentinel;
+			if (type == 1) {
+				sawFlat = true;
+				check("Shade model: a render-type-1 face writes ONLY anIntArray1634 (face "
+						+ f + ": wroteA=" + wroteA + " wroteB=" + wroteB + " wroteC="
+						+ wroteC + ") - the single slot method484 hands to method376, and "
+						+ "the reason a triangle emitter must use ONE colour for this face",
+						wroteA && !wroteB && !wroteC);
+			} else if (type == 0) {
+				sawGouraud = true;
+				check("Shade model: a render-type-0 face writes ALL THREE corners (face "
+						+ f + ": wroteA=" + wroteA + " wroteB=" + wroteB + " wroteC="
+						+ wroteC + "), because method480 lights each vertex and method374 "
+						+ "interpolates them across the triangle",
+						wroteA && wroteB && wroteC);
+			}
+		}
+		check("Shade model: the fixture actually exercised both regimes (flat=" + sawFlat
+				+ " gouraud=" + sawGouraud + "), so neither assertion above is vacuous",
+				sawFlat && sawGouraud);
+	}
+
+	/**
+	 * THE EMIT-LEVEL PIN, which the colour oracle alone does NOT provide: a correct
+	 * {@link GlFacePipeline#resolveFlatColour} is worthless if {@code emit} never calls it,
+	 * so this drives the real {@code emit} over the shade fixture and requires a
+	 * render-type-1 face to ARRIVE as one colour, taken from {@code anIntArray1634} alone.
+	 *
+	 * <p><b>Why the fixture gives every slot a different code.</b> If a type-1 face read
+	 * all three slots - the pre-fix behaviour - its corners would be the three palette
+	 * entries of 1634/1635/1636. Making those three distinct means "one colour" is only
+	 * reachable by genuinely using one slot; identical codes would let the bug produce a
+	 * flat triangle by coincidence and pass.
+	 *
+	 * <p>It also asserts the change did NOT flatten everything: a type-0 face must still
+	 * come through with distinct corners, or "flat" would be indistinguishable from
+	 * "the gouraud path stopped running".
+	 */
+	private static void flatFacesAreEmittedAsOneColour() {
+		int[] savedDrawingArea = saveDrawingArea();
+		int[] savedPixels = DrawingArea.pixels;
+		Object savedTextureInt1 = readStatic(Texture.class, "textureInt1");
+		Object savedTextureInt2 = readStatic(Texture.class, "textureInt2");
+		try {
+			int w = 765;
+			int h = 503;
+			DrawingArea.initDrawingArea(h, w, new int[w * h]);
+			Texture.method364();
+			installDeterministicPalette();
+			int centreX = 382;
+			int centreY = 251;
+			writeStatic(Texture.class, "textureInt1", centreX);
+			writeStatic(Texture.class, "textureInt2", centreY);
+
+			Model m = buildShadeFixture();
+			// A DIFFERENT code in every slot: "all three corners equal" is then only
+			// reachable by using one slot, not by the slots happening to agree.
+			writeField(m, "anIntArray1634", new int[] { 0x0ABC, 0x0DEF, 0x0ABC, 0x0DEF });
+			writeField(m, "anIntArray1635", new int[] { 0x0111, 0x0222, 0x0333, 0x0444 });
+			writeField(m, "anIntArray1636", new int[] { 0x0555, 0x0666, 0x0777, 0x0888 });
+			int[] colourA = m.faceCornerColoursA();
+			int[] colourB = m.faceCornerColoursB();
+			int[] colourC = m.faceCornerColoursC();
+
+			// ⚠ AN A/B ON THE SAME GEOMETRY, NOT A HUNT FOR A COOPERATIVE CAMERA. Which
+			// faces survive the winding test depends on the model's orientation, so a
+			// fixture that "should" show both regimes can silently draw only one and let
+			// half this test skip - which is exactly what the first version of it did.
+			// Flipping the render type between two otherwise IDENTICAL passes removes that
+			// dependence: the same faces are drawn twice and must change behaviour.
+			int drawnGouraud = 0;
+			int drawnFlat = 0;
+
+			// ---- Pass A: every face render type 0 -> three corners, each its own code.
+			writeField(m, "anIntArray1637", new int[] { 0, 0, 0, 0 });
+			GlFacePipeline pipeline = new GlFacePipeline();
+			RecordingSink sink = new RecordingSink();
+			pipeline.emit(m, 0, 0, 65536, 0, 65536, 10, 20, 700, centreX, centreY, sink);
+			int depth = pipeline.sceneDepth();
+			int[] outcomes = pipeline.outcomes();
+			int n = 0;
+			for (int f = 0; f < m.faceCount(); f++) {
+				if (outcomes[f] != GlFacePipeline.DRAWN) {
+					continue;
+				}
+				drawnGouraud++;
+				int o = n++ * 12;
+				// ⚠ Compared against the CORNER formula, which under fog differs from the
+				// flat one - so this cannot pass if the flat branch had been taken here.
+				// Masked to 24 bits because the sink's argb carries an opaque alpha byte
+				// that the resolvers do not add; OPAQUE itself is private to the pipeline.
+				check("Flat face emit: with render type 0, face " + f + " keeps THREE per-corner "
+						+ "colours, each the palette entry of that corner's OWN code - so the flat "
+						+ "branch is specific to type 1 rather than flattening every face",
+						((int) sink.floats[o + 3] & 0xFFFFFF)
+								== GlFacePipeline.resolveCornerColour(colourA[f], depth)
+						&& ((int) sink.floats[o + 7] & 0xFFFFFF)
+								== GlFacePipeline.resolveCornerColour(colourB[f], depth)
+						&& ((int) sink.floats[o + 11] & 0xFFFFFF)
+								== GlFacePipeline.resolveCornerColour(colourC[f], depth));
+			}
+
+			// ---- Pass B: the SAME faces, render type 1 -> one colour from 1634 alone.
+			writeField(m, "anIntArray1637", new int[] { 1, 1, 1, 1 });
+			GlFacePipeline flatPipeline = new GlFacePipeline();
+			RecordingSink flatSink = new RecordingSink();
+			flatPipeline.emit(m, 0, 0, 65536, 0, 65536, 10, 20, 700, centreX, centreY, flatSink);
+			int flatDepth = flatPipeline.sceneDepth();
+			int[] flatOutcomes = flatPipeline.outcomes();
+			n = 0;
+			for (int f = 0; f < m.faceCount(); f++) {
+				if (flatOutcomes[f] != GlFacePipeline.DRAWN) {
+					continue;
+				}
+				drawnFlat++;
+				int o = n++ * 12;
+				int c0 = (int) flatSink.floats[o + 3];
+				int c1 = (int) flatSink.floats[o + 7];
+				int c2 = (int) flatSink.floats[o + 11];
+				int expected = GlFacePipeline.resolveFlatColour(colourA[f], flatDepth);
+				check("Flat face emit: with render type 1 the SAME face " + f + " arrives as ONE "
+						+ "colour, taken from anIntArray1634 alone (" + Integer.toHexString(c0)
+						+ " / " + Integer.toHexString(c1) + " / " + Integer.toHexString(c2) + ")",
+						expected >= 0 && c0 == c1 && c1 == c2
+								&& (c0 & 0xFFFFFF) == expected
+								&& (c1 & 0xFFFFFF) == expected
+								&& (c2 & 0xFFFFFF) == expected);
+			}
+			check("Flat face emit: the two passes drew the SAME faces (" + drawnGouraud + " vs "
+					+ drawnFlat + ") and there was at least one, so the A/B is a real comparison "
+					+ "rather than two empty loops",
+					drawnGouraud == drawnFlat && drawnGouraud > 0);
+		} finally {
+			restoreDrawingArea(savedDrawingArea, savedPixels);
+			writeStatic(Texture.class, "textureInt1", savedTextureInt1);
+			writeStatic(Texture.class, "textureInt2", savedTextureInt2);
+		}
+	}
+
+	/**
+	 * THE FLAT PATH'S ORACLE: a render-type-1 face must come out the colour
+	 * {@code Texture.method376} would paint it with, fog included.
+	 *
+	 * <p>⚠ <b>The two colour paths fog in OPPOSITE ORDERS and this test exists to hold
+	 * that apart.</b> {@code method374} (type 0) fades the colour CODE and lets the
+	 * rasteriser look the palette up per interpolated code. {@code method376} (type 1)
+	 * looks the palette up FIRST and fades the resulting RGB. With fog inactive both
+	 * collapse to {@code palette[code]}, which is precisely why the difference survives a
+	 * casual reading - so this test runs with fog ON, and asserts that the two orders
+	 * disagree before trusting the agreement check above it.
+	 */
+	private static void flatFacesMatchTheSoftwareFlatFill() {
+		int savedWidth = DrawingArea.width;
+		int savedHeight = DrawingArea.height;
+		int[] savedPixels = DrawingArea.pixels;
+		int savedSceneDepth = Fog.sceneDepth;
+		int savedAlpha = Texture.anInt1465;
+		boolean savedClamp = Texture.aBoolean1462;
+		boolean savedHighDetail = Texture.aBoolean1464;
+		try {
+			int w = 765;
+			int h = 503;
+			int[] buf = new int[w * h];
+			DrawingArea.initDrawingArea(h, w, buf);
+			Texture.method364();
+			installDeterministicPalette();
+			Texture.anInt1465 = 0;
+			Texture.aBoolean1462 = false;
+			Texture.aBoolean1464 = true;
+
+			int code = 0x0ABC;
+			int depth = 5000;
+			int[] palette = Texture.anIntArray1482;
+
+			// ---- FOG ON: the pipeline's flat colour must be what method376 paints.
+			Fog.sceneDepth = depth;
+			Texture.method376(60, 300, 180, 90, 200, 460, palette[code]);
+			check("Flat face: with fog active, every pixel method376 painted is the colour "
+					+ "the pipeline resolves for the same code and depth",
+					everyPaintedPixelIs(buf, w, h, 0,
+							GlFacePipeline.resolveFlatColour(code, depth)));
+
+			// ---- NON-VACUITY, and it is the reason the check above runs fogged: if the
+			// two orders agreed, using the corner formula here would pass the oracle too.
+			int flat = GlFacePipeline.resolveFlatColour(code, depth);
+			int corner = GlFacePipeline.resolveCornerColour(code, depth);
+			check("Flat face: with fog active the flat order (palette, then fade the RGB) "
+					+ "and the corner order (fade the code, then palette) give DIFFERENT "
+					+ "colours (" + Integer.toHexString(flat) + " vs "
+					+ Integer.toHexString(corner) + "), so the oracle above can fail",
+					flat != corner);
+
+			// ---- FOG OFF: both orders coincide. Asserted rather than assumed, because
+			// this is the exact condition under which the bug would be invisible.
+			Fog.sceneDepth = 0;
+			check("Flat face: with fog inactive the two orders agree and both are the "
+					+ "plain palette entry - which is why a fog-off reading of this code "
+					+ "cannot see the difference",
+					GlFacePipeline.resolveFlatColour(code, 0)
+							== GlFacePipeline.resolveCornerColour(code, 0)
+					&& GlFacePipeline.resolveFlatColour(code, 0) == palette[code]);
+		} finally {
+			DrawingArea.width = savedWidth;
+			DrawingArea.height = savedHeight;
+			DrawingArea.pixels = savedPixels;
+			Fog.sceneDepth = savedSceneDepth;
+			Texture.anInt1465 = savedAlpha;
+			Texture.aBoolean1462 = savedClamp;
+			Texture.aBoolean1464 = savedHighDetail;
+		}
+	}
+
+	/**
+	 * Whether every non-clear pixel equals {@code colour}, with the CONTROL that at least
+	 * one pixel was painted at all - a rasteriser that drew nothing would otherwise
+	 * satisfy "every painted pixel matches" trivially.
+	 */
+	private static boolean everyPaintedPixelIs(int[] buf, int w, int h, int clear,
+			int colour) {
+		int painted = 0;
+		for (int i = 0; i < w * h; i++) {
+			if (buf[i] == clear) {
+				continue;
+			}
+			painted++;
+			if (buf[i] != colour) {
+				return false;
+			}
+		}
+		return painted > 0;
 	}
 
 	// ------------------------------------ ground triangle seam (Phase 4.1c-2c)
@@ -2349,6 +4546,26 @@ public final class ClientHarness {
 		writeField(m, "anIntArray1634", new int[] { 0x1234, 0x2345 });
 		writeField(m, "anIntArray1635", new int[] { 0x5678, 0x6789 });
 		writeField(m, "anIntArray1636", new int[] { 0x9ABC, 0xABCD });
+
+		// ⚠⚠ ISOLATION, and this line is the FIX for what the plan recorded as an
+		// "unidentified shared-state interaction" between this test and anything that
+		// drives a real `Model.method443` (Phase 7.2b-2b, 2026-10-06).
+		//
+		// This test calls `method484` DIRECTLY, so it must supply the two `private static`
+		// flags `method483` would normally have written for it - it is `method483`'s output
+		// that `method484` reads, and this test skips `method483` entirely:
+		//     aBooleanArray1664[face] : true  -> route the face to method485, the CLIPPER
+		//     aBooleanArray1663[face] : copied into Texture.aBoolean1462, the X clamp
+		// Left over from an earlier real draw they are stale, and the failure they produce
+		// is silent and looks like a rasteriser bug rather than a test-setup one: face 0
+		// took the clipper branch, the clipper read the ALSO-stale `anIntArray1667` (all
+		// zero, i.e. every vertex behind the near plane), discarded the whole triangle, and
+		// the only symptom was "the flat face's draw plotted pixels" failing.
+		// Measured, not deduced: with a real `method443` run first, the flags read back as
+		// `aBooleanArray1664[0..3] = true,true,false,false`. Resetting them makes this test
+		// independent of test order, which is why the ordering workaround is now gone.
+		writeStatic(Model.class, "aBooleanArray1664", new boolean[4096]);
+		writeStatic(Model.class, "aBooleanArray1663", new boolean[4096]);
 
 		java.lang.reflect.Method draw;
 		try {

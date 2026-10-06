@@ -70,8 +70,8 @@ try {
 	if ($LASTEXITCODE -ne 0) { exit 1 }
 
 	$cp = $work + ';' + $binDir
-	$lwjgl = Join-Path $clientDir 'deps\lwjgl.jar'
-	if (Test-Path $lwjgl) { $cp = $cp + ';' + $lwjgl }
+	$lwjgl = Join-Path $clientDir 'deps\lwjgl3'
+	if (Test-Path $lwjgl) { $cp = $cp + ';' + (Join-Path $lwjgl '*') }
 
 	Write-Host ""
 	& java -cp $cp ContentRegistryProbe

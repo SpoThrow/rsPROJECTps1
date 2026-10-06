@@ -52,13 +52,28 @@ sourceSets {
 }
 
 dependencies {
-    // Compile.bat put deps/lwjgl.jar on the compile classpath and Run.bat puts it
-    // on the runtime classpath. No source imports org.lwjgl - the jar is LWJGL 2
-    // and the Display.setParent approach it existed for was abandoned (see
-    // LwjglPresent.java) - but both classpaths are mirrored so this build matches
-    // the script it replaces rather than quietly diverging from it.
-    compileOnly files('deps/lwjgl.jar')
-    runtimeOnly files('deps/lwjgl.jar')
+    // Phase 7.2a: deps/lwjgl.jar (LWJGL 2) is NO LONGER on the classpath. Nothing ever
+    // imported it - the Display.setParent approach it was vendored for was abandoned and
+    // ui/LwjglPresent.java survives as an inert stub with no org.lwjgl imports - but it
+    // was still ahead of deps/lwjgl3 on the classpath, and both jars declare
+    // org.lwjgl.opengl.*. LWJGL 2 won the lookup, and its GL30 has no GL_DEPTH_COMPONENT24
+    // (LWJGL 3 resolves it by inheritance: GL30 extends GL21 extends ... extends GL14),
+    // so ui/GlScene.java would not compile. Same collision would have hit at runtime, and
+    // worse: LWJGL 2's static GL methods route through an uninitialised LWJGL 2 context
+    // that GLFW never sets up. LWJGL 2 is superseded (see CLIENT_REFACTORING_PLAN.md 8.1);
+    // this is its one blocking use. The jar stays on disk, off every classpath.
+
+    // Phase 7.2a: LWJGL 3, vendored next to LWJGL 2 for the same reason - the build
+    // stays offline and deterministic. Only ui/GlScene.java imports org.lwjgl.opengl/
+    // glfw, and ONLY when the 'gl' renderer is selected (Phase 7.1 chose an offscreen
+    // context over AWTGLCanvas; see CLIENT_REFACTORING_PLAN.md).
+    //
+    // Deliberately NOT added to the harness classpath below: the harness must stay
+    // hermetic and GPU-free, and with these jars absent GlScene takes its DEGRADATION
+    // path, which is the robustness property worth testing headlessly. The successful
+    // context creation needs a real GPU and is the live gate's job (7.4).
+    compileOnly fileTree('deps/lwjgl3') { include '*.jar' }
+    runtimeOnly fileTree('deps/lwjgl3') { include '*.jar' }
 }
 
 tasks.withType(JavaCompile).configureEach {
@@ -153,7 +168,7 @@ tasks.register('compileHarness', JavaCompile) {
     description = 'Compiles the headless harness in test/ against the client classes.'
     dependsOn tasks.named('classes')
     source = fileTree('test') { include '**/*.java' }
-    classpath = files(mainClassesDir) + files('deps/lwjgl.jar')
+    classpath = files(mainClassesDir)
     destinationDirectory = layout.buildDirectory.dir('harness/classes')
     options.encoding = 'UTF-8'
     options.release = javaRelease
@@ -304,7 +319,7 @@ tasks.register('run', JavaExec) {
     description = 'Launches the client (mirrors Run.bat).'
     dependsOn tasks.named('classes')
     workingDir = projectDir
-    classpath = files(mainClassesDir) + files('deps/lwjgl.jar')
+    classpath = files(mainClassesDir) + fileTree('deps/lwjgl3') { include '*.jar' }
     mainClass = 'game.Loader'
     jvmArgs = ['-Xmx1024m']
 }

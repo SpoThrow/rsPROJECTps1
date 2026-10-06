@@ -36,8 +36,11 @@ mkdir "%BUILDDIR%"
 
 call :killclient
 
+rem Phase 7.2a: LWJGL 2 (deps\lwjgl.jar) is not used - it shadows LWJGL 3's org.lwjgl.opengl.*.
+rem NOTE: this script is superseded by `gradlew.bat installBin` (see build.gradle); its source
+rem list still names the pre-package src\*.java layout and no longer matches the tree.
 set CP=
-if exist deps\lwjgl.jar set CP=-cp deps\lwjgl.jar
+if exist deps\lwjgl3 set CP=-cp "deps\lwjgl3\*"
 
 echo Compiling client...
 %JAVAC% -encoding UTF-8 -source 1.7 -target 1.7 %CP% -d "%BUILDDIR%" -sourcepath src src\*.java src\sign\*.java

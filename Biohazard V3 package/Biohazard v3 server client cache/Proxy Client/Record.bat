@@ -48,9 +48,11 @@ echo "%OUT%" | findstr /r /c:":" >nul
 if errorlevel 1 set DISPLAY=%CD%\%OUT%
 
 set CP=bin
-if exist deps\lwjgl.jar set CP=bin;deps\lwjgl.jar
+rem Phase 7.2a: deps\lwjgl.jar (LWJGL 2) is deliberately NOT on the classpath - it and
+rem LWJGL 3 both declare org.lwjgl.opengl.* and LWJGL 2 was winning the lookup.
+if exist deps\lwjgl3 set CP=%CP%;deps\lwjgl3\*
+rem No -Dorg.lwjgl.librarypath: deps\natives holds LWJGL 2's DLLs; LWJGL 3 extracts its own.
 set NATIVES=
-if exist deps\natives set NATIVES=-Dorg.lwjgl.librarypath="%~dp0deps\natives"
 
 REM Prove the output path is writable BEFORE the session, not after. The tap only
 REM opens its file on the first packet, so a bad path or a read-only folder would

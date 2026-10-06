@@ -46,8 +46,11 @@ New-Item -ItemType Directory -Path $outDir -Force | Out-Null
 
 try {
 	$cp = $binDir
-	$lwjgl = Join-Path $clientDir 'deps\lwjgl.jar'
-	if (Test-Path $lwjgl) { $cp = "$binDir;$lwjgl" }
+	# Phase 7.2a: LWJGL 2 is gone from the classpath - it and LWJGL 3 both declare
+	# org.lwjgl.opengl.* and LWJGL 2 was winning. The probe only mirrors the runtime
+	# classpath, so it points at LWJGL 3 now.
+	$lwjgl = Join-Path $clientDir 'deps\lwjgl3'
+	if (Test-Path $lwjgl) { $cp = "$binDir;" + (Join-Path $lwjgl '*') }
 
 	Write-Host "Compiling probe against the client classes..."
 	& javac -nowarn -cp $binDir -d $outDir (Join-Path $here 'LooseFrameProbe.java')

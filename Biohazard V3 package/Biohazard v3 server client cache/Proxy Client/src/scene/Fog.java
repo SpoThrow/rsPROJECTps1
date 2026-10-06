@@ -83,10 +83,30 @@ public final class Fog {
 	}
 
 	public static int applyFlat(int rgb) {
-		if (sceneDepth <= 50 || client.fogStrength <= 0) {
+		return applyFlatAt(rgb, sceneDepth);
+	}
+
+	/**
+	 * {@link #applyFlat} with the depth supplied rather than read from
+	 * {@link #sceneDepth}.
+	 *
+	 * <p>⚠ <b>Why the caller cannot just use {@link #applyFlat}: {@code Fog.sceneDepth} is
+	 * not necessarily THIS consumer's depth.</b> {@code Model.method443} dispatches its
+	 * scene seam near the top of the method ({@code Model.java:2337}) and only assigns
+	 * {@code Fog.sceneDepth} further down ({@code Model.java:2346}), so at the moment a
+	 * renderer is invoked the field still holds the PREVIOUS model's depth. The software
+	 * path is unaffected - it reads the field later, per face - but any consumer that
+	 * resolves a colour at the seam has to be told the depth explicitly, which is why
+	 * {@link #fadeHsl} takes one as an argument and this now does too.
+	 *
+	 * <p>Kept as the single owner of the flat-fade formula rather than copied into the GL
+	 * path: two copies of a fog curve is exactly the drift this package exists to avoid.
+	 */
+	public static int applyFlatAt(int rgb, int depth) {
+		if (depth <= 50 || client.fogStrength <= 0) {
 			return rgb;
 		}
-		return fadeRgb(rgb, sceneDepth);
+		return fadeRgb(rgb, depth);
 	}
 
 	public static void fillBackground() {

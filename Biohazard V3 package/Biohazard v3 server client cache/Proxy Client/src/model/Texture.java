@@ -123,6 +123,60 @@ public final class Texture extends DrawingArea {
 		anIntArrayArray1479[i] = null;
 	}
 
+	/**
+	 * Whether a texture with this id was loaded, i.e. whether the software renderer
+	 * could sample it at all.
+	 *
+	 * <p>{@code unpack} swallows a per-texture failure ({@code catch (Exception)}), so
+	 * a gap in the 51 slots is a real possibility rather than a theoretical one - and a
+	 * renderer that assumed every id in {@code 0..50} exists would upload an empty
+	 * texture and silently paint it black.
+	 */
+	public static boolean hasTexture(int id) {
+		return id >= 0 && id < aBackgroundArray1474s.length && aBackgroundArray1474s[id] != null;
+	}
+
+	/**
+	 * Side, in texels, of the square array {@link #texturePixels} returns - or 0 when
+	 * there is no such texture.
+	 *
+	 * <p>⚠️ <b>This is not the source {@code Background}'s own size.</b>
+	 * {@code method371} RESAMPLES into a square working texture, and which square
+	 * depends on {@link #lowMem}: 64x64 (4096 entries) when {@code lowMem}, else 128x128
+	 * (16384). A caller that used {@code anInt1452}/{@code anInt1456} instead would
+	 * address the array with the wrong row stride and get a diagonal smear that still
+	 * looks like "a texture".
+	 */
+	public static int textureSize(int id) {
+		if (!hasTexture(id)) {
+			return 0;
+		}
+		return lowMem ? 64 : 128;
+	}
+
+	/**
+	 * The texture's <b>full-brightness</b> texels, row-major, or {@code null} when
+	 * there is no such texture.
+	 *
+	 * <p><b>This is the array the rasteriser itself samples, so it is faithful by
+	 * construction rather than by re-derivation.</b> {@code method371} returns a block
+	 * of {@code size * size} entries per brightness level - four of them, laid out
+	 * consecutively - and the block at offset 0 is the one {@code method379} indexes
+	 * before it applies the per-pixel shade. A GPU path wants exactly that block and
+	 * must apply the shade ITSELF, which is why only block 0 is exposed here.
+	 *
+	 * <p>⚠️ <b>The returned array is live cache storage, not a copy.</b>
+	 * {@code method371} recycles arrays ({@code method370}) and the caller must not
+	 * retain or mutate it; an uploader should copy what it needs immediately. Block 0
+	 * of texture {@code id} occupies {@code [0, size * size)}.
+	 */
+	public static int[] texturePixels(int id) {
+		if (!hasTexture(id)) {
+			return null;
+		}
+		return method371(id);
+	}
+
 	private static int[] method371(int i) {
 		anIntArray1480[i] = anInt1481++;
 		if (anIntArrayArray1479[i] != null)

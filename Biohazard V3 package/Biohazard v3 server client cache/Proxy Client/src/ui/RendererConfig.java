@@ -32,6 +32,13 @@ import sign.signlink;
  * everything and therefore changes nothing. That exercises the real load -> select ->
  * install path end to end without pretending a GPU path exists. It is deliberately
  * not a no-op stub that swallows work: see {@link DecliningRenderer}.
+ *
+ * <p><b>Phase 7.2a adds one more recognised value, {@value #GL_NAME}.</b> It installs
+ * {@link GlSceneRenderer}, which brings the offscreen context up but still declines
+ * every operation - so it, too, changes no pixel. Any other non-software value still
+ * installs {@link DecliningRenderer}. The default is untouched: an absent key is
+ * still software, so the software path remains both the default and the fallback
+ * (7.3).
  */
 public final class RendererConfig {
 
@@ -43,6 +50,13 @@ public final class RendererConfig {
 
 	/** The bring-up selection: installs a renderer that declines everything. */
 	public static final String PLACEHOLDER_NAME = "placeholder";
+
+	/**
+	 * The GL selection (Phase 7.2a). Installs {@link GlSceneRenderer}, which brings the
+	 * offscreen context up on the game thread and - for now - still declines every
+	 * operation, so this arm renders identically to software until 7.2b.
+	 */
+	public static final String GL_NAME = "gl";
 
 	private static String requested = SOFTWARE;
 
@@ -58,6 +72,10 @@ public final class RendererConfig {
 		requested = readRequested();
 		if (SOFTWARE.equalsIgnoreCase(requested)) {
 			GpuRenderer.install(null);
+			return;
+		}
+		if (GL_NAME.equalsIgnoreCase(requested)) {
+			GpuRenderer.install(new GlSceneRenderer(requested));
 			return;
 		}
 		GpuRenderer.install(new DecliningRenderer(requested));
