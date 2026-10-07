@@ -6,7 +6,67 @@
 
 ## 📍 Current status (update this block after every working session)
 
-**Last updated:** 2026-10-06 (LATEST - ✅✅ **7.4c MEASURED THE RAMP-OVERFLOW GUARD AGAINST THE REAL `method379`, AND THE ANSWER IS "BOTH": IT IS STRICTLY CONSERVATIVE AT THE LOW END AND NECESSARY AT THE HIGH END, AND THE TWO REGIMES ARE SEPARATED BY SOMETHING CHEAP ENOUGH TO COMPUTE PER FACE.** 7.4b left one question - is `TEXTURE_RAMP_OVERFLOW`, which declined 25 of a 128-face model's faces, a real decline or a guard stricter than the software? It is no longer a question of opinion.
+**Last updated:** 2026-10-07 (LATEST - ✅✅✅ **LIVE RUN #2 ON THE 7.4j BUILD: ZERO SKIPS, ZERO DISCARDS - AND GL'S OWN IMAGE IS NOW ASSERTED POSITIVELY INSTEAD OF INFERRED FROM ABSENCES (7.4l).**
+
+| step | what changed | first decline the live client reported |
+|---|---|---|
+| 7.4c | none (measurement) | `NEEDS_TEXTURE x25 of 128` - `TEXTURE_RAMP_OVERFLOW` |
+| 7.4d | guard widened, MODELS | `NEEDS_TEXTURE x1 of 122` - `TEXTURE_SINK_DECLINED` |
+| 7.4e | guard widened, GROUND + sink-decline attributed | `NEEDS_TEXTURE x1 of 122` - `TEXTURE_WNUM_CROSSING` |
+| 7.4f | `wNum` sign-crossing tolerated (shader discards at exact zero) | `NEEDS_TEXTURE x1 of 128` - `TEXTURE_RAMP_OVERFLOW` |
+| 7.4g | degenerate sample point is vacuous, not a disagreement | `ground: a textured tile ... wrapped WITHOUT cancelling` |
+| 7.4h | actor-scoped fallback: mark/rewind the model, skip the tile | ✅✅✅ **NO DECLINE, NO DISCARD - `skipping a MODEL ... x1 of 291`, frame READ BACK** |
+| 7.4i | harness pins for 7.4e/7.4f/7.4g/7.4h | *(no live run - this step is the harness)* |
+| 7.4j | **shade fog fade applied in BOTH paths** (the last known fidelity bug) | *(no live run yet - pinned in the harness instead)* |
+| 7.4k | **live run #1 on 7.4j** + the skip now NAMES the model it drops | `NEEDS_TEXTURE x1 of 233 faces, first at face 200` - `TEXTURE_RAMP_OVERFLOW` |
+
+✅✅✅ **LIVE RUN #1 ON THE 7.4j BUILD: GL IS COMPOSITED AND THE GROUND IS CLEAN.** The 2026-10-07 session log carries the batch-ready line (`viewport 512x334, atlas 51 layers of 128x128, NEAREST, integer`), exactly ONE skip note, and - the evidence that matters - **no `discarding GL frames` line at all**, which `sceneFinished` only prints when `readBack` returns false. ⚠ That inference was CHECKED rather than assumed: `readBack` delegates to `batch.readInto(pixels, producer.anInt316, ...)`, so a size mismatch fails and logs, and the latch calls `batch.ensure(DrawingArea.width, DrawingArea.height)` every frame - which reaches `GlScene.ensure(w, h)` even when already ready, so the surface tracks resizes and the printed `512x334` is just the size at first-ready rather than a stale viewport.
+
+✅ **AND THE GROUND IS FULLY REPRESENTABLE IN THAT SCENE: there is no ground-skip note.** Every textured tile in view mapped. The remaining loss is a single MODEL: `NEEDS_TEXTURE x1 of 233 faces, first at face 200 - TEXTURE_RAMP_OVERFLOW`, i.e. the non-cancelling wrap, exactly the honest class 7.4c predicted for models.
+
+⚠ **THE ONE LOG LINE THAT LOOKS ALARMING IS EXPECTED, and is recorded here so nobody re-diagnoses it: "the scene is composited at the scene-finished seam, so the frame is presented by the software blit".** `presentGameFrame` declines on purpose - the scene is read back into the software framebuffer at `sceneFinished`, the HUD is drawn on top of it, and the software blit then presents the composite. Declining is the design, not a fallback.
+
+✅ **7.4k - THE SKIP NOW NAMES WHAT IT DROPS AND REPORTS THE RATE, because live run #1 could not answer the plan's own next question.** The note said how badly a model failed (`x1 of 233`) but not WHICH model, so "is the skipped model visibly missing?" was unanswerable without hunting the scene by eye. `drawModel` already receives the actor's real `uid` (`WorldController` passes `class10.uid` / `object4.uid` / ...) and was discarding it.
+
+⚠ **Three distinct questions, three separate mechanisms, because one could not do the others' job:**
+- **Which actor?** Each **DISTINCT** uid is logged once (`skipping MODEL uid N (2 distinct so far)`). Deliberately not per-frame (that floods) and not one-shot (that only says "this happens").
+- **Once or always?** `modelSkipEvents()` counts skip EVENTS, so a session that drops one actor on every frame (a persistent hole) is distinguishable from an occasional drop (falling scenery) - a huge event count with a distinct count of 1 is a single hole the player stares at, not a spreading problem.
+- **The rate in the log?** A throttled line (**at most one per 10s, and ONLY when something was actually skipped in the window**) reports the delta and the totals together with `framesReadBack`/`framesDiscarded`. ⚠ A counter that nothing prints is only useful to a debugger, and this project's whole logging convention is that a live run answers the question by itself. A clean session stays silent, which is what keeps the signal findable.
+
+**Gates: harness 489 -> 557, failures 0, `installBin` clean. MUTATION-PROVED: the uid dropped from the note -> the uid check red; the distinct set keyed on a constant -> the second-actor check red.**
+
+**Next: RE-RUN AND READ THE UID.** The build now names the missing actor and prints its rate, so the next run converts "is something missing?" into "uid N is missing, every frame" or "uid N was dropped twice in ten minutes". ⚠ Then the real fidelity gate: the SAME SPOT rendered with `renderer=software` versus `renderer=gl`, which is the only thing that can settle whether the GL image agrees with the software one - including the 7.4j fog fade, which is wired and oracle-checked but has never been seen on screen. ⚠ Still unpinned: the `GlBatcher.rewind` textured-count recount under a MIXED window.
+
+✅✅✅ **7.4h IS THE MILESTONE: GL IS PRESENTING FRAMES.** The live client's log has the batch-ready line, the one-shot "skipping a MODEL" note, and **nothing else** - i.e. no `discarding GL frames` (the readback SUCCEEDED) and no size-mismatch note. Those two absences are the evidence, not a guess: `sceneFinished` logs a discard whenever `readBack` returns false, and it logged nothing. A screenshot of the running client confirms it visually.
+
+✅ **7.4i - THE PINS, AND THEY ARE MUTATION-PROVED RATHER THAN MERELY PRESENT.** `groundRampOverflowSkipsTheTileAndKeepsTheFrame` drives 7.4c's own scale fixture through the REAL `GlSceneRenderer` seam and asserts the policy: the CANCELLING overflow (k=2) is DRAWN, the PICTURE-BREAKING one (k=4) is SKIPPED with the frame still read back, and the skip is reported. ⚠ It also asserts the two arms really ARE those two things (`overflows()` and `reproducesExactlyAt` agreeing/disagreeing at the tile's own corners) before drawing any conclusion from them - so a fixture that drifted would fail loudly rather than test the wrong pair. Alongside it: `GpuFloatBuffer`/`GpuIntBuffer` `truncate()` bounds (7.4h's mechanism), the vacuous-zero-denominator rule with a CONSTANT nine (7.4g), and `GlBatcher.denominatorsAreDegenerate` extracted so the 7.4f sign rule is pinnable as BEHAVIOUR rather than only as source text.
+
+⚠⚠ **CLIENT IS CLOSED AND `client_settings.properties` IS STILL AT `renderer=gl`.** Restore it by COPYING `client_settings.properties.pre-glgate` - the gate edit changed three keys, not one.
+
+**Gates: harness 489 -> 545 (56 new over the arc), failures 0, `installBin` clean. MUTATION-PROVED, each attributed: `reproducesExactlyAt(int,int)` forced false -> 6 red; the pre-7.4f same-sign rejection restored -> the 7.4f check red; the pre-7.4e blanket ground decline restored -> 3 ground checks red.** ⚠ **Still unpinned and NOT claimed: the `GlBatcher.rewind` textured-count recount under a MIXED window (the model-decline check proves the rewind empties the batch, but not that it recounts a mixed one correctly).**
+
+✅ **7.4j - THE SHADE FOG FADE, THE LAST KNOWN FIDELITY BUG, IS FIXED IN BOTH PATHS.** `Texture.method374` and `method378` both fade every corner shade code through `Fog.fadeHsl(shade, Fog.sceneDepth)` **before anything is derived from it** - and for a textured face that is not a tint: the bits of the faded code select WHICH of `method371`'s four darkness copies is sampled, and one further bit a shift. The flat path already faded its colours; the TEXTURED path handed the raw code to the sink, on both the model side and the ground side. Both now go through ONE resolver, `GlTextures.fadedShade`, so neither can be changed without the other - which is why this was left as a single item rather than fixed in one place.
+
+⚠⚠ **AND THE REASON IT SURVIVED SO LONG TURNED OUT TO BE THE HARNESS, NOT THE EYES.** The existing textured-face test asserts the submitted shade equals the raw slot and PASSES either way, because its camera is 700 back and at z = 700 `Fog.factor` is 0 - `fadeHsl` returns its argument unchanged, so "faded" and "raw" are the same number. The fade had to be measured where the fog actually BITES (strength 3 starts at z = 1750 and caps at t = 132), and at those depths the difference is large: the model arm shows raw **8 -> 38**, the ground arm raw **60 -> 64**, both of which flip the darkness block or the extra shift. Three pins, each mutation-proved on its own half: removing the model fade turns 3 checks red, removing the ground fade turns 2 red.
+
+⚠ **A harness assumption was corrected in the process, and it is worth recording: `game.client` IS loadable and settable headlessly.** The harness avoids it elsewhere ("heavy static initialisers and is not safely loadable") and short-circuits the fog guard on its first operand to dodge it - but the fog curve cannot be exercised at all without it, so 7.4j verified by direct probe that `Class.forName("game.client")` and a `fogStrength` write both work, and uses them in a `try/finally` that restores the old value.
+⚠ **And one wrong test datum was caught by a mutation rather than by review:** the ground fade arm first passed a packed `0xff404040` as the tile's shade, which is not what that seam carries in real play - a textured tile's shade is a small code like 60. The fade still moved it, so the check passed and proved nothing useful about the real input; the mutation's own output exposed it.
+
+**Gates: harness 489 -> 553, failures 0, `installBin` clean.** ⚠ **Not yet looked at on a live client: the fog curve is now wired but no live run has been taken since, so the fogged image is verified against the software's own `fadeHsl` and against the block/shift it selects - not yet against the screen.**
+
+**Next: RESTORE `client_settings.properties` (copy `client_settings.properties.pre-glgate` - the gate edit changed three keys) and take a LIVE FOGGED RUN.** The questions left are fidelity ones only answerable by eye: does the GL image now agree with the software image, and is the skipped model visibly missing? ⚠ Also queued and still unpinned: the `GlBatcher.rewind` textured-count recount under a MIXED window (textured and untextured interleaved), which the model-decline check does not actually prove.
+
+⚠⚠ **HOW THIS WAS REACHED, and the one policy change that made it possible.** Every step above narrowed the decline from 25 of 128 faces to ~1. At that point the WHOLE-FRAME LATCH was costing the entire feature for one face, so 7.4h replaced it with an ACTOR-scoped fallback: `TriangleSink.mark()/rewind()` were added (with `truncate()` on both GPU buffers) so `drawModel` can submit a model, and - if any of its faces is unrepresentable - **undo that whole model and keep the frame**; a textured ground tile is likewise SKIPPED, not fatal. `GlBatcher.rewind` recomputes the textured count from a per-triangle record rather than decrementing by the window's length, because a model is exactly where textured and untextured faces interleave.
+
+⚠⚠ **AND THE LOSS IS STATED PLAINLY RATHER THAN HIDDEN: the GL frame REPLACES the software scene at `sceneFinished`, so a skipped model or tile is ABSENT from the finished image - not merely un-accelerated.** Two one-shot log lines say so in the live client, and `GlSceneRenderer.modelSkipReason()` is exposed so the harness pins it. This is the price of the policy the user chose over the veto; it is the only policy of the three that actually gets GL on screen.
+
+**Gates: harness 489 -> 524 (35 new), failures 0, `installBin` clean. The 4 checks that pinned the OLD whole-frame contract were REWRITTEN rather than deleted - they now pin the actor-scoped one (`batch.triangles == 0` proves the rewind really undid the model; `framesReadBack() == 1 && framesDiscarded() == 0` proves the frame survived it).**
+
+✅ **WHAT EACH STEP WAS, in one line.** 7.4d made `GlFacePipeline.texturedRamps` consult `TextureRamps.reproducesExactlyAt` instead of declining on `overflows()` alone. 7.4e applied the same widening to the GROUND path in `GlSceneRenderer`, and split `TEXTURE_SINK_DECLINED` into `TEXTURE_NOT_LOADED` and `TEXTURE_WNUM_CROSSING` so the sink's one-bit refusal could be ATTRIBUTED instead of guessed at. 7.4f stopped rejecting a face whose `wNum` changes sign, because **the software does not reject it** - `method379` guards only the exact zero (`if (i5 != 0)` skips those pixels) and clamps the rest - and added the matching `if (vUvW.z == 0.0) discard;` to the fragment shader. 7.4g made a sample point with a zero denominator VACUOUS (`reproducesExactlyAt` returns true there), since neither the software nor the shader samples such a pixel at all - declining a whole face over a point that draws nothing was the last self-inflicted blocker.
+
+⚠⚠ **THE ONE REMAINING LIMIT IS A GENUINE ONE, NOT A GUARD BUG: a wrapping mapping that does NOT cancel.** 7.4c proved the *cancelling* wrap is harmless (picture bit-identical, handoff intact) and the non-cancelling one is not (picture gone, and `TextureRamps.column` - which reproduces the wrap - agrees only 18%, so the wrapped rasteriser is genuinely not affine). ⚠⚠ **AND A GROUND TILE OVERFLOWING IS NOT PATHOLOGICAL THE WAY THE PLAN ASSUMED:** a model's nine are small (dimensions of tens), so its minors stay inside 2³¹; a ground TILE's nine are full camera-space coordinates (thousands), whose products at `<< 8`/`<< 14` cross 2³¹ readily. So the plan's "rare-pathological" framing fits models and does NOT fit textured ground - and with 7.4h such a tile is now SKIPPED and named rather than fatal.
+
+**Last updated:** 2026-10-06 (previous - ✅✅ **7.4c MEASURED THE RAMP-OVERFLOW GUARD AGAINST THE REAL `method379`, AND THE ANSWER IS "BOTH": IT IS STRICTLY CONSERVATIVE AT THE LOW END AND NECESSARY AT THE HIGH END, AND THE TWO REGIMES ARE SEPARATED BY SOMETHING CHEAP ENOUGH TO COMPUTE PER FACE.** 7.4b left one question - is `TEXTURE_RAMP_OVERFLOW`, which declined 25 of a 128-face model's faces, a real decline or a guard stricter than the software? It is no longer a question of opinion.
 
 ✅ **WHAT WAS RUN, and why it is a control rather than a stroll.** 7.2j's in-range ground triangle, with all nine camera-space slots multiplied by `k`. That is a pure world scale and the mapping is invariant under it - the ramps and the walked numerator/denominator all scale by `k^2` - so the **picture is unchanged while the intermediate integers grow by `k^2` and cross 2³¹**. The screen triangle is built from the UNSCALED slots, so every `k` rasterises literally the same pixels and the only variable is where the ints sit. The real `Texture.method378`/`method379` is driven through `groundRasterIndices` at both detail levels, and four things are compared per `k` on the same pixels: the rasteriser's own picture, the exact affine form (`TextureRamps.column`), the SHADER HANDOFF (numerators at the screen vertices, interpolated, divided in the fragment), and the ramps recomputed in `long` - the mapping the nine *mean*.
 
@@ -28,11 +88,17 @@
 
 ✅✅ **FINDING 4 - THE DISCRIMINATOR, AND IT IS O(1) PER FACE.** The picture survives exactly when the **wrapped evaluation still reproduces the exact one**. Measured pixel by pixel, that classification agrees with picture survival **scale for scale at both detail levels** (`k = 2`: 10964/10964 wrapped==exact, picture survived; `k = 4`: 0/10964, picture gone). Both forms are closed in `(x, y)`, so a resolver can ask it of the triangle's screen vertices with no rasteriser and no atlas. ⚠ It is pinned as a **measured correspondence on this sweep**, so a resolver adopting it inherits these numbers as its evidence rather than a derivation.
 
-⚠ **NO PRODUCTION CODE WAS TOUCHED AND THE GUARD STILL DECLINES EXACTLY AS IT DID.** This step is measurement only - `texturedRamps()` is unchanged, no live run, and still **not one GL pixel on screen**.
+⚠ **NO PRODUCTION CODE WAS TOUCHED BY 7.4c; 7.4d THEN USED ITS RESULT AND DID CHANGE PRODUCTION CODE.** 7.4c was measurement only - `texturedRamps()` was unchanged and no live run happened. 7.4d is the follow-through (see the entry below): the guard now consults the discriminator instead of declining on `overflows()` alone.
+
+✅ **7.4d - THE GUARD IS WIDENED ON MEASURED GROUND, IN TWO FILES.** `TextureRamps` keeps the exact (unwrapped) ramps it already computes in `long` and exposes **`reproducesExactlyAt(x, y)`** / **`reproducesExactlyAt(xs, ys, count)`** - does the wrapped evaluation the rasteriser uses still agree with the exact one at these points. `GlFacePipeline.texturedRamps` now takes the polygon's screen points and declines on `overflows()` **only if the sample disagrees**; otherwise it submits the wrapped numerators, which the shader reproduces. ⚠ **The empty sample DECLINES, deliberately** - a caller with no points has not earned the claim, and being conservative costs a software frame while being wrong costs fidelity. ⚠ **The sample is a SAMPLE, not a proof over every pixel** - it is the face's own polygon vertices, and that limitation is stated in the code rather than papered over.
+
+**Gates: harness 513 -> 523 (10 new), failures 0, `ReadLints` clean, `compileJava` + `installBin` clean. MUTATION-PROVED: making `reproducesExactlyAt(int,int)` always return false turns exactly 6 checks red (523 -> 517, RESULT FAIL).**
+
+**Next: READ THE LIVE RE-RUN (7.4e) - it is running now.** Nothing else is pending on this step.
 
 **Gates: harness 489 -> 513 (24 new, 12 per detail level), failures 0, `ReadLints` clean. MUTATION-PROVED: folding the exact `u` base back through an `int` cast inside the measurement's own `exactRamps` turns exactly 4 checks red (513 -> 509, RESULT FAIL)** - the two "the discriminator is clean" checks and the two "it tracks the picture" checks, so the new checks can fail.
 
-**Next: WIDEN THE GUARD WITH THE DISCRIMINATOR (7.4d), THEN RE-RUN LIVE.** `texturedRamps()` should, on `overflows()`, also build the exact (`long`) ramps and decline **only if the wrapped evaluation fails to reproduce them at the triangle's screen vertices** - otherwise submit the wrapped numerators, which the shader reproduces. ⚠ **The live re-run then answers what the harness cannot: are the 25 of 128 faces costless overflows (GL starts drawing) or picture-breaking ones?** ⚠ And if they are picture-breaking, the threshold says that model's camera-space XY products are far past 131072, which a normal scene should not produce - so that outcome points at an upstream bug in the nine rather than at the guard, and is a hunt, not a tolerance. ⚠ **And before any of it: the settings restore** - `client_settings.properties` must go back to `renderer=software` by COPYING `client_settings.properties.pre-glgate` (the gate edit changed three keys, not one). ⚠ Also queued and untouched: **the shade fog fade** (`Fog.fadeHsl` on textured faces, both paths, one resolver).
+**Next: READ THE LIVE RE-RUN (7.4e) - IT IS RUNNING NOW, and it is the arbiter of everything above.** The client was restarted on the widened build (`installBin` run) with `renderer=gl`; the question it answers is the one the harness cannot: **are the 25 of 128 faces costless overflows (GL draws) or picture-breaking ones (GL is still withheld)?** ⚠ **Where the live evidence lands decides the next step, and there are only two outcomes:** if the frame latches and reads back, GL has taken over the scene for the first time and the follow-ons are fidelity (starting with **the shade fog fade**, queued and untouched); if it is still withheld, the faces are picture-breaking - and the 131072 threshold that requires says that model's camera-space XY products are far past what a normal scene produces, which points at an **upstream bug in the nine rather than at the guard**, and is a hunt rather than a tolerance. ⚠ **And either way, before the session ends: the settings restore** - `client_settings.properties` (`renderer=gl`, window `907x666`) must go back to `renderer=software` by COPYING `client_settings.properties.pre-glgate`, since the gate edit changed three keys, not one.
 
 **Last updated:** 2026-10-06 (previous - ✅ **7.4a: THE FRAME DECLINE NOW NAMES THE FACE OUTCOME THAT CAUSED IT, SO THE LIVE GATE'S ONE OPEN QUESTION IS NOW A LINE OF OUTPUT INSTEAD OF A READ OF THE PIPELINE. The first live GL run stopped at "a model face the GL path cannot represent (see GlFacePipeline)" - a sentence that names the FILE and not the FAULT, while the eight distinct failures behind `NEEDS_TEXTURE` alone call for completely different fixes.**
 
@@ -2188,7 +2254,99 @@ The residual is `method379`'s truncated span seeding, not a semantic gap.
 
 **Gates: harness 489 → 513 (24 new, 12 per detail level), failures 0, `ReadLints` clean. MUTATION-PROVED: folding the exact `u` base back through an `int` cast in the measurement's own `exactRamps` turns 4 checks red (513 → 509, RESULT FAIL)** — the two "discriminator is clean" checks and the two "it tracks the picture" checks, i.e. the new checks can fail.
 
-**Next (7.4d): WIDEN THE GUARD USING THE DISCRIMINATOR, then re-run live.** `texturedRamps()` should, on `overflows()`, build the exact (`long`) ramps as well and decline **only if the wrapped evaluation fails to reproduce them at the triangle's screen vertices** — otherwise submit the wrapped numerators, which the shader will reproduce. ⚠ The live re-run then answers the question the harness cannot: **are the 25 of 128 faces costless overflows (GL starts drawing) or picture-breaking ones?** ⚠ If they are picture-breaking, the threshold says the model's camera-space XY products are far past 131072, which a normal scene should not produce — so that outcome points at an upstream bug in the nine rather than at the guard, and would be a hunt rather than a tolerance. ⚠ Unchanged and queued behind it: **the shade fog fade** (both paths, one resolver) and **the settings restore** (`client_settings.properties` must go back to `renderer=software` by COPYING `client_settings.properties.pre-glgate`).
+**Next (7.4e): READ THE LIVE RE-RUN, which is running on the widened build.** The live question the harness cannot answer: **are the 25 of 128 faces costless overflows (GL starts drawing) or picture-breaking ones?** ⚠ If picture-breaking, the 131072 threshold that requires says that model's camera-space XY products are far past what a normal scene produces — so that outcome points at an upstream bug in the nine rather than at the guard, and is a hunt rather than a tolerance. ⚠ Either way, **the settings restore** (`client_settings.properties` back to `renderer=software` by COPYING `client_settings.properties.pre-glgate`) and **the shade fog fade** (both paths, one resolver) remain queued.
+
+---
+
+### Phase 7.4d DONE (2026-10-06) — the guard is widened on measured ground, in two files
+
+✅✅ **7.4c measured the discriminator; 7.4d is the follow-through.** `TextureRamps` already computed the exact ramps in `long` before casting them, so the class now keeps them and exposes **`reproducesExactlyAt(x, y)`** and its sampled form **`reproducesExactlyAt(xs, ys, count)`**: does the wrapped evaluation the rasteriser uses still agree with the exact one here. `GlFacePipeline.texturedRamps` takes the polygon's own screen points from both callers (`submitTextured` passes the face's three projected vertices; `clipFace` passes its clipped polygon) and now declines on `overflows()` **only when the sample disagrees**.
+
+⚠ **Two deliberate conservatisms, both stated in the code rather than implied.** (1) **An empty sample declines** — a caller with no points has not earned the claim, and making "no points" pass would turn a missing argument into a silent quality regression on exactly the faces the guard exists to protect. (2) **The sample is the polygon's vertices, not every pixel**, so the check is a sample rather than a proof; that limitation is written into `TextureRamps`' doc and into the call site, because the alternative — declaring it a proof — is the kind of over-claim this plan keeps catching.
+
+⚠ **`overflows()` is kept as the cheap first gate** (it is still a necessary condition, and a face whose minors fit needs no further question), so the common path costs nothing new.
+
+**Gates: harness 513 → 523 (10 new), failures 0, `ReadLints` clean, `compileJava` + `installBin` clean. MUTATION-PROVED: making `reproducesExactlyAt(int,int)` always return false turns exactly 6 checks red (523 → 517, RESULT FAIL).**
+
+**Next (7.4e): the live re-run**, launched on this build with `renderer=gl`.
+
+---
+
+### Phase 7.4h DONE (2026-10-06) — ✅✅✅ GL IS ON SCREEN: the fallback is ACTOR-scoped, not frame-scoped
+
+✅✅✅ **This is the milestone the whole 7.2/7.4 arc was for, and it was reached by changing a POLICY rather than by finding another bug.** The 7.4d-7.4g live runs narrowed the decline from **25 of 128 faces to ~1** - and at that point the whole-frame latch was withholding EVERY FRAME for the sake of ONE FACE. 7.4h replaces it with an actor-scoped fallback.
+
+✅ **The mechanism: `TriangleSink.mark()` / `rewind()`.** Added to the seam with `truncate()` on `GpuFloatBuffer`/`GpuIntBuffer`, so `drawModel` can submit a model and then UNDO it if any of its faces proved unrepresentable. ⚠ A caller could not do this from outside: the four attribute buffers advance by different amounts per triangle (9 floats / 3 ints / 9 floats / 6 floats), so only the sink can undo one. `GlBatcher.rewind` recomputes the textured count from a per-triangle record rather than decrementing by the window's length, because a model is exactly where textured and untextured faces interleave and guessing would drift the running counter permanently. A textured GROUND TILE needs none of that - it is submitted on its own, so it is simply skipped.
+
+⚠⚠ **The loss is stated rather than hidden: a skipped model or tile is ABSENT from the finished GL image, not merely un-accelerated**, because the GL frame REPLACES the software scene at `sceneFinished`. Two one-shot log lines say exactly that in a live client, and `GlSceneRenderer.modelSkipReason()` exposes it so the harness can pin it.
+
+**Evidence, and it is an ABSENCE rather than a message:** the live log holds the batch-ready line, the one-shot "skipping a MODEL ... NEEDS_TEXTURE x1 of 291" note, and **nothing else** - no `discarding GL frames` (which `sceneFinished` prints whenever `readBack` fails) and no size-mismatch note. So the frame latched, flushed and was read back into the software image.
+
+**Gates: harness 489 -> 524, failures 0, `installBin` clean. The 4 checks pinning the OLD whole-frame contract were REWRITTEN, not deleted - they now pin the actor-scoped one: `batch.triangles == 0 && batch.texturedTriangles == 0` proves the rewind really removed the model, and `framesReadBack() == 1 && framesDiscarded() == 0` proves the frame survived it.**
+
+**Next: fidelity by eye** (see the status block), then the queued fog fade and the settings restore.
+
+---
+
+### Phase 7.4i DONE (2026-10-07) — the live-driven behaviours are harness-pinned and mutation-proved
+
+✅ **This step exists because the plan had been flagging the same gap for several phases: "live-driven rather than harness-pinned".** 7.4e-7.4h each changed production behaviour on the strength of a LIVE RUN, and the rule is that nothing counts as done until tests pass - so every one of those changes now has a check that fails when the change is undone.
+
+✅ **`groundRampOverflowSkipsTheTileAndKeepsTheFrame` - the important one.** It drives 7.4c's own pure-scale fixture through the REAL `GlSceneRenderer` seam and asserts the whole policy:
+- the **cancelling** overflow (k=2) is **DRAWN** (this is 7.4e - the widened guard must not decline a wrap that reproduces the exact mapping);
+- the **picture-breaking** one (k=4) is **SKIPPED, not fatal** - not submitted, frame not marked unrepresentable, skip reported (7.4h);
+- and the frame is still **READ BACK** afterwards, which is the property the 7.4e-7.4g live runs could not get past.
+
+⚠⚠ **And it asserts the fixture's own premise BEFORE drawing any conclusion from it** - that k=2 really wraps-and-reproduces and k=4 really wraps-and-does-not. A test that merely assumed which arm was which would keep passing after the fixture drifted into testing something else, which is this plan's most-repeated failure mode.
+
+✅ **The other three pins:** `truncate()` bounds on both GPU buffers (7.4h's actual mechanism - a truncate PAST the position would expose stale entries as written data); the vacuous-zero-denominator rule (7.4g), built from a **CONSTANT nine** so the claim is unambiguous - ⚠ and that correction is itself worth recording: the first attempt zeroed slots `t6..t8` on the assumption that was the w plane, and the check failed, because `method378` builds `wNum` from `t0..t5` (`j6 = j3*l2 - k2*k3`). The test caught my wrong reading of the layout, which is what a test is for; and `GlBatcher.denominatorsAreDegenerate` was **extracted** so the 7.4f sign rule is pinnable as behaviour rather than only as a string in the shader source.
+
+**Gates: harness 489 -> 545, failures 0, `installBin` clean. MUTATION-PROVED, each attributed: `reproducesExactlyAt(int,int)` forced false -> 6 red; the pre-7.4f same-sign rejection restored -> the 7.4f check red; the pre-7.4e blanket ground decline restored -> 3 ground checks red.**
+
+⚠ **Still unpinned and NOT claimed: `GlBatcher.rewind`'s textured-count recount under a MIXED window.** The model-decline check proves the rewind empties a batch, but not that it recounts correctly when textured and untextured triangles interleave - which is the case the recount exists for.
+
+**Next: the shade fog fade** (see the status block).
+
+---
+
+### Phase 7.4j DONE (2026-10-07) — the shade fog fade, applied in BOTH paths through one resolver
+
+✅ **The bug.** `Texture.method374` and `method378` each open by fading every corner shade code through `Fog.fadeHsl(shade, Fog.sceneDepth)` (method378's first three statements, `k1/l1/i2`). The GL path's FLAT branch already did this via `GlFacePipeline.resolveCornerColour`; its TEXTURED branch did not — it handed the raw code to the sink, on the model side *and* on the ground side. `ui/GlTextures.shade(block0, code, depth)` had existed to express the fade all along and neither path called it.
+
+✅ **Why it is not a tint, and therefore why it was invisible to every existing oracle.** A textured face's "shade" is not a colour: bits 4-5 select one of `method371`'s four darkness copies and bit 6 a further shift. `fadeHsl` reads its argument as HSL, so a bare code presents as luminance `code` and is pulled toward 68 — and the faded value then selects a **different copy**. Measured at the depths where the fog bites: the model fixture's shade **8 → 38**, the ground tile's **60 → 64** — the first flips block 0→2, the second block 3→0 and shift 0→1.
+
+✅ **The fix, and why one resolver rather than two edits.** `GlTextures.fadedShade(code, sceneDepth)` now owns the fade AND `method378`'s guard, and the pre-existing `shade(block0, code, depth)` delegates to it rather than repeating the condition. `GlFacePipeline` gained a private `texturedShade(code)` used at all four textured submission sites (uncut type 2 and 3, clipped type 2 and 3), and `GlSceneRenderer.submitTexturedGround` fades its three codes with the tile's depth — passed as an explicit parameter rather than read from `lastGroundDepth`, because a fade that depends on the caller's assignment order would break the moment anything moved.
+
+⚠⚠ **THE HARNESS'S OWN BLIND SPOT, FOUND WHILE PINNING IT.** The existing textured-face test asserts the submitted shade equals the raw slot and passes with or without the fix — because its camera is 700 back and `Fog.factor(700)` is 0, so `fadeHsl` is the identity there. The fade is only observable inside the band (`strength 3` starts at `z = 3400 - 3*550 = 1750`, caps at `t = 48 + 84 = 132`). The new arm therefore asserts its own premise first (depth > 1750), then that the submitted code equals `fadedShade(raw, depth)`, that this equals **`scene.Fog.fadeHsl` independently**, that it changed, and that it changed the block or shift.
+
+⚠ **Two things this step corrected, both recorded rather than smoothed over.** (1) The harness had assumed `game.client` is "not safely loadable headlessly" and short-circuits the fog guard to avoid it; 7.4j probed it directly and **it loads and `fogStrength` is settable**, which is the only way to exercise the fog curve at all — used in a `try/finally` that restores the old value. (2) The ground arm's first datum was a packed `0xff404040`, not a shade code; the fade still moved it, so the check passed while testing the wrong kind of input — a mutation, not a review, exposed it.
+
+**Gates: harness 489 → 553, failures 0, `installBin` clean. MUTATION-PROVED per half: removing the model fade → 3 red (raw 8 vs expected 38); removing the ground fade → 2 red (got 60,64,64 vs expected 64 each).**
+
+⚠ **Still unpinned:** `GlBatcher.rewind`'s textured-count recount under a MIXED window. ⚠ **Not yet on screen:** the fog curve is wired but no live run has been taken since 7.4j.
+
+**Next: restore the settings and take a live fogged run** (see the status block).
+
+---
+
+### Phase 7.4k DONE (2026-10-07) — the skip names WHICH model, and reports its RATE
+
+✅ **Live run #1 on the 7.4j build is a pass on every count it can settle.** Batch ready; exactly one skip note; **no discard note**; **no ground-skip note**. So GL is composited, the readback succeeded, and every textured ground tile in view mapped. The only loss is one model, and its reason is the honest one (`TEXTURE_RAMP_OVERFLOW` - a wrap that does not cancel).
+
+⚠ **The alarming-sounding line is expected and is written down so it is not re-diagnosed:** "the scene is composited at the scene-finished seam, so the frame is presented by the software blit" is `presentGameFrame` declining **by design** - the scene is read back into the software framebuffer at `sceneFinished`, the HUD is drawn over it, and the software blit presents the composite.
+
+✅ **What 7.4k changes, and why the run forced it.** The plan's stated next question was "is the skipped model visibly missing?" - and the log could not answer it, because it reported *how badly* a model failed (`x1 of 233 faces, first at face 200`) without saying *which* model. `drawModel` has always been handed the actor's real `uid` (`WorldController` passes `class10.uid` / `object4.uid` / ...) and threw it away.
+
+⚠ **Three different questions needed three mechanisms, because no one of them does the others' job:**
+- **WHICH actor?** Each **DISTINCT** uid is logged once (`skipping MODEL uid N (2 distinct so far)`). Not per-frame, which floods; not one-shot, which only ever says "this happens".
+- **Once, or every frame?** `modelSkipEvents()` counts EVENTS. ⚠ This is the distinction that changes the fix: a large event count with a distinct count of 1 means ONE actor is missing on every frame - a hole the player stares at - whereas many distinct with few events is falling scenery. `distinctSkippedModelCount()` is the other half of that pair.
+- **The RATE, in the log?** A throttled line - **at most one per 10s, and ONLY when something was skipped in the window** - reports the delta and the totals beside `framesReadBack`/`framesDiscarded`. ⚠ A counter nothing prints is only useful to a debugger, and this project's logging convention is that a live run answers the question by itself. A clean session stays silent, which is what keeps the signal findable.
+
+**Gates: harness 489 → 557, failures 0, `installBin` clean. MUTATION-PROVED: dropping the uid from the note turns the uid check red (`uid 0, dispatched as 1592594996`); keying the distinct set on a constant turns the second-actor check red.**
+
+⚠ **Still not settled, and it needs eyes rather than a log: the 7.4j FOG FADE has never been seen on screen.** It is oracle-checked against `Fog.fadeHsl` and against the darkness copy it selects, but no live run has looked at a fogged scene. The gate is the same spot under `renderer=software` and `renderer=gl`.
+
+**Next: re-run, read the uid and the rate line, then A/B the same spot software vs GL.** ⚠ Also still unpinned: the `GlBatcher.rewind` textured-count recount under a MIXED window.
 
 ---
 

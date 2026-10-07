@@ -65,6 +65,27 @@ package ui;
  * {@code Texture} - the same reason {@code GlTextures.shade} takes its scene depth rather
  * than reading {@code Fog} (this package's one-owner rule).
  *
+ * <p>⚠⚠ <b>7.4c: {@link #overflows()} IS NOT THE QUESTION A GL PATH NEEDS ANSWERED, AND
+ * 7.4d REPLACES IT WITH {@link #reproducesExactlyAt}.</b> This class used to say a wrapping
+ * geometry "cannot be handed to a shader at all (its ramps are not affine)". That was
+ * <b>MEASURED and is only half true</b>. Driving the real {@code method378}/{@code method379}
+ * on one picture scaled past 2^31 (harness {@code rampOverflowIsMeasured}, both detail
+ * levels) split the overflows in two:
+ * <ul>
+ *   <li><b>Costless.</b> At {@code k = 2} the minors exceed 2^31 but the two that do fold
+ *       back by exactly {@code +2^32} - a constant the <i>evaluation's own</i> wrap removes
+ *       again - so the software's picture is bit-identical to the unwrapped one
+ *       (10962/10964 px) and the shader handoff still reproduces it at the control's own
+ *       accuracy (10569/10964). Declining there was simply wrong.</li>
+ *   <li><b>Picture-breaking.</b> At {@code k >= 4} the picture is gone (<= 4/10964 px) and
+ *       so is the <i>exact</i> affine form's agreement (18%), because the rasteriser's
+ *       mapping is then genuinely not affine. Declining there is necessary.</li>
+ * </ul>
+ * "The wrapped evaluation still equals the exact one" separated those cases <b>scale for
+ * scale</b> (10964/10964 vs 0/10964 of painted pixels), which is what
+ * {@link #reproducesExactlyAt} exposes. {@link #overflows()} is kept because it is still the
+ * cheap first gate - it is a necessary condition - but it alone is now known to over-decline.
+ *
  * <p><b>Accuracy, stated so it is not over-read.</b> {@code method379} seeds each span at
  * its left edge with a <i>truncated</i> step and then interpolates within 8-pixel blocks,
  * so the software's mapping is not an exact continuous function of {@code (x, y)} - it
@@ -91,10 +112,26 @@ public final class TextureRamps {
 	private final int colShift;
 	private final int size;
 	private final boolean overflowed;
+	/**
+	 * ⚠ THE EXACT (UNWRAPPED) RAMPS - the mapping the nine <i>mean</i>, kept in {@code long}
+	 * so they cannot wrap. Present only so {@link #reproducesExactlyAt} can answer whether
+	 * the wrapped evaluation the rasteriser uses still agrees with them; they are never
+	 * handed to a shader. See the class doc's 7.4c section for why that question is the one
+	 * that decides whether a wrapping geometry is usable.
+	 */
+	private final long exactUBase;
+	private final long exactVBase;
+	private final long exactWBase;
+	private final long exactUStepY;
+	private final long exactVStepY;
+	private final long exactWStepY;
+	private final long exactUStepX;
+	private final long exactVStepX;
+	private final long exactWStepX;
 
 	private TextureRamps(int uNumBase, int vNumBase, int wNumBase, int uNumStepY, int vNumStepY,
 			int wNumStepY, int uNumStepX, int vNumStepX, int wNumStepX, int originX, int originY,
-			int denShift, int colShift, int size, boolean overflowed) {
+			int denShift, int colShift, int size, boolean overflowed, long[] exact) {
 		this.uNumBase = uNumBase;
 		this.vNumBase = vNumBase;
 		this.wNumBase = wNumBase;
@@ -110,6 +147,15 @@ public final class TextureRamps {
 		this.colShift = colShift;
 		this.size = size;
 		this.overflowed = overflowed;
+		this.exactUBase = exact[0];
+		this.exactVBase = exact[1];
+		this.exactWBase = exact[2];
+		this.exactUStepY = exact[3];
+		this.exactVStepY = exact[4];
+		this.exactWStepY = exact[5];
+		this.exactUStepX = exact[6];
+		this.exactVStepX = exact[7];
+		this.exactWStepX = exact[8];
 	}
 
 	/**
@@ -162,11 +208,16 @@ public final class TextureRamps {
 		boolean overflowed = overflows(l4) || overflows(i5) || overflows(j5) || overflows(k5)
 				|| overflows(l5) || overflows(i6) || overflows(j6) || overflows(k6)
 				|| overflows(l6);
+		// ⚠ The exact ramps in the SAME layout as the wrapped ones, so the two evaluations
+		// can be compared point for point: uBase, vBase, wBase, then the y then x steps. The
+		// steps are shifted exactly as the wrapped ones are (>> 3), so the only difference is
+		// the 32-bit wrap.
+		long[] exact = { l4, k5, j6, j5, i6, l6, i5 >> 3, l5 >> 3, k6 >> 3 };
 		// ⚠ The int expressions are the SAME ones method378 uses, so where the values wrap
 		// this reproduces the wrap rather than correcting it - which is the point.
 		return new TextureRamps((int) l4, (int) k5, (int) j6, (int) j5, (int) i6, (int) l6,
 				(int) i5 >> 3, (int) l5 >> 3, (int) k6 >> 3, originX, originY, denShift, colShift,
-				size, overflowed);
+				size, overflowed, exact);
 	}
 
 	private static boolean overflows(long ramp) {
@@ -256,5 +307,94 @@ public final class TextureRamps {
 				+ vNumBase + "+" + vNumStepY + "y+" + vNumStepX + "x, w=" + wNumBase + "+"
 				+ wNumStepY + "y+" + wNumStepX + "x, origin=" + originX + "," + originY
 				+ (overflowed ? ", OVERFLOWED]" : "]");
+	}
+
+	/**
+	 * ⚠⚠⚠ PHASE 7.4c/7.4d: DOES THE WRAPPED EVALUATION STILL REPRODUCE THE EXACT ONE AT THIS
+	 * PIXEL? This is the discriminator the ramp-overflow guard needs, and it is the whole
+	 * reason the guard can be widened at all.
+	 *
+	 * <p><b>Why this and not {@link #overflows()}.</b> A wrap is harmless exactly when it
+	 * <b>cancels</b>: when every minor that left 32 bits folded back by the same constant the
+	 * evaluation's own wrap then removes again, so {@code u/w} is unchanged. Where that
+	 * happens the software's picture is bit-identical to the unwrapped one and a shader
+	 * interpolating the wrapped numerators reproduces it; where it does not, the picture is
+	 * not reproducible <i>even by the exact affine form</i>, because the rasteriser's mapping
+	 * is then not affine at all. {@code overflows()} cannot tell those apart - it only knows a
+	 * minor left the range - and 7.4c MEASURED it declining both.
+	 *
+	 * <p><b>The measurement behind it</b> (harness {@code rampOverflowIsMeasured}, both
+	 * detail levels): on one picture scaled past 2^31, "the wrapped evaluation reproduces the
+	 * exact one" agreed with "the rasteriser's own picture survived" scale for scale - 10964
+	 * of 10964 pixels at the costless overflow, 0 of 10964 at the picture-breaking one.
+	 *
+	 * <p>⚠ <b>It is a POINT test, so callers must sample the region they will rasterise</b> -
+	 * see {@link #reproducesExactlyAt(int[], int[], int)} for the sampled form, and note that
+	 * a caller with no points to offer must decline rather than assume.
+	 *
+	 * @return {@code true} if the wrapped {@link #column}/{@link #row} equal the exact ones
+	 *         here; {@code false} if they differ or either is undefined (zero denominator)
+	 */
+	public boolean reproducesExactlyAt(int x, int y) {
+		int wrappedCol = column(x, y);
+		int wrappedRow = row(x, y);
+		if (wrappedCol < 0 || wrappedRow < 0) {
+			// ⚠ VACUOUSLY TRUE, and that is a correction rather than a convenience: a zero
+			// denominator here means NO PIXEL IS SAMPLED at this point. The software's
+			// method379 SKIPS those pixels (`if (i5 != 0)`) and the fragment shader DISCARDS
+			// them (`if (vUvW.z == 0.0) discard`), so there is no mapping to disagree about.
+			// Returning false here would have declined a whole face - and with the whole-frame
+			// latch, a whole frame - over a point that draws nothing.
+			return true;
+		}
+		long dx = x - originX;
+		long dy = y - originY;
+		long w = exactWBase + exactWStepY * dy + exactWStepX * dx;
+		long d = w >> denShift;
+		if (d == 0) {
+			return false;
+		}
+		long u = exactUBase + exactUStepY * dy + exactUStepX * dx;
+		long v = exactVBase + exactVStepY * dy + exactVStepX * dx;
+		long i = u / d;
+		long clampMax = (size - 1) << colShift;
+		if (i < 0) {
+			i = 0;
+		} else if (i > clampMax) {
+			i = clampMax;
+		}
+		long exactCol = i >> colShift;
+		long exactRow = (v / d >> colShift) & (size - 1);
+		return wrappedCol == (int) exactCol && wrappedRow == (int) exactRow;
+	}
+
+	/**
+	 * {@link #reproducesExactlyAt(int, int)} over a sampled set of screen points - the
+	 * triangle's own vertices, in the callers that have them. <b>All</b> points must agree.
+	 *
+	 * <p>⚠ <b>An empty sample returns {@code false}, deliberately.</b> A caller with no
+	 * points cannot support the claim, and the conservative answer is the one that leaves the
+	 * frame with the software - not the one that assumes the wrap cancelled. Making the
+	 * degenerate case "accept" would turn a missing argument into a silent quality regression.
+	 */
+	public boolean reproducesExactlyAt(int[] xs, int[] ys, int count) {
+		if (count <= 0) {
+			return false;
+		}
+		for (int i = 0; i < count; i++) {
+			if (!reproducesExactlyAt(xs[i], ys[i])) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * {@link #reproducesExactlyAt(int, int)} over one triangle's three corners, without the
+	 * array a caller would otherwise allocate - this runs per ground tile per frame.
+	 */
+	public boolean reproducesExactlyAt(int x0, int y0, int x1, int y1, int x2, int y2) {
+		return reproducesExactlyAt(x0, y0) && reproducesExactlyAt(x1, y1)
+				&& reproducesExactlyAt(x2, y2);
 	}
 }

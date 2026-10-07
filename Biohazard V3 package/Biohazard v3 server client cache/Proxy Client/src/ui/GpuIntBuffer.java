@@ -146,4 +146,15 @@ public final class GpuIntBuffer {
 	public void clear() {
 		position = 0;
 	}
+
+	/**
+	 * Drops everything written after {@code newPosition} (Phase 7.4h) - see
+	 * {@link GpuFloatBuffer#truncate(int)} for why a partial rewind exists.
+	 */
+	public void truncate(int newPosition) {
+		if (newPosition < 0 || newPosition > position) {
+			throw new IllegalArgumentException("truncate(" + newPosition + ") outside 0.." + position);
+		}
+		position = newPosition;
+	}
 }

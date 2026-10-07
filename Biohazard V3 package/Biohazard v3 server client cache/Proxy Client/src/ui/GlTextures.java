@@ -96,6 +96,42 @@ public final class GlTextures {
 	}
 
 	/**
+	 * ⚠⚠ THE ONE OWNER OF THE TEXTURED SHADE FADE (Phase 7.4j): a corner shade code with
+	 * {@code method378}'s own fog fold applied.
+	 *
+	 * <p><b>Why this is a code and not a colour.</b> The GL path hands the raw shade to the
+	 * fragment shader and the SHADER derives the darkness block and the extra shift from it -
+	 * so the fade has to be applied to the CODE before the seam, not folded into a colour
+	 * afterwards. That is also what the software does: {@code method378}'s first three
+	 * statements fade {@code k1/l1/i2}, the three corner shade codes, and only then is anything
+	 * derived from them.
+	 *
+	 * <p>⚠⚠ <b>AND THE FADE IS NOT A TINT, which is why skipping it was a real bug rather than
+	 * a shade of grey.</b> {@code fadeHsl} reads its argument as an HSL colour, so a bare shade
+	 * code presents as luminance {@code code} and the fade pulls it toward 68 - and because the
+	 * BLOCK and SHIFT are derived from the faded value, fog can change WHICH of the four
+	 * darkness copies is sampled. A fog-free oracle cannot see the difference, so this had to be
+	 * pinned deliberately (see the harness) rather than left to a spot check.
+	 *
+	 * <p>⚠ {@link Fog#fadeHsl} is reused rather than re-derived: this package treats the fog
+	 * curve as having one owner, and a second copy here is exactly the drift that decision
+	 * exists to prevent.
+	 *
+	 * @param shadeCode  the model's raw corner shade ({@code 127 - light})
+	 * @param sceneDepth the depth {@code method378} would read, i.e. {@code Fog.sceneDepth} at
+	 *                   draw time
+	 */
+	public static int fadedShade(int shadeCode, int sceneDepth) {
+		// ⚠ The guard is method378's, verbatim: under 50 there is no fog to apply, and with
+		// fogStrength at 0 fadeHsl's factor is 0 anyway - but the guard is kept so the two
+		// conditions are stated in one place rather than inferred from fadeHsl's internals.
+		if (sceneDepth > 50 && game.client.fogStrength > 0) {
+			return Fog.fadeHsl(shadeCode, sceneDepth);
+		}
+		return shadeCode;
+	}
+
+	/**
 	 * The packed pixel the software rasteriser would write for this texel under this
 	 * shade code, with no fog.
 	 */
@@ -107,27 +143,15 @@ public final class GlTextures {
 	/**
 	 * The same, with the shade FADED the way {@code method378} fades it.
 	 *
-	 * <p>⚠️ <b>A textured face's shade goes through {@code Fog.fadeHsl} before it is used,
-	 * and that is not a formality.</b> {@code fadeHsl} reads its argument as an HSL
-	 * colour, so a bare shade code {@code 0..127} presents as hue 0, saturation 0 and
-	 * luminance {@code shade} - and the fade pulls that luminance toward 68. Because the
-	 * BLOCK and SHIFT are then derived from the faded value, fog does not merely tint a
-	 * textured face: it can change which of the four darkness copies is sampled. Skip it
-	 * and fogged textured faces come out at the wrong brightness, in a way that a
-	 * fog-free oracle would never catch.
-	 *
-	 * <p>{@link Fog#fadeHsl} is deliberately REUSED rather than re-derived: this package
-	 * already treats the fog curve as having a single owner (see {@code Fog.applyFlatAt}),
-	 * and a second copy of it here is exactly the drift that decision exists to prevent.
+	 * <p>⚠️ <b>Delegates to {@link #fadedShade} so the fade has ONE owner</b> - the previous
+	 * copy of the guard here is what this step removed, because the GL path needs the faded CODE
+	 * and a second expression of "when does fog apply" would be free to drift from it.
 	 *
 	 * @param sceneDepth the depth {@code method378} would have read, i.e.
 	 *                   {@code Fog.sceneDepth} at draw time
 	 */
 	public static int shade(int brightnessBlock0, int shadeCode, int sceneDepth) {
-		if (sceneDepth > 50 && game.client.fogStrength > 0) {
-			shadeCode = Fog.fadeHsl(shadeCode, sceneDepth);
-		}
-		return shade(brightnessBlock0, shadeCode);
+		return shade(brightnessBlock0, fadedShade(shadeCode, sceneDepth));
 	}
 
 	/**

@@ -62,8 +62,9 @@ import scene.WorldController;
  *       in the detail level the client actually selects.</li>
  *   <li>{@link #GROUND_COLOUR_DECLINE} - a ground colour code outside the palette.</li>
  *   <li>{@link #GROUND_MAPPING_DECLINE} - a textured tile this sink cannot draw: no texture
- *       atlas, ramp numerators that wrapped a 32-bit int (so the mapping is no longer affine),
- *       or the sink declining the submission itself.</li>
+ *       atlas, ramp numerators that wrapped a 32-bit int <b>without cancelling</b> (see
+ *       {@link TextureRamps#reproducesExactlyAt} - a wrap that cancels is drawn, not
+ *       declined), or the sink declining the submission itself.</li>
  *   <li><b>An unrepresentable MODEL face - and unlike the three above, the reason for this one
  *       belongs to {@link GlFacePipeline}, not to a constant here.</b> It is reported by
  *       {@link GlFacePipeline#declineReason()}, which names the OUTCOME ({@code NEEDS_CLIPPING},
@@ -75,15 +76,14 @@ import scene.WorldController;
  *       stopped.</li>
  * </ul>
  *
- * <p><b>⚠️ ONE FIDELITY ITEM IS KNOWINGLY DEFERRED, and it is flagged rather than hidden:
- * the SHADE FOG FADE.</b> {@code Texture.method374} and {@code method378} both fade each
- * shade code through {@code Fog.fadeHsl(shade, Fog.sceneDepth)} before rasterising (note this
- * applies to the TEXTURED path too - {@code method378}'s first three statements), and
- * {@code ui/GlTextures.shade(block0, shadeCode, sceneDepth)} exists precisely to express
- * that. Neither the model path nor the ground path above calls it yet - both pass the raw
- * shade code - so a fogged textured face will come out at the wrong brightness in GL.
- * Making the two paths agree is the point of passing both through one resolver, which is
- * why this is left as a single item rather than fixed in one path only.
+ * <p><b>✅ THE SHADE FOG FADE IS NOW APPLIED IN BOTH PATHS (Phase 7.4j), and the joint fix was
+ * the point of deferring it.</b> {@code Texture.method374} and {@code method378} both fade each
+ * shade code through {@code Fog.fadeHsl(shade, Fog.sceneDepth)} before rasterising (the TEXTURED
+ * path too - {@code method378}'s first three statements), and for a textured face that is not a
+ * tint: the bits of the faded code select WHICH darkness copy of the texture is sampled, so a
+ * fog-free oracle can never catch its absence. Both the model path ({@code GlFacePipeline}) and
+ * the ground path here now pass their corner codes through the ONE resolver,
+ * {@link GlTextures#fadedShade}, so neither can be updated without the other.
  *
  * <p><b>Logging is once per kind</b>, never per call: these run thousands of times a
  * second, and a per-call log would be worse than useless.
@@ -122,7 +122,8 @@ public final class GlSceneRenderer implements GpuRenderer.Implementation {
 
 	public static final String GROUND_MAPPING_DECLINE =
 			"ground: a textured tile cannot be mapped - no texture atlas, ramp numerators that "
-					+ "wrapped a 32-bit int so the mapping is not affine, or the sink declined it";
+					+ "wrapped a 32-bit int WITHOUT cancelling (so the mapping is not reproducible "
+					+ "even by the exact affine form), or the sink declined it";
 
 	private final String name;
 	private final SceneBatch batch;
@@ -142,6 +143,16 @@ public final class GlSceneRenderer implements GpuRenderer.Implementation {
 	/** Ground tiles submitted since construction, and which of them went down the textured path. */
 	private int groundTriangles;
 	private int texturedGroundTriangles;
+	/**
+	 * Model triangles submitted since startup, and how many of them were TEXTURED (7.4l).
+	 *
+	 * <p>⚠ Counted here rather than read off the batcher because the renderer holds its batch
+	 * through the {@code SceneBatch} interface, which deliberately does not expose triangle
+	 * counts - and because an actor that gets REWOUND must not be counted. So these are
+	 * incremented only on the representable path, and never need decrementing.
+	 */
+	private int modelTriangles;
+	private int texturedModelTriangles;
 
 	/**
 	 * The camera-space depth of the last ground tile the seam handed over.
@@ -157,6 +168,26 @@ public final class GlSceneRenderer implements GpuRenderer.Implementation {
 	private boolean reportedScene;
 	private boolean reportedDiscard;
 	private boolean reportedSizeMismatch;
+	private boolean reportedGroundSkip;
+	private boolean reportedComposite;
+	private String modelSkipReason;
+	/** Window for the throttled skip-rate line - see {@link #maybeReportSkipRate()}. */
+	private static final long SKIP_REPORT_INTERVAL_MS = 10000L;
+	private long lastSkipReportMillis;
+	private int modelSkipEventsAtReport;
+	private int groundTilesSkippedAtReport;
+	/** Textured ground tiles skipped as unmappable, cumulative (Phase 7.4h). */
+	private int groundTilesSkipped;
+	/** Model skip EVENTS across all frames - see {@link #modelSkipEvents()} (Phase 7.4j). */
+	private int modelSkipEvents;
+	/** The uid of the last skipped model, or {@code Integer.MIN_VALUE} (Phase 7.4j). */
+	private int modelSkippedUid = Integer.MIN_VALUE;
+	/**
+	 * The distinct model uids the GL path has dropped - see {@link #reportModelSkippedOnce}.
+	 * Sized by the number of distinct actors actually dropped (one or two in practice), not by
+	 * the number of skips.
+	 */
+	private final java.util.Set<Integer> skippedModelUids = new java.util.HashSet<Integer>();
 
 	/** Production form: the real GPU batch, which is where {@code GlScene.ensure(int, int)} runs. */
 	public GlSceneRenderer(String name) {
@@ -204,25 +235,166 @@ public final class GlSceneRenderer implements GpuRenderer.Implementation {
 		if (!latch()) {
 			return false;
 		}
+		// ⚠⚠ PHASE 7.4h: THE ACTOR IS DROPPED, NOT THE FRAME - the policy the 7.4e-7.4g live
+		// runs made necessary. Those runs went 25 of 128 faces -> ~1, and at that point the
+		// whole-frame latch was costing the ENTIRE GL feature for the sake of ONE face: GL
+		// never drew a pixel because a single face of one model could not be represented. So
+		// the mark/rewind pair exists: submit the model, and if any of its faces turned out
+		// to be unrepresentable, undo the whole model and keep the frame.
+		//
+		// ⚠ The granularity is the MODEL rather than the single face, and that is a delivery
+		// choice rather than a technical one: a half-submitted model would be a hole in the
+		// middle of something the player is looking at, whereas a whole dropped model is a
+		// missing actor - and the software body still runs underneath (see the class doc), so
+		// the frame the latch discards is never what the user sees anyway.
+		//
+		// ⚠⚠ IT IS STILL A VISIBLE LOSS AND IS NOT DRESSED UP AS ANYTHING ELSE: the GL frame
+		// REPLACES the software scene at sceneFinished, so a dropped model is ABSENT from the
+		// finished image rather than merely un-accelerated. That is the price of the policy,
+		// and the alternative (veto the frame) is what 7.4d-7.4g showed to be unshippable.
+		int mark = batch.mark();
 		pipeline.emit(model, orientation, camA, camB, camC, camD, dx, dy, dz,
 				Texture.textureInt1, Texture.textureInt2, batch);
-		// ⚠⚠ The reasons the frame is not whole are now NAMED by the pipeline rather than
-		// summarised here, and that change is the direct answer to the first live gate run
-		// (2026-10-06): the client reported "a model face the GL path cannot represent (see
-		// GlFacePipeline)", which says which FILE to read and not which FAULT to fix. See
-		// GlFacePipeline#declineReason for why the outcome alone is not actionable - eight
-		// distinct failures hide behind NEEDS_TEXTURE by itself.
-		//
-		// ⚠ The order is deliberate: allRepresentable() is a count test over ints and costs
-		// nothing, declineReason() allocates a sentence, and drawModel runs once per model per
-		// frame. And the second test is on frameDeclineReason rather than on the pipeline,
-		// because declineFrame keeps the FIRST reason - so once the frame already has one
-		// there is nothing for this to add, however many models decline after it.
-		if (frameDeclineReason == null && !pipeline.allRepresentable()) {
-			declineFrame(pipeline.declineReason());
+		if (!pipeline.allRepresentable()) {
+			batch.rewind(mark);
+			reportModelSkipped(pipeline.declineReason(), uid);
+		} else {
+			// ⚠⚠ COUNTED ONLY HERE, ON THE PATH WHERE THE TRIANGLES REALLY STAYED IN THE BATCH.
+			// Counting before the representability check would add the triangles of an actor that
+			// was undone a moment later - inflating exactly the number this counter exists to be
+			// evidence for ("how much textured geometry reached the GPU"). ⚠ In the live client
+			// that is a real error of up to a whole model's face count per frame (233 in the
+			// observed case); it is NOT reproducible in the harness, where an unrepresentable
+			// fixture happens to emit zero triangles - see the harness note, which says so rather
+			// than pretending the placement is test-covered.
+			modelTriangles += pipeline.triangles();
+			texturedModelTriangles += pipeline.count(GlFacePipeline.TEXTURED);
 		}
 		// Shadow stage: the software body still runs. See the class doc.
 		return false;
+	}
+
+	/**
+	 * Names the model the GL path just DROPPED, once per DISTINCT actor.
+	 *
+	 * <p>⚠ Without it the skip would be invisible: the frame would be read back, look
+	 * plausible, and be missing an actor - the failure mode this whole plan keeps catching.
+	 * ⚠ It is deliberately NOT one-shot any more; the body says why a one-shot note could not
+	 * answer "which model is missing".
+	 */
+	private void reportModelSkipped(String reason, int uid) {
+		modelSkipReason = reason;
+		modelSkippedUid = uid;
+		modelSkipEvents++;
+		// ⚠⚠⚠ THE UID IS NAMED, AND EVERY DISTINCT ONE IS NAMED ONCE (2026-10-07). The first
+		// live run after 7.4j reported "skipping a MODEL ... NEEDS_TEXTURE x1 of 233 faces, first
+		// at face 200" - which says HOW BADLY a model failed but not WHICH model, so the plan's
+		// own next question ("is the skipped model visibly missing?") could only be answered by
+		// hunting the scene by eye. `uid` is the actor's real identity (WorldController passes
+		// `class10.uid` / `object4.uid` / ...), and `drawModel` was already being handed it and
+		// throwing it away.
+		//
+		// ⚠ Why PER DISTINCT UID rather than a plain one-shot: a one-shot note answers "does this
+		// happen" but not "WHAT is missing", and a per-frame note floods the log. Logging each
+		// new uid once is bounded by the number of distinct actors the GL path actually drops -
+		// in practice one or two - so it names them all without becoming noise.
+		boolean first = skippedModelUids.isEmpty();
+		if (skippedModelUids.add(uid)) {
+			System.out.println("Renderer '" + name + "': skipping MODEL uid " + uid + " ("
+					+ skippedModelUids.size() + " distinct so far)"
+					+ (first ? ": the GL path cannot represent it, and the rest of the frame is "
+							+ "drawn WITHOUT it - so that actor is MISSING from the GL image (the "
+							+ "software path would have drawn it)." : " - that actor is likewise "
+							+ "MISSING from the GL image.")
+					+ " Reason: " + reason);
+		}
+		maybeReportSkipRate();
+	}
+
+	/**
+	 * ⚠⚠ A THROTTLED RATE LINE, so the skip RATE is readable from a live log (Phase 7.4k).
+	 *
+	 * <p><b>Why the event counter alone is not enough.</b> {@link #modelSkipEvents()} was added
+	 * so "one model dropped every frame" could be told apart from "an occasional drop" - but a
+	 * counter that nothing prints is only useful to a debugger, and the whole point of this
+	 * project's log lines is that a live run answers the question by itself. So the counters are
+	 * reported at most once every {@link #SKIP_REPORT_INTERVAL_MS}, and <b>only when something
+	 * was actually skipped in the window</b> - a clean session stays silent, which is what keeps
+	 * a real signal findable.
+	 *
+	 * <p>⚠ It reports a DELTA and a TOTAL, because they answer different questions: the delta is
+	 * the rate now, the total is how much of the session has been affected.
+	 */
+	private void maybeReportSkipRate() {
+		long now = System.currentTimeMillis();
+		if (now - lastSkipReportMillis < SKIP_REPORT_INTERVAL_MS) {
+			return;
+		}
+		int modelDelta = modelSkipEvents - modelSkipEventsAtReport;
+		int tileDelta = groundTilesSkipped - groundTilesSkippedAtReport;
+		if (modelDelta == 0 && tileDelta == 0) {
+			// Nothing happened in this window - report the elapsed time as consumed, so the next
+			// interesting window is measured from here rather than from the last interesting one.
+			lastSkipReportMillis = now;
+			return;
+		}
+		long windowMs = lastSkipReportMillis == 0 ? now : now - lastSkipReportMillis;
+		lastSkipReportMillis = now;
+		modelSkipEventsAtReport = modelSkipEvents;
+		groundTilesSkippedAtReport = groundTilesSkipped;
+		System.out.println("Renderer '" + name + "': GL skipped " + modelDelta + " model submissions "
+				+ "and " + tileDelta + " ground tiles in the last " + (windowMs / 1000) + "s ("
+				+ modelSkipEvents + " model and " + groundTilesSkipped + " tile skips since startup, "
+				+ skippedModelUids.size() + " distinct model uids); frames read back "
+				+ framesReadBack + ", discarded " + framesDiscarded + ".");
+	}
+
+	/**
+	 * ⚠ How many model skips have happened in total, across all frames (Phase 7.4j follow-up).
+	 *
+	 * <p><b>This is an EVENT count, not a count of distinct models, and the distinction is the
+	 * point.</b> The log note above is one-shot, so it cannot show whether the same model is
+	 * dropped on every frame (a persistent hole) or a different one each frame (a rate) - and
+	 * those two need completely different responses. A count that climbs in step with the frame
+	 * rate means a model that is always in view is missing.
+	 */
+	public int modelSkipEvents() {
+		return modelSkipEvents;
+	}
+
+	/**
+	 * The uid of the last skipped model, or {@code Integer.MIN_VALUE} if none has been skipped.
+	 *
+	 * <p>⚠ Exposed so the note is assertable: a log line that fades into scrollback is not a
+	 * contract, and the whole reason this was added is that "something is missing" must be a
+	 * fact the harness can check rather than a sentence a human has to spot.
+	 */
+	public int modelSkippedUid() {
+		return modelSkippedUid;
+	}
+
+	/**
+	 * How many DISTINCT actors the GL path has dropped (Phase 7.4k).
+	 *
+	 * <p>⚠ The companion to {@link #modelSkipEvents()}, and the two must not be confused: a
+	 * session that drops ONE actor on every frame has a huge event count and a distinct count of
+	 * 1 - which is a single visible hole the player stares at, not a spreading problem. The
+	 * reverse (many distinct, few events) is falling scenery. Exposed so the difference is
+	 * assertable rather than something a human has to infer from two log lines.
+	 */
+	public int distinctSkippedModelCount() {
+		return skippedModelUids.size();
+	}
+
+	/**
+	 * The reason the last unrepresentable model was SKIPPED, or {@code null} (Phase 7.4h).
+	 *
+	 * <p>⚠ Exposed so the skip is assertable rather than merely logged: the policy change
+	 * replaced "the frame is withheld" with "the actor is dropped", and a dropped actor is
+	 * invisible in a passing frame unless something records why.
+	 */
+	public String modelSkipReason() {
+		return modelSkipReason;
 	}
 
 	@Override
@@ -254,7 +426,7 @@ public final class GlSceneRenderer implements GpuRenderer.Implementation {
 				return false;
 			}
 			return submitTexturedGround(x0, y0, x1, y1, x2, y2, colour0, colour1, colour2,
-					t0, t1, t2, t3, t4, t5, t6, t7, t8, textureId, z);
+					t0, t1, t2, t3, t4, t5, t6, t7, t8, textureId, z, depth);
 		}
 
 		// method374's colour contract, through the ONE owner of it: the code is fogged first
@@ -303,19 +475,42 @@ public final class GlSceneRenderer implements GpuRenderer.Implementation {
 	private boolean submitTexturedGround(int x0, int y0, int x1, int y1, int x2, int y2,
 			int shade0, int shade1, int shade2,
 			int t0, int t1, int t2, int t3, int t4, int t5, int t6, int t7, int t8,
-			int textureId, float z) {
+			int textureId, float z, int depth) {
 		if (!batch.supportsTextures()) {
 			declineFrame(GROUND_MAPPING_DECLINE);
 			return false;
 		}
+		// ⚠⚠ PHASE 7.4j: the tile's shades are FADED here, exactly as the model path fades its
+		// own - {@code method374}/{@code method378} both fold every shade through
+		// {@code Fog.fadeHsl} with {@code Fog.sceneDepth} before deriving the darkness block from
+		// it, and for ground {@code Fog.sceneDepth} IS this tile's depth. ⚠ The depth is a
+		// PARAMETER rather than a read of {@link #lastGroundDepth}, deliberately: the field is
+		// assigned a few lines earlier in the caller, and a fade that silently depends on that
+		// ordering would break the moment anything moved.
+		// ⚠ Doing it for the model and not for the ground was the half-fix this step exists to
+		// avoid: the two paths share ONE resolver ({@link GlTextures#fadedShade}) precisely so
+		// neither can be updated alone.
+		shade0 = GlTextures.fadedShade(shade0, depth);
+		shade1 = GlTextures.fadedShade(shade1, depth);
+		shade2 = GlTextures.fadedShade(shade2, depth);
 		int size = GlTextures.layerSize();
 		TextureRamps ramps = TextureRamps.of(t0, t1, t2, t3, t4, t5, t6, t7, t8,
 				Texture.textureInt1, Texture.textureInt2, TextureRamps.denShiftFor(size),
 				TextureRamps.colShiftFor(size), size);
-		if (ramps.overflows()) {
-			// The numerators wrapped a 32-bit int, so the mapping is the software's WRAP and is
-			// no longer affine - a shader cannot reproduce it by interpolating them.
-			declineFrame(GROUND_MAPPING_DECLINE);
+		if (ramps.overflows() && !ramps.reproducesExactlyAt(x0, y0, x1, y1, x2, y2)) {
+			// ⚠⚠ PHASE 7.4h: SKIP THIS TILE, KEEP THE FRAME - see drawModel for the policy and
+			// for the honest note that a skipped tile is MISSING from the finished GL image.
+			// A tile is the natural actor here: it is submitted on its own, so there is
+			// nothing to undo and no mark/rewind is needed.
+			//
+			// ⚠ The exception is the reason 7.4c measured the guard at all: a wrap that DOES
+			// cancel is drawn, and only a wrap that does not is skipped, because the latter's
+			// mapping is not reproducible even by the exact affine form.
+			//
+			// ⚠ It is a SAMPLE of the tile (its three projected corners), not a proof over
+			// every pixel - and where the sample cannot support the claim the tile is skipped,
+			// which is the conservative direction.
+			reportGroundSkippedOnce();
 			return false;
 		}
 		int[] a = ramps.attributeAt(x0, y0);
@@ -324,12 +519,52 @@ public final class GlSceneRenderer implements GpuRenderer.Implementation {
 		if (!batch.textured(x0, y0, z, a[0], a[1], a[2], shade0,
 				x1, y1, z, b[0], b[1], b[2], shade1,
 				x2, y2, z, c[0], c[1], c[2], shade2, textureId)) {
-			declineFrame(GROUND_MAPPING_DECLINE);
+			// ⚠⚠ PHASE 7.4h: per-actor, like the ramp overflow above. The sink's own refusals
+			// here are PER-TILE - a texture id missing from the atlas - so skipping the tile is
+			// the scoped answer. (A sink that is not ready at all is a different case and is
+			// caught by latch() before this point, not here.)
+			reportGroundSkippedOnce();
 			return false;
 		}
 		texturedGroundTriangles++;
 		groundTriangles++;
 		return false;
+	}
+
+	/**
+	 * The one-shot note that a textured GROUND TILE was skipped rather than the frame being
+	 * withheld (Phase 7.4h).
+	 *
+	 * <p>⚠ Same reason as {@link #reportModelSkipped}: the finished GL image REPLACES the
+	 * software scene, so a skipped tile is a MISSING patch of ground rather than a tile that
+	 * merely fell back - and that must be visible in the log rather than inferred.
+	 */
+	private void reportGroundSkippedOnce() {
+		groundTilesSkipped++;
+		maybeReportSkipRate();
+		if (reportedGroundSkip) {
+			return;
+		}
+		reportedGroundSkip = true;
+		System.out.println("Renderer '" + name + "': skipping a textured GROUND TILE the GL path "
+				+ "cannot map, and drawing the rest of the frame WITHOUT it - so that patch of "
+				+ "ground is MISSING from the GL image (the software path would have drawn it).");
+	}
+
+	/**
+	 * Whether a textured ground tile has been SKIPPED in this session (Phase 7.4h).
+	 *
+	 * <p>⚠ Exposed for the same reason {@link #modelSkipReason()} is: the policy change made a
+	 * skipped tile invisible in a frame that otherwise looks fine, so the fact has to be
+	 * assertable rather than merely logged.
+	 */
+	public boolean groundSkipped() {
+		return groundTilesSkipped > 0;
+	}
+
+	/** How many textured ground tiles have been skipped as unmappable, cumulative (7.4h). */
+	public int groundTilesSkipped() {
+		return groundTilesSkipped;
 	}
 
 	/**
@@ -365,10 +600,45 @@ public final class GlSceneRenderer implements GpuRenderer.Implementation {
 			if (!replaced) {
 				framesDiscarded++;
 				reportDiscardOnce();
+			} else {
+				reportCompositeOnce(producer);
 			}
 		}
 		resetFrame();
 		return replaced;
+	}
+
+	/**
+	 * ⚠⚠ POSITIVE EVIDENCE THAT GL IS ON SCREEN - printed ONCE, on the first frame actually
+	 * composited (Phase 7.4l).
+	 *
+	 * <p><b>Why this exists, and it is a real gap rather than a nicety.</b> Every previous claim
+	 * in this plan that "GL is presenting frames" rests on an ABSENCE: no {@code discarding GL
+	 * frames} line, no size-mismatch line. Absence is decent evidence - {@link #readBack} fails
+	 * and logs on a size mismatch - but it cannot distinguish "the GL image was composited" from
+	 * "the GL path ran and drew almost nothing", and it never states the thing that actually
+	 * matters for fidelity: <b>how many TEXTURED triangles reached the GPU</b>. That last number
+	 * is the one the 7.4j shade fog fade lives behind - if it were zero, the fade could not
+	 * matter and something upstream would be wrong instead.
+	 *
+	 * <p>⚠ It reports the counts for the FIRST composited frame only, because that is the frame
+	 * whose composition is the new fact. Later totals are the throttled skip line's job.
+	 */
+	private void reportCompositeOnce(RSImageProducer producer) {
+		if (reportedComposite) {
+			return;
+		}
+		reportedComposite = true;
+		int textured = texturedModelTriangles + texturedGroundTriangles;
+		int total = modelTriangles + groundTriangles;
+		System.out.println("Renderer '" + name + "': COMPOSITED GL frame #" + framesReadBack
+				+ " at " + batch.viewportWidth() + "x" + batch.viewportHeight() + " into the "
+				+ "software framebuffer (" + producer.anInt316 + "x" + producer.anInt317 + "). "
+				+ "Since startup: " + total + " triangles (" + modelTriangles + " model, "
+				+ groundTriangles + " ground), of which " + textured + " are TEXTURED ("
+				+ texturedModelTriangles + " model faces, " + texturedGroundTriangles
+				+ " ground tiles). This is GL's own image, not the software scene - the software "
+				+ "scene was drawn and then replaced.");
 	}
 
 	// ---------------------------------------- the latch
@@ -523,6 +793,21 @@ public final class GlSceneRenderer implements GpuRenderer.Implementation {
 	/** Ground tiles that went down the textured path. */
 	public int texturedGroundTriangles() {
 		return texturedGroundTriangles;
+	}
+
+	/**
+	 * Model triangles submitted since startup, and the TEXTURED subset (Phase 7.4l).
+	 *
+	 * <p>⚠ Exposed so the composite line's central claim - that textured geometry really reached
+	 * the GPU - is a checkable number rather than a sentence in a log. ⚠ And the rewind path is
+	 * why it is asserted: an actor that was undone contributed nothing, so these must not move.
+	 */
+	public int modelTriangles() {
+		return modelTriangles;
+	}
+
+	public int texturedModelTriangles() {
+		return texturedModelTriangles;
 	}
 
 	/** The camera-space depth of the last ground tile the seam handed over. */

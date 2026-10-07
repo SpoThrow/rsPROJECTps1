@@ -154,6 +154,7 @@ public final class ClientHarness {
 		textureRampsResolveTheSoftwareMapping();
 		textureRampsMatchAtBothDetailLevels();
 		rampOverflowIsMeasured();
+		groundRampOverflowSkipsTheTileAndKeepsTheFrame();
 		clippedTexturedFacesUseTheUncutRamps();
 		curseFrameRemapRedirectsCurseFilesToTheHighSlots();
 		curseFrameRemapLeavesOriginalFrameSlotsAlone();
@@ -1561,6 +1562,16 @@ public final class ClientHarness {
 	 */
 	private static final int TEXTURED_TEX_ID = 3;
 
+	/**
+	 * The uid the decline test dispatches its model with (Phase 7.4j follow-up).
+	 *
+	 * <p>⚠ Deliberately NOT 0. Every other dispatch in the harness passes 0, so a renderer that
+	 * logged a constant - or dropped the uid entirely and printed the frame's own index - would
+	 * still look right with 0. A distinctive value is what makes "the note names the ACTOR"
+	 * a real check rather than one that passes on a coincidence.
+	 */
+	private static final int SKIPPED_MODEL_UID = 0x5EED1234;
+
 	private static int[] texturedTriangleWorkload(int perturb) {
 		int[] buf = new int[RASTER_W * RASTER_H];
 		DrawingArea.initDrawingArea(RASTER_H, RASTER_W, buf);
@@ -2175,6 +2186,10 @@ public final class ClientHarness {
 		int triangles;
 		int texturedTriangles;
 		int lastClearArgb = -1;
+		/** ⚠ 7.4j: the last textured triangle's three SHADES, so the ground fade is measurable. */
+		int lastShade0;
+		int lastShade1;
+		int lastShade2;
 
 		public boolean beginFrame(int clearArgb) {
 			beginFrames++;
@@ -2248,11 +2263,44 @@ public final class ClientHarness {
 				return false;
 			}
 			texturedTriangles++;
+			// ⚠ 7.4j: the SHADES are captured, not just counted. The ground path's fade cannot
+			// be observed any other way - this double is the only seam the ground submits
+			// through - and "the ground fades its shades too" is a claim that must be measured
+			// rather than asserted in a comment.
+			lastShade0 = shade0;
+			lastShade1 = shade1;
+			lastShade2 = shade2;
 			return true;
+		}
+
+		/** The three shade codes of the last textured triangle the GROUND path submitted. */
+		public int lastShade(int corner) {
+			return corner == 0 ? lastShade0 : corner == 1 ? lastShade1 : lastShade2;
 		}
 
 		public String describe() {
 			return "recording scene batch (harness)";
+		}
+
+		/**
+		 * ⚠ Mirrors {@code GlBatcher}'s token: a TRIANGLE count, and the rewind drops the
+		 * window and recounts. See {@link TriangleSink#mark()} for why the caller cannot do
+		 * this from outside.
+		 */
+		public int mark() {
+			return triangles;
+		}
+
+		public void rewind(int token) {
+			if (token < 0 || token > triangles) {
+				throw new IllegalArgumentException("rewind(" + token + ") outside 0.." + triangles);
+			}
+			// The recorder counts a triangle once, so dropping the window is the whole of it -
+			// there is no per-kind split to recompute here.
+			triangles = token;
+			if (texturedTriangles > triangles) {
+				texturedTriangles = triangles;
+			}
 		}
 	}
 
@@ -2300,6 +2348,30 @@ public final class ClientHarness {
 		// Idempotence, as for GlScene: a failure must not be retried every frame.
 		check("GL batcher: ensure() is idempotent - a failure is not retried every frame",
 				batcher.ensure(765, 503) == ready);
+
+		// ⚠⚠ PHASE 7.4f: THE DENOMINATOR RULE, PINNED - and this is a BEHAVIOUR change worth a
+		// check of its own, because the two halves pull in opposite directions and a later
+		// tidy-up could restore the strict half while every other test stayed green.
+		// (a) A SIGN CHANGE IS NOW TOLERATED. The software draws such a face: method379 guards
+		//     only the exact zero (`if (i5 != 0)`) and clamps the rest, so the shader discards
+		//     at the zero crossing and the existing clamp handles the steep values either side.
+		//     Rejecting it withheld a WHOLE FRAME on one face of 122 in the 7.4e live run.
+		check("GL batcher [7.4f]: a sign-crossing denominator is NOT degenerate - the software "
+				+ "draws it (method379 skips only the exact zero) so the sink must not reject it",
+				!ui.GlBatcher.denominatorsAreDegenerate(1f, -1f, 2f));
+		check("GL batcher [7.4f]: and an all-negative denominator is not degenerate either - "
+				+ "wNum is a SIGNED ramp numerator, so a uniformly-negative triangle divides "
+				+ "correctly and must not be dropped",
+				!ui.GlBatcher.denominatorsAreDegenerate(-3f, -7f, -11f));
+		// (b) The exact zero at a vertex IS still degenerate - a vertex ON the crossing makes
+		//     the triangle's own interpolation a division by zero rather than merely steep.
+		check("GL batcher [7.4f]: an EXACT zero at a vertex is still degenerate, so the guard "
+				+ "was narrowed rather than removed",
+				ui.GlBatcher.denominatorsAreDegenerate(0f, 1f, 1f)
+						&& ui.GlBatcher.denominatorsAreDegenerate(1f, 0f, 1f)
+						&& ui.GlBatcher.denominatorsAreDegenerate(1f, 1f, 0f));
+		check("GL batcher [7.4f]: and a plain positive triangle is not degenerate, so the rule "
+				+ "is not vacuous", !ui.GlBatcher.denominatorsAreDegenerate(1f, 2f, 3f));
 
 		// The pixel-format contract, checked without a GPU: the values the readback
 		// writes must have a zero alpha byte, because that is what the software path
@@ -2717,6 +2789,40 @@ public final class ClientHarness {
 			return textures;
 		}
 
+		/** Per-triangle kind in submission ORDER: 0 untextured, 1 textured. See {@link #rewind}. */
+		private final int[] order = new int[CAPACITY * 2];
+
+		/**
+		 * {@inheritDoc}
+		 *
+		 * <p>⚠ The ORDER is recorded, not just the two totals, because the window a rewind
+		 * drops is a mix and the two counters cannot be corrected from its length alone. The
+		 * real {@code GlBatcher} does the same thing for the same reason.
+		 */
+		@Override
+		public int mark() {
+			return triangles + texturedTriangles;
+		}
+
+		@Override
+		public void rewind(int token) {
+			int now = triangles + texturedTriangles;
+			if (token < 0 || token > now) {
+				throw new IllegalArgumentException("rewind(" + token + ") outside 0.." + now);
+			}
+			int untextured = 0;
+			int textured = 0;
+			for (int i = 0; i < token; i++) {
+				if (order[i] == 1) {
+					textured++;
+				} else {
+					untextured++;
+				}
+			}
+			triangles = untextured;
+			texturedTriangles = textured;
+		}
+
 		@Override
 		public boolean triangle(float x0, float y0, float z0, int argb0,
 				float x1, float y1, float z1, int argb1,
@@ -2731,6 +2837,7 @@ public final class ClientHarness {
 			floats[o] = x0; floats[o + 1] = y0; floats[o + 2] = z0; floats[o + 3] = argb0;
 			floats[o + 4] = x1; floats[o + 5] = y1; floats[o + 6] = z1; floats[o + 7] = argb1;
 			floats[o + 8] = x2; floats[o + 9] = y2; floats[o + 10] = z2; floats[o + 11] = argb2;
+			order[triangles + texturedTriangles] = 0;
 			triangles++;
 			return true;
 		}
@@ -2774,6 +2881,7 @@ public final class ClientHarness {
 			texturedInts[p + 1] = shade1;
 			texturedInts[p + 2] = shade2;
 			texturedInts[p + 3] = textureId;
+			order[triangles + texturedTriangles] = 1;
 			texturedTriangles++;
 			return true;
 		}
@@ -4203,6 +4311,96 @@ public final class ClientHarness {
 							&& plain.count(GlFacePipeline.NEEDS_TEXTURE) == texturedFaces
 							&& plainSink.texturedTriangles == 0
 							&& !plain.allRepresentable());
+
+			// ================= PHASE 7.4j: THE SHADE FOG FADE =================
+			//
+			// ⚠⚠ The checks above CANNOT see this bug, and that is exactly why it survived this
+			// long: the camera there is 700 back, and at z = 700 Fog.factor is 0 - fadeHsl
+			// returns its argument unchanged - so "faded" and "raw" are the same number and
+			// every shade assertion above passes either way. The fade has to be measured where
+			// the fog actually bites.
+			//
+			// ⚠ fogStrength is read behind game.client, which the harness avoids elsewhere
+			// because of its static initialisers - but it IS loadable and settable headlessly
+			// (verified), and this is the one place the fog curve cannot be exercised without it.
+			Object savedFogStrength = readStatic(game.client.class, "fogStrength");
+			try {
+				writeStatic(game.client.class, "fogStrength", 3);
+				// The camera above gives modelDepth == dz, so this puts the model INSIDE the
+				// fog band (strength 3 starts fogging at z = 3400 - 3*550 = 1750).
+				int fogDz = 3000;
+				GlFacePipeline fogPipeline = new GlFacePipeline();
+				RecordingSink fogSink = new RecordingSink(true);
+				fogPipeline.emit(m, orientation, camA, camB, camC, camD, dx, dy, fogDz, centreX,
+						centreY, fogSink);
+				int fogDepth = fogPipeline.sceneDepth();
+				// ⚠ CONTROL FIRST: if this camera were NOT in the fog band the arm below would
+				// compare "raw" against "raw" and pass while proving nothing - which is the
+				// failure mode of every fog test written at a convenient depth.
+				check("Textured shade fade [7.4j]: the fog camera really is INSIDE the fog band "
+						+ "(depth " + fogDepth + " > 1750 at strength 3), or nothing below would "
+						+ "be measuring the fade at all", fogDepth > 1750);
+
+				boolean fadeWired = true;
+				boolean fadeIndependent = true;
+				boolean fadeNonCosmetic = false;
+				boolean fadeChangedBlockOrShift = false;
+				String fadeDetail = null;
+				int fadeTri = 0;
+				for (int face = 0; face < m.faceCount(); face++) {
+					if (fogPipeline.outcomes()[face] != GlFacePipeline.TEXTURED) {
+						continue;
+					}
+					int type = m.faceRenderType(face);
+					int slotA = m.faceCornerColoursA()[face];
+					int[] raw = { slotA, type == 3 ? slotA : m.faceCornerColoursB()[face],
+							type == 3 ? slotA : m.faceCornerColoursC()[face] };
+					for (int k = 0; k < 3; k++) {
+						int got = fogSink.texturedShade(fadeTri, k);
+						int expected = ui.GlTextures.fadedShade(raw[k], fogDepth);
+						if (got != expected) {
+							fadeWired = false;
+							if (fadeDetail == null) {
+								fadeDetail = "face " + face + " corner " + k + " got " + got
+										+ " expected " + expected + " (raw " + raw[k] + ")";
+							}
+						}
+						// ⚠ And against the SOFTWARE's own expression, not just the resolver the
+						// production code calls - otherwise this would be the resolver checking
+						// itself.
+						if (expected != scene.Fog.fadeHsl(raw[k], fogDepth)) {
+							fadeIndependent = false;
+						}
+						if (got != raw[k]) {
+							fadeNonCosmetic = true;
+						}
+						// ⚠⚠ THE STRONGEST FORM: the fade did not merely shift the number, it
+						// selected a DIFFERENT one of method371's four darkness copies (or
+						// changed the extra shift) - which is why a fog-free oracle can never
+						// substitute for this check.
+						if (ui.GlTextures.brightnessBlock(got) != ui.GlTextures.brightnessBlock(raw[k])
+								|| ui.GlTextures.extraShift(got) != ui.GlTextures.extraShift(raw[k])) {
+							fadeChangedBlockOrShift = true;
+						}
+					}
+					fadeTri++;
+				}
+				check("Textured shade fade [7.4j]: the model path submits the FADED shade code - "
+						+ "method378 fades k1/l1/i2 with Fog.sceneDepth before deriving the block "
+						+ "from them, so handing over the raw code was the wrong brightness"
+						+ (fadeDetail == null ? "" : " (" + fadeDetail + ")"), fadeWired);
+				check("Textured shade fade [7.4j]: and the fade the pipeline used IS "
+						+ "Fog.fadeHsl under method378's guard, so the GL curve and the software "
+						+ "curve cannot drift apart", fadeIndependent);
+				check("Textured shade fade [7.4j]: the fade actually CHANGED the submitted code, "
+						+ "so this arm is not passing on an identity", fadeNonCosmetic);
+				check("Textured shade fade [7.4j]: AND it changed which darkness copy is sampled "
+						+ "(or the extra shift) - the reason this had to be a deliberate check "
+						+ "rather than a tint anyone would have noticed by eye",
+						fadeChangedBlockOrShift);
+			} finally {
+				writeStatic(game.client.class, "fogStrength", savedFogStrength);
+			}
 		} finally {
 			restoreDrawingArea(savedArea, savedPixels);
 			writeStatic(Texture.class, "textureInt1", savedTextureInt1);
@@ -4344,22 +4542,127 @@ public final class ClientHarness {
 		GpuRenderer.install(renderer);
 		try {
 			check("Model decline: the textured model is not consumed (shadow stage)",
-					!SceneRasterizer.dispatch(m, orientation, camA, camB, camC, camD, dx, dy, dz, 0));
-			String reason = renderer.frameDeclineReason();
-			check("Model decline: the renderer reports the PIPELINE's reason, so a live run says "
-					+ "WHICH face outcome withheld the frame", reason != null
-							&& reason.contains(GlFacePipeline.outcomeName(
+					!SceneRasterizer.dispatch(m, orientation, camA, camB, camC, camD, dx, dy, dz,
+							SKIPPED_MODEL_UID));
+			// ⚠⚠ PHASE 7.4h CHANGED THIS CONTRACT, DELIBERATELY, AND THESE CHECKS ARE THE NEW
+			// ONE. The renderer used to WITHHOLD THE WHOLE FRAME on any unrepresentable face -
+			// and the 7.4e-7.4g live runs showed what that costs: 25 of 128 faces became ~1,
+			// and that ONE face still withheld every frame, so GL never drew a pixel. The
+			// policy is now ACTOR-scoped: the model is rewound out of the batch and the frame
+			// is kept. ⚠ The loss is not hidden - the model is MISSING from the finished image,
+			// because the GL frame replaces the software scene - and that is what these checks
+			// pin, including the one-shot note that makes the skip visible in a live log.
+			check("Model decline [7.4h]: an unrepresentable MODEL is REWOUND out of the batch "
+					+ "rather than withholding the frame - mark/rewind really undo its triangles",
+					batch.triangles == 0 && batch.texturedTriangles == 0);
+			check("Model decline [7.4h]: and the frame is therefore READ BACK, so GL draws - the "
+					+ "whole-frame veto that stopped the 7.4e-7.4g runs is gone",
+					GpuRenderer.sceneFinished(scene) && renderer.framesReadBack() == 1
+							&& renderer.framesDiscarded() == 0);
+			check("Model decline [7.4h]: the skip is REPORTED rather than silent, naming the "
+					+ "pipeline's own reason - so a live log says WHICH face outcome cost the "
+					+ "model", renderer.modelSkipReason() != null
+							&& renderer.modelSkipReason().contains(GlFacePipeline.outcomeName(
 									GlFacePipeline.NEEDS_TEXTURE)));
-			check("Model decline: the texture sub-reason travels all the way to the renderer",
-					reason != null && reason.contains(GlFacePipeline.textureDeclineName(
-							GlFacePipeline.TEXTURE_SINK_DECLINED)));
-			check("Model decline: the old fixed 'see GlFacePipeline' string is GONE - it named "
-					+ "the file instead of the fault", reason != null
-							&& !reason.contains("see GlFacePipeline"));
-			check("Model decline: and a non-whole frame is still discarded, so the software "
-					+ "image stands",
-					!GpuRenderer.sceneFinished(scene) && renderer.framesDiscarded() == 1
-							&& renderer.framesReadBack() == 0);
+			check("Model decline [7.4h]: the texture sub-reason travels all the way to the "
+					+ "renderer's skip note", renderer.modelSkipReason() != null
+							&& renderer.modelSkipReason().contains(
+									GlFacePipeline.textureDeclineName(
+											GlFacePipeline.TEXTURE_SINK_DECLINED)));
+			check("Model decline [7.4h]: and the skip note does NOT contain the old fixed 'see "
+					+ "GlFacePipeline' string, which named the file instead of the fault",
+					renderer.modelSkipReason() != null
+							&& !renderer.modelSkipReason().contains("see GlFacePipeline"));
+			// ⚠⚠ 7.4j FOLLOW-UP: THE SKIP NAMES WHICH MODEL, and this was added because the
+			// first live run after 7.4j could not answer the plan's own next question. Its log
+			// said "skipping a MODEL ... NEEDS_TEXTURE x1 of 233 faces, first at face 200" -
+			// how badly it failed, but not WHICH model - so "is the skipped model visibly
+			// missing?" was unanswerable without hunting the scene by eye. `uid` is the actor's
+			// real identity, so the note now says what to go and look at.
+			check("Model decline [7.4j]: the skip CARRIES THE MODEL'S UID, so the log names which "
+					+ "actor is missing instead of only how badly it failed (uid "
+					+ renderer.modelSkippedUid() + ", dispatched as " + SKIPPED_MODEL_UID + ")",
+					renderer.modelSkippedUid() == SKIPPED_MODEL_UID);
+			check("Model decline [7.4j]: and skip EVENTS are counted, so a live log can be read "
+					+ "for the RATE - a count that climbs with the frame rate means a model always "
+					+ "in view is missing, which is a different problem from an occasional drop",
+					renderer.modelSkipEvents() >= 1);
+			int eventsAfterFirst = renderer.modelSkipEvents();
+			int distinctAfterFirst = renderer.distinctSkippedModelCount();
+			// ⚠ Same uid again: the EVENT count climbs but the DISTINCT count must not, because
+			// "one actor dropped on every frame" and "many actors dropped" are different faults
+			// and only the pair of counters separates them.
+			SceneRasterizer.dispatch(m, orientation, camA, camB, camC, camD, dx, dy, dz,
+					SKIPPED_MODEL_UID);
+			check("Model decline [7.4k]: re-dropping the SAME actor counts another EVENT but not "
+					+ "another DISTINCT model - so a persistent hole is distinguishable from "
+					+ "falling scenery (events " + renderer.modelSkipEvents() + ", distinct "
+					+ renderer.distinctSkippedModelCount() + ")",
+					renderer.modelSkipEvents() == eventsAfterFirst + 1
+							&& renderer.distinctSkippedModelCount() == distinctAfterFirst);
+			// ⚠⚠ And a DIFFERENT actor must be tracked as its own: if the renderer keyed the
+			// distinct set on something that does not vary (or ignored the uid entirely), the
+			// count would stay at 1 and the "which actor is missing" answer would collapse to a
+			// single useless uid.
+			int secondUid = SKIPPED_MODEL_UID + 1;
+			SceneRasterizer.dispatch(m, orientation, camA, camB, camC, camD, dx, dy, dz, secondUid);
+			check("Model decline [7.4k]: a SECOND, different actor is tracked separately and "
+					+ "becomes the reported uid (uid " + renderer.modelSkippedUid() + ", dispatched "
+					+ secondUid + ")",
+					renderer.modelSkippedUid() == secondUid
+							&& renderer.distinctSkippedModelCount() == distinctAfterFirst + 1);
+			// ⚠⚠ 7.4l: AND A REWOUND ACTOR CONTRIBUTES NOTHING TO THE COMPOSITE LINE'S COUNTS.
+			// Those counts are the evidence that textured geometry reached the GPU, so counting
+			// BEFORE the representability check would report triangles that were undone a moment
+			// later. ⚠⚠⚠ And the honest caveat, because a mutation found it: with the fixture
+			// available here, moving the counting ABOVE the check is an EQUIVALENT MUTANT - an
+			// unrepresentable run of this model emits ZERO triangles (its textured faces decline
+			// and its remaining faces are culled), so `+= 0` changes nothing and no check can fail.
+			// The placement is therefore protected structurally, not by this check, and the
+			// harness says so rather than implying coverage it does not have. ⚠ In the live client
+			// the same mistake was worth up to 233 face-counts per frame, which is why it matters.
+			check("Composite counts [7.4l]: an actor that was REWOUND is not counted - the "
+					+ "composite line's textured total must not include triangles nobody drew "
+					+ "(model " + renderer.modelTriangles() + ", textured "
+					+ renderer.texturedModelTriangles() + ")",
+					renderer.modelTriangles() == 0 && renderer.texturedModelTriangles() == 0);
+			// ⚠ So the load-bearing pins are these two, and together they are NOT vacuous: a
+			// representable dispatch must move both counters, and a subsequent unrepresentable
+			// one must leave them EXACTLY where they were. The second is checked against a
+			// non-zero baseline, which is what makes it meaningful - against zero it would pass
+			// even if the rewind did nothing at all.
+			RecordingSceneBatch willing = new RecordingSceneBatch();
+			GlSceneRenderer counting = new GlSceneRenderer("harness-counting", willing);
+			GpuRenderer.install(counting);
+			SceneRasterizer.dispatch(m, orientation, camA, camB, camC, camD, dx, dy, dz,
+					SKIPPED_MODEL_UID);
+			GlFacePipeline census = new GlFacePipeline();
+			RecordingSink censusSink = new RecordingSink(true);
+			census.emit(m, orientation, camA, camB, camC, camD, dx, dy, dz, centreX, centreY,
+					censusSink);
+			check("Composite counts [7.4l]: a REPRESENTABLE model DOES move both counters, to "
+					+ "exactly the census the pipeline reports - so the zeros above are the rewind "
+					+ "working rather than counters that never run (model "
+					+ counting.modelTriangles() + " of " + census.triangles() + " emitted, textured "
+					+ counting.texturedModelTriangles() + " of "
+					+ census.count(GlFacePipeline.TEXTURED) + ")",
+					counting.modelTriangles() == census.triangles()
+							&& counting.texturedModelTriangles() == census.count(
+									GlFacePipeline.TEXTURED)
+							&& counting.texturedModelTriangles() > 0);
+			int baselineModel = counting.modelTriangles();
+			int baselineTextured = counting.texturedModelTriangles();
+			willing.refuseTextured = true;
+			SceneRasterizer.dispatch(m, orientation, camA, camB, camC, camD, dx, dy, dz,
+					SKIPPED_MODEL_UID);
+			check("Composite counts [7.4l]: and an UNREPRESENTABLE dispatch leaves both counters "
+					+ "EXACTLY where they were - checked against the non-zero baseline above, so "
+					+ "it cannot pass by both sides being zero (model " + counting.modelTriangles()
+					+ " vs " + baselineModel + ", textured "
+					+ counting.texturedModelTriangles() + " vs " + baselineTextured + ")",
+					counting.modelTriangles() == baselineModel
+							&& counting.texturedModelTriangles() == baselineTextured
+							&& baselineTextured > 0);
 		} finally {
 			GpuRenderer.install(null);
 			restoreDrawingArea(savedArea, savedPixels);
@@ -5524,6 +5827,8 @@ public final class ClientHarness {
 			int[] handoffCompared = new int[scales.length];
 			int[] sameAsReference = new int[scales.length];
 			int[] wrappedMatchesExact = new int[scales.length];
+			boolean[] samplerSaidAccept = new boolean[scales.length];
+			boolean samplerMismatch = false;
 			boolean[] overflowed = new boolean[scales.length];
 			int[] reference = null;
 			int referencePainted = 0;
@@ -5556,6 +5861,30 @@ public final class ClientHarness {
 					va[v] = ramps.attributeAt(sx[v], sy[v]);
 				}
 				long[] exact = exactRamps(slots);
+				// ⚠⚠ THE PRODUCTION DISCRIMINATOR, pinned against the same truth the sweep
+				// uses: `TextureRamps.reproducesExactlyAt` is what GlFacePipeline now consults
+				// instead of declining on `overflows()` alone, so its verdict at the triangle's
+				// own vertices must agree with whether the picture survived.
+				boolean samplerAccepts = ramps.reproducesExactlyAt(sx, sy, 3);
+				// ⚠ The no-allocation TRIANGLE form the ground path uses (7.4e) must agree with
+				// the array form exactly, or the two call sites would be answering different
+				// questions from the same ramps.
+				if (samplerAccepts != ramps.reproducesExactlyAt(sx[0], sy[0], sx[1], sy[1], sx[2],
+						sy[2])) {
+					samplerMismatch = true;
+				}
+				boolean vertexwiseAgree = true;
+				for (int v = 0; v < 3; v++) {
+					if (!ramps.reproducesExactlyAt(sx[v], sy[v])) {
+						vertexwiseAgree = false;
+					}
+				}
+				samplerSaidAccept[s] = samplerAccepts;
+				// A sample is a NEEDED condition: accepting a single point that disagrees would
+				// be a one-vertex pass standing in for a region.
+				if (samplerAccepts != vertexwiseAgree) {
+					samplerMismatch = true;
+				}
 				for (int p = 0; p < software.length; p++) {
 					int px = p % w;
 					int py = p / w;
@@ -5746,6 +6075,73 @@ public final class ClientHarness {
 					+ "(k=2: overflows, picture intact, handoff intact), and NECESSARY wherever "
 					+ "it does not (k>=4: picture gone, handoff and even the exact affine form "
 					+ "collapse).");
+
+			// ============ 7.4d: THE PRODUCTION DISCRIMINATOR, PINNED ============
+			// ⚠⚠ This is what GlFacePipeline now consults IN PLACE OF declining on
+			// `overflows()` alone, so it is production behaviour and not just an instrument:
+			// the checks below are the ones that would go red if the widening were wrong.
+			check(tag + ": the PRODUCTION discriminator accepts the costless overflow at the "
+					+ "face's own vertices (k=" + (benign < 0 ? "none" : "" + scales[benign])
+					+ " -> reproducesExactlyAt true) and rejects the picture-breaking one (k="
+					+ (harmful < 0 ? "none" : "" + scales[harmful]) + " -> false), so the guard "
+					+ "widens exactly where 7.4c measured it is safe to",
+					benign > 0 && harmful > 0 && samplerSaidAccept[benign]
+							&& !samplerSaidAccept[harmful]);
+			check(tag + ": the discriminator accepts the UNWRAPPED control too (k=1), so "
+					+ "widening did not turn into a detector that never fires",
+					samplerSaidAccept[0]);
+			check(tag + ": and it accepts at EVERY scale where the picture survived and rejects "
+					+ "at every scale where it did not - the sampled verdict tracks the "
+					+ "rasteriser's own picture, not merely the two endpoints",
+					!samplerMismatch);
+			int accepted = 0;
+			for (int s = 0; s < scales.length; s++) {
+				if (samplerSaidAccept[s]) {
+					accepted++;
+				}
+			}
+			check(tag + ": the discriminator is not vacuous in either direction - it accepts "
+					+ accepted + " of " + scales.length + " scales and rejects "
+					+ (scales.length - accepted) + ", and the whole 3-vertex sample agrees with "
+					+ "the per-vertex verdicts", !samplerMismatch && accepted > 0
+							&& accepted < scales.length);
+			// ⚠ THE DEGENERATE CASE MUST DECLINE. A caller with no sample has not earned the
+			// claim; making "no points" pass would turn a missing argument into a silent
+			// quality regression on exactly the faces the guard exists to protect.
+			int[] emptyX = { 0, 0, 0 };
+			int[] emptyY = { 0, 0, 0 };
+			ui.TextureRamps controlRamps = ui.TextureRamps.of(31, 883, 176, 74, 383, 4824, 2000,
+					4000, 5000, 382, 251, denShift, colShift, size);
+			check(tag + ": an EMPTY sample declines (reproducesExactlyAt(x, y, 0) is false), so "
+					+ "a caller that cannot offer a sample falls back to the software rather "
+					+ "than assuming the wrap cancelled", !controlRamps.reproducesExactlyAt(emptyX,
+							emptyY, 0));
+			// ⚠⚠ PHASE 7.4g: A POINT WHERE THE DENOMINATOR IS ZERO IS VACUOUS, NOT A
+			// DISAGREEMENT. Neither the software nor the shader samples such a pixel - method379
+			// skips it (`if (i5 != 0)`) and the fragment shader discards it (`vUvW.z == 0.0`) -
+			// so there is no mapping to disagree about. This was the last self-inflicted blocker
+			// in the live runs: returning false here declined a whole face, and (before 7.4h) a
+			// whole frame, over a point that draws nothing.
+			//
+			// ⚠⚠ The nine are chosen so the DENOMINATOR IS ZERO EVERYWHERE, which makes the claim
+			// unambiguous rather than dependent on where a crossing happens to land. ⚠ And the
+			// w plane is NOT slots t6..t8 - `method378` builds wNum from t0..t5 (j6 = j3*l2 -
+			// k2*k3, with l2/k3/j3/k2 all differences among t0..t5), so zeroing the third plane
+			// would leave the denominator untouched. A CONSTANT nine zeroes every minor, which
+			// is what is wanted here.
+			ui.TextureRamps zeroW = ui.TextureRamps.of(100, 100, 100, 100, 100, 100, 100, 100,
+					100, 382, 251, denShift, colShift, size);			check(tag + ": a ZERO denominator at a sample point is VACUOUS, not a disagreement - "
+					+ "reproducesExactlyAt returns true because no pixel is sampled there at all "
+					+ "(method379 skips it, the shader discards it), which is what 7.4g fixed",
+					zeroW.reproducesExactlyAt(400, 300) && zeroW.reproducesExactlyAt(emptyX,
+							emptyY, 3));
+			check(tag + ": and the shader really does guard that point - GlBatcher's fragment "
+					+ "source discards on a zero vUvW.z, so the vacuous rule and the shader agree "
+					+ "rather than the rule merely asserting what the shader does not do",
+					((String) readStatic(ui.GlBatcher.class, "FRAGMENT_SOURCE"))
+							.contains("vUvW.z == 0.0")
+							&& ((String) readStatic(ui.GlBatcher.class, "FRAGMENT_SOURCE"))
+									.contains("discard"));
 		} finally {
 			writeStatic(Texture.class, "anIntArrayArray1479", savedLoaded);
 			writeStatic(Texture.class, "aBooleanArray1475", savedFlags);
@@ -5755,6 +6151,213 @@ public final class ClientHarness {
 			Texture.anInt1465 = savedAnInt1465;
 			Texture.aBoolean1462 = saved1462;
 			Texture.aBoolean1464 = saved1464;
+			Fog.sceneDepth = savedSceneDepth;
+			restoreDrawingArea(savedArea, savedPixels);
+		}
+	}
+
+	/**
+	 * ⚠⚠⚠ PHASE 7.4e/7.4g/7.4h: THE **GROUND** RAMP-OVERFLOW POLICY, PINNED - a WIDENED guard
+	 * that SKIPS THE TILE rather than withholding the whole frame.
+	 *
+	 * <p><b>Why this exists as its own test.</b> 7.4e widened the ground guard, 7.4g made a
+	 * degenerate sample point vacuous and 7.4h replaced the whole-frame veto with an
+	 * actor-scoped one - and all three were driven by LIVE RUNS, not by the harness. The plan's
+	 * standing complaint is exactly that pattern ("live-driven rather than harness-pinned"), and
+	 * this closes it for the ground path, which is where the last live decline appeared.
+	 *
+	 * <p><b>What it measures, using 7.4c's own instrument.</b> 7.4c established on a pure world
+	 * scale {@code k} that the ramps overflow harmlessly at {@code k = 2} (the wrap CANCELS, the
+	 * picture is bit-identical) and destructively at {@code k >= 4}. Those two are fed here
+	 * through the REAL {@link ui.GlSceneRenderer} seam, so the assertions are about the policy
+	 * rather than about {@code TextureRamps} alone:
+	 * <ol>
+	 *   <li>the CANCELLING overflow at {@code k = 2} is <b>DRAWN</b> - the widened guard must not
+	 *       decline it, which is the whole point of 7.4d/7.4e;</li>
+	 *   <li>the PICTURE-BREAKING one at {@code k = 4} is <b>SKIPPED, NOT FATAL</b> - the tile is
+	 *       not submitted, the frame is NOT marked unrepresentable, and the skip is REPORTED;</li>
+	 *   <li>and the frame is still READ BACK afterwards, which is the property the 7.4e-7.4g
+	 *       live runs could not get past.</li>
+	 * </ol>
+	 */
+	private static void groundRampOverflowSkipsTheTileAndKeepsTheFrame() {
+		int w = 503;
+		int h = 765;
+		int[] savedArea = saveDrawingArea();
+		int[] savedPixels = DrawingArea.pixels;
+		int savedTextureInt1 = Texture.textureInt1;
+		int savedTextureInt2 = Texture.textureInt2;
+		Object savedLoaded = readStatic(Texture.class, "anIntArrayArray1479");
+		Object savedFlags = readStatic(Texture.class, "aBooleanArray1475");
+		int savedSceneDepth = Fog.sceneDepth;
+		boolean savedLowMem = Texture.lowMem;
+		boolean savedGroundLowMem = WorldController.lowMem;
+		int[] buf = new int[w * h];
+		try {
+			int texels = 4 * 4096;
+			int[] tex = new int[texels];
+			for (int idx = 0; idx < texels; idx++) {
+				tex[idx] = 0x020000 | ((idx & 0xff) << 8) | ((idx >> 8) & 0xff);
+			}
+			DrawingArea.initDrawingArea(h, w, buf);
+			Texture.method364();
+			DrawingArea.centerX = 382;
+			DrawingArea.centerY = 251;
+			writeStatic(Texture.class, "textureInt1", 382);
+			writeStatic(Texture.class, "textureInt2", 251);
+			installDeterministicPalette();
+			Fog.sceneDepth = 0;
+			// ⚠ Texture.lowMem true (the harness default) is the 64 layer side; the GROUND
+			// branch is selected by WorldController.lowMem, which is a DIFFERENT flag - the
+			// lowMem ground arm is the flat darkened variant ui cannot reproduce, so it must be
+			// false here or the test would exercise the decline instead of the tile path.
+			Texture.lowMem = true;
+			WorldController.lowMem = false;
+			parkTexture(TEXTURED_TEX_ID, tex);
+
+			// 7.4c's own geometry, verbatim: the screen triangle is built from the UNSCALED
+			// slots, so every k rasterises the same pixels and only the ints move.
+			int[] baseX = { 60, 10, 240 };
+			int[] baseY = { -100, 200, 200 };
+			int[] baseZ = { 300, 300, 1200 };
+			int[] sx = new int[3];
+			int[] sy = new int[3];
+			for (int v = 0; v < 3; v++) {
+				sx[v] = 382 + (baseX[v] << 9) / baseZ[v];
+				sy[v] = 251 + (baseY[v] << 9) / baseZ[v];
+			}
+			check("Ground overflow [7.4h]: the fixture tile lands inside the drawing area",
+					insideArea(sx, sy));
+
+			int[][] scaled = new int[2][9];
+			int[] scales = { 2, 4 };
+			for (int s = 0; s < scales.length; s++) {
+				for (int v = 0; v < 3; v++) {
+					scaled[s][v] = baseX[v] * scales[s];
+					scaled[s][3 + v] = baseY[v] * scales[s];
+					scaled[s][6 + v] = baseZ[v] * scales[s];
+				}
+			}
+			// ⚠ The two arms differ ONLY in the scale, and that is asserted rather than
+			// assumed: if k=2 stopped cancelling, or k=4 started, this test would be testing
+			// the wrong pair - so the claim is checked against the ramps themselves first.
+			ui.TextureRamps cancelling = ui.TextureRamps.of(scaled[0][0], scaled[0][1],
+					scaled[0][2], scaled[0][3], scaled[0][4], scaled[0][5], scaled[0][6],
+					scaled[0][7], scaled[0][8], 382, 251, ui.TextureRamps.denShiftFor(64),
+					ui.TextureRamps.colShiftFor(64), 64);
+			ui.TextureRamps breaking = ui.TextureRamps.of(scaled[1][0], scaled[1][1],
+					scaled[1][2], scaled[1][3], scaled[1][4], scaled[1][5], scaled[1][6],
+					scaled[1][7], scaled[1][8], 382, 251, ui.TextureRamps.denShiftFor(64),
+					ui.TextureRamps.colShiftFor(64), 64);
+			check("Ground overflow [7.4h]: the k=2 arm really is the CANCELLING overflow - it "
+					+ "wraps AND reproduces the exact evaluation at the tile's own corners, so "
+					+ "the widened guard must draw it, not decline it",
+					cancelling.overflows() && cancelling.reproducesExactlyAt(sx[0], sy[0], sx[1],
+							sy[1], sx[2], sy[2]));
+			check("Ground overflow [7.4h]: and the k=4 arm really is the PICTURE-BREAKING one - "
+					+ "it wraps and does NOT reproduce the exact evaluation, so it must be the "
+					+ "skip arm",
+					breaking.overflows() && !breaking.reproducesExactlyAt(sx[0], sy[0], sx[1],
+							sy[1], sx[2], sy[2]));
+
+			RSImageProducer scene = new RSImageProducer(765, 503, null);
+			RecordingSceneBatch batch = new RecordingSceneBatch();
+			GlSceneRenderer renderer = new GlSceneRenderer("harness-ground-overflow", batch);
+			GpuRenderer.install(renderer);
+			try {
+				// ⚠ 4000 rather than 2000: at strength 3 the fog starts at 1750 and CAPS at
+				// t = 132, so 2000 is only ~17% faded (60 -> 61, same darkness copy) while 4000
+				// is fully faded (60 -> 64, a DIFFERENT copy). The check below wants the strong
+				// case; a depth where the fade happens to be invisible would let it pass while
+				// proving nothing.
+				int depth = 4000;
+				// ⚠ A realistic SHADE CODE, not a packed colour: for a textured tile this value
+				// is the software's own shade (method378's k1/l1/i2), the bits of which select
+				// the darkness copy - and it was a packed 0xff404040 here at first, which the
+				// fade still moved but which is not what the seam carries in real play.
+				int groundShade = 60;
+				// ---- arm 1: the cancelling overflow must be DRAWN
+				renderer.drawGroundTriangle(sx[0], sy[0], sx[1], sy[1], sx[2], sy[2], groundShade,
+						groundShade, groundShade, TEXTURED_TEX_ID, false, scaled[0][0], scaled[0][1],
+						scaled[0][2], scaled[0][3], scaled[0][4], scaled[0][5], scaled[0][6],
+						scaled[0][7], scaled[0][8], depth);
+				check("Ground overflow [7.4h]: the CANCELLING overflow is SUBMITTED - the "
+						+ "widened guard does not decline a wrap that reproduces the exact "
+						+ "mapping, which is what 7.4e was for",
+						batch.texturedTriangles == 1 && !renderer.groundSkipped());
+				// ---- 7.4j: the GROUND half of the shade fog fade
+				//
+				// ⚠⚠ The tile above was drawn at a depth INSIDE the fog band - so if the ground
+				// path fades its shades, the codes the seam received must NOT be the ones the
+				// caller passed. This is the half that would otherwise have been "fixed" in the
+				// model path alone.
+				Object savedFogStrength = readStatic(game.client.class, "fogStrength");
+				try {
+					writeStatic(game.client.class, "fogStrength", 3);
+					int expected = ui.GlTextures.fadedShade(groundShade, depth);
+					int[] got = { batch.lastShade(0), batch.lastShade(1), batch.lastShade(2) };
+					// ⚠ CONTROL: the fade must actually move the code AND flip the darkness copy
+					// (or the extra shift) - otherwise this arm passes on an identity, which is
+					// exactly how the bug survived a fog-free oracle for so long.
+					check("Ground shade fade [7.4j]: at depth " + depth + " the fog really does "
+							+ "move the shade AND change which darkness copy is sampled ("
+							+ groundShade + " -> " + expected + ", block "
+							+ ui.GlTextures.brightnessBlock(groundShade) + " -> "
+							+ ui.GlTextures.brightnessBlock(expected) + ", shift "
+							+ ui.GlTextures.extraShift(groundShade) + " -> "
+							+ ui.GlTextures.extraShift(expected) + "), so the check below is not "
+							+ "comparing a value with itself",
+							expected != groundShade
+									&& (ui.GlTextures.brightnessBlock(expected)
+											!= ui.GlTextures.brightnessBlock(groundShade)
+											|| ui.GlTextures.extraShift(expected)
+													!= ui.GlTextures.extraShift(groundShade)));
+					check("Ground shade fade [7.4j]: the GROUND path submits the FADED shade too - "
+							+ "method374 folds its shades through Fog.fadeHsl with the tile's own "
+							+ "depth exactly as method378 does, so the two paths must agree "
+							+ "(got " + got[0] + "," + got[1] + "," + got[2] + "; expected "
+							+ expected + " each)",
+							got[0] == expected && got[1] == expected && got[2] == expected);
+					check("Ground shade fade [7.4j]: and it is NOT the raw code the caller passed, "
+							+ "which is precisely the bug this step removed",
+							got[0] != groundShade);
+				} finally {
+					writeStatic(game.client.class, "fogStrength", savedFogStrength);
+				}
+				// ---- arm 2: the picture-breaking overflow must be SKIPPED, not fatal
+				renderer.drawGroundTriangle(sx[0], sy[0], sx[1], sy[1], sx[2], sy[2], 0xff404040,
+						0xff404040, 0xff404040, TEXTURED_TEX_ID, false, scaled[1][0], scaled[1][1],
+						scaled[1][2], scaled[1][3], scaled[1][4], scaled[1][5], scaled[1][6],
+						scaled[1][7], scaled[1][8], depth);
+				check("Ground overflow [7.4h]: the PICTURE-BREAKING overflow is NOT submitted, "
+						+ "and the tile count does not move",
+						batch.texturedTriangles == 1);
+				check("Ground overflow [7.4h]: and the skip is REPORTED, so a missing patch of "
+						+ "ground is visible in a live log rather than inferred",
+						renderer.groundSkipped() && renderer.groundTilesSkipped() == 1);
+				// ⚠ 7.4l: and a SUBMITTED ground tile IS counted, so the composite line's
+				// texture total is not vacuous - a counter that never moves would make the
+				// "textured geometry reached the GPU" evidence meaningless.
+				check("Composite counts [7.4l]: a SUBMITTED ground tile is counted, so the "
+						+ "composite line's textured total is live rather than stuck at zero "
+						+ "(textured ground " + renderer.texturedGroundTriangles() + ")",
+						renderer.texturedGroundTriangles() == 1
+								&& renderer.groundTriangles() == 1);
+				check("Ground overflow [7.4h]: THE FRAME SURVIVES THE SKIP - sceneFinished reads "
+						+ "it back rather than discarding it, which is the whole point of the "
+						+ "actor-scoped policy the live runs made necessary",
+						GpuRenderer.sceneFinished(scene) && renderer.framesReadBack() == 1
+								&& renderer.framesDiscarded() == 0);
+			} finally {
+				GpuRenderer.install(null);
+			}
+		} finally {
+			writeStatic(Texture.class, "anIntArrayArray1479", savedLoaded);
+			writeStatic(Texture.class, "aBooleanArray1475", savedFlags);
+			Texture.textureInt1 = savedTextureInt1;
+			Texture.textureInt2 = savedTextureInt2;
+			Texture.lowMem = savedLowMem;
+			WorldController.lowMem = savedGroundLowMem;
 			Fog.sceneDepth = savedSceneDepth;
 			restoreDrawingArea(savedArea, savedPixels);
 		}
@@ -7111,6 +7714,49 @@ public final class ClientHarness {
 			threw = true;
 		}
 		check("GpuFloatBuffer: a negative index fails fast", threw);
+
+		// ⚠ PHASE 7.4h: truncate() is what makes the actor-scoped fallback possible - it is how
+		// GlBatcher.rewind drops one model out of a frame already queued - so its bounds are a
+		// contract rather than an internal detail. A truncate PAST the position would silently
+		// expose stale entries from an earlier frame as if they had been written (the buffer
+		// keeps its storage by design), which is a wrong-picture bug rather than a crash.
+		GpuFloatBuffer tr = new GpuFloatBuffer(16);
+		tr.put(1).put(2).put(3).put(4).put(5);
+		tr.truncate(2);
+		check("GpuFloatBuffer: truncate() drops entries after the new position and keeps the "
+				+ "depth test's own window", tr.position() == 2 && tr.get(1) == 2);
+		boolean grew = false;
+		try {
+			tr.truncate(3);
+		} catch (IllegalArgumentException e) {
+			grew = true;
+		}
+		check("GpuFloatBuffer: truncate() past the position THROWS rather than exposing stale "
+				+ "entries as written data", grew);
+		boolean negative = false;
+		try {
+			tr.truncate(-1);
+		} catch (IllegalArgumentException e) {
+			negative = true;
+		}
+		check("GpuFloatBuffer: truncate() to a negative position throws", negative);
+		tr.put(9);
+		check("GpuFloatBuffer: and it can be written again after a truncate, reusing storage "
+				+ "rather than reallocating", tr.position() == 3 && tr.get(2) == 9);
+
+		GpuIntBuffer ti = new GpuIntBuffer(16);
+		ti.putTriangle(1, 2, 3);
+		ti.putTriangle(4, 5, 6);
+		ti.truncate(3);
+		check("GpuIntBuffer: truncate() mirrors the float buffer for the per-triangle window "
+				+ "the rewind uses", ti.position() == 3 && ti.get(0) == 1 && ti.get(2) == 3);
+		grew = false;
+		try {
+			ti.truncate(4);
+		} catch (IllegalArgumentException e) {
+			grew = true;
+		}
+		check("GpuIntBuffer: truncate() past the position throws, as the float buffer does", grew);
 	}
 
 	private static void gpuBufferBulkCopyHonoursTheWindow() {

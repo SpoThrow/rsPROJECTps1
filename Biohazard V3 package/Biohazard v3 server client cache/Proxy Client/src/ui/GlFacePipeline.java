@@ -204,13 +204,29 @@ public final class GlFacePipeline {
 	/** {@link TriangleSink#textured} declined the submission itself. */
 	public static final int TEXTURE_SINK_DECLINED = 8;
 	/**
+	 * The sink declined and the pipeline has established WHY: the texture id is not present
+	 * in the uploaded atlas. Split out from {@link #TEXTURE_SINK_DECLINED} because the two
+	 * remaining sink conditions are fixed by completely different work - a missing atlas
+	 * entry is a texture-loading question, whereas a {@code wNum} sign change is a geometry
+	 * one - and a live client that reports the pair as one sentence cannot be acted on.
+	 */
+	public static final int TEXTURE_NOT_LOADED = 10;
+	/**
+	 * The sink declined and the face's {@code wNum} numerators are zero or do not share a
+	 * sign, so the interpolated denominator crosses zero inside the triangle. ⚠ This is the
+	 * one texture decline the SOFTWARE DOES NOT HAVE - {@code method379} walks its own ramps
+	 * and divides in integers - so it is a fidelity limit of the interpolate-then-divide
+	 * handoff rather than a missing input, and it is named as such.
+	 */
+	public static final int TEXTURE_WNUM_CROSSING = 11;
+	/**
 	 * A null from {@link #texturedRamps} that recorded no reason of its own - a catch-all,
 	 * so the census can never claim a reason it did not observe.
 	 */
 	public static final int TEXTURE_UNKNOWN = 9;
 
 	/** Number of distinct texture sub-reasons; valid indices for the name tables. */
-	public static final int TEXTURE_REASON_COUNT = 10;
+	public static final int TEXTURE_REASON_COUNT = 12;
 
 	private static final String[] OUTCOME_NAMES = { "DRAWN", "CULLED", "CLIPPED",
 			"NEEDS_CLIPPING", "NEEDS_TEXTURE", "NO_COLOUR", "SKIPPED", "TEXTURED" };
@@ -218,7 +234,8 @@ public final class GlFacePipeline {
 	private static final String[] TEXTURE_DECLINE_NAMES = { "TEXTURE_OK", "TEXTURE_NO_COLOURS",
 			"TEXTURE_UNSUPPORTED", "TEXTURE_NOT_TEXTURED", "TEXTURE_BAD_COORDS",
 			"TEXTURE_BAD_VERTICES", "TEXTURE_BAD_ID", "TEXTURE_RAMP_OVERFLOW",
-			"TEXTURE_SINK_DECLINED", "TEXTURE_UNKNOWN" };
+			"TEXTURE_SINK_DECLINED", "TEXTURE_UNKNOWN", "TEXTURE_NOT_LOADED",
+			"TEXTURE_WNUM_CROSSING" };
 
 	private static final String[] TEXTURE_DECLINE_DETAILS = { "no decline",
 			"the model has no lit corner colours, so the face has no shade to carry",
@@ -229,9 +246,13 @@ public final class GlFacePipeline {
 			"the face's colour slot holds no texture id",
 			"the ramp numerators wrapped a 32-bit int, so the mapping is the software's wrap "
 					+ "and is no longer affine",
-			"the sink declined the submission - its texture id is not in the loaded cache, or "
-					+ "the three wNum numerators are zero or cross zero inside the triangle",
-			"the face could not be described for a reason the resolver did not record" };
+			"the sink declined the submission for a reason the pipeline did not establish",
+			"the face could not be described for a reason the resolver did not record",
+			"the face's texture id is not present in the uploaded atlas, so there is nothing "
+					+ "to sample - a texture-loading question, not a geometry one",
+			"the face's wNum numerators are zero or do not share a sign, so the interpolated "
+					+ "denominator crosses zero inside the triangle - the one texture decline the "
+					+ "software does NOT have, because method379 divides in integers" };
 
 	private static final String DETAIL_NEEDS_CLIPPING =
 			"a clipped edge left the clipper's reciprocal table, which diverges in the "
@@ -284,6 +305,11 @@ public final class GlFacePipeline {
 	 * mask an earlier, rarer one.
 	 */
 	private int textureDecline;
+
+	/** The w numerators of the last {@link #submitClippedTextured}, for decline attribution. */
+	private int lastSubmitW0;
+	private int lastSubmitW1;
+	private int lastSubmitW2;
 
 	private int triangles;
 	private int lastSceneDepth;
@@ -499,7 +525,8 @@ public final class GlFacePipeline {
 			if (!sink.supportsTextures()) {
 				return markTextureDecline(TEXTURE_UNSUPPORTED);
 			}
-			TextureRamps ramps = texturedRamps(model, face, centreX, centreY);
+			TextureRamps ramps = texturedRamps(model, face, centreX, centreY, clipX, clipY,
+					points);
 			if (ramps == null) {
 				// texturedRamps recorded its own reason; TEXTURE_UNKNOWN only stands if it
 				// somehow returned null without one, so the census cannot claim more than it saw.
@@ -510,25 +537,30 @@ public final class GlFacePipeline {
 				// method485's render-type-3 branch passes anIntArray1634[i] three times - the
 				// RAW slot A, NOT the interpolated anIntArray1680 - which is the same flat
 				// treatment the uncut type-3 path gets, and for the same reason.
-				int flat = colourA[face];
+				// ⚠ 7.4j: faded once, then used for all three corners - which is what
+				// method378 does with `k1 = Fog.fadeHsl(k1, Fog.sceneDepth)`.
+				int flat = texturedShade(colourA[face]);
 				if (!submitClippedTextured(0, 1, 2, flat, flat, flat, ramps, textureId, sink)) {
-					return markTextureDecline(TEXTURE_SINK_DECLINED);
+					return markSinkDecline(textureId, lastSubmitW0, lastSubmitW1, lastSubmitW2);
 				}
 				if (points == 4 && !submitClippedTextured(0, 2, 3, flat, flat, flat, ramps,
 						textureId, sink)) {
-					return markTextureDecline(TEXTURE_SINK_DECLINED);
+					return markSinkDecline(textureId, lastSubmitW0, lastSubmitW1, lastSubmitW2);
 				}
 			} else {
 				// method485's render-type-2 branch passes anIntArray1680[0..2] for the first
 				// triangle and [0],[2],[3] for the second - the INTERPOLATED clip shades, which
-				// is exactly what GlClipper writes into clipColour.
-				if (!submitClippedTextured(0, 1, 2, clipColour[0], clipColour[1], clipColour[2],
-						ramps, textureId, sink)) {
-					return markTextureDecline(TEXTURE_SINK_DECLINED);
+				// is exactly what GlClipper writes into clipColour. ⚠ 7.4j: they are faded here,
+				// because method378 fades whatever it is handed - interpolated or not.
+				if (!submitClippedTextured(0, 1, 2, texturedShade(clipColour[0]),
+						texturedShade(clipColour[1]), texturedShade(clipColour[2]), ramps, textureId,
+						sink)) {
+					return markSinkDecline(textureId, lastSubmitW0, lastSubmitW1, lastSubmitW2);
 				}
-				if (points == 4 && !submitClippedTextured(0, 2, 3, clipColour[0], clipColour[2],
-						clipColour[3], ramps, textureId, sink)) {
-					return markTextureDecline(TEXTURE_SINK_DECLINED);
+				if (points == 4 && !submitClippedTextured(0, 2, 3, texturedShade(clipColour[0]),
+						texturedShade(clipColour[2]), texturedShade(clipColour[3]), ramps, textureId,
+						sink)) {
+					return markSinkDecline(textureId, lastSubmitW0, lastSubmitW1, lastSubmitW2);
 				}
 			}
 			return CLIPPED;
@@ -596,6 +628,12 @@ public final class GlFacePipeline {
 		int[] n0 = ramps.attributeAt(clipX[i0], clipY[i0]);
 		int[] n1 = ramps.attributeAt(clipX[i1], clipY[i1]);
 		int[] n2 = ramps.attributeAt(clipX[i2], clipY[i2]);
+		// ⚠ Recorded so a decline can be ATTRIBUTED by the caller - see markSinkDecline. The
+		// sink returns one boolean for three different faults, and these are the numbers that
+		// tell them apart.
+		lastSubmitW0 = n0[2];
+		lastSubmitW1 = n1[2];
+		lastSubmitW2 = n2[2];
 		boolean accepted = sink.textured(
 				clipX[i0], clipY[i0], absoluteZ(clipDepth[i0]), n0[0], n0[1], n0[2], s0,
 				clipX[i1], clipY[i1], absoluteZ(clipDepth[i1]), n1[0], n1[1], n1[2], s1,
@@ -654,16 +692,16 @@ public final class GlFacePipeline {
 		if (!sink.supportsTextures()) {
 			return markTextureDecline(TEXTURE_UNSUPPORTED);
 		}
-		TextureRamps ramps = texturedRamps(model, face, centreX, centreY);
+		TextureRamps ramps = texturedRamps(model, face, centreX, centreY, vertexX, vertexY, 3);
 		if (ramps == null) {
 			// texturedRamps recorded its own reason; see the same note in clipFace.
 			return markTextureDecline(TEXTURE_UNKNOWN);
 		}
 		int textureId = texturedId;
-		// Type 3 passes slot A three times - method484's type-3 branch reads no other slot.
-		int shadeA = colourA[face];
-		int shadeB = (renderTypes[face] & 3) == 3 ? shadeA : colourB[face];
-		int shadeC = (renderTypes[face] & 3) == 3 ? shadeA : colourC[face];
+		// ⚠ 7.4j: the codes are FADED here (method378's own first statements) - see texturedShade.
+		int shadeA = texturedShade(colourA[face]);
+		int shadeB = (renderTypes[face] & 3) == 3 ? shadeA : texturedShade(colourB[face]);
+		int shadeC = (renderTypes[face] & 3) == 3 ? shadeA : texturedShade(colourC[face]);
 		// The ramps are anchored at the screen ORIGIN and evaluated at the FACE's own
 		// projected vertices - the two being different vertices is fine, and is the point:
 		// the mapping is a function of screen position, and the triangle only bounds where
@@ -677,7 +715,7 @@ public final class GlFacePipeline {
 				vertexX[c], vertexY[c], absoluteZ(vertexDepth[c]), nc[0], nc[1], nc[2], shadeC,
 				textureId);
 		if (!accepted) {
-			return markTextureDecline(TEXTURE_SINK_DECLINED);
+			return markSinkDecline(textureId, na[2], nb[2], nc[2]);
 		}
 		triangles++;
 		return TEXTURED;
@@ -714,7 +752,8 @@ public final class GlFacePipeline {
 	 *
 	 * @return the ramps, or {@code null} if the model has no usable textured face here
 	 */
-	private TextureRamps texturedRamps(Model model, int face, int centreX, int centreY) {
+	private TextureRamps texturedRamps(Model model, int face, int centreX, int centreY,
+			int[] sampleX, int[] sampleY, int sampleCount) {
 		if (!model.hasTextures()) {
 			noteTextureDecline(TEXTURE_NOT_TEXTURED);
 			return null;
@@ -752,12 +791,23 @@ public final class GlFacePipeline {
 				vertexCamY[ta], vertexCamY[tb], vertexCamY[tc], wa, wb, wc, centreX, centreY,
 				TextureRamps.denShiftFor(size), TextureRamps.colShiftFor(size), size);
 		if (ramps.overflows()) {
-			// ⚠ The ramps wrapped a 32-bit int, so the mapping is the software's WRAP and is
-			// no longer affine - a shader cannot reproduce it by interpolating numerators.
-			// Declining is the honest answer; the frame falls back to the software path, which
-			// reproduces the wrap exactly.
-			noteTextureDecline(TEXTURE_RAMP_OVERFLOW);
-			return null;
+			// ⚠⚠ PHASE 7.4d: A WRAP IS NOT AUTOMATICALLY A DECLINE, and 7.4c is why. A minor
+			// leaving 32 bits is harmless exactly when the wrap CANCELS - the folded constant
+			// is removed again by the evaluation's own wrap, leaving the ratio unchanged - and
+			// the software's picture is then bit-identical to the unwrapped one, which a
+			// shader interpolating the wrapped numerators reproduces. Measured: "the wrapped
+			// evaluation still equals the exact one" separated the costless overflow
+			// (10964/10964 px, handoff intact) from the picture-breaking one (0/10964, handoff
+			// 1%) scale for scale, at both detail levels.
+			//
+			// ⚠ The sample points are the polygon this face will actually rasterise. They are
+			// a SAMPLE, not a proof over every pixel - which is why the degenerate case (no
+			// points) declines: a caller that cannot offer a sample has not earned the claim,
+			// and being conservative costs a software frame while being wrong costs fidelity.
+			if (!ramps.reproducesExactlyAt(sampleX, sampleY, sampleCount)) {
+				noteTextureDecline(TEXTURE_RAMP_OVERFLOW);
+				return null;
+			}
 		}
 		texturedId = textureId;
 		return ramps;
@@ -1109,9 +1159,53 @@ public final class GlFacePipeline {
 		return NEEDS_TEXTURE;
 	}
 
+	/**
+	 * The reason behind a sink decline, ESTABLISHED rather than guessed.
+	 *
+	 * <p>⚠⚠ <b>Why this exists as a separate step.</b> {@link GlBatcher#textured} refuses a
+	 * submission for three different reasons and returns one {@code false} for all of them.
+	 * Reporting that single bit as one sentence is what made the 7.4e live run say "its
+	 * texture id is not in the loaded cache, or the three wNum numerators are zero or cross
+	 * zero" - two faults with completely different fixes and no way to tell which. The
+	 * pipeline can establish it without touching the sink's contract: a missing atlas entry
+	 * is a query, and the {@code wNum} condition is arithmetic on numbers it already holds.
+	 *
+	 * <p>⚠ The remaining {@code wNum} condition is the sink's own and is now only the EXACT
+	 * zero at a vertex - the sink no longer rejects a sign change, because the software does
+	 * not either (see {@link GlBatcher#textured}).
+	 */
+	private int markSinkDecline(int textureId, int w0, int w1, int w2) {
+		if (!GlTextures.available(textureId)) {
+			return markTextureDecline(TEXTURE_NOT_LOADED);
+		}
+		if (w0 == 0 || w1 == 0 || w2 == 0) {
+			return markTextureDecline(TEXTURE_WNUM_CROSSING);
+		}
+		return markTextureDecline(TEXTURE_SINK_DECLINED);
+	}
+
+	/**
+	 * ⚠⚠ PHASE 7.4j: a TEXTURED face's corner shade code, FADED as {@code method378} fades it.
+	 *
+	 * <p><b>This is the fix for the one known fidelity bug the GL path had left, and it was
+	 * deferred deliberately until both paths could go through one resolver.</b> The flat
+	 * (untextured) path already faded its colours via {@link #resolveCornerColour}; the TEXTURED
+	 * path handed the raw code straight to the sink - and for a textured face the code is not a
+	 * colour at all but a DARKENING whose bits select one of four texture copies and a further
+	 * shift. {@code method378}'s first three statements are exactly
+	 * {@code k1 = Fog.fadeHsl(k1, Fog.sceneDepth)} for the three corners, so fog can change which
+	 * copy is sampled - which is why a fog-free oracle could never have caught the omission.
+	 *
+	 * <p>⚠ The depth is this pipeline's {@link #lastSceneDepth}, i.e. the value {@code method443}
+	 * assigns to {@code Fog.sceneDepth} for the duration of the draw - the same value the flat
+	 * path already uses, so the two cannot disagree about when fog applies.
+	 */
+	private int texturedShade(int code) {
+		return GlTextures.fadedShade(code, lastSceneDepth);
+	}
+
 	/** The index of the first face that got {@code outcome}, or {@code -1}. */
-	private int firstFaceWith(int outcome) {
-		int faces = Math.min(lastFaceCount, outcomes.length);
+	private int firstFaceWith(int outcome) {		int faces = Math.min(lastFaceCount, outcomes.length);
 		for (int face = 0; face < faces; face++) {
 			if (outcomes[face] == outcome) {
 				return face;

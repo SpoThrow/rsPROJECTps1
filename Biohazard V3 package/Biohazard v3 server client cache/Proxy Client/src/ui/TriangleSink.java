@@ -104,4 +104,28 @@ public interface TriangleSink {
 			float x1, float y1, float z1, float u1, float v1, float w1, int shade1,
 			float x2, float y2, float z2, float u2, float v2, float w2, int shade2,
 			int textureId);
+
+	/**
+	 * Marks the current end of what has been submitted, in TRIANGLES (Phase 7.4h).
+	 *
+	 * <p>⚠⚠ <b>Why this exists: to let a caller drop ONE ACTOR rather than the frame.</b>
+	 * The scene latch is all-or-nothing - a single unrepresentable face of 128 withheld
+	 * every frame - so the fix is to submit a model, and if any of its faces turned out to
+	 * be unrepresentable, {@link #rewind} it away and keep the frame. That needs the sink to
+	 * be able to undo, and a caller cannot do it from outside: the attribute buffers advance
+	 * in lockstep, each by a different number of entries per triangle, so only the sink knows
+	 * how to undo one.
+	 *
+	 * @return a token accepted by {@link #rewind}; opaque to the caller
+	 */
+	int mark();
+
+	/**
+	 * Discards every triangle submitted since {@link #mark()} returned {@code token}.
+	 *
+	 * <p>⚠ Rewinding to a token from before the current frame's {@code beginFrame} is a
+	 * caller error, not a no-op: the buffers are cleared per frame, so such a token has no
+	 * meaning. Implementations throw rather than silently discard the frame.
+	 */
+	void rewind(int token);
 }

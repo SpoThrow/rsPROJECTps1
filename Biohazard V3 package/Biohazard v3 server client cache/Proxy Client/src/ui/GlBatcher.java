@@ -205,6 +205,9 @@ public final class GlBatcher implements SceneBatch {
 			+ "        return;\n"
 			+ "    }\n"
 			+ "    int size = int(uLayerSize + 0.5);\n"
+			+ "    if (vUvW.z == 0.0) {\n"
+			+ "        discard;\n"
+			+ "    }\n"
 			+ "    vec2 uv = vUvW.xy / vUvW.z;\n"
 			+ "    ivec2 texel = ivec2(floor(uv * float(size)));\n"
 			+ "    texel = clamp(texel, ivec2(0), ivec2(size - 1));\n"
@@ -466,6 +469,7 @@ public final class GlBatcher implements SceneBatch {
 		uvws.clear();
 		textureControls.clear();
 		texturedTriangles = 0;
+		untexturedTriangles = 0;
 		return true;
 	}
 
@@ -490,6 +494,7 @@ public final class GlBatcher implements SceneBatch {
 		// these with real values and the shader takes the colour path when layer is -1.
 		uvws.put(0f, 0f, 1f).put(0f, 0f, 1f).put(0f, 0f, 1f);
 		textureControls.put(0f, UNTEXTURED).put(0f, UNTEXTURED).put(0f, UNTEXTURED);
+		noteTriangle(false);
 		return true;
 	}
 
@@ -528,18 +533,17 @@ public final class GlBatcher implements SceneBatch {
 	 *       unsampled layer is all-zero, which would draw transparent. Note this is NOT
 	 *       checked against the model's own texture count, which would be the wrong
 	 *       bound: the id is a GLOBAL cache index.</li>
-	 *   <li><b>The denominator is degenerate.</b> The shader divides by {@code wNum}, so a
-	 *       zero is a division by zero, and a triangle whose three {@code wNum} values do
-	 *       not share a sign crosses zero somewhere INSIDE itself - where the interpolated
-	 *       denominator blows up between two vertices that each looked fine. ⚠ <b>The
-	 *       guard is a same-sign test rather than the {@code w &lt;= 0} test this used to
-	 *       be, and the change is not cosmetic:</b> as camera-space depth a {@code w} had to
-	 *       be positive, but as a ramp NUMERATOR (7.2b-2l) it is signed, and rejecting every
-	 *       negative one would silently drop valid textured faces. Uniformly-signed
-	 *       negatives divide correctly; the software has the same hazard -
-	 *       {@code method379} divides by the interpolated plane without a sign test - and
-	 *       declining is the honest answer, because a NaN would poison the whole batch
-	 *       rather than one face.</li>
+	 *   <li><b>The denominator is zero at a vertex.</b> The shader divides by {@code wNum}, so
+	 *       an exact zero there is a division by zero, and a triangle with a vertex ON the
+	 *       crossing is degenerate rather than merely steep. ⚠ <b>This used to reject a
+	 *       triangle whose three {@code wNum} values did not share a sign, and that was
+	 *       corrected in 7.4f: the SOFTWARE does not reject it.</b> {@code method379} guards
+	 *       only the exact zero ({@code if (i5 != 0)} - it SKIPS those pixels) and CLAMPS the
+	 *       rest by clamping, so a face that crosses zero is drawn with a thin clamped band.
+	 *       The fragment shader now mirrors that (it discards exactly where {@code vUvW.z}
+	 *       is zero), because rejecting the whole face withheld an entire frame on ONE face
+	 *       of 122. ⚠ Note {@code w} as a ramp NUMERATOR is signed - see 7.2b-2l - so a
+	 *       uniformly-negative triangle is valid and divides correctly.</li>
 	 * </ol>
 	 *
 	 * <p>The shade is passed to the GPU RAW, exactly as the model produced it. Decoding
@@ -559,24 +563,16 @@ public final class GlBatcher implements SceneBatch {
 		if (textureId < 0 || textureId >= layerCount || !GlTextures.available(textureId)) {
 			return false;
 		}
-		if (w0 == 0f || w1 == 0f || w2 == 0f) {
+		if (denominatorsAreDegenerate(w0, w1, w2)) {
 			return false;
 		}
-		// ⚠ Same-sign test, NOT `w > 0`: see the doc above. A triangle whose three
-		// denominators do not share a sign crosses zero inside itself, and the interpolated
-		// denominator blows up there even though each vertex looked usable.
-		boolean positive = w0 > 0f;
-		if ((w1 > 0f) != positive || (w2 > 0f) != positive) {
-			return false;
-		}
-		positions.put(x0, y0, z0).put(x1, y1, z1).put(x2, y2, z2);
 		// The colour slot is unused for a textured face - its slot holds a SHADE, not a
 		// colour - but it must still be written so the buffers stay vertex-aligned.
 		colours.putTriangle(0xffffffff, 0xffffffff, 0xffffffff);
 		uvws.put(u0, v0, w0).put(u1, v1, w1).put(u2, v2, w2);
 		float layer = textureId;
 		textureControls.put(shade0, layer).put(shade1, layer).put(shade2, layer);
-		texturedTriangles += 1;
+		noteTriangle(true);
 		return true;
 	}
 
@@ -585,9 +581,101 @@ public final class GlBatcher implements SceneBatch {
 		return positions.position() / (POSITION_COMPONENTS * 3);
 	}
 
+	/**
+	 * ⚠⚠ PHASE 7.4f, EXTRACTED SO IT CAN BE PINNED RATHER THAN MERELY DESCRIBED: is this
+	 * triangle's interpolated denominator degenerate at a VERTEX?
+	 *
+	 * <p><b>Only the exact zero, and that is the whole content of 7.4f.</b> This used to reject
+	 * a triangle whose three {@code wNum} values did not share a sign, on the reasoning that the
+	 * interpolated denominator would cross zero somewhere inside and blow up between two
+	 * vertices that each looked usable. ⚠ <b>The software does not do that.</b>
+	 * {@code method379} walks its own spans with an integer denominator and guards ONLY the
+	 * exact zero ({@code if (i5 != 0)} - it SKIPS those pixels) and CLAMPS the rest, so a face
+	 * that crosses zero is DRAWN, with a thin clamped band where it crosses. The fragment shader
+	 * now mirrors that ({@code if (vUvW.z == 0.0) discard;}), and rejecting the whole face -
+	 * which withheld an entire frame on ONE face of 122 - was a far bigger fidelity loss than
+	 * the band it avoided.
+	 *
+	 * <p>⚠ Note a {@code w} here is a ramp NUMERATOR and is signed (7.2b-2l), so a
+	 * uniformly-negative triangle is valid and divides correctly; there is no sign test.
+	 *
+	 * <p>⚠ Public rather than private <b>only so the harness can call it</b>: a rule this
+	 * specific - the difference between "reject a sign change" and "tolerate it" - is exactly
+	 * the kind of thing a later tidy-up would undo while every other check stayed green.
+	 */
+	public static boolean denominatorsAreDegenerate(float w0, float w1, float w2) {
+		return w0 == 0f || w1 == 0f || w2 == 0f;
+	}
+
 	/** Number of TEXTURED triangles accepted since {@link #beginFrame}. */
 	public int texturedCount() {
 		return texturedTriangles;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>⚠ A triangle count rather than a buffer position, because the four attribute buffers
+	 * advance by DIFFERENT amounts per triangle (9 floats, 3 ints, 9 floats, 6 floats) and a
+	 * caller must not have to know that.
+	 */
+	@Override
+	public int mark() {
+		return texturedTriangles + untexturedTriangles;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>⚠⚠ <b>The textured count is recomputed from a per-triangle record rather than
+	 * decremented by the number discarded.</b> The window being dropped is a MIX - a model is
+	 * exactly where textured and untextured faces interleave - so "how many were textured"
+	 * cannot be derived from its length alone, and guessing would drift
+	 * {@link #texturedCount()} away from the truth permanently (it is a running counter, never
+	 * recomputed).
+	 */
+	@Override
+	public void rewind(int token) {
+		int now = texturedTriangles + untexturedTriangles;
+		if (token < 0 || token > now) {
+			throw new IllegalArgumentException("rewind(" + token + ") outside 0.." + now);
+		}
+		int droppedTextured = 0;
+		for (int i = token; i < now; i++) {
+			if (texturedFlag[i] != 0) {
+				droppedTextured++;
+			}
+		}
+		positions.truncate(token * POSITION_COMPONENTS * 3);
+		colours.truncate(token * 3);
+		uvws.truncate(token * UVW_COMPONENTS * 3);
+		textureControls.truncate(token * TEXTURE_CONTROL_COMPONENTS * 3);
+		texturedTriangles -= droppedTextured;
+		untexturedTriangles = token - texturedTriangles;
+	}
+
+	/** Per-triangle record of whether it was textured, so {@link #rewind} can recount. */
+	private int[] texturedFlag = new int[4096];
+
+	/** Triangles queued since {@link #beginFrame} that were NOT textured. */
+	private int untexturedTriangles;
+
+	/**
+	 * Records one submitted triangle's kind. ⚠ Called by BOTH submit paths, so the ordinal
+	 * {@link #mark} returns and the flag array stay in step by construction.
+	 */
+	private void noteTriangle(boolean textured) {
+		int ordinal = texturedTriangles + untexturedTriangles;
+		if (ordinal >= texturedFlag.length) {
+			texturedFlag = java.util.Arrays.copyOf(texturedFlag,
+					Math.max(ordinal + 1, texturedFlag.length << 1));
+		}
+		texturedFlag[ordinal] = textured ? 1 : 0;
+		if (textured) {
+			texturedTriangles++;
+		} else {
+			untexturedTriangles++;
+		}
 	}
 
 	/**

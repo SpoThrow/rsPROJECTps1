@@ -164,4 +164,23 @@ public final class GpuFloatBuffer {
 	public void clear() {
 		position = 0;
 	}
+
+	/**
+	 * Drops everything written after {@code newPosition} (Phase 7.4h).
+	 *
+	 * <p>⚠ <b>Why a partial rewind is needed at all.</b> The scene latch vetoes a whole frame
+	 * when any single actor (a model, a ground tile) cannot be represented, and that veto is
+	 * too coarse: one bad face of 128 withheld every frame. The fix is to drop the ACTOR, so
+	 * the caller has to be able to undo the triangle it just submitted. {@link #clear()} can
+	 * only go to zero, which would discard the whole frame.
+	 *
+	 * <p>⚠ It only moves the position - the entries past it are left as they are and are
+	 * overwritten by the next write, exactly as {@link #clear()} leaves them.
+	 */
+	public void truncate(int newPosition) {
+		if (newPosition < 0 || newPosition > position) {
+			throw new IllegalArgumentException("truncate(" + newPosition + ") outside 0.." + position);
+		}
+		position = newPosition;
+	}
 }

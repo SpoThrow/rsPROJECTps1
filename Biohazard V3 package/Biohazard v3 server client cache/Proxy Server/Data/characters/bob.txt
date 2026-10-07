@@ -3,8 +3,8 @@ character-username = bob
 character-password = 9cdfb439c7876e703e307864c9167a15
 [CHARACTER]
 character-height = 0
-character-posx = 3087
-character-posy = 3491
+character-posx = 3086
+character-posy = 3490
 character-rights = 3
 donator = 0
 respected = 0

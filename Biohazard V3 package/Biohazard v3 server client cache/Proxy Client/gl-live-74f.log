@@ -1,0 +1,27 @@
+New Default Acceleration Threshold: 0
+Map Amount: 1226
+CursePack: C:\Users\llrbi\Biohazard.474\CursePack
+474 Object Amount: 27283
+525 Object Amount: 42000
+CursePack models loaded: 9/9
+Injected curse seq/gfx from CursePack (frames remapped)
+667Anims: C:\Users\llrbi\Biohazard.474\667Anims
+Renderer 'gl': the scene is composited at the scene-finished seam, so the frame is presented by the software blit.
+MapID:110
+MapID:110
+MapID:110
+MapID:110
+Floor Map Loaded: 110
+Object Map Loaded: 111
+Floor Map Loaded: 112
+Object Map Loaded: 113
+Floor Map Loaded: 114
+Object Map Loaded: 115
+Floor Map Loaded: 622
+Object Map Loaded: 623
+Floor Map Loaded: 624
+Object Map Loaded: 625
+Floor Map Loaded: 626
+Object Map Loaded: 627
+Renderer 'gl' scene batch: GL batcher ready (shader + VAO/VBO), viewport 512x334, atlas 51 layers of 128x128, NEAREST, integer
+Renderer 'gl': discarding GL frames while the scene is not fully representable, so the software image stands. First reason: a model face the GL path cannot represent: NEEDS_TEXTURE x1 of 122 faces, first at face 85: a textured face (render type 2 or 3) - TEXTURE_WNUM_CROSSING: the face's wNum numerators are zero or do not share a sign, so the interpolated denominator crosses zero inside the triangle - the one texture decline the software does NOT have, because method379 divides in integers
