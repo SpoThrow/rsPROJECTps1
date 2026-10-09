@@ -46,6 +46,17 @@ class BotCommandsTest {
 		assertEquals(1, matches("bot spawn botwillow"));
 		assertEquals(1, matches("bot despawn botwillow"));
 		assertEquals(1, matches("bot reload"));
+		assertEquals(1, matches("bot info botwillow"));
+	}
+
+	@Test
+	void botinfoIsItsOwnEntryAndNeverCollidesWithTheBotFamily() {
+		// The two are disjoint by one character: `"botinfo x".startsWith("bot ")` is false, so the family
+		// entry cannot fire for ::botinfo and vice versa. That is the whole reason ::botinfo can be a
+		// separate registration at all.
+		assertEquals(1, matches("botinfo"));
+		assertEquals(1, matches("botinfo botwillow"));
+		assertEquals(0, matches("botinfox"));
 	}
 
 	@Test
@@ -64,6 +75,19 @@ class BotCommandsTest {
 	}
 
 	@Test
+	void botInfoIsOwnerOnlyToo() {
+		for (Command command : CommandHandler.all()) {
+			if (command.appliesTo(console(3), "botinfo willownorth")) {
+				assertEquals(3, command.minimumRights());
+				assertEquals(3, command.maximumRights());
+				assertNull(command.literal());
+				return;
+			}
+		}
+		throw new AssertionError("no ::botinfo command is registered");
+	}
+
+	@Test
 	void theTrailingSpaceKeepsBotApartFromALongerWord() {
 		// ::bot / ::bot ... only. A word that merely starts with "bot" must not reach it, the same rule
 		// that keeps ::banki out of the ban list.
@@ -75,12 +99,14 @@ class BotCommandsTest {
 	void dispatchingTheReadOnlySubcommandsDoesNotThrow() {
 		BotPlayer owner = console(3);
 
-		// list reads the last config (empty in a test JVM); spawn/despawn with an unknown account only
-		// report "no row". None of these touch the live set, so the assertion is simply that the entry
-		// runs end to end.
+		// list reads the last config (empty in a test JVM); spawn/despawn/info with an unknown account
+		// only report "no row". None of these touch the live set, so the assertion is simply that the
+		// entries run end to end.
 		assertTrue(CommandHandler.dispatch(owner, "bot list"));
 		assertTrue(CommandHandler.dispatch(owner, "bot spawn nobodyconfigured"));
 		assertTrue(CommandHandler.dispatch(owner, "bot despawn nobodyconfigured"));
+		assertTrue(CommandHandler.dispatch(owner, "bot info nobodyconfigured"));
+		assertTrue(CommandHandler.dispatch(owner, "botinfo nobodyconfigured"));
 		assertTrue(CommandHandler.dispatch(owner, "bot nonsense"));
 	}
 }

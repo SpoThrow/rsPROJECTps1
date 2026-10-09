@@ -15,6 +15,7 @@ import server.game.players.actions.objects.ObjectHandler;
 public final class PlayerBotContext implements BotContext {
 
 	private final BotPlayer bot;
+	private final BotTrace trace = new BotTrace();
 	private int ticks;
 
 	public PlayerBotContext(BotPlayer bot) {
@@ -26,6 +27,11 @@ public final class PlayerBotContext implements BotContext {
 	@Override
 	public BotPlayer client() {
 		return bot;
+	}
+
+	@Override
+	public BotTrace trace() {
+		return trace;
 	}
 
 	@Override
@@ -151,5 +157,8 @@ public final class PlayerBotContext implements BotContext {
 	@Override
 	public void onTick() {
 		ticks++;
+		// The trace's clock is the driver's clock: advanced once per tick, before the tree runs, so
+		// every event a node reports carries the tick it happened on and "after Nt" is measurable.
+		trace.advance();
 	}
 }

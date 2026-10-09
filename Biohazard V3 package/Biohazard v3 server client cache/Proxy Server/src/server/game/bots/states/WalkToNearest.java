@@ -101,7 +101,9 @@ public final class WalkToNearest implements BotState {
 				List<Location> nearest = places().nearest(ctx.x(), ctx.y(), ctx.height(), 1);
 				if (nearest.isEmpty()) {
 					// Nothing of this kind on this plane. Not recoverable by retrying, so fail: a
-					// Selector above can then route the bot somewhere else.
+					// Selector above can then route the bot somewhere else. The note is what makes the
+					// failure legible in the console (roadmap Phase F).
+					ctx.trace().note("no " + kind.id() + " place on plane " + ctx.height());
 					return BotStatus.FAILURE;
 				}
 				place = nearest.get(0);
@@ -114,6 +116,11 @@ public final class WalkToNearest implements BotState {
 		if (status != BotStatus.RUNNING) {
 			walk.exit(ctx, false);
 			walk = null;
+			if (status == BotStatus.FAILURE) {
+				// The inner walk gave up (stuck, or the route failed). Name the place so the log says
+				// which destination was unreachable rather than only that something failed.
+				ctx.trace().note("could not reach " + place.name() + " in " + place.plane());
+			}
 		}
 		return status;
 	}

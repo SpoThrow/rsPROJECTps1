@@ -264,6 +264,22 @@ exporter makes it appear in the editor — **zero editor code changes**.
 vice versa, in the spirit of `WoodcuttingObjectsTest`. That is what stops the schema and
 the runtime diverging.
 
+**The one exception, declared not filtered.** Roadmap Phase F added `Traced`, a tracing wrapper the
+runtime applies itself. It is a `BotState`, so an absolute parity test would demand a palette entry for
+something no author can place and an editor must never offer. Rather than loosen the check — which is how
+a genuinely unannotated node slips through — the exception is declared on the class with its reason:
+
+```java
+@RuntimeOnly("applied by the builder and the runtime for tracing; never placed in the editor")
+public final class Traced implements BotState { ... }
+```
+
+`NodeCoverage` reads that marker, so the guard stays absolute and the exception stays reviewable. Both
+directions are pinned: anything not marked must be annotated **and** registered, and anything marked must
+**not** be registered — so the marker cannot be used to hide a real node from the palette. The exporter
+also prints the marked classes, so a deliberate exception is visible in the build output rather than
+implied.
+
 **Escape hatch:** a `script` node holding a small expression/DSL for one-offs, so the
 graph never has to cover 100% of cases.
 
@@ -395,7 +411,8 @@ first target is bots, and a bot-only tool that ships beats a general editor that
   when a box is empty — the same failure `ValidateMap` reports as `EMPTY`, caught earlier.
   That count is a warning, not the check: `ValidateMap` scans the whole world server-side.
 - **T4:** every runtime `BotState` id appears in `bot-nodes.json`; the parity test fails
-  if either side gains an unregistered entry.
+  if either side gains an unregistered entry. ✅ A state the runtime applies itself is
+  marked `@RuntimeOnly` and excluded in both directions, so the check stays absolute.
 - **T5:** a timeline built in the editor serialises to a `BotScript` the runtime executes.
 - **T6:** the exported timeline runs the slice-1 chop→bank loop end to end with no
   hand-written bot code.

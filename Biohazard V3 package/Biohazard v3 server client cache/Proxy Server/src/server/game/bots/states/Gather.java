@@ -138,6 +138,8 @@ public final class Gather implements BotState {
 			return BotStatus.SUCCESS;
 		}
 		if (target == null && !resolve(ctx)) {
+			ctx.trace().note("no " + kind.id() + " within " + radius + " tiles of " + ctx.x() + ","
+					+ ctx.y());
 			return BotStatus.FAILURE;
 		}
 		if (approach != null) {
@@ -152,7 +154,7 @@ public final class Gather implements BotState {
 				target = null;
 				stall = 0;
 				lastFree = ctx.freeSlots();
-				return targets >= MAX_TARGETS ? BotStatus.FAILURE : BotStatus.RUNNING;
+				return giveUp(ctx);
 			}
 			// Arrived: click once now, then watch. The first click must not wait for the stall timer.
 			stall = 0;
@@ -175,7 +177,7 @@ public final class Gather implements BotState {
 			// Nothing gained for long enough: the object is gone. Look for another.
 			target = null;
 			stall = 0;
-			return targets >= MAX_TARGETS ? BotStatus.FAILURE : BotStatus.RUNNING;
+			return giveUp(ctx);
 		}
 		if (stall > 0 && stall % REISSUE_EVERY == 0) {
 			click(ctx);
@@ -194,6 +196,19 @@ public final class Gather implements BotState {
 		approach = new WalkTo(found.x(), found.y(), range);
 		approach.enter(ctx);
 		return true;
+	}
+
+	/**
+	 * The one place this leaf stops looking: either it has spent its budget, or it has not. Reporting the
+	 * reason through {@link BotContext#trace()} is what turns a bare {@code FAILURE} in the console into
+	 * "no tree within 8 tiles" — roadmap Phase F's one-line failure log.
+	 */
+	private BotStatus giveUp(BotContext ctx) {
+		if (targets < MAX_TARGETS) {
+			return BotStatus.RUNNING;
+		}
+		ctx.trace().note("tried " + targets + " " + kind.id() + " that yielded nothing");
+		return BotStatus.FAILURE;
 	}
 
 	private void click(BotContext ctx) {

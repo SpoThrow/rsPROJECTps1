@@ -273,7 +273,8 @@ The account name must be login-legal (`[a-z0-9 ]`, ≤ 12 chars): the sketch abo
 `oak_chop`/`willow`, but a possessed bot is a real account a human can log into
 (`BOT_ACCOUNTS.md` §1), and the login decoder would refuse a name with an underscore, so
 those rows could never be handed over. A missing file is "no bots" — the server boots
-exactly as before — and `::bot list | spawn | despawn | reload` drives the set at runtime.
+exactly as before — and `::bot list | spawn | despawn | reload` drives the set at runtime, with
+`::botinfo <account>` (Phase F) showing what a live one is doing.
 
 Adding a routine bot is one config line; a novel bot registers one `BotScript`; neither
 touches the core. Possession loads the account's character and `release` saves it back
@@ -290,6 +291,19 @@ This is what makes authoring *actually* pleasant, and it is cheap:
 - One-line failure logs: `[bot] oak_chop: WalkTo->FAILURE (stuck 40t)`.
 
 Without this, authoring a custom bot is guess-and-redeploy. With it, it is inspectable.
+
+**Implemented as:** `BotTrace` (a fixed ring of `ENTER`/`SUCCESS`/`FAILURE`/`ABORT` events, with the
+live path *derived* from the enters not yet matched by an outcome rather than passed in by each node);
+`Traced`, a transparent wrapper that reports on a node's behalf so **not one composite changed** and
+the wrap point is a single line in `ScriptBuilder` where the tree is assembled bottom-up; `BotContext
+.trace()` as the per-bot seam; the throttled `[bot] <account>: ...` line emitted by `BotController` on
+each *change* of failure rather than each tick; and `::botinfo <account>` (alias `::bot info <account>`)
+printing the path, the last failure and the last ten transitions. A leaf that knows *why* it gave up
+calls `BotContext.trace().note(...)` before returning, which is how the reason reaches the log.
+
+One honest boundary: a tree assembled **by hand** rather than by `ScriptBuilder` is not traced, because
+there is no generic child accessor to walk it. The builder is the sanctioned authoring surface, so every
+scripted bot is traced end to end; the tooling side of that is `@RuntimeOnly` in `BOT_TOOLING.md` §T4.
 
 ### 5.7 Scheduling (Phase H)
 
@@ -322,9 +336,11 @@ Each phase is additive; A is the only one that touches existing server code.
 Recommended order: **A → B → C → D → E → F**, then G, H, I as needs arise. B and C are
 the two phases that most change what "authoring a bot" feels like.
 
-**Implemented so far: A, B, C, D and E.** See `UPDATE_LOG.md` for what landed in each; the next
-phase in the recommended order is **F** (observability), which now has real bots — spawned from
-config — to trace and a `::bot` command family to extend with `::botinfo`.
+**Implemented so far: A, B, C, D, E and F.** See `UPDATE_LOG.md` for what landed in each; the next
+phase in the recommended order is **G** (the `Agent` abstraction), which migrates `WorldAdventurer` onto
+the shared behaviour tree so one behaviour library drives players and NPCs. F now has real,
+config-spawned bots to inspect, and the same trace records — with no new work — the transitions of an
+NPC once G gives it a context.
 
 ---
 
@@ -420,7 +436,8 @@ change with its own tests and lands **before** any RL types are introduced.
 - **D:** a new gathering bot is declared in one `BotScript` block, no new state class.
 - **E:** a bot is added by editing `Data/CFG/bots.cfg` alone; it spawns with no rebuild
   and is capped by `MAX_BOTS`.
-- **F:** `::botinfo <name>` prints the current state path and the last failure reason.
+- **F:** `::botinfo <name>` prints the current state path and the last failure reason. ✅
+  `BotTrace` + `Traced` + `::botinfo`/`::bot info`, with a throttled one-line failure log.
 - **G:** `WorldAdventurer` runs on the shared behavior tree; the same `gather` script
   drives a player bot and an NPC.
 - **H:** N bots run within a bounded per-tick budget; a stress test shows tick time

@@ -66,6 +66,12 @@ public final class ExportBotNodes {
 		for (Class<?> type : NodeCoverage.botStateImplementations()) {
 			coverage.add(type.getSimpleName());
 		}
+		List<String> runtimeOnly = new ArrayList<String>();
+		for (Class<?> type : NodeCoverage.everyBotState()) {
+			if (!coverage.contains(type.getSimpleName())) {
+				runtimeOnly.add(type.getSimpleName());
+			}
+		}
 
 		System.out.println();
 		System.out.println("[workshop] Bot Workshop node schema");
@@ -76,6 +82,10 @@ public final class ExportBotNodes {
 		System.out.println("[workshop] nodes                = " + schemas.size());
 		System.out.println("[workshop] BotState classes     = " + coverage.size()
 				+ " (" + String.join(", ", coverage) + ")");
+		// Reported rather than left implicit: an @RuntimeOnly state is a deliberate exception to the
+		// one-to-one rule, so the build output should say which one it is.
+		System.out.println("[workshop] runtime-only states  = " + runtimeOnly.size()
+				+ " (" + (runtimeOnly.isEmpty() ? "none" : String.join(", ", runtimeOnly)) + ")");
 		System.out.println("[workshop] wrote " + document.length + " bytes to " + out.toAbsolutePath());
 	}
 

@@ -2,27 +2,31 @@ package server.game.players.packets.commands;
 
 import java.util.List;
 
+import server.game.bots.BotController;
 import server.game.bots.BotManager;
 import server.game.bots.BotPlayer;
 import server.game.bots.BotProfile;
+import server.game.bots.BotTrace;
 import server.game.players.Client;
 
 /**
- * The {@code ::bot} command family — roadmap Phase E's runtime half, owner-gated.
+ * The {@code ::bot} command family — roadmap Phase E's runtime half and Phase F's eyes, owner-gated.
  *
  * <pre>
- * ::bot                 list the configured bots and which are live
- * ::bot list            the same
- * ::bot spawn &lt;account&gt; spawn a configured row now
+ * ::bot                  list the configured bots and which are live
+ * ::bot list             the same
+ * ::bot spawn &lt;account&gt;  spawn a configured row now
  * ::bot despawn &lt;account&gt; stop a live bot and save its character
- * ::bot reload          re-read Data/cfg/bots.cfg and move the live set to match
+ * ::bot reload           re-read Data/cfg/bots.cfg and move the live set to match
+ * ::bot info &lt;account&gt;   what a live bot is doing, and what it last failed at
+ * ::botinfo &lt;account&gt;    the same, under the name the roadmap gives it
  * </pre>
  *
- * <p><b>One registry entry, not five.</b> {@code CommandHandler} runs <em>every</em> command whose
- * predicate matches ({@link CommandHandler} explains why), so five {@code ::bot} subcommands registered
- * as five literals would each be one more thing that can match a line it should not. A single entry
- * whose predicate is {@code "bot"} or {@code "bot ..."} keeps the surface one command deep, the same
- * shape {@code ban }/{\@code kick } use to avoid swallowing {@code banki}/{@code banke}.
+ * <p><b>One registry entry for the family, one for {@code ::botinfo}.</b> {@code CommandHandler} runs
+ * <em>every</em> command whose predicate matches ({@link CommandHandler} explains why), so registering
+ * {@code spawn}/{@code despawn}/{@code reload}/{@code list} as four literals would be four more things
+ * that can match a line they should not. {@code ::botinfo} is separate only because it is a distinct
+ * word: it does not start with {@code "bot "}, so the two can never both fire.
  *
  * <p><b>Spawn takes a configured account, not a script name.</b> The point of Phase E is that a bot is
  * a config line; a command that could invent a bot on the fly would be a second, undocumented way to
@@ -30,6 +34,9 @@ import server.game.players.Client;
  * sanctioned path, and it leaves a record.
  */
 final class BotCommands {
+
+	/** How many transitions {@code ::bot info} shows. Enough for about two gather cycles. */
+	private static final int HISTORY = 10;
 
 	private BotCommands() {
 	}
@@ -41,6 +48,13 @@ final class BotCommands {
 					return trimmed.equals("bot") || trimmed.startsWith("bot ");
 				},
 				(c, playerCommand) -> handle(c, playerCommand)));
+
+		CommandHandler.register(Command.where(3, 3,
+				(c, playerCommand) -> {
+					String trimmed = playerCommand.trim();
+					return trimmed.equals("botinfo") || trimmed.startsWith("botinfo ");
+				},
+				(c, playerCommand) -> info(c, playerCommand.trim().split("\\s+"), 1)));
 	}
 
 	private static void handle(Client c, String playerCommand) {
@@ -58,6 +72,9 @@ final class BotCommands {
 			return;
 		case "reload":
 			reload(c);
+			return;
+		case "info":
+			info(c, args, 2);
 			return;
 		default:
 			usage(c);
@@ -122,7 +139,44 @@ final class BotCommands {
 		c.sendMessage("Reloaded bots.cfg: " + spawned + " spawned, " + BotManager.count() + " live.");
 	}
 
+	/**
+	 * The observability dump (roadmap Phase F): what this bot is doing right now, and what it last gave
+	 * up on. Three short blocks, because this is read in a game chat window.
+	 *
+	 * @param nameAt the index in {@code args} holding the account, so both {@code ::bot info x} and
+	 *               {@code ::botinfo x} can share one implementation
+	 */
+	private static void info(Client c, String[] args, int nameAt) {
+		if (args.length <= nameAt) {
+			c.sendMessage("Usage: ::botinfo <account>");
+			return;
+		}
+		BotPlayer bot = BotManager.get(args[nameAt]);
+		if (bot == null) {
+			c.sendMessage("No live bot called \"" + args[nameAt] + "\". Try ::bot list.");
+			return;
+		}
+		BotController controller = bot.controller();
+		if (controller == null) {
+			// Possessed but idle — a valid state, and worth saying rather than reporting an empty trace.
+			c.sendMessage(bot.playerName + " is possessed but has no script attached.");
+			return;
+		}
+		BotTrace trace = controller.trace();
+		BotProfile profile = BotManager.profileFor(args[nameAt]);
+		String script = profile == null ? "(no config row)" : profile.script();
+		c.sendMessage(bot.playerName + " — script " + script + ", tree " + controller.root().name()
+				+ ", t=" + trace.currentTick() + ", " + trace.recordedCount() + " transition(s)");
+		c.sendMessage("  now: " + trace.pathLine());
+		BotTrace.Event failure = trace.lastFailure();
+		c.sendMessage("  last failure: " + (failure == null ? "none" : failure.describe()));
+		for (BotTrace.Event event : trace.history(HISTORY)) {
+			c.sendMessage("    " + event.describe());
+		}
+	}
+
 	private static void usage(Client c) {
-		c.sendMessage("::bot list | ::bot spawn <account> | ::bot despawn <account> | ::bot reload");
+		c.sendMessage("::bot list | ::bot spawn <account> | ::bot despawn <account> | ::bot reload"
+				+ " | ::botinfo <account>");
 	}
 }

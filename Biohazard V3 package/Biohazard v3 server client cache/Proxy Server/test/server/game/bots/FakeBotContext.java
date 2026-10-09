@@ -49,6 +49,8 @@ public final class FakeBotContext implements BotContext {
 	public int stateEnters;
 	public int ticks;
 
+	private final BotTrace trace = new BotTrace();
+
 	/** Queues the values {@code random} returns, in order. */
 	public FakeBotContext scripted(int... values) {
 		for (int value : values) {
@@ -101,6 +103,7 @@ public final class FakeBotContext implements BotContext {
 	}
 
 	@Override public BotPlayer client() { return client; }
+	@Override public BotTrace trace() { return trace; }
 	@Override public int x() { return x; }
 	@Override public int y() { return y; }
 	@Override public int height() { return height; }
@@ -136,5 +139,10 @@ public final class FakeBotContext implements BotContext {
 
 	@Override public void onStateEntered() { stateEnters++; }
 
-	@Override public void onTick() { ticks++; }
+	@Override
+	public void onTick() {
+		ticks++;
+		// Mirrors PlayerBotContext: the fake is the driver in a state test, so it advances the clock.
+		trace.advance();
+	}
 }

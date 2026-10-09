@@ -29,7 +29,7 @@ class CommandHandlerTest {
 	/** Owner commands whose condition was a literal plus an extra `rights == 3` clause. */
 	private static final String[] OWNER_COMPOSITE = {
 			"object", "tele", "switch", "interface", "npc", "openbank", "gfx", "update",
-			"anim", "setlevel", "pnpc", "unpc", "bot",
+			"anim", "setlevel", "pnpc", "unpc", "bot", "botinfo",
 	};
 	private static final String[] MODERATOR = { "mute", "xteleto", "ipmute" };
 	/**
@@ -76,16 +76,18 @@ class CommandHandlerTest {
 
 	@Test
 	void registryHoldsEveryMigratedCommandPlusTheTwoRestoredOnesAndBot() {
-		// 59 commands were reachable in the old chain; ban and kick were restored on top, and
-		// ::bot is hand-written on top of that (BotCommands; the generated groups must not be edited).
-		assertEquals(62, CommandHandler.all().size());
+		// 59 commands were reachable in the old chain; ban and kick were restored on top, and the two
+		// hand-written bot commands (::bot, ::botinfo) on top of that — the generated groups must not
+		// be edited, so new commands live in their own class.
+		assertEquals(63, CommandHandler.all().size());
 	}
 
 	@Test
 	void compositeCommandsCarryNoLiteral() {
 		// The old chain had this many conditions that were not a bare literal test:
-		// `a || b` groups, and tests with an extra clause such as `&& c.isBanking`. ::bot adds one.
-		assertEquals(22, keys().stream().filter("(composite)"::equals).count());
+		// `a || b` groups, and tests with an extra clause such as `&& c.isBanking`. ::bot and ::botinfo
+		// add two more.
+		assertEquals(23, keys().stream().filter("(composite)"::equals).count());
 	}
 
 	@Test

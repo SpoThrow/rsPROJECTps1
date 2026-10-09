@@ -22,6 +22,15 @@ public interface BotContext {
 	/** The possessed client, for the few places a state legitimately needs it. */
 	BotPlayer client();
 
+	/**
+	 * This bot's transition history (roadmap Phase F). Never null.
+	 *
+	 * <p>A state normally has no reason to touch this — {@link Traced} reports on its behalf. It is here
+	 * for the one thing a wrapper cannot know: <em>why</em> a leaf decided to fail, which the leaf calls
+	 * {@link BotTrace#note} with just before returning.
+	 */
+	BotTrace trace();
+
 	int x();
 
 	int y();

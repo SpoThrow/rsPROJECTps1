@@ -19,6 +19,7 @@ import server.game.bots.meta.BotNode;
 import server.game.bots.meta.BotNodeRegistry;
 import server.game.bots.meta.NodeParam;
 import server.game.bots.meta.NodeSchema;
+import server.game.bots.meta.RuntimeOnly;
 
 /**
  * The drift guard for the node palette — {@code BOT_TOOLING.md} stage T4.
@@ -57,6 +58,42 @@ class BotNodeParityTest {
 		}
 		assertEquals(compiled, registered,
 				"a BotState and the registry disagree; add the missing class to BotNodeRegistry");
+	}
+
+	/**
+	 * The other half of {@code @RuntimeOnly}: it must not be used to hide a node from the palette.
+	 *
+	 * <p>Without this, marking a state runtime-only would be a way to silence the two checks above rather
+	 * than to declare a real exception to them. So the marker is a two-way commitment — excluded from the
+	 * node set <em>and</em> absent from the registry — and neither direction can be satisfied by accident.
+	 */
+	@Test
+	void aRuntimeOnlyStateIsNotAlsoARegistryNode() {
+		Set<String> registered = new LinkedHashSet<String>();
+		for (Class<? extends BotState> type : BotNodeRegistry.knownNodeClasses()) {
+			registered.add(type.getName());
+		}
+		for (Class<?> type : NodeCoverage.everyBotState()) {
+			if (type.isAnnotationPresent(RuntimeOnly.class)) {
+				assertFalse(registered.contains(type.getName()),
+						type.getName() + " is @RuntimeOnly and also in the node registry; one or the "
+								+ "other, and the marker is only for states an author cannot place");
+			}
+		}
+	}
+
+	/** The workspace's own sanity check on the filter: the marker must actually be excluding something. */
+	@Test
+	void theRuntimeOnlyMarkerIsDeclaredAndCarriesAReason() {
+		List<String> marked = new ArrayList<String>();
+		for (Class<?> type : NodeCoverage.everyBotState()) {
+			RuntimeOnly marker = type.getAnnotation(RuntimeOnly.class);
+			if (marker != null) {
+				marked.add(type.getName());
+				assertFalse(marker.value().isBlank(), type.getName() + " is @RuntimeOnly with no reason");
+			}
+		}
+		assertFalse(marked.isEmpty(), "no @RuntimeOnly state was found; is the marker still used?");
 	}
 
 	@Test

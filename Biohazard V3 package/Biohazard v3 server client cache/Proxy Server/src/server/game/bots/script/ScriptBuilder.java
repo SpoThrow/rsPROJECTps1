@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.function.Supplier;
 
 import server.game.bots.BotState;
+import server.game.bots.Traced;
 import server.game.bots.composite.Repeat;
 import server.game.bots.composite.Sequence;
 import server.game.bots.states.BankLogs;
@@ -41,6 +42,13 @@ import server.game.bots.world.ResourceScan;
  * <p><b>Building touches no world.</b> A {@code null} {@link Locations} or {@link ResourceScan} means
  * "the live one, resolved when a state needs it" (see {@code WalkToNearest}). A script can therefore be
  * registered from a static initialiser without reading {@code Data/cfg}.
+ *
+ * <p><b>Every node this builder produces is traced</b> (roadmap Phase F). Wrapping happens here because
+ * the builder builds bottom-up: a step is wrapped as it becomes a node, so when the terminal assembles
+ * them into a {@code Sequence} inside a {@code Repeat}, the children are already reporting and the
+ * composite is wrapped in turn. That gives a fully traced tree without a generic child accessor and
+ * without one line of tracing in any composite. The trace itself is per-bot and reached through the
+ * context, so the same script serves every bot with its own history.
  */
 public final class ScriptBuilder {
 
@@ -141,7 +149,7 @@ public final class ScriptBuilder {
 		return build(new Root() {
 			@Override
 			BotState make(BotState[] children) {
-				return new Repeat(new Sequence(children), -1);
+				return new Repeat(traced(new Sequence(children)), -1);
 			}
 		});
 	}
@@ -152,7 +160,7 @@ public final class ScriptBuilder {
 		return build(new Root() {
 			@Override
 			BotState make(BotState[] children) {
-				return new Repeat(new Sequence(children), count);
+				return new Repeat(traced(new Sequence(children)), count);
 			}
 		});
 	}
@@ -178,6 +186,17 @@ public final class ScriptBuilder {
 
 	private BotScript build(Root root) {
 		return new Built(name, steps, root);
+	}
+
+	/**
+	 * Wraps a node so it reports to the bot's trace. Idempotent, so a double build cannot double wrap.
+	 *
+	 * <p>Called from two places, and both are needed: here for each step as it is built, and inside each
+	 * terminal for the {@code Sequence} that terminal assembles — that composite does not exist until
+	 * the root is minted, so it cannot be wrapped by the step loop.
+	 */
+	private static BotState traced(BotState node) {
+		return node == null || node instanceof Traced ? node : new Traced(node);
 	}
 
 	/** How a terminal assembles the steps into a root. */
@@ -207,9 +226,11 @@ public final class ScriptBuilder {
 		public BotState root() {
 			BotState[] children = new BotState[steps.size()];
 			for (int i = 0; i < children.length; i++) {
-				children[i] = steps.get(i).get();
+				children[i] = traced(steps.get(i).get());
 			}
-			return root.make(children);
+			// The outer composite is wrapped too, so the root line of a trace is recognizable and the
+			// wrapping is uniform from the top down.
+			return traced(root.make(children));
 		}
 
 		@Override
