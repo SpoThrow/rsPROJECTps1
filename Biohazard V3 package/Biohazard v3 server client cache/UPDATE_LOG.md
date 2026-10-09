@@ -1,5 +1,35 @@
 # Update Log
 
+## 2026-10-09 - Bot slice 1 (Phase A), steps 3-7: a working chop-to-bank bot
+
+**What changed:**
+- **Step 3 — `BotManager`.** `createAccount`/`possess`/`release` with a `MAX_BOTS` (10) cap; `possess` refuses duplicates and wrong passwords, and reuses the existing `PlayerSave` path so bots persist like players.
+- **Step 4 — behaviour tree core.** `BotStatus` (`RUNNING`/`SUCCESS`/`FAILURE`), `BotState` contract (`enter`/`tick`/`exit`/`name`), `BotContext`/`PlayerBotContext` (sense + intent), `BotController` (ticks the root during `process()`), and the `Sequence`/`Repeat` composites.
+- **Steps 5-7 — the vertical slice.** `WalkTo` (range-aware, bounded `noProgressTicks` stuck budget), `ChopTree` (dispatches through `ObjectHandler.dispatch` → `Woodcutting`, so bot code never calls a skill class), and `BankLogs` (open + deposit all). Step 7 wires them as `Repeat(Sequence(WalkTo(tree), ChopTree, WalkTo(bank), BankLogs), -1)`.
+- **Key enabler:** `PlayerHandler.registerSessionless(Client)` allocates a slot atomically and flags `connectedFrom = "bot"`. Bots are ordinary `Client`s in `PlayerHandler.players`, so no skill inventory or movement code was forked.
+- **Tests:** `BotManagerCapTest` (8), `BotStateMachineTest` (10), `WalkToStateTest` (3), `ChopTreeStateTest` (3), `ChopBankLoopTest` (1 — drives real ticks, no network, asserts logs actually reach the bank). Bot package total **38**.
+
+**Files touched:**
+- `Proxy Server/src/server/game/players/{Player,PlayerHandler}.java`
+- `Proxy Server/src/server/game/bots/**` (new: manager, context, controller, composites, states)
+- `Proxy Server/test/server/game/bots/**` (new)
+
+**Status:** done. Full suite **385 tests, 0 failures**. Next: `BOT_TOOLING.md` T1+ — the visual workshop editor, now backed by a real runtime data model.
+
+## 2026-10-09 - Bot slice 1 (Phase A), steps 1-2: sessionless safety + bot identity
+
+**What changed:**
+- **Step 1 — sessionless flush guard.** `Client.flushOutStream()` now drops buffered bytes when `session == null` instead of dereferencing it, so a bot cannot NPE and cannot grow `outStream` past `Config.BUFFER_SIZE` (10000).
+- **Step 2 — bot identity/persistence.** Added `Player.isBot` (a label, **not** a save gate), `BotNames` (reserved `bot` prefix + login-legal checks mirroring `RS2LoginProtocolDecoder`), and `BotPlayer extends Client` (sessionless, `isBot=true`, no-op `update()`, persists like a player).
+- New tests, all green: `SessionlessFlushTest` (4), `BotNamesTest` (7), `BotPersistenceTest` (4).
+
+**Files touched:**
+- `Proxy Server/src/server/game/players/Client.java`, `Player.java`
+- `Proxy Server/src/server/game/bots/{BotNames,BotPlayer}.java` (new)
+- `Proxy Server/test/server/game/bots/*` (new)
+
+**Status:** partial. Per `BOT_PLAN.md` §6 the remaining steps are 3-7: `BotManager` possess/release + cap, `BotContext`/`BotState`/`BotStatus` + `Sequence`/`Repeat`, `WalkTo`, `ChopTree`, and the `BankLogs` end-to-end loop. Editor (`BOT_TOOLING.md` T1-T7) follows the runtime data model by design.
+
 ## 2026-10-09 - Bot Workshop data probe (throwaway tool) + loc.dat codec finding
 
 **What changed:**

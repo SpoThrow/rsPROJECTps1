@@ -85,6 +85,50 @@ public class PlayerHandler{
 		return playerCount;
 	}
 
+	/**
+	 * Registers a <em>sessionless</em> client (a bot) in the player array.
+	 *
+	 * <p>{@link #newPlayerClient(Client)} cannot be reused for a bot: it derives
+	 * {@code connectedFrom} from the socket, which a bot does not have. Everything else is
+	 * deliberately identical — the duplicate-name check, slot discovery, and publication
+	 * under the {@code players} monitor — so a bot cannot collide with a concurrent login
+	 * and can never occupy two slots.
+	 *
+	 * @return true if the client was registered; false if the name is taken or no slot is free
+	 */
+	public static boolean registerSessionless(Client client) {
+		// Same monitor as newPlayerClient()/process(): slot discovery and publication must
+		// be atomic against the tick.
+		synchronized (PlayerHandler.players) {
+			if (client.playerName == null) {
+				return false;
+			}
+			for (int i = 1; i < Config.MAX_PLAYERS; i++) {
+				if (players[i] != null && !players[i].disconnected
+						&& players[i].playerName != null
+						&& players[i].playerName.equalsIgnoreCase(client.playerName)) {
+					return false;
+				}
+			}
+			int slot = -1;
+			for (int i = 1; i < Config.MAX_PLAYERS; i++) {
+				if ((players[i] == null) || players[i].disconnected) {
+					slot = i;
+					break;
+				}
+			}
+			if (slot == -1) {
+				return false;
+			}
+			client.handler = Server.playerHandler;
+			client.playerId = slot;
+			players[slot] = client;
+			players[slot].isActive = true;
+			players[slot].connectedFrom = server.game.bots.BotManager.BOT_CONNECTED_FROM;
+			return true;
+		}
+	}
+
 
 	public static boolean isPlayerOn(String playerName) {
 		synchronized (PlayerHandler.players) {

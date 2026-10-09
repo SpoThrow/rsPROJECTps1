@@ -148,6 +148,13 @@ public class Client extends Player {
 	public void flushOutStream() {	
 		if(disconnected || outStream.currentOffset == 0) return;
 		synchronized(this) {	
+			if(session == null) {
+				// Sessionless client (a bot): nothing is reading these frames, so drop what
+				// would have been sent. Merely returning would let every message/addItem
+				// frame accumulate in outStream.buffer until it overran Config.BUFFER_SIZE.
+				outStream.currentOffset = 0;
+				return;
+			}
 			StaticPacketBuilder out = new StaticPacketBuilder().setBare(true);
 			byte[] temp = new byte[outStream.currentOffset]; 
 			System.arraycopy(outStream.buffer, 0, temp, 0, temp.length);

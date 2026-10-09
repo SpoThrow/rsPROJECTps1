@@ -137,6 +137,7 @@ public abstract class Player {
 	isfishing = false,
 	attemptingfish = false,
 	isNpc = false,
+	isBot = false,
 	initialized = false,
 	disconnected = false,
 	ruleAgreeButton = false,
