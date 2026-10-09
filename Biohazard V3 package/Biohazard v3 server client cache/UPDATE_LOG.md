@@ -1,5 +1,21 @@
 # Update Log
 
+## 2026-10-10 - The timeline editor: author a bot by hand, saved as the file the server runs
+
+**What changed:**
+- **The authoring loop is now closed at both ends.** `BOT_TOOLING.md` T5 adds the step timeline (`workshop/web/js/timeline.js`) — an ordered list of steps wrapped in a `Sequence`/`Repeat`, compiled to exactly the §7.1 document T4b loads. Palette and every parameter form are generated from `bot-nodes.json`, so the editor hardcodes no node id, parameter name or type. The single rule that shapes the palette is that a *step* is a node taking no child (`NODE`/`NODE_LIST`) — which is why `delay` is offered and `retry`/`sequence` are not.
+- **The browser never writes the file.** `POST /scripts/check` and `/scripts/save` take the document, run it through `ScriptDocument` — the server's own loader — and re-emit it canonically before writing (`botworkshop.export.ScriptDocs`): `node` first, parameters in the node's declared order, integers as integers. Same graph, same bytes, so a re-save is not a spurious diff. Save refuses a name that is not a file name and a name that would shadow a built-in, and validates before it touches the disk.
+- **Round-trip is lossless, or it declines.** Reopening a saved script reconstructs its steps; a document with a nested composite or a decorator around a step opens read-only with the reason, rather than flattening into a list that would silently drop it.
+- **A parameter the author never touched is omitted**, so the node's own default applies and a later change to that default is honoured; a stated value is written, because the document is the author's intent.
+- **`kind` parameters gained their values.** `bot-nodes.json` now carries a `values` array on `KIND` parameters, enumerated from the server's `LocationKind`, so the editor's dropdown cannot offer a kind the loader would refuse.
+- `gradlew workshopValidateScripts` re-loads `Data/cfg/bots/*.json` through the server's loader, so a bad authored script fails in a command rather than as a skipped line at boot.
+- **`Data/cfg/bots/chop_and_bank.json`** — the slice-1 chop→bank loop, built in the editor — is committed and loads as `Repeat(forever)`.
+
+**Files touched:** new `workshop/web/js/timeline.js`, `workshop/src/botworkshop/export/ScriptDocs.java`, `workshop/src/botworkshop/ValidateScripts.java`, `workshop/test/botworkshop/export/ScriptDocsTest.java`, `Data/cfg/bots/chop_and_bank.json`. Modified `workshop/web/{index.html,styles.css,js/app.js}`, `workshop/src/botworkshop/export/BotNodes.java`, `workshop/src/botworkshop/serve/WorkshopServer.java` (script routes), `workshop/test/.../BotNodesTest.java`, `src/server/game/bots/script/{BotScripts,ScriptDocument}.java` (`isBuiltIn`, public `fromDocument`), `build.gradle`, `BOT_TOOLING.md` (§7.2, T5).
+
+**Status:** done. **852 tests, 0 failures** (831 → 852). Verified in the browser end to end: palette, add/reorder/delete, generated parameter forms, live JSON preview, save, built-in/traversal refusal, and reopening `chop_and_bank` reconstructing all four steps. Two editor bugs were found and fixed this way — `INT` inputs stored text (`"ticks": "2"`, which the server correctly refused) and its status line stuck on "saving…". **T6** remains: the in-world timed run of the authored loop, which needs a live world (the loader's nodes use the live `Locations`/`ResourceScan`, so it cannot be driven with an injected one).
+
+
 ## 2026-10-10 - Authored bot scripts: a behaviour graph is now a file, not a Java class
 
 **What changed:**

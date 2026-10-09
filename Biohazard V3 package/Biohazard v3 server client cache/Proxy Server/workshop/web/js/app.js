@@ -22,6 +22,7 @@ import { Palette } from './palette.js';
 import { collidedSize, loadRegion, loadIndex, loadBanks, bankSummary } from './region.js';
 import { MapView, OVERVIEW_MAX_SCALE } from './view.js';
 import { loadWorld, loadLocations, draftLocations, loadNodes } from './world.js';
+import { TimelineEditor } from './timeline.js';
 import { isWalkable, describe, describeFlags, PROJECTILE_BIT, WALK_MASK } from './clip.js';
 
 /** Icons for the exporter's kinds. The curated set of `BOT_WORKSHOP_UX.md` §3, not sprites yet. */
@@ -109,6 +110,8 @@ const dom = {
   authorAppend: document.getElementById('author-append'),
   authorCopy: document.getElementById('author-copy'),
   worldSummary: document.getElementById('world-summary'),
+  timeline: document.getElementById('timeline'),
+  timelineToggle: document.getElementById('timeline-toggle'),
 };
 
 const view = new MapView(dom.canvas, {
@@ -133,6 +136,14 @@ const view = new MapView(dom.canvas, {
   },
 });
 view.setTooltipElement(dom.tooltip);
+
+/**
+ * The step timeline (T5). It owns its own document and talks to the workshop server for validate/save;
+ * this file only shows and hides it, and hands it the node palette once that export has loaded.
+ */
+const timeline = new TimelineEditor(dom.timeline, {
+  onStatus: (message, bad) => setStatus(message, bad),
+});
 
 // ---- scene ---------------------------------------------------------------------------------
 
@@ -215,9 +226,12 @@ async function boot() {
     return;
   }
 
-  // Optional: the node palette is a separate export, and the viewer is still a map without it.
+  // Optional: the node palette is a separate export, and the viewer is still a map without it. But the
+  // timeline needs it, so it is handed the palette here rather than fetched again.
   loadNodes().then((nodes) => {
     state.nodeCount = nodes && nodes.nodes ? nodes.nodes.length : 0;
+    timeline.setPalette(nodes);
+    timeline.refreshList();
     updateStatus();
   });
 
@@ -921,6 +935,10 @@ function bindKeys() {
       case 'W':
         view.frameWorld();
         break;
+      case 't':
+      case 'T':
+        toggleTimeline();
+        break;
       case 'Escape':
         view.setSelection(null);
         renderInspector(null);
@@ -1063,7 +1081,22 @@ dom.worldSummary.addEventListener('click', () => {
   pumpRegions();
 });
 
+/**
+ * Show or hide the step timeline. Opening it with nothing loaded starts a new script, so the panel is
+ * never an empty box with no way in.
+ */
+function toggleTimeline() {
+  const open = dom.timeline.hidden;
+  dom.timeline.hidden = !open;
+  document.body.classList.toggle('timeline-open', open);
+  dom.timelineToggle.setAttribute('aria-pressed', String(open));
+  if (open && timeline.steps.length === 0 && !timeline.name && !timeline.readOnly) {
+    timeline.newScript();
+  }
+}
+dom.timelineToggle.addEventListener('click', toggleTimeline);
+
 boot();
 
 // Referenced so the values stay discoverable from the console while the viewer is running.
-window.workshop = { state, view, WALK_MASK, PROJECTILE_BIT, OVERVIEW_MAX_SCALE };
+window.workshop = { state, view, timeline, WALK_MASK, PROJECTILE_BIT, OVERVIEW_MAX_SCALE };

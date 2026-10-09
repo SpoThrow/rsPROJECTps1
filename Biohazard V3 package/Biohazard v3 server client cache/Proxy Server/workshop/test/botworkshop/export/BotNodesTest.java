@@ -1,6 +1,7 @@
 package botworkshop.export;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
@@ -41,6 +42,26 @@ class BotNodesTest {
 	void aNodeWithNoParametersRendersAnEmptyArrayRatherThanOmission() {
 		String json = BotNodes.toJson(Collections.singletonList(node(Collections.emptyList())));
 		assertTrue(json.contains("\"params\": []"), json);
+	}
+
+	@Test
+	void aKindParamCarriesTheKindsTheServerKnows() {
+		// The editor builds a dropdown from this rather than a text box, so the values have to ship. They are
+		// enumerated from LocationKind — the same vocabulary ScriptDocument resolves against.
+		String json = BotNodes.toJson(Collections.singletonList(node(List.of(
+				new NodeParam("kind", ParamType.KIND, true, null, "what to look for")))));
+
+		assertTrue(json.contains("\"values\""), json);
+		assertTrue(json.contains("\"tree\""), json);
+		assertTrue(json.contains("\"bank\""), json);
+	}
+
+	@Test
+	void aNonKindParamCarriesNoValues() {
+		String json = BotNodes.toJson(Collections.singletonList(node(List.of(
+				new NodeParam("count", ParamType.INT, true, null, "how many")))));
+
+		assertFalse(json.contains("\"values\""), json);
 	}
 
 	@Test

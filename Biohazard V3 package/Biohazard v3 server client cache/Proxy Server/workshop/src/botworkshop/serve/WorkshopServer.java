@@ -20,6 +20,7 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 
 import botworkshop.export.Json;
+import botworkshop.export.ScriptDocs;
 import server.game.bots.world.Location;
 import server.game.bots.world.LocationsConfig;
 
@@ -87,6 +88,7 @@ public final class WorkshopServer {
 		Path nodesFile = root.resolve(NODES_FILE);
 		Path paletteOverride = root.resolve(PALETTE_OVERRIDE);
 		Path locationsFile = root.resolve(LocationsConfig.DEFAULT_PATH);
+		Path scriptsDir = root.resolve(ScriptDocs.DIR);
 
 		if (!Files.isDirectory(webRoot)) {
 			throw new IllegalStateException("the viewer is missing: " + webRoot
@@ -104,7 +106,7 @@ public final class WorkshopServer {
 		HttpServer server = HttpServer.create(new InetSocketAddress(HOST, port), 0);
 		server.createContext("/", exchange -> {
 			try {
-				route(exchange, webRoot, mapRoot, palette, nodesFile, locationsFile);
+				route(exchange, webRoot, mapRoot, palette, nodesFile, locationsFile, scriptsDir);
 			} catch (Exception e) {
 				// A handler that throws leaves the browser hanging with no clue why. Say what broke.
 				System.out.println("[workshop] " + exchange.getRequestURI() + " failed: " + e);
@@ -124,6 +126,7 @@ public final class WorkshopServer {
 				? "generated (no " + PALETTE_OVERRIDE + ")"
 				: overrides.size() + " override(s) from " + PALETTE_OVERRIDE));
 		System.out.println("[workshop]   regions " + mapIndex + " (the navigator reads this)");
+		System.out.println("[workshop]   scripts " + scriptsDir);
 		System.out.println("[workshop] Ctrl+C to stop");
 
 		Runtime.getRuntime().addShutdownHook(new Thread(() -> {
@@ -134,12 +137,12 @@ public final class WorkshopServer {
 	}
 
 	private static void route(HttpExchange exchange, Path webRoot, Path mapRoot, String palette,
-			Path nodesFile, Path locationsFile) throws IOException {
+			Path nodesFile, Path locationsFile, Path scriptsDir) throws IOException {
 		String path = exchange.getRequestURI().getPath();
 		String method = exchange.getRequestMethod();
 		boolean read = "GET".equals(method) || "HEAD".equals(method);
 
-		// The only two routes that accept a write. Everything else is read-only, which is worth
+		// The only routes that accept a write. Everything else is read-only, which is worth
 		// enforcing here rather than trusting each branch to remember.
 		if (path.equals("/locations/check") || path.equals("/locations/append")) {
 			if (!"POST".equals(method)) {
@@ -150,6 +153,17 @@ public final class WorkshopServer {
 			authoring(exchange, path, locationsFile);
 			return;
 		}
+		// The script editor's two writes (BOT_TOOLING.md T5). Same rule as above: the browser never
+		// writes the file, it sends a document and the server decides what the file says.
+		if (path.equals("/scripts/check") || path.equals("/scripts/save")) {
+			if (!"POST".equals(method)) {
+				send(exchange, 405, "text/plain; charset=utf-8",
+						"POST only\n".getBytes(StandardCharsets.UTF_8));
+				return;
+			}
+			scripts(exchange, path, scriptsDir);
+			return;
+		}
 		if (!read) {
 			send(exchange, 405, "text/plain; charset=utf-8", "GET only\n".getBytes(StandardCharsets.UTF_8));
 			return;
@@ -157,6 +171,15 @@ public final class WorkshopServer {
 
 		if (path.equals("/palette.json")) {
 			send(exchange, 200, "application/json; charset=utf-8", palette.getBytes(StandardCharsets.UTF_8));
+			return;
+		}
+		if (path.equals("/scripts.json")) {
+			send(exchange, 200, "application/json; charset=utf-8",
+					ScriptDocs.list(scriptsDir).getBytes(StandardCharsets.UTF_8));
+			return;
+		}
+		if (path.equals("/scripts/doc")) {
+			scriptDocument(exchange, scriptsDir);
 			return;
 		}
 		if (path.equals("/nodes.json")) {
@@ -254,6 +277,106 @@ public final class WorkshopServer {
 
 		send(exchange, 200, "application/json; charset=utf-8",
 				authoringReport(canonical, problems, appended).getBytes(StandardCharsets.UTF_8));
+	}
+
+	/**
+	 * A script document in, an answer out — {@code BOT_TOOLING.md} T5's Save/Validate half.
+	 *
+	 * <p>{@code /scripts/check} only answers; {@code /scripts/save} writes {@code Data/cfg/bots/<name>.json}.
+	 * Both run the document through {@link ScriptDocs}, which validates it with the server's own loader and
+	 * then reformats it, so the browser never writes the file — it sends the graph it built and the server
+	 * decides what the file says. Same arrangement as {@link #authoring}.
+	 *
+	 * <p>A rejected document is a 200 with {@code ok:false} and the reason, not a 4xx: it is an answer to
+	 * the question that was asked, and the editor shows it on the step rather than as a transport failure.
+	 * The 4xx/5xx codes here stay reserved for a request the server could not act on at all.
+	 */
+	private static void scripts(HttpExchange exchange, String path, Path scriptsDir) throws IOException {
+		byte[] body;
+		try (InputStream in = exchange.getRequestBody()) {
+			body = in.readNBytes(MAX_BODY_BYTES + 1);
+		}
+		if (body.length > MAX_BODY_BYTES) {
+			send(exchange, 413, "text/plain; charset=utf-8",
+					("request body is larger than " + MAX_BODY_BYTES + " bytes\n")
+							.getBytes(StandardCharsets.UTF_8));
+			return;
+		}
+
+		String json = new String(body, StandardCharsets.UTF_8);
+		String name = queryParam(exchange, "name");
+		boolean save = path.equals("/scripts/save");
+		try {
+			if (save) {
+				if (name == null || name.isBlank()) {
+					answer(exchange, scriptReport(false, null, "a save needs a name"));
+					return;
+				}
+				String canonical = ScriptDocs.save(scriptsDir, name, json);
+				System.out.println("[workshop] wrote " + scriptsDir.resolve(name + ScriptDocs.EXTENSION));
+				System.out.println("[workshop]   reload the server with ::bot reload to run it");
+				answer(exchange, scriptReport(true, canonical, null));
+			} else {
+				// A check has no file name of its own yet, so the document is validated under a placeholder.
+				// The canonical output never carries a name field, so nothing depends on this one.
+				String checkName = name == null || name.isBlank() ? "untitled" : name;
+				answer(exchange, scriptReport(true, ScriptDocs.canonicalize(checkName, json), null));
+			}
+		} catch (RuntimeException e) {
+			// The loader's message, or the writer's: either way it names the node and field.
+			answer(exchange, scriptReport(false, null, e.getMessage()));
+		}
+	}
+
+	/** One script document as JSON, for the editor to reopen. */
+	private static void scriptDocument(HttpExchange exchange, Path scriptsDir) throws IOException {
+		String name = queryParam(exchange, "name");
+		if (name == null || name.isBlank()) {
+			send(exchange, 400, "text/plain; charset=utf-8", "no name given\n".getBytes(StandardCharsets.UTF_8));
+			return;
+		}
+		try {
+			String text = ScriptDocs.read(scriptsDir, name);
+			if (text == null) {
+				send(exchange, 404, "text/plain; charset=utf-8",
+						("no script \"" + name + "\"\n").getBytes(StandardCharsets.UTF_8));
+				return;
+			}
+			send(exchange, 200, "application/json; charset=utf-8", text.getBytes(StandardCharsets.UTF_8));
+		} catch (ScriptDocs.DocException e) {
+			send(exchange, 400, "text/plain; charset=utf-8",
+					(e.getMessage() + "\n").getBytes(StandardCharsets.UTF_8));
+		}
+	}
+
+	/** The check/save answer: whether it was accepted, the canonical text, or why it was not. */
+	private static String scriptReport(boolean ok, String canonical, String error) {
+		Json json = new Json();
+		json.openObject();
+		json.field("ok", ok);
+		json.name("canonical").value(ok ? canonical : null);
+		json.name("error").value(ok ? null : error);
+		json.closeObject();
+		return json.toString();
+	}
+
+	private static void answer(HttpExchange exchange, String json) throws IOException {
+		send(exchange, 200, "application/json; charset=utf-8", json.getBytes(StandardCharsets.UTF_8));
+	}
+
+	/** One value from the request's query string, decoded, or null. Repeated keys are not expected here. */
+	private static String queryParam(HttpExchange exchange, String key) {
+		String query = exchange.getRequestURI().getRawQuery();
+		if (query == null) {
+			return null;
+		}
+		for (String part : query.split("&")) {
+			int equals = part.indexOf('=');
+			if (equals > 0 && part.substring(0, equals).equals(key)) {
+				return java.net.URLDecoder.decode(part.substring(equals + 1), StandardCharsets.UTF_8);
+			}
+		}
+		return null;
 	}
 
 	/**

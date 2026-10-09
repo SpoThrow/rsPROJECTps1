@@ -357,6 +357,40 @@ the directory: a script whose file was edited is replaced, one whose file was de
 a built-in is never dropped. A bad file costs only itself — it is reported and skipped, exactly as a
 bad `bots.cfg` row is — and a missing directory is not even a problem.
 
+### 7.2 The editor writes that document, it does not invent one
+
+The timeline (`BOT_WORKSHOP_UX.md` §5, `workshop/web/js/timeline.js`) is a view of §7.1's document,
+not a lesser format — so it compiles to exactly the shape the loader already reads, and it holds no
+node id, parameter name or parameter type of its own. Everything comes from `bot-nodes.json` (`§5`),
+which is the reflection of the annotated classes: the palette, the parameter fields, and the dropdown
+of `kind` values.
+
+Three rules make the mapping lossless in both directions:
+
+- **The palette is every node with no child parameter.** A `NODE`/`NODE_LIST` parameter means the node
+  is structure (`sequence`, `repeat`, the decorators around a step) rather than a step, so the timeline
+  does not offer it. This is one rule about the schema, not a list of node names.
+- **Compile is one wrap.** The steps become a `sequence`; if the author ticked repeat it is wrapped in
+  a `repeat`. The parameter names `child`, `children` and `count` are read from the palette, so even the
+  wrapper is schema-driven.
+- **A parameter the author never touched is omitted**, so the node's own default applies and a later
+  change to that default is picked up. A value stated explicitly is written, because the document is the
+  author's intent.
+
+**The tool writes the file; the browser does not.** `POST /scripts/check` and `POST /scripts/save` take
+the document as JSON, run it through `ScriptDocument` — the server's own loader — and then re-emit it
+(`botworkshop.export.ScriptDocs`) before writing `Data/cfg/bots/<name>.json`. Re-emission is canonical:
+`node` first, then each parameter in the node's declared order, integers as integers. Two authors who
+build the same graph get the same bytes, and re-saving an unchanged graph is a byte-identical file —
+which is what makes the output git-diffable (§6). The save refuses a name that is not a file name and a
+name that would shadow a built-in, and it validates before it touches the disk, so a rejected document
+leaves the previous file exactly as it was. `gradlew workshopValidateScripts` re-loads the directory
+through the same loader, so a bad script fails in a command rather than as a skipped line at boot.
+
+**Round-trip.** Reopening a saved script reconstructs its steps. A document this editor did not write —
+one with a nested composite or a decorator around a step — opens read-only with the reason shown, rather
+than being flattened into a list that would drop the parts a timeline cannot hold.
+
 ---
 
 ## 8. Stack decision
@@ -405,9 +439,9 @@ internals.
 | **T3** ✅ | Region/patch authoring → `locations.cfg`; drag-a-box → `RandomTileIn` waypoints |
 | **T4** ✅ | `@BotNode` registry + `bot-nodes.json` export + parity test |
 | **T4b** ✅ | Server-side document loader: `Data/cfg/bots/*.json` → `BotScript`, via the T4 schema (§7.1). The half a timeline editor needs to compile *to* |
-| **T5** | Step timeline editor → `BotScript` JSON (`BOT_WORKSHOP_UX.md` §5) — unblocked: roadmap D's `BotScript`/`ScriptBuilder` is the document it compiles to, and T4b is now the format it must emit |
+| **T5** ✅ | Step timeline editor → `BotScript` JSON (`BOT_WORKSHOP_UX.md` §5). Palette and parameter forms generated from `bot-nodes.json` (§7.2); the server validates the document with its own loader and writes the canonical bytes; reopening reconstructs the timeline |
 | **T5b** | Graph view over the same document (roadmap B is done, so the nodes exist) |
-| **T6** | Round-trip validation: compile a timeline, load it via the runtime, run the slice-1 loop test |
+| **T6** | Round-trip validation: compile a timeline, load it via the runtime, run the slice-1 loop test. Partly met: `workshopValidateScripts` re-loads the authored directory through `ScriptDocument`, and `Data/cfg/bots/chop_and_bank.json` — authored in the editor — assembles as `Repeat(forever)`; the timed in-world run is what remains |
 | **T7** *(optional)* | Live channel: spawn/step + running-bot trace overlay |
 | (Later) | Generalise to other content (see §12) |
 
@@ -464,7 +498,13 @@ first target is bots, and a bot-only tool that ships beats a general editor that
   field is refused with the node and field named, and every registered node builds from the fields its
   schema declares. ✅ The directory loads at boot and on `::bot reload`, a reload reflects the
   directory, and a bad file costs only itself.
-- **T5:** a timeline built in the editor serialises to a `BotScript` the runtime executes.
+- **T5:** a timeline built in the editor serialises to a `BotScript` the runtime executes. ✅ The palette
+  and every parameter form come from `bot-nodes.json` (§7.2), so no node is hardcoded; Save sends the
+  document to the server, which accepts it through `ScriptDocument` and writes the canonical file, and a
+  document the loader refuses is reported on the step and writes nothing. Opening a saved script
+  reconstructs its steps; a graph the linear timeline cannot hold opens read-only rather than losing it.
 - **T6:** the exported timeline runs the slice-1 chop→bank loop end to end with no
-  hand-written bot code.
+  hand-written bot code. ◐ `Data/cfg/bots/chop_and_bank.json` was authored in the editor and
+  `workshopValidateScripts` loads it through the server's loader as `Repeat(forever)`; the
+  in-world timed run (§4's slice-1 loop) is the remaining half.
 - **Throughout:** deleting the tool and its outputs leaves the server fully functional.

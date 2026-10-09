@@ -6,6 +6,8 @@ import server.game.bots.BotState;
 import server.game.bots.meta.BotNodeRegistry;
 import server.game.bots.meta.NodeParam;
 import server.game.bots.meta.NodeSchema;
+import server.game.bots.meta.ParamType;
+import server.game.bots.world.LocationKind;
 
 /**
  * Serialises the server's reflected node schemas to {@code bot-nodes.json}
@@ -56,6 +58,16 @@ public final class BotNodes {
 			json.field("required", param.required());
 			json.name("default").value(param.defaultValue());
 			json.field("description", param.description());
+			if (param.type() == ParamType.KIND) {
+				// A KIND parameter's allowed values, so the editor can build a dropdown rather than a text
+				// box. Enumerated from the server's own LocationKind, which is also what the loader resolves
+				// against (ScriptDocument), so the editor cannot offer a kind the runtime would refuse.
+				json.name("values").openArray();
+				for (LocationKind kind : LocationKind.values()) {
+					json.value(kind.id());
+				}
+				json.closeArray();
+			}
 			json.closeObject();
 		}
 		json.closeArray();

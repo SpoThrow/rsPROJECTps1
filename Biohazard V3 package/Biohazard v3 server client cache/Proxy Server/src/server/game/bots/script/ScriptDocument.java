@@ -100,13 +100,16 @@ public final class ScriptDocument {
 	}
 
 	/**
-	 * Builds a script from an already-parsed document. Package-visible rather than private only so the
-	 * directory loader can hand over a map it has already checked is an object; tests build documents
-	 * directly rather than round-tripping through JSON text.
+	 * Builds a script from an already-parsed document.
+	 *
+	 * <p><b>Public so the authoring tool can validate without reparsing.</b> The loader reads JSON text
+	 * once and hands the map here; the workshop's script writer does the same, asking this to decide whether
+	 * a document is a script at all before it reformats and writes the bytes. One validator, so the file the
+	 * tool writes is exactly the file this accepts.
 	 *
 	 * @throws ScriptException if the document is not a valid script
 	 */
-	static BotScript fromDocument(String name, Map<String, Object> document) {
+	public static BotScript fromDocument(String name, Map<String, Object> document) {
 		if (name == null || name.isBlank()) {
 			throw new ScriptException("a script document needs a name");
 		}

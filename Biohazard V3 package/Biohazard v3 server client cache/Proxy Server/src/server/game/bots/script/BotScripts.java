@@ -160,6 +160,17 @@ public final class BotScripts {
 		return name == null ? null : REGISTRY.get(key(name));
 	}
 
+	/**
+	 * True when this name belongs to a script that ships in code — the built-ins — rather than to a file.
+	 *
+	 * <p>Exists for the authoring tool: saving {@code gather_oak.json} would write a file the loader then
+	 * refuses to load (a file may not shadow a built-in), so a script editor should refuse the name up
+	 * front rather than let an author create a file that silently does nothing.
+	 */
+	public static boolean isBuiltIn(String name) {
+		return name != null && REGISTRY.containsKey(key(name)) && !FROM_FILES.contains(key(name));
+	}
+
 	/** Every registered name, sorted, so a listing is a stable diff. */
 	public static List<String> names() {
 		List<String> out = new ArrayList<String>(REGISTRY.keySet());

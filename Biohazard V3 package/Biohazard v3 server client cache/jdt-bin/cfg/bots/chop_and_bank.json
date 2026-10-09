@@ -1,0 +1,29 @@
+{
+  "root": {
+    "node": "repeat",
+    "child": {
+      "node": "sequence",
+      "children": [
+        {
+          "node": "walk_to_nearest",
+          "kind": "tree",
+          "range": 3
+        },
+        {
+          "node": "gather",
+          "kind": "tree",
+          "itemId": 1511
+        },
+        {
+          "node": "walk_to_nearest",
+          "kind": "bank",
+          "range": 2
+        },
+        {
+          "node": "bank_logs",
+          "logItemId": 1511
+        }
+      ]
+    }
+  }
+}
