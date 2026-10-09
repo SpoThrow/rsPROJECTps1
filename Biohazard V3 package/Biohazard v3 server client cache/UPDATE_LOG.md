@@ -1,5 +1,29 @@
 # Update Log
 
+## 2026-10-09 - Recorded (not yet measured): a second server/client divergence in hasActions
+
+**What changed:** No code. Recording a difference noticed while comparing the two `loc.dat` readers, so it is not lost.
+
+The client's `readValues474` gates its model-based `hasActions` fallback on the object having a name:
+
+```java
+if (flag == -1 && name != "null" && name != null) { ... }
+```
+
+while the server's `readValues` has no such guard:
+
+```java
+if (flag == -1) { ... }
+```
+
+So for an object with no name, no actions and no opcode-19 flag, the **server** can set `hasActions` true from the model clause where the **client** leaves it false. `hasActions` only reaches collision through the type-22 branch — `if (type == 22) { if (def.hasActions() && blocksWalk) addClipping(x, y, height, 0x200000); }` — so the visible effect would be a small set of tiles the server marks occupied that the client does not.
+
+**Not measured, and deliberately not fixed.** Quantifying it needs a decoder that retains the opcode-19 flag and the model list, because `hasActions` true is ambiguous between "opcode 19 set flag to 1" (both sides agree) and "flag was -1 and the model list matched" (the two sides can differ). It is also orthogonal to the terminator fix: these are objects with no strings, so their parse never threw and their behaviour is unchanged by that work. Before touching it, note the server's `hasActions` also feeds object interaction, not just collision, so a change needs its own verification rather than riding along with this one.
+
+**Files touched:** `UPDATE_LOG.md`
+
+**Status:** blocked on measurement — needs the decoder field above before the count can be stated, so it is recorded as a difference and not as a number.
+
 ## 2026-10-09 - Correction: the ObjectDef collision impact was described backwards
 
 **What changed:** No production code — this corrects the entry below, which reported that 77 placements "became walkable" and 230 "became blocked" after the `ObjectDef` fix. Both numbers came from testing `clip == 0`, which is not the walkability test. The clip is a bitmask, and `0x100` is the walk-block bit (`Region.addClippingForSolidObject` sets `clipping = 256`), while `0x20000` is projectile-solid and `0x200000` is terrain/type-22 occupancy. A tile with clip `8` or `128` is still walkable; a tile with `0x20000` is walkable for people but not for projectiles.
