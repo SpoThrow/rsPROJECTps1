@@ -51,8 +51,11 @@ import server.game.bots.world.Tile;
  * @Param} on every parameter, and that one is the schema. Two fully-annotated constructors are
  * rejected rather than guessed between, because the editor would otherwise show a coin flip.
  *
- * <p>The registry is a build-time and test-time facility: the server never calls it, so a bot
- * running a tree is unaffected by it and the annotations cost only their own bytes.
+ * <p><b>Who calls this.</b> It began as a build-time and test-time facility — the schema export and the
+ * parity check — with the server never touching it, which is why a running bot is unaffected by the
+ * annotations. The document loader ({@code ScriptDocument}) now calls it too, at <em>load</em> time, to
+ * build a node from its schema. That is once per script, never per tick: a bot running a tree still does
+ * not touch this class, and the annotations still cost only their own bytes.
  */
 public final class BotNodeRegistry {
 
@@ -119,6 +122,41 @@ public final class BotNodeRegistry {
 		for (NodeSchema schema : schemas()) {
 			if (schema.id().equals(id)) {
 				return schema;
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * The constructor that builds the node with this id — the same one {@link #schemaOf} reflects, so the
+	 * parameter order matches {@link NodeSchema#params()} exactly. Returns the no-arg constructor for a
+	 * constant node (one with no parameters), or null when the id is not a known node.
+	 *
+	 * <p><b>Added for the document loader</b> ({@code ScriptDocument}), which is the first thing to
+	 * <em>build</em> a node from the schema rather than merely describe it. That is a deliberate widening of
+	 * this class's role: it was built as a reflection-only export facility and the server never called it,
+	 * so the schema could not drift from the runtime. Now the loader calls it, which strengthens that
+	 * property rather than weakening it — the editor's palette, the exported JSON and the loader all read
+	 * the same reflected schema, so there is still one description of a node.
+	 *
+	 * <p>Called at script-load time only, never per tick: it reflects over constructors, which is not work
+	 * to do on the game thread once a bot is running.
+	 */
+	public static Constructor<?> constructorFor(String id) {
+		for (Class<? extends BotState> type : NODES) {
+			if (schemaOf(type).id().equals(id)) {
+				Constructor<?> canonical = canonicalConstructor(type);
+				if (canonical != null) {
+					return canonical;
+				}
+				try {
+					// A constant node: it declared no constructor with @Param, so its no-arg one is the
+					// builder. canonicalConstructor returns null for exactly this case, hence the fallback.
+					return type.getDeclaredConstructor();
+				} catch (NoSuchMethodException e) {
+					throw new IllegalStateException(type.getName()
+							+ " has no constructor at all, so it cannot be a node", e);
+				}
 			}
 		}
 		return null;

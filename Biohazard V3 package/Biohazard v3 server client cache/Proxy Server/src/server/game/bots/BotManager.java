@@ -9,6 +9,7 @@ import core.util.Misc;
 import server.Config;
 import server.game.bots.script.BotScript;
 import server.game.bots.script.BotScripts;
+import server.game.bots.script.ScriptDocument;
 import server.game.bots.world.Location;
 import server.game.bots.world.Locations;
 import server.game.players.PlayerHandler;
@@ -119,6 +120,7 @@ public final class BotManager {
 			return 0;
 		}
 		started = true;
+		loadScriptFiles();
 		return apply(BotsConfig.load());
 	}
 
@@ -135,7 +137,31 @@ public final class BotManager {
 	 * @return the number of bots spawned by this reload
 	 */
 	public static int reload() {
+		loadScriptFiles();
 		return apply(BotsConfig.load());
+	}
+
+	/**
+	 * Loads {@code Data/cfg/bots/*.json} — the authored scripts ({@code BOT_TOOLING.md} §7) — and reports
+	 * what could not be read.
+	 *
+	 * <p><b>Loaded before the config, on both boot and reload.</b> A row's {@code script} field names a
+	 * script, and the whole point of authoring one as a file is that a {@code bots.cfg} line can point at
+	 * it. Loading the scripts second would mean the first boot after authoring one reports "no script named
+	 * …" for a file that is sitting right there.
+	 *
+	 * <p>A problem here is a message, never a failure: the same rule the config read follows, so a bad
+	 * script file cannot stop the bots whose scripts are fine from running.
+	 */
+	private static void loadScriptFiles() {
+		BotScripts.LoadResult result = BotScripts.loadFiles(java.nio.file.Paths.get(ScriptDocument.DIR));
+		for (String problem : result.problems()) {
+			Misc.println("[bots] script " + problem);
+		}
+		if (result.loaded() > 0) {
+			Misc.println("[bots] loaded " + result.loaded() + " authored script(s) from "
+					+ ScriptDocument.DIR + " (" + BotScripts.names().size() + " registered in all)");
+		}
 	}
 
 	/**

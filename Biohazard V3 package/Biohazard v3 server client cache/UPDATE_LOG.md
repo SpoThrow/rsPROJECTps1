@@ -1,5 +1,19 @@
 # Update Log
 
+## 2026-10-10 - Authored bot scripts: a behaviour graph is now a file, not a Java class
+
+**What changed:**
+- **The authoring gap is closed on the server side.** Until now a bot's logic had to be registered in Java (`BotScripts`' static initialiser), so a new routine meant a rebuild — the exact limitation the tooling track exists to remove. `Data/cfg/bots/*.json` is now real: one behaviour graph per file, loaded at boot and on `::bot reload`, and referable from a `bots.cfg` row's `script` field exactly like the built-in `gather_oak`.
+- **The schema is the source of truth, so nothing is transcribed.** `ScriptDocument` builds each node through `BotNodeRegistry` (`BOT_TOOLING.md` §7.1), reading ids, parameter names, types and defaults off the annotated classes. A node becomes authorable the moment it is annotated; there is no second copy of the vocabulary to drift. `Json` is a small self-contained reader in the bot package, because the server must not depend on the workshop source set (the tool has to stay deletable).
+- **Strict on purpose:** an unknown node, an unknown *field* (a typo would otherwise silently take a default), a missing required field or a wrong type is refused with the node and field named. `LOCATION` parameters are refused until a node declares one, rather than inventing an encoding the editor must match.
+- **Reload reflects the directory:** file-sourced scripts are dropped and re-read, a deleted file's script disappears and an edited one is replaced, and a built-in is never dropped. A bad file is reported and skipped — never fatal — and a missing directory is the ordinary "no authored scripts" state.
+- **Document-built trees are traced** (`Traced`-wrapped, fresh per possession) exactly like builder-built ones, so `::botinfo` works on both.
+
+**Files touched:** new `bots/script/Json.java`, `bots/script/ScriptDocument.java`, `test/.../script/{JsonTest,ScriptDocumentTest,ScriptDocumentsLoadTest}.java`. Modified `bots/script/BotScripts.java` (directory loader, reload semantics), `bots/meta/BotNodeRegistry.java` (`constructorFor`), `bots/BotManager.java` (load scripts at boot and reload), `BOT_TOOLING.md` (§7.1 format, T4b stage, acceptance).
+
+**Status:** done. **831 tests, 0 failures** (781 → 831). Next: **T5** — the timeline editor in `workshop/web` now has a concrete format to emit and a loader to be validated against (T5b graph view, T6 round-trip). The end-to-end "authored timeline runs the chop→bank loop" check is **T6**, and note it needs a live world: the loader's nodes use the live `Locations`/`ResourceScan` (their canonical constructors), so unlike the Java-built loop tests it cannot be driven with an injected world.
+
+
 ## 2026-10-10 - Bot roadmap H: the per-tick budget (scale)
 
 **What changed:**

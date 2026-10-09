@@ -312,6 +312,51 @@ but it is an add-on, not a foundation.
 
 All of these are additive: the server ignores files it does not know about.
 
+### 7.1 The script document, concretely
+
+`Data/cfg/bots/<name>.json` is one behaviour graph. The file name is the script's name — the
+handle `bots.cfg`'s `script` field points at — and a `name` field, if present, must match it.
+
+```json
+{
+  "root": {
+    "node": "sequence",
+    "children": [
+      { "node": "walk_to_nearest", "kind": "tree", "range": 3 },
+      { "node": "gather", "kind": "tree", "itemId": 1519 },
+      { "node": "walk_to_nearest", "kind": "bank", "range": 2 },
+      { "node": "bank_logs", "logItemId": 1519 }
+    ]
+  }
+}
+```
+
+One object per node: `node` names the `@BotNode` id, and every other key is one of that node's
+constructor parameters, *by name*. Defaults are the ones in `@Param`, so an optional parameter
+can be omitted; a required one that is missing is an error. Children are nested objects (`node`)
+or arrays of them (`node_list`). Scalars are JSON scalars, and a `kind` is a kind id such as
+`tree` or `bank`.
+
+**The schema is the source of truth, and the loader reads it.** `server.game.bots.script.ScriptDocument`
+builds each node through `BotNodeRegistry`, so the ids, parameters, types and defaults all come from
+the annotated classes rather than a second copy in this format. A new `BotState` becomes authorable
+the moment it is annotated — there is nothing to add here. This is the loader half of the parity
+check §5 describes; `ScriptDocumentTest` fails if a node gains a parameter type the loader cannot
+encode.
+
+Two deliberate strictnesses, both because a wrong script is worse than a rejected one:
+
+- **An unknown field is an error, not a fallback.** A misspelled parameter would otherwise quietly
+  take its default and the bot would run with a silently wrong value.
+- **`LOCATION` parameters are refused.** No node declares one yet, so there is no encoding to agree
+  with the editor; inventing one here would be a second format to drift from this table. The day a
+  node takes a `Location`, its encoding gets written deliberately.
+
+**Loading.** The server reads the whole directory at boot and on `::bot reload`. A reload reflects
+the directory: a script whose file was edited is replaced, one whose file was deleted disappears, and
+a built-in is never dropped. A bad file costs only itself — it is reported and skipped, exactly as a
+bad `bots.cfg` row is — and a missing directory is not even a problem.
+
 ---
 
 ## 8. Stack decision
@@ -359,7 +404,8 @@ internals.
 | **T2b** ✅ | Resource/service icon layer (`ObjectDef.actions` classification) + resource filter panel (`BOT_WORKSHOP_UX.md` §3–§4) |
 | **T3** ✅ | Region/patch authoring → `locations.cfg`; drag-a-box → `RandomTileIn` waypoints |
 | **T4** ✅ | `@BotNode` registry + `bot-nodes.json` export + parity test |
-| **T5** | Step timeline editor → `BotScript` JSON (`BOT_WORKSHOP_UX.md` §5) — unblocked: roadmap D's `BotScript`/`ScriptBuilder` is the document it compiles to |
+| **T4b** ✅ | Server-side document loader: `Data/cfg/bots/*.json` → `BotScript`, via the T4 schema (§7.1). The half a timeline editor needs to compile *to* |
+| **T5** | Step timeline editor → `BotScript` JSON (`BOT_WORKSHOP_UX.md` §5) — unblocked: roadmap D's `BotScript`/`ScriptBuilder` is the document it compiles to, and T4b is now the format it must emit |
 | **T5b** | Graph view over the same document (roadmap B is done, so the nodes exist) |
 | **T6** | Round-trip validation: compile a timeline, load it via the runtime, run the slice-1 loop test |
 | **T7** *(optional)* | Live channel: spawn/step + running-bot trace overlay |
@@ -413,6 +459,11 @@ first target is bots, and a bot-only tool that ships beats a general editor that
 - **T4:** every runtime `BotState` id appears in `bot-nodes.json`; the parity test fails
   if either side gains an unregistered entry. ✅ A state the runtime applies itself is
   marked `@RuntimeOnly` and excluded in both directions, so the check stays absolute.
+- **T4b:** a script document in `Data/cfg/bots/*.json` builds a `BotScript` the runtime runs, using
+  only the T4 schema — a document naming an unknown node, an unknown field or a missing required
+  field is refused with the node and field named, and every registered node builds from the fields its
+  schema declares. ✅ The directory loads at boot and on `::bot reload`, a reload reflects the
+  directory, and a bad file costs only itself.
 - **T5:** a timeline built in the editor serialises to a `BotScript` the runtime executes.
 - **T6:** the exported timeline runs the slice-1 chop→bank loop end to end with no
   hand-written bot code.
