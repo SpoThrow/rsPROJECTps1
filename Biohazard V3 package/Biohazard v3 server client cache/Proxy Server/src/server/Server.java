@@ -188,6 +188,8 @@ public class Server {
 		Doors.getSingleton().load();
 		DoubleDoors.getSingleton().load();
 		Connection.initialize();
+		// No-op while Config.WORLD_ADVENTURER_ENABLED is false; the gate lives in spawn() so the
+		// ::max teleport's lazy re-spawn cannot bypass it.
 		WorldAdventurer.spawn();
 		// The one startup call the bot subsystem gets (roadmap Phase E). With no Data/cfg/bots.cfg
 		// this does nothing, so deleting the whole bot package leaves the boot path untouched.

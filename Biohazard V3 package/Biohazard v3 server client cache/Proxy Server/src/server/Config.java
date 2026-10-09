@@ -143,6 +143,21 @@ public class Config {
 	 */
 	public static final boolean USE_OBJECT_SIZE_TABLE = true;
 
+	/**
+	 * Whether the wandering world NPC ("Max", {@code WorldAdventurer}) spawns.
+	 *
+	 * <p>{@code false} (default) = no Max. He is a hand-rolled travel/work state machine written
+	 * before the behaviour-tree bot system existed, and with bots available the same job is better
+	 * done by a script (roadmap Phase G). Until that script exists, off is the honest default: a
+	 * single NPC that force-chats at players and teleports itself is not something to leave running
+	 * in a live world by accident.
+	 *
+	 * <p>{@code true} = the pre-bot behaviour, exactly as before. Nothing else has to change to flip
+	 * it: {@code WorldAdventurer.spawn()} is the only entry point, so every path in — boot, the
+	 * {@code ::max} teleport, and the lazy re-spawn that teleport does — is gated by this one flag.
+	 */
+	public static final boolean WORLD_ADVENTURER_ENABLED = false;
+
 	public static final int[] UNDEAD_NPCS = {90,91,92,93,94,103,104,73,74,75,76,77};
 	
 	public static final int ATTACK = 0;

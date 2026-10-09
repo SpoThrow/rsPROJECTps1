@@ -1,6 +1,7 @@
 package server.game.npcs;
 
 import server.Server;
+import server.Config;
 import server.game.players.Client;
 import server.game.players.PlayerHandler;
 import core.util.Misc;
@@ -196,7 +197,21 @@ public class WorldAdventurer {
 		return new Spot(name, kind, x, y, h, anim, duration, arrive, targets, chat, travel);
 	}
 
+	/**
+	 * Whether the adventurer NPC is allowed in the world at all — {@code Config.WORLD_ADVENTURER_ENABLED}.
+	 *
+	 * <p>Checked inside {@link #spawn()} rather than at each call site on purpose: {@link #teleportTo}
+	 * lazily calls {@code spawn()} when the NPC is missing, so a gate at the boot call alone would let
+	 * {@code ::max} quietly bring back a disabled NPC. One gate, every path.
+	 */
+	public static boolean isEnabled() {
+		return Config.WORLD_ADVENTURER_ENABLED;
+	}
+
 	public static void spawn() {
+		if (!isEnabled()) {
+			return;
+		}
 		if (npc != null) {
 			return;
 		}
@@ -239,6 +254,10 @@ public class WorldAdventurer {
 
 	public static void teleportTo(Client c) {
 		if (c == null) {
+			return;
+		}
+		if (!isEnabled()) {
+			c.sendMessage("Max is not enabled on this world.");
 			return;
 		}
 		if (npc == null) {

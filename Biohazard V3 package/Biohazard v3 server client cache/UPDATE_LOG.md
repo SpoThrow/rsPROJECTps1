@@ -1,5 +1,17 @@
 # Update Log
 
+## 2026-10-10 - WorldAdventurer ("Max") disabled behind a config flag
+
+**What changed:**
+- **`Config.WORLD_ADVENTURER_ENABLED` (default `false`)** turns the wandering NPC off. He is a hand-rolled travel/work state machine written before the behaviour-tree bot system existed, and he force-chats at players and teleports himself around the world, so off is the honest default while the bot system is what does this job.
+- **The gate is inside `WorldAdventurer.spawn()`, not at the call sites.** `teleportTo` lazily calls `spawn()` when the NPC is missing, so a gate at `Server.main` alone would have let `::max`/`::adventurer` quietly bring back a disabled NPC. One gate covers boot, the command, and the lazy re-spawn.
+- **`::max`/`::adventurer` now says so** ("Max is not enabled on this world.") instead of the misleading "Max isn't in the world right now."
+- Everything else is unchanged and inert without a live NPC: the click/dialogue/button hooks all go through `WorldAdventurer.isAdventurer(index)`, which reads the per-NPC flag that only `spawn()` sets, and `NPCHandler`'s tick branch is behind the same flag. Code is kept, not deleted, because Phase G of the roadmap would migrate this NPC onto the shared behaviour tree.
+
+**Files touched:** `Proxy Server/src/server/Config.java` (new flag), `src/server/game/npcs/WorldAdventurer.java` (`isEnabled()`, guards in `spawn`/`teleportTo`), `src/server/Server.java` (comment on the startup call).
+
+**Status:** done. **729 tests, 0 failures** (612 server + 117 workshop). To bring Max back, set the flag to `true`; nothing else changes.
+
 ## 2026-10-10 - Bot roadmap F: a per-bot trace buffer, ::botinfo, and one-line failure logs
 
 **What changed:**
