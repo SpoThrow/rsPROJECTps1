@@ -1,5 +1,22 @@
 # Update Log
 
+## 2026-10-09 - Bot roadmap B: the tree kit
+
+**What changed:**
+- **Composition.** `Selector` reports the first child that succeeds (the "else if" of a tree), `RandomSelector` does the same in a shuffled order so equally valid choices vary, and `Parallel` ticks every child on every tick and succeeds when all of them have. A parallel that gives up interrupts whichever siblings are still mid-run — otherwise they would stay inside `enter`/`exit`, which is the one rule slice 1 established that a multi-child composite can break.
+- **Decorators.** `Retry(child, attempts)`, `Timeout(child, ticks)` (turns "stuck" into FAILURE generically, so a leaf no longer has to invent a tick budget), `Delay(ticks)`, `Cooldown(child, ticks)`, and the adapters `Invert`/`Succeed`/`Fail`.
+- **Conditions.** `HasItem`, `InventoryFull`, `WithinRange`, `SkillAtLeast`, `BankOpen`, `IsDead` — stateless one-tick leaves, so a `Selector` can walk a run of alternatives inside a single tick. That is what makes `Selector(not-full -> work, bank)` readable in the tree instead of wired into a leaf.
+- **Palette.** All 16 are `@BotNode`-annotated and registered; `bot-nodes.json` now exports **21 nodes** in four groups (`state`, `condition`, `composite`, `decorator`).
+
+**Three details worth recording:**
+- **B's "no core file changed" criterion still holds.** Nothing in `BotPlayer`, `BotManager`, `BotContext`, `PlayerBotContext`, `Sequence` or `Repeat` changed; the three conditions that read player state use the existing `ctx.client()` escape hatch, exactly as `ChopTree` reads its session flag. When the `Agent` seam lands (Phase G) those three should move behind a `BotContext` observation, because "is the bank open" is not a player-only question.
+- **`ctx.random(bound)` is inclusive.** `PlayerBotContext.random` delegates to `Misc.random`, which returns `0..bound` *inclusive* despite the parameter's name. `RandomSelector`'s Fisher-Yates is correct either way (it wants a uniform `0..i`, and `0..i-1` is also a valid shuffle), but it is a trap for the next caller. It still has no other callers, so documenting or narrowing it is a cheap follow-up.
+- **`Cooldown` is a named composition, not a second wait loop.** Without a game clock a cooldown can only be a pause counted in the ticks the node is ticked, which is exactly `Sequence(child, Delay(n))`; it delegates to that so there is one implementation, and exists so the palette and the trace say "cooldown".
+
+**Files touched:** `Proxy Server/src/server/game/bots/` (`composite/{Selector,RandomSelector,Parallel}`, new `decorator/` and `condition/`, `meta/BotNodeRegistry`), `test/server/game/bots/` (new `TreeKitTest`, `ConditionStatesTest`; extended `meta/BotNodeRegistryTest`).
+
+**Status:** done. **627 tests, 0 failures** (512 server + 115 workshop), including both directions of `BotNodeParityTest`; palette re-exported. Roadmaps A, B and C are now complete, so T5b's blocker (Selector/Parallel in the runtime) is cleared — but T5 still needs roadmap **D** (`BotScript`, the fluent builder, and a generic `GatherLoop`), which is next.
+
 ## 2026-10-09 - Bot Workshop T3 + T4, and a continuous world map
 
 **What changed:**

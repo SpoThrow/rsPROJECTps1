@@ -9,8 +9,24 @@ import java.util.List;
 import java.util.Map;
 
 import server.game.bots.BotState;
+import server.game.bots.composite.Parallel;
+import server.game.bots.composite.RandomSelector;
 import server.game.bots.composite.Repeat;
+import server.game.bots.composite.Selector;
 import server.game.bots.composite.Sequence;
+import server.game.bots.condition.BankOpen;
+import server.game.bots.condition.HasItem;
+import server.game.bots.condition.InventoryFull;
+import server.game.bots.condition.IsDead;
+import server.game.bots.condition.SkillAtLeast;
+import server.game.bots.condition.WithinRange;
+import server.game.bots.decorator.Cooldown;
+import server.game.bots.decorator.Delay;
+import server.game.bots.decorator.Fail;
+import server.game.bots.decorator.Invert;
+import server.game.bots.decorator.Retry;
+import server.game.bots.decorator.Succeed;
+import server.game.bots.decorator.Timeout;
 import server.game.bots.states.BankLogs;
 import server.game.bots.states.ChopTree;
 import server.game.bots.states.WalkTo;
@@ -38,7 +54,8 @@ import server.game.bots.world.Tile;
 public final class BotNodeRegistry {
 
 	/**
-	 * The node classes that ship with the server, in a deliberate order (leaves, then composites).
+	 * The node classes that ship with the server, in a deliberate order (work leaves and
+	 * conditions first, then the composites and decorators that arrange them).
 	 *
 	 * <p>Not a classpath scan: scanning is fragile under a repackaged jar, and an explicit list
 	 * means "this is the set" is a statement the code makes rather than a side effect of the build
@@ -50,8 +67,24 @@ public final class BotNodeRegistry {
 			WalkTo.class,
 			ChopTree.class,
 			BankLogs.class,
+			HasItem.class,
+			InventoryFull.class,
+			WithinRange.class,
+			SkillAtLeast.class,
+			BankOpen.class,
+			IsDead.class,
 			Sequence.class,
-			Repeat.class);
+			Repeat.class,
+			Selector.class,
+			RandomSelector.class,
+			Parallel.class,
+			Retry.class,
+			Timeout.class,
+			Delay.class,
+			Cooldown.class,
+			Invert.class,
+			Succeed.class,
+			Fail.class);
 
 	private BotNodeRegistry() {
 	}

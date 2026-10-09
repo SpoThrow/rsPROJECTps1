@@ -301,6 +301,9 @@ Each phase is additive; A is the only one that touches existing server code.
 Recommended order: **A → B → C → D → E → F**, then G, H, I as needs arise. B and C are
 the two phases that most change what "authoring a bot" feels like.
 
+**Implemented so far: A, B and C.** See `UPDATE_LOG.md` for what landed in each; the next
+phase in the recommended order is **D** (scripts and the fluent builder).
+
 ---
 
 ## 7. Scaling and performance rules

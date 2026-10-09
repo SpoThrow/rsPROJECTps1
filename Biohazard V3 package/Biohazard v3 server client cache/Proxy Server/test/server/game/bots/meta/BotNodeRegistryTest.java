@@ -22,6 +22,7 @@ import server.game.bots.BotState;
 import server.game.bots.BotStatus;
 import server.game.bots.composite.Repeat;
 import server.game.bots.composite.Sequence;
+import server.game.bots.decorator.Retry;
 import server.game.bots.states.BankLogs;
 import server.game.bots.states.ChopTree;
 import server.game.bots.states.WalkTo;
@@ -77,6 +78,38 @@ class BotNodeRegistryTest {
 		assertEquals(Arrays.asList("child:NODE", "count:INT"), signature(registry("repeat")));
 	}
 
+	/**
+	 * Phase B's vocabulary, reflected. The arrangement nodes take children and the conditions
+	 * take plain values, so this is also the check that a varargs child list is a NODE_LIST and
+	 * a single child is a NODE — the distinction the editor draws a drop target from.
+	 */
+	@Test
+	void theTreeKitNodesReflectTheirDeclaredParameters() {
+		assertEquals(Arrays.asList("children:NODE_LIST"), signature(registry("selector")));
+		assertEquals(Arrays.asList("children:NODE_LIST"), signature(registry("random_selector")));
+		assertEquals(Arrays.asList("children:NODE_LIST"), signature(registry("parallel")));
+
+		assertEquals(Arrays.asList("child:NODE", "attempts:INT"), signature(registry("retry")));
+		assertEquals(Arrays.asList("child:NODE", "ticks:INT"), signature(registry("timeout")));
+		assertEquals(Arrays.asList("ticks:INT"), signature(registry("delay")));
+		assertEquals(Arrays.asList("child:NODE", "ticks:INT"), signature(registry("cooldown")));
+		assertEquals(Arrays.asList("child:NODE"), signature(registry("invert")));
+		assertEquals(Arrays.asList("child:NODE"), signature(registry("succeed")));
+		assertEquals(Arrays.asList("child:NODE"), signature(registry("fail")));
+
+		assertEquals(Arrays.asList("itemId:INT"), signature(registry("has_item")));
+		assertEquals(Arrays.asList("x:INT", "y:INT", "range:INT"), signature(registry("within_range")));
+		assertEquals(Arrays.asList("skill:INT", "level:INT"), signature(registry("skill_at_least")));
+	}
+
+	/** A constant question has no fields for the editor to render. */
+	@Test
+	void aConstantConditionDeclaresNoParameters() {
+		assertTrue(registry("inventory_full").params().isEmpty());
+		assertTrue(registry("bank_open").params().isEmpty());
+		assertTrue(registry("is_dead").params().isEmpty());
+	}
+
 	@Test
 	void everyParamTypeIsReachableFromAJavaType() {
 		Constructor<?> constructor = KitchenSink.class.getDeclaredConstructors()[0];
@@ -90,30 +123,40 @@ class BotNodeRegistryTest {
 
 	@Test
 	void requiredParamsHaveNoDefaultAndOptionalParamsDeclareOne() {
-		NodeSchema walkTo = registry("walk_to");
-		for (NodeParam param : walkTo.params()) {
-			if (param.required()) {
-				assertNull(param.defaultValue(), param.name() + " is required but has a default");
-			} else {
-				assertFalse(param.defaultValue().isEmpty(),
-						param.name() + " is optional but declares no default");
+		for (NodeSchema schema : BotNodeRegistry.schemas()) {
+			for (NodeParam param : schema.params()) {
+				if (param.required()) {
+					assertNull(param.defaultValue(),
+							schema.id() + "." + param.name() + " is required but has a default");
+				} else {
+					assertFalse(param.defaultValue().isEmpty(),
+							schema.id() + "." + param.name() + " is optional but declares no default");
+				}
 			}
 		}
-		assertEquals("40", walkTo.params().get(3).defaultValue());
+		assertEquals("40", registry("walk_to").params().get(3).defaultValue());
 		assertEquals("-1", registry("repeat").params().get(1).defaultValue());
+		assertEquals("3", registry("retry").params().get(1).defaultValue());
 	}
 
 	/**
 	 * The optional default is declared twice — once in the annotation, once as the constant the
-	 * three-argument constructor delegates with — so pin them together. Without this, editing
-	 * {@code DEFAULT_STUCK_BUDGET} would leave the editor showing a value the server does not use.
+	 * convenience constructor delegates with — so pin them together. Without this, editing
+	 * {@code DEFAULT_STUCK_BUDGET} or {@code DEFAULT_ATTEMPTS} would leave the editor showing a
+	 * value the server does not use.
 	 */
 	@Test
 	void theDeclaredDefaultMatchesTheConstantTheConvenienceConstructorUses() throws Exception {
-		Field constant = WalkTo.class.getDeclaredField("DEFAULT_STUCK_BUDGET");
-		constant.setAccessible(true);
-		String fromCode = Integer.toString(constant.getInt(null));
-		assertEquals(fromCode, registry("walk_to").params().get(3).defaultValue());
+		assertEquals(integerConstant(WalkTo.class, "DEFAULT_STUCK_BUDGET"),
+				registry("walk_to").params().get(3).defaultValue());
+		assertEquals(integerConstant(Retry.class, "DEFAULT_ATTEMPTS"),
+				registry("retry").params().get(1).defaultValue());
+	}
+
+	private static String integerConstant(Class<?> owner, String name) throws Exception {
+		Field field = owner.getDeclaredField(name);
+		field.setAccessible(true);
+		return Integer.toString(field.getInt(null));
 	}
 
 	@Test
