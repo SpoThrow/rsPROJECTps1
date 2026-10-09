@@ -86,6 +86,21 @@ public final class ByteStreamExt {
         return abyte0;
     }
 
+    /**
+     * The {@code 0x00}-terminated counterpart of {@link #readBytes()}, for the {@code loc.dat}
+     * entries. Kept separate rather than replacing {@code readBytes()} because that 0x0A reader is
+     * still the right one for the streams that encode their strings that way; only this cache's
+     * object definitions use the null terminator.
+     */
+    public byte[] readNewBytes()
+    {
+        int i = currentOffset;
+        while(buffer[currentOffset++] != 0) ;
+        byte abyte0[] = new byte[currentOffset - i - 1];
+        System.arraycopy(buffer, i, abyte0, i - i, currentOffset - 1 - i);
+        return abyte0;
+    }
+
     public void readBytes(int i, int j, byte abyte0[])
     {
         for(int l = j; l < j + i; l++)

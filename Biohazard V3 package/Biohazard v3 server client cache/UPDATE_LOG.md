@@ -1,5 +1,21 @@
 # Update Log
 
+## 2026-10-09 - Fixed the ObjectDef reader: the server had no object names, actions or walkability
+
+**What changed:**
+- **The terminator fix.** `ObjectDef.readValues` read `loc.dat` strings with `readString()`, which scans for `0x0A`, while the file terminates them with `0x00`. Every named entry failed to parse, and `getObjectDef`'s `catch` hid it behind `setDefaults()`. Name (opcode 2) and actions (opcodes 30-38) now use `readNewString()`, and description (opcode 3) uses a new `ByteStreamExt.readNewBytes()`. `readValues377` and the existing `readBytes()` are deliberately untouched — the `0x0A` reader is still correct for the streams that encode strings that way.
+- **Impact, measured on both sides of the change.** Before: **19410 of 19410** named objects returned no name, no actions and `aBoolean767 = true`. After: name, ordered actions, footprint and walk-blocking agree with the tool's decoder for **all 42001 entries, 0 differences**. The client never had this bug — its `forID` calls `readValues474`, which reads `0x00` — so the fix closes a server/client disagreement about the name, actions and walkability of every named object rather than just tidying a parser.
+- **Collision change, quantified.** Re-exporting the three landmark regions and diffing the per-object `clip` values: **307 of 13860 placements changed** — 77 became walkable, 230 became blocked. The blocked direction is type-22 floors whose real actions now register through `hasActions()`, which is what the client already did. `workshopValidate` still reports **0 mismatched tiles**: terrain and objects share the `0x200000` bit, so a terrain-occupied tile keeps it whatever the objects do.
+- **A bug in the tool, found by this work.** `LocDefs` treated opcode 74 as an inert flag, but both the client's `readValues474` and the server finish with `if (aBoolean766) aBoolean767 = false`, so 74's objects are walkable. The client's reader was the reference that exposed it.
+- **New guard.** `ObjectDefParityTest` (5 tests) compares the server's reader against the decoder across all 42001 entries on name, actions, footprint and walk-blocking, and opens with a liveness check because a failed `loadConfig` would otherwise make every parity assertion pass vacuously. `ValidateMap` now **fails** on disagreement instead of only reporting it, and its `0x200000` comment records that terrain and objects share that bit and the check is therefore one-directional.
+
+**Files touched:**
+- `Proxy Server/src/server/clip/region/ObjectDef.java`, `ByteStreamExt.java`
+- `Proxy Server/workshop/src/botworkshop/ValidateMap.java`, `workshop/src/botworkshop/data/LocDefs.java`
+- `Proxy Server/workshop/test/botworkshop/ObjectDefParityTest.java` (new)
+
+**Status:** done. **452 tests, 0 failures** (385 server + 67 workshop). ⚠️ Not yet verified live: this moves walkability for 307 placements across three regions, so a live session is worth running before trusting pathing around the affected objects.
+
 ## 2026-10-09 - Bot Workshop T1: isolated world exporter + parity validator
 
 **What changed:**

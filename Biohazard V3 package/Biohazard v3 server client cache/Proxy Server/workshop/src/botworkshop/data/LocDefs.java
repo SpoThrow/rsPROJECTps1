@@ -135,18 +135,24 @@ public final class LocDefs {
 				} else if (opcode == 15) {
 					sizeY = in.u8();
 				} else if (opcode == 17) {
-					// The only opcode that clears aBoolean767, the walk-blocking flag.
+					blocksWalk = false;
+				} else if (opcode == 74) {
+					// The second opcode that clears walk-blocking, and the one easiest to get wrong:
+					// it has no payload, so skipping it looks correct. Both the client's
+					// readValues474 and the server finish with "if (aBoolean766) aBoolean767 =
+					// false", so 74's objects are walkable — treating it as an inert flag left them
+					// blocking when neither side does.
 					blocksWalk = false;
 				} else if (opcode == 19 || opcode == 28 || opcode == 69 || opcode == 75) {
 					in.skip(1);
 				} else if (opcode == 29 || opcode == 39) {
 					in.skip(1);
 				} else if (opcode == 21 || opcode == 22 || opcode == 23 || opcode == 27 || opcode == 62
-						|| opcode == 64 || opcode == 73 || opcode == 74 || opcode == 82 || opcode == 88
+						|| opcode == 64 || opcode == 73 || opcode == 82 || opcode == 88
 						|| opcode == 89 || opcode == 90 || opcode == 91 || opcode == 94 || opcode == 95
 						|| opcode == 96 || opcode == 97 || opcode == 18) {
-					// Pure flags with no payload. 18 and 64 live here too: they clear movement
-					// flags, but not the walk-blocking one, so they do not touch blocksWalk.
+					// Pure flags with no payload that leave walk-blocking alone. 18 and 64 clear
+					// movement flags (aBoolean757 and friends), never aBoolean767.
 				} else if (opcode == 24 || opcode == 60 || opcode == 65 || opcode == 66 || opcode == 67
 						|| opcode == 68 || opcode == 70 || opcode == 71 || opcode == 72) {
 					in.skip(2);

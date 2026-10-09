@@ -40,7 +40,15 @@ import server.clip.region.Region;
  */
 public final class ValidateMap {
 
-	/** The clip bit {@code Region.loadMaps} adds for a tile its ground data marks as occupied. */
+	/**
+	 * The clip bit that <em>both</em> {@code Region.loadMaps} and a placed type-22 object can set.
+	 *
+	 * <p>Because terrain and objects share the one bit, the comparison below only holds one way: a
+	 * tile the export calls occupied must have the bit, but a tile that has the bit may owe it to an
+	 * object rather than to terrain. That is what keeps this test immune to object-side changes — the
+	 * {@code ObjectDef} terminator fix moved 307 object clip values across the three landmark regions
+	 * and this count stayed at zero, which is the expected outcome and not a sign the check is inert.
+	 */
 	private static final int OCCUPIED_BIT = 0x200000;
 
 	/** Anchored on the plane object's field order, which {@code RegionDocumentTest} pins. */
@@ -96,54 +104,88 @@ public final class ValidateMap {
 		System.out.println();
 		System.out.println("[validate] mismatched tiles        = " + mismatches);
 		System.out.println("[validate] unusable documents      = " + badDocuments);
-		reportLocReaderDivergence();
-		System.out.println("[validate] " + (mismatches == 0 && badDocuments == 0
-				? "OK — exported terrain agrees with Region.getClipping"
-				: "FAILED — the export and the server disagree"));
-		if (mismatches != 0 || badDocuments != 0) {
+		int readerDisagreements = reportLocReaderDivergence();
+		boolean ok = mismatches == 0 && badDocuments == 0 && readerDisagreements == 0;
+		System.out.println("[validate] " + (ok
+				? "OK — exported terrain agrees with Region.getClipping and ObjectDef agrees with loc.dat"
+				: "FAILED — the tool and the server disagree"));
+		if (!ok) {
 			System.exit(1);
 		}
 	}
 
 	/**
-	 * Measures how far the server's own {@code ObjectDef} reader diverges from this tool's — a
-	 * read-only report, never a failure, because the server's reader is not the tool's to fix.
+	 * Checks whether the server's own {@code ObjectDef} still agrees with this tool's decoder.
 	 *
-	 * <p>{@code ObjectDef.readValues} terminates strings on {@code 0x0A} while this cache terminates
-	 * them on {@code 0x00}, so it either misreads the rest of an entry or throws and falls back to
-	 * {@code setDefaults()}. Printing the count keeps that from being folklore: it is the number of
-	 * objects for which the server cannot say what they are called, which is why the exporter does
-	 * not ask it. Expect roughly half the archive; a sudden change means the cache or the reader
-	 * moved and {@code LocDefs} should be re-checked against it.
+	 * <p>{@code readValues} used to terminate {@code loc.dat}'s strings on {@code 0x0A} while the
+	 * file terminates them on {@code 0x00}. Every named object then failed to parse, and because
+	 * {@code getObjectDef} catches that and calls {@code setDefaults()}, the server answered "no
+	 * name, no actions, blocks walk" for <b>19410 of 19410</b> named objects — while the client's
+	 * {@code 0x00} reader saw the real values, so the two disagreed about the name, the actions and
+	 * the walkability of every named object.
+	 *
+	 * <p>That is fixed, which turns this from a description into a guard. It compares every entry on
+	 * name, ordered actions, footprint and the walk-blocking flag, and a disagreement now fails the
+	 * run: the two readers disagreeing about walkability is a collision bug, not a cosmetic one.
+	 *
+	 * @return the number of entries the two readers disagree about
 	 */
-	private static void reportLocReaderDivergence() throws IOException {
+	private static int reportLocReaderDivergence() throws IOException {
 		Path data = Paths.get("./Data");
 		botworkshop.data.LocDefs defs = botworkshop.data.LocDefs.load(
 				data.resolve("world/object/loc.dat"), data.resolve("world/object/loc.idx"));
+		int compared = 0;
 		int named = 0;
-		int serverAgrees = 0;
-		int serverBlank = 0;
-		int serverWrong = 0;
+		int nameDiffers = 0;
+		int actionsDiffer = 0;
+		int footprintDiffers = 0;
+		int blockingDiffers = 0;
 		for (int id = 0; id < defs.count(); id++) {
 			botworkshop.data.LocDefinition ours = defs.get(id);
-			if (ours == null || ours.name() == null) {
+			if (ours == null || !ours.parsed()) {
 				continue;
 			}
-			named++;
 			ObjectDef theirs = ObjectDef.getObjectDef(id);
-			String theirName = theirs == null ? null : theirs.name;
-			if (theirName == null) {
-				serverBlank++;
-			} else if (theirName.equals(ours.name())) {
-				serverAgrees++;
-			} else {
-				serverWrong++;
+			if (theirs == null) {
+				continue;
+			}
+			compared++;
+			if (ours.name() != null) {
+				named++;
+				if (!ours.name().equals(theirs.name)) {
+					nameDiffers++;
+				}
+			}
+			if (!ours.actions().equals(serverActions(theirs))) {
+				actionsDiffer++;
+			}
+			if (ours.sizeX() != theirs.anInt744 || ours.sizeY() != theirs.anInt761) {
+				footprintDiffers++;
+			}
+			if (ours.blocksWalk() != theirs.aBoolean767()) {
+				blockingDiffers++;
 			}
 		}
-		System.out.println("[validate] named objects           = " + named);
-		System.out.println("[validate]   server reader agrees  = " + serverAgrees);
-		System.out.println("[validate]   server reads no name  = " + serverBlank + "  (ObjectDef fell back to defaults)");
-		System.out.println("[validate]   server reads a name that is not the right one = " + serverWrong);
+		System.out.println("[validate] loc.dat entries compared = " + compared);
+		System.out.println("[validate]   named objects          = " + named);
+		System.out.println("[validate]   name differs           = " + nameDiffers);
+		System.out.println("[validate]   actions differ         = " + actionsDiffer);
+		System.out.println("[validate]   footprint differs      = " + footprintDiffers);
+		System.out.println("[validate]   walk-blocking differs  = " + blockingDiffers);
+		return nameDiffers + actionsDiffer + footprintDiffers + blockingDiffers;
+	}
+
+	/** The server's action slots in order, with the null and empty holes removed. */
+	private static List<String> serverActions(ObjectDef def) {
+		List<String> out = new ArrayList<String>();
+		if (def.actions != null) {
+			for (String action : def.actions) {
+				if (action != null && !action.isEmpty()) {
+					out.add(action);
+				}
+			}
+		}
+		return out;
 	}
 
 	/** @return the number of tiles that disagree, or {@code -1} when the document cannot be read. */

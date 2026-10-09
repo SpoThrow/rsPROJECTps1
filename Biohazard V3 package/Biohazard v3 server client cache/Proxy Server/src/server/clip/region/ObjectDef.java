@@ -127,6 +127,20 @@ public final class ObjectDef {
 		return null;
 	}
 
+	/**
+	 * The {@code loc.dat} reader — the 474-format archive this cache ships.
+	 *
+	 * <p>Its strings are {@code 0x00}-terminated and must be read with {@code readNewString()}.
+	 * Reading them with {@code readString()}, which scans for {@code 0x0A}, runs past the
+	 * terminator; because {@link #getObjectDef} catches the resulting failure and calls
+	 * {@code setDefaults()}, every named object quietly became "no name, no actions, blocks walk".
+	 * Measured before the fix: <b>19410 of 19410</b> named objects fell back to defaults, while the
+	 * client's {@code forID} uses its own {@code 0x00} reader and saw the real values — so the two
+	 * disagreed about the name, the actions and the walkability of every named object.
+	 *
+	 * <p>The opcode table here matches the client's {@code readValues474} field for field, including
+	 * that {@code 39} is a one-byte field rather than a tenth action slot.
+	 */
 	private void readValues(ByteStreamExt stream) {
 		int flag = -1;
 		do {
@@ -148,9 +162,9 @@ public final class ObjectDef {
 					}
 				}
 			} else if (type == 2) {
-				name = stream.readString();
+				name = stream.readNewString();
 			} else if (type == 3) {
-				description = stream.readBytes();
+				description = stream.readNewBytes();
 			} else if (type == 5) {
 				int len = stream.readUnsignedByte();
 				if (len > 0) {
@@ -202,7 +216,7 @@ public final class ObjectDef {
 					System.arraycopy(actions, 0, grown, 0, actions.length);
 					actions = grown;
 				}
-				actions[slot] = stream.readString();
+				actions[slot] = stream.readNewString();
 				hasActions = true;
 				if (actions[slot].equalsIgnoreCase("hidden"))
 					actions[slot] = null;
