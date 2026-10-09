@@ -24,14 +24,18 @@ import server.clip.region.Region;
  * about the world" guarantee, and it is the reason T1 ships with a validator rather than only an
  * exporter.
  *
- * <p><b>What is actually compared.</b> Terrain occupancy, not just file integrity:
+ * <p><b>What is actually compared.</b> Collision, not just file integrity:
  *
  * <ol>
+ * <li><b>Every tile's clip bitmask, exactly.</b> The export carries {@code Region.getClipping} for
+ *     all four planes, and the validator re-reads it out of the JSON and compares it bit for bit.
+ *     This is the check that makes the editor's clipping overlay trustworthy: it cannot show a tile
+ *     as walkable that the server blocks without this failing.
  * <li>{@code Region.loadMaps} blocks a tile when bit 0 of its flags is set, adding the
- *     {@code 0x200000} clip bit. The validator decodes the exported flags back into a grid, applies
- *     the same plane rule the server applies (a tile in plane 1 with bit 1 set belongs to the plane
- *     below), and asks {@code Region.getClipping} whether that tile really is blocked.
- * <li>A mismatch means the terrain decoder in {@code GroundMap} reads the map differently from the
+ *     {@code 0x200000} walk-block bit. The validator decodes the exported flags back into a grid,
+ *     applies the same plane rule the server applies (a tile in plane 1 with bit 1 set belongs to the
+ *     plane below), and asks {@code Region.getClipping} whether that tile really is blocked.
+ * <li>A mismatch in either means the decoder in {@code GroundMap} reads the map differently from the
  *     server — the one failure an export can have that no amount of unit testing against the file
  *     would catch, because both sides would be reading the same wrong thing.
  * </ol>
@@ -41,20 +45,33 @@ import server.clip.region.Region;
 public final class ValidateMap {
 
 	/**
-	 * The clip bit that <em>both</em> {@code Region.loadMaps} and a placed type-22 object can set.
+	 * The bit {@code Region.loadMaps} sets on a tile whose terrain flags have bit 0, and which a
+	 * placed type-22 object can set too.
+	 *
+	 * <p>It is a <b>walk-block</b>, not "there is a floor here". Two things in the server say so:
+	 * {@code Region.addObject} applies it to a type-22 object only when that object has actions and
+	 * blocks walk, and it is inside {@code Region.BLOCKED}, the value used to fail closed on a region
+	 * with no collision data — including it in a blocked mask would be meaningless if it meant the
+	 * opposite. It is also inside every {@code SmartPathFinder} walk mask.
 	 *
 	 * <p>Because terrain and objects share the one bit, the comparison below only holds one way: a
-	 * tile the export calls occupied must have the bit, but a tile that has the bit may owe it to an
+	 * tile the export calls blocked must have the bit, but a tile that has the bit may owe it to an
 	 * object rather than to terrain. That is what keeps this test immune to object-side changes — the
 	 * {@code ObjectDef} terminator fix moved 307 object clip values across the three landmark regions
 	 * and this count stayed at zero, which is the expected outcome and not a sign the check is inert.
 	 */
-	private static final int OCCUPIED_BIT = 0x200000;
+	private static final int BLOCKED_BIT = 0x200000;
 
-	/** Anchored on the plane object's field order, which {@code RegionDocumentTest} pins. */
+	/**
+	 * Anchored on the plane object's field order, which {@code RegionDocumentTest} pins.
+	 *
+	 * <p>{@code clip} is captured rather than skipped because it is the one plane whose exact value
+	 * the validator can compare: it is {@code Region.getClipping} written down, so any difference is
+	 * a real disagreement between the export and the server.
+	 */
 	private static final Pattern PLANE_BLOCK = Pattern.compile(
 			"\\{\\s*\"plane\":\\s*(\\d+),\\s*\"overlay\":\\s*\"([^\"]*)\",\\s*\"underlay\":\\s*\"([^\"]*)\","
-					+ "\\s*\"flags\":\\s*\"([^\"]*)\"\\s*\\}");
+					+ "\\s*\"flags\":\\s*\"([^\"]*)\",\\s*\"clip\":\\s*\"([^\"]*)\"\\s*\\}");
 
 	private ValidateMap() {
 	}
@@ -73,13 +90,28 @@ public final class ValidateMap {
 		Region.load();
 
 		List<Path> files = new ArrayList<Path>();
+		List<String> skipped = new ArrayList<String>();
 		try (Stream<Path> stream = Files.list(outDir)) {
 			stream.filter(p -> p.getFileName().toString().endsWith(".json"))
-					.filter(p -> !p.getFileName().toString().equals("index.json"))
 					.sorted()
-					.forEach(files::add);
+					.forEach(p -> {
+						// Region documents are named after their region id. Anything else in this
+						// directory (banks.json, and later whatever else the exporter adds) is not a
+						// region, and guessing that from "not index.json" would silently feed a
+						// non-region file to the region parser.
+						String name = p.getFileName().toString();
+						String stem = name.substring(0, name.length() - ".json".length());
+						if (stem.chars().allMatch(Character::isDigit) && !stem.isEmpty()) {
+							files.add(p);
+						} else {
+							skipped.add(name);
+						}
+					});
 		}
 		System.out.println("[validate] " + files.size() + " region document(s) in " + outDir);
+		if (!skipped.isEmpty()) {
+			System.out.println("[validate] not region documents, skipped: " + String.join(", ", skipped));
+		}
 
 		int mismatches = 0;
 		int badDocuments = 0;
@@ -196,6 +228,7 @@ public final class ValidateMap {
 
 		// flagsByPlane[plane] indexed localX * 64 + localY, the same order the exporter wrote.
 		int[][] flagsByPlane = new int[GroundMap.planes()][GroundMap.size() * GroundMap.size()];
+		int[][] clipByPlane = new int[GroundMap.planes()][GroundMap.size() * GroundMap.size()];
 		boolean[] seen = new boolean[GroundMap.planes()];
 
 		Matcher matcher = PLANE_BLOCK.matcher(json);
@@ -205,6 +238,7 @@ public final class ValidateMap {
 				throw new IllegalStateException("plane " + plane + " out of range");
 			}
 			flagsByPlane[plane] = Rle.decode(matcher.group(4), GroundMap.size() * GroundMap.size());
+			clipByPlane[plane] = Rle.decode(matcher.group(5), GroundMap.size() * GroundMap.size());
 			seen[plane] = true;
 		}
 		for (int plane = 0; plane < GroundMap.planes(); plane++) {
@@ -219,11 +253,30 @@ public final class ValidateMap {
 			for (int localX = 0; localX < size; localX++) {
 				for (int localY = 0; localY < size; localY++) {
 					int at = localX * size + localY;
+					int tileX = baseX + localX;
+					int tileY = baseY + localY;
+
+					// The exact check, and the strongest one available: every bit of the exported
+					// clip grid must equal the server's own bitmask for that tile and plane. The
+					// editor draws this grid as its clipping overlay, so a difference here would be
+					// the tool showing a tile as walkable that the server refuses to walk.
+					int serverClip = Region.getClipping(tileX, tileY, plane);
+					if (clipByPlane[plane][at] != serverClip) {
+						if (mismatches < 5) {
+							System.out.println("[validate] " + regionId + " tile " + tileX + "," + tileY
+									+ " plane " + plane + ": exported clip " + clipByPlane[plane][at]
+									+ ", server clip " + serverClip);
+						}
+						mismatches++;
+					}
+
 					if ((flagsByPlane[plane][at] & 1) != 1) {
 						continue;
 					}
 					// The plane rule Region.loadMaps uses: a tile whose plane-1 flags have bit 1
-					// set belongs to the plane below, whatever plane we are reading.
+					// set belongs to the plane below, whatever plane we are reading. Note this is a
+					// different plane from the clip comparison above, deliberately: the clip grid is
+					// queried by the plane as stored, because that is where the server put the bit.
 					int height = plane;
 					if ((flagsByPlane[1][at] & 2) == 2) {
 						height--;
@@ -231,12 +284,15 @@ public final class ValidateMap {
 					if (height < 0 || height > 3) {
 						continue;
 					}
-					int clip = Region.getClipping(baseX + localX, baseY + localY, height);
-					if ((clip & OCCUPIED_BIT) == 0) {
+					// Separate from the clip check because it asserts something weaker and only
+					// about blocked tiles; keeping it means a terrain-decoder disagreement still
+					// reports as a terrain disagreement rather than as a clip mismatch.
+					int clip = Region.getClipping(tileX, tileY, height);
+					if ((clip & BLOCKED_BIT) == 0) {
 						if (mismatches < 5) {
-							System.out.println("[validate] " + regionId + " tile " + (baseX + localX) + ","
-									+ (baseY + localY) + " plane " + height
-									+ ": exported as occupied, server clip " + clip + " has no 0x200000");
+							System.out.println("[validate] " + regionId + " tile " + tileX + ","
+									+ tileY + " plane " + height
+									+ ": exported flags say blocked, server clip " + clip + " has no 0x200000");
 						}
 						mismatches++;
 					}

@@ -167,3 +167,19 @@ tasks.register('workshopValidate', JavaExec) {
     workingDir = projectDir
     jvmArgs = ['-Xmx2000m']
 }
+
+// ---- Bot Workshop viewer (BOT_TOOLING.md T2) -----------------------------------------
+//
+// Serves the map viewer and the exported JSON over loopback. Deliberately does not depend on
+// workshopExport: a re-export takes tens of seconds and usually changes nothing, and the server
+// already fails with the exact command to run when the export is missing.
+tasks.register('workshopServe', JavaExec) {
+    description = 'Serves the Bot Workshop map viewer at http://127.0.0.1:8080 (T2).'
+    group = 'bot workshop'
+    classpath = sourceSets.workshop.runtimeClasspath
+    mainClass = 'botworkshop.serve.WorkshopServer'
+    workingDir = projectDir
+    if (project.hasProperty('workshopPort')) {
+        args = ['--port', project.property('workshopPort').toString()]
+    }
+}

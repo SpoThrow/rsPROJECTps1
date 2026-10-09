@@ -1,5 +1,6 @@
 package botworkshop.export;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -106,6 +107,74 @@ class RegionDocumentTest {
 		String json = RegionDocument.toJson(entry(), GroundMap.parse(landscape()),
 				List.of(new Placement(1276, 3201, 3202, 0, 10, 0)), null, null, clip);
 		assertTrue(json.contains("\"clip\": 3204202"), "clip from the injected source");
+	}
+
+	@Test
+	void theClippingGridIsEmittedPerPlaneAndIndexedLikeTheOtherPlanes() throws IOException {
+		// The editor's clipping overlay is drawn straight from this grid, so it has to be indexed
+		// the same way as the terrain planes — and it has to be the server's bitmask, not a value
+		// re-derived from the objects standing on the tile.
+		TileClip clip = (x, y, plane) -> plane * 1_000_000 + (x - 3200) * 100 + (y - 3200);
+
+		String json = RegionDocument.toJson(entry(), GroundMap.parse(landscape()), List.of(), null, null, clip);
+		int[] grid = Rle.decode(readString(json, "clip"), SIZE * SIZE);
+
+		assertEquals(0, grid[0], "tile (0,0) plane 0");
+		assertEquals(1, grid[1], "tile (0,1) plane 0 — localY varies fastest");
+		assertEquals(100, grid[64], "tile (1,0) plane 0 — localX is the outer stride");
+	}
+
+	@Test
+	void theClipGridOfALaterPlaneIsEmittedToo() throws IOException {
+		TileClip clip = (x, y, plane) -> plane;
+		String json = RegionDocument.toJson(entry(), GroundMap.parse(landscape()), List.of(), null, null, clip);
+
+		// Four plane blocks, so four distinct clip grids; the first is plane 0 and all zeros.
+		int seen = 0;
+		int from = 0;
+		int[] planesRead = new int[4];
+		while (true) {
+			int at = json.indexOf("\"clip\": \"", from);
+			if (at < 0) {
+				break;
+			}
+			from = at + 9;
+			int end = from;
+			while (json.charAt(end) != '"') {
+				end++;
+			}
+			int[] grid = Rle.decode(json.substring(from, end), SIZE * SIZE);
+			planesRead[seen++] = grid[0];
+		}
+		assertEquals(4, seen, "every plane needs its own clip grid");
+		assertArrayEquals(new int[] { 0, 1, 2, 3 }, planesRead);
+	}
+
+	@Test
+	void withoutAClipSourceTheGridIsAllZeroRatherThanAbsent() throws IOException {
+		// A caller that has no clip source still gets a well-formed plane, so a consumer never has
+		// to special-case a missing grid and silently draw nothing.
+		String json = RegionDocument.toJson(entry(), GroundMap.parse(landscape()), List.of(), null, null, null);
+		int[] grid = Rle.decode(readString(json, "clip"), SIZE * SIZE);
+		for (int value : grid) {
+			assertEquals(0, value, "a grid with no source must be all zeros");
+		}
+	}
+
+	@Test
+	void thePlaneFieldOrderIsPinnedBecauseTheValidatorParsesIt() throws IOException {
+		// ValidateMap locates the plane fields with one ordered regex, so the order is a contract
+		// between the exporter and the validator rather than an incidental detail of the builder.
+		String json = RegionDocument.toJson(entry(), GroundMap.parse(landscape()), List.of(), null, null, null);
+		int plane0 = json.indexOf('{', json.indexOf("\"planes\": ["));
+		int overlay = json.indexOf("\"overlay\"", plane0);
+		int underlay = json.indexOf("\"underlay\"", plane0);
+		int flags = json.indexOf("\"flags\"", plane0);
+		int clip = json.indexOf("\"clip\"", plane0);
+
+		assertTrue(overlay < underlay, "overlay before underlay");
+		assertTrue(underlay < flags, "underlay before flags");
+		assertTrue(flags < clip, "flags before clip");
 	}
 
 	@Test

@@ -330,9 +330,9 @@ internals.
 
 | Stage | Deliverable |
 | --- | --- |
-| **T1** | Java exporter/validator library: read `Data/world` + `Data/cfg`, emit map JSON/tiles |
-| **T2** | Web map viewer: pan/zoom, planes, overlays, tile inspector (`BOT_WORKSHOP_UX.md` §2) |
-| **T2b** | Resource/service icon layer (`ObjectDef.actions` classification) + resource filter panel (`BOT_WORKSHOP_UX.md` §3–§4) |
+| **T1** ✅ | Java exporter/validator library: read `Data/world` + `Data/cfg`, emit map JSON/tiles |
+| **T2** ✅ | Web map viewer: pan/zoom, planes, overlays, tile inspector (`BOT_WORKSHOP_UX.md` §2) |
+| **T2b** ✅ | Resource/service icon layer (`ObjectDef.actions` classification) + resource filter panel (`BOT_WORKSHOP_UX.md` §3–§4) |
 | **T3** | Region/patch authoring → `locations.cfg`; drag-a-box → `RandomTileIn` waypoints |
 | **T4** | `@BotNode` registry + `bot-nodes.json` export + parity test |
 | **T5** | Step timeline editor → `BotScript` JSON (`BOT_WORKSHOP_UX.md` §5) |

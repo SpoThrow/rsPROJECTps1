@@ -12,8 +12,10 @@ import java.util.Map;
 
 import botworkshop.classify.ResourceRules;
 import botworkshop.data.GroundMap;
+import botworkshop.data.LocDefinition;
 import botworkshop.data.LocDefs;
 import botworkshop.data.MapIndex;
+import botworkshop.export.BankIndex;
 import botworkshop.export.Placement;
 import botworkshop.export.RegionDocument;
 import server.clip.region.ObjectDef;
@@ -127,12 +129,19 @@ public final class ExportMap {
 		Files.write(indexFile, indexDocument(selected.size(), skippedNoMapData, indexRows)
 				.getBytes(StandardCharsets.UTF_8));
 
+		// Banks are collected from every region the server loaded, not from `selected`: see BankIndex.
+		List<BankIndex.Bank> banks = banksOf(index, defs);
+		Path bankFile = outDir.resolve("banks.json");
+		Files.write(bankFile, BankIndex.toJson(banks).getBytes(StandardCharsets.UTF_8));
+
 		System.out.println();
 		System.out.println("[workshop] regions written        = " + indexRows.size());
 		if (skippedNoMapData > 0) {
 			System.out.println("[workshop] regions with no map data = " + skippedNoMapData + " (the server skips these too)");
 		}
 		System.out.println("[workshop] object placements      = " + objectsWritten);
+		System.out.println("[workshop] banks in the world     = " + banks.size()
+				+ " (whole-world scan, not just the exported regions)");
 		System.out.println("[workshop] classified by icon rule:");
 		for (ResourceRules.Rule rule : ResourceRules.rules()) {
 			Integer n = kindCounts.get(rule.kind());
@@ -201,8 +210,38 @@ public final class ExportMap {
 		return placements;
 	}
 
-	private static String row(MapIndex.Entry entry, int objects, int bytes) {
-		return "    { \"regionId\": " + entry.regionId + ", \"baseX\": " + entry.baseX()
+	/**
+	 * Every classified bank object in the world, walked over the whole region directory.
+	 *
+	 * <p>This deliberately does not reuse {@code select(...)}: the editor has to be able to answer
+	 * "nearest bank" for a region that was never exported, and the world is already in memory after
+	 * {@code Region.load()} either way.
+	 */
+	private static List<BankIndex.Bank> banksOf(List<MapIndex.Entry> index, LocDefs defs) {
+		List<BankIndex.Bank> banks = new ArrayList<BankIndex.Bank>();
+		for (MapIndex.Entry entry : index) {
+			Region region = Region.getRegion(entry.baseX(), entry.baseY());
+			if (region == null) {
+				// The 51 regions with no map data — Region.load skipped them, so there is nothing
+				// here and nothing to report.
+				continue;
+			}
+			for (Objects object : region.realObjects) {
+				if (object.objectId < 0) {
+					continue;
+				}
+				LocDefinition def = defs.get(object.objectId);
+				if (!"bank".equals(ResourceRules.classify(def))) {
+					continue;
+				}
+				banks.add(new BankIndex.Bank(object.objectId, object.objectX, object.objectY,
+						object.objectHeight, def == null ? null : def.name()));
+			}
+		}
+		return banks;
+	}
+
+	private static String row(MapIndex.Entry entry, int objects, int bytes) {		return "    { \"regionId\": " + entry.regionId + ", \"baseX\": " + entry.baseX()
 				+ ", \"baseY\": " + entry.baseY() + ", \"objects\": " + objects
 				+ ", \"bytes\": " + bytes + " }";
 	}

@@ -18,17 +18,25 @@ import server.clip.region.ObjectSizes;
  * <pre>
  * {
  *   "regionId": 12850, "baseX": 3200, "baseY": 3200,
- *   "planes": [ { "plane": 0, "overlay": "7*4096", "underlay": "...", "flags": "..." } ],
+ *   "planes": [ { "plane": 0, "overlay": "7*4096", "underlay": "...", "flags": "...",
+ *                 "clip": "..." } ],
  *   "objects": [ { "id": 1276, "x": 3201, "y": 3202, "plane": 0, "type": 10, "rotation": 0,
  *                  "name": "Tree", "actions": ["Chop down"], "kind": "tree", "service": false,
  *                  "sizeX": 2, "sizeY": 2, "clip": 256 } ]
  * }
  * </pre>
  *
- * <p>The three tile strings are run-length encoded (see {@link Rle}) and indexed
+ * <p>The four tile strings are run-length encoded (see {@link Rle}) and indexed
  * {@code localX * 64 + localY} within a plane — the same order the decoder reads them, x outermost.
  * Getting that order wrong would transpose the map, so it is stated here and asserted in
  * {@code RegionDocumentTest}.
+ *
+ * <p>{@code clip} is the one plane that is not terrain: it is {@code Region.getClipping} verbatim,
+ * the server's collision bitmask, so the editor's clipping overlay cannot disagree with what the
+ * server walks on. Note it is indexed by the plane as stored, whereas {@code flags} is the raw
+ * terrain stream — for the bridge tiles where the two differ, the clip bit already sits on the plane
+ * the server decided, and {@code flags} still carries the raw bridge bit. (The per-object
+ * {@code clip} is the same bitmask, but only at the tile the object stands on.)
  *
  * <p>Everything a caller could disagree about is injected rather than looked up: the tile data, the
  * placements, the definitions, the size table and the clip source. That is what lets the builder be
@@ -53,6 +61,7 @@ public final class RegionDocument {
 			int[] overlay = new int[size * size];
 			int[] underlay = new int[size * size];
 			int[] flags = new int[size * size];
+			int[] clipValues = new int[size * size];
 			for (int localX = 0; localX < size; localX++) {
 				for (int localY = 0; localY < size; localY++) {
 					GroundTile tile = ground.tile(plane, localX, localY);
@@ -60,6 +69,11 @@ public final class RegionDocument {
 					overlay[at] = tile.overlayId;
 					underlay[at] = tile.underlayId;
 					flags[at] = tile.flags;
+					// The whole per-tile collision bitmask, straight from the server, so the
+					// editor's clipping overlay is what the server walks on rather than a second
+					// implementation of the rules that could drift from it.
+					clipValues[at] = clip == null ? 0
+							: clip.clip(entry.baseX() + localX, entry.baseY() + localY, plane);
 				}
 			}
 			json.openObject();
@@ -67,6 +81,7 @@ public final class RegionDocument {
 			json.field("overlay", Rle.encode(overlay));
 			json.field("underlay", Rle.encode(underlay));
 			json.field("flags", Rle.encode(flags));
+			json.field("clip", Rle.encode(clipValues));
 			json.closeObject();
 		}
 		json.closeArray();
