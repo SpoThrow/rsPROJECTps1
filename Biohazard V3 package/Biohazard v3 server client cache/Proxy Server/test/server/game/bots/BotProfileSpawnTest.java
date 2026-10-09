@@ -132,4 +132,60 @@ class BotProfileSpawnTest {
 		assertEquals(0, BotManager.apply(BotsConfig.parseLines(Collections.<String>emptyList())));
 		assertNull(BotManager.get(NAME));
 	}
+
+	// ---- provisioning (BOT_ACCOUNTS.md §4.1) ---------------------------------------------------
+
+	/**
+	 * The gap this closes, stated as the thing an operator would actually have reported: a bot created
+	 * from a config line used to own nothing, so a woodcutter had no axe and its {@code Gather} loop
+	 * failed on the first click. The kit is granted at creation and read back through the save file, so
+	 * this asserts on the possessed bot rather than on the file.
+	 */
+	@Test
+	void aConfigSpawnedBotOwnsTheKitItsRowAsksFor() {
+		BotManager.apply(config("account " + NAME + " password " + PASSWORD
+				+ " script gather_oak profile woodcutter"));
+
+		BotPlayer bot = BotManager.get(NAME);
+		assertNotNull(bot);
+		assertTrue(bot.getItems().playerHasItem(1351),
+				"a woodcutter with no axe is a possessed character, not a bot that can chop");
+	}
+
+	@Test
+	void aRowThatNamesNoProfileStillGetsAWorkingKit() {
+		// The obvious config line — account, password, script — has to be sufficient. That is the whole
+		// reason the default kit covers every gatherable resource rather than being merely a token grant.
+		BotManager.apply(config("account " + NAME + " password " + PASSWORD + " script gather_oak"));
+
+		BotPlayer bot = BotManager.get(NAME);
+		assertNotNull(bot);
+		assertTrue(bot.getItems().playerHasItem(1351), "the default kit includes an axe");
+	}
+
+	@Test
+	void anUnknownProfileFallsBackToTheDefaultInsteadOfFailingTheSpawn() {
+		int spawned = BotManager.apply(config("account " + NAME + " password " + PASSWORD
+				+ " script gather_oak profile no_such_kit"));
+
+		assertEquals(1, spawned, "a bad profile costs a leaner kit, not a dead bot — as with a bad home");
+		assertTrue(BotManager.get(NAME).getItems().playerHasItem(1351));
+	}
+
+	@Test
+	void theKitIsGrantedOnlyOnCreationNotOnEveryPossession() {
+		// Provisioning runs at createAccount and nowhere else. If it also ran on possess, a bot would
+		// accumulate a fresh axe every restart, which is exactly the kind of slow leak nobody notices
+		// until a character's inventory is inexplicably full.
+		BotManager.apply(config("account " + NAME + " password " + PASSWORD
+				+ " script gather_oak profile woodcutter"));
+		BotManager.release(NAME);
+		int freeAfterFirst = BotManager.possess(NAME, PASSWORD).getItems().freeSlots();
+
+		BotManager.release(NAME);
+		BotPlayer second = BotManager.possess(NAME, PASSWORD);
+
+		assertEquals(freeAfterFirst, second.getItems().freeSlots(),
+				"a second possession must not grant the kit again");
+	}
 }

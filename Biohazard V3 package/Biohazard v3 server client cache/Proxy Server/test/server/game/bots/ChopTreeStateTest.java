@@ -36,7 +36,13 @@ class ChopTreeStateTest {
 		BotPlayer bot = BotTestFixture.possess(NAME);
 		BotTestFixture.teleport(bot, TREE_X + 1, TREE_Y);
 		if (withAxe) {
+			// Added rather than assumed: every created bot is now provisioned from BotProfiles.DEFAULT,
+			// which already includes an axe, so this makes the test independent of what the kit contains.
 			bot.getItems().addItem(AXE, 1);
+		} else {
+			// And "without an axe" has to be arranged for the same reason — the default kit would
+			// otherwise hand this test an axe and quietly invert what it is testing.
+			bot.getItems().removeAllItems();
 		}
 		return bot;
 	}

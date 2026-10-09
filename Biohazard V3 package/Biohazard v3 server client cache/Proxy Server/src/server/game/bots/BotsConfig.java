@@ -148,7 +148,7 @@ public final class BotsConfig {
 		}
 		String account = tokens.remove(0);
 
-		String password = null, script = null, home = null;
+		String password = null, script = null, home = null, profile = null;
 		boolean enabled = true;
 
 		int i = 0;
@@ -168,6 +168,11 @@ public final class BotsConfig {
 				break;
 			case "home":
 				home = value;
+				break;
+			case "profile":
+				// Validated at spawn, not here: the profile only matters if the account is created, and
+				// an unknown name for an account that already exists is not a reason to refuse the row.
+				profile = value;
 				break;
 			case "enabled":
 				enabled = booleanValue(value);
@@ -191,7 +196,7 @@ public final class BotsConfig {
 		if (script == null || script.isBlank()) {
 			throw new IllegalArgumentException("missing script for " + account);
 		}
-		return BotProfile.of(account, password, script.trim(), home, enabled);
+		return BotProfile.of(account, password, script.trim(), home, profile, enabled);
 	}
 
 	private static boolean booleanValue(String value) {
@@ -270,6 +275,9 @@ public final class BotsConfig {
 				.append(" script ").append(profile.script());
 		if (profile.home() != null) {
 			row.append(" home ").append(profile.home());
+		}
+		if (profile.profile() != null) {
+			row.append(" profile ").append(profile.profile());
 		}
 		row.append(" enabled ").append(profile.enabled() ? "true" : "false");
 		return row.toString();

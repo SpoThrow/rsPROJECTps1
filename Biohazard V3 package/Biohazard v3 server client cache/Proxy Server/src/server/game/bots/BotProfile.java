@@ -26,18 +26,27 @@ public final class BotProfile {
 	private final String password;
 	private final String script;
 	private final String home;
+	private final String profile;
 	private final boolean enabled;
 
+	/** A row with no {@code profile}: it gets {@link BotProfiles#DEFAULT} if the account is created. */
 	public static BotProfile of(String account, String password, String script, String home,
 			boolean enabled) {
-		return new BotProfile(account, password, script, home, enabled);
+		return new BotProfile(account, password, script, home, null, enabled);
 	}
 
-	private BotProfile(String account, String password, String script, String home, boolean enabled) {
+	public static BotProfile of(String account, String password, String script, String home,
+			String profile, boolean enabled) {
+		return new BotProfile(account, password, script, home, profile, enabled);
+	}
+
+	private BotProfile(String account, String password, String script, String home, String profile,
+			boolean enabled) {
 		this.account = account;
 		this.password = password;
 		this.script = script;
 		this.home = home == null || home.isBlank() ? null : home.trim();
+		this.profile = profile == null || profile.isBlank() ? null : profile.trim();
 		this.enabled = enabled;
 	}
 
@@ -61,6 +70,19 @@ public final class BotProfile {
 		return home;
 	}
 
+	/**
+	 * The {@link BotProfiles} name this account is created from, or null for
+	 * {@link BotProfiles#DEFAULT}.
+	 *
+	 * <p>Applied <b>only when the character does not exist yet</b>: the kit belongs to creation, so a row
+	 * edited after its account was made changes nothing about what that account owns. That is stated
+	 * rather than merely implemented, because it is the kind of thing an operator would otherwise expect
+	 * to work and then report as a bug.
+	 */
+	public String profile() {
+		return profile;
+	}
+
 	/** Whether {@link BotManager#start()} should spawn this row. */
 	public boolean enabled() {
 		return enabled;
@@ -73,6 +95,7 @@ public final class BotProfile {
 
 	@Override
 	public String toString() {
-		return account + " (" + script + (enabled ? "" : ", disabled") + ")";
+		return account + " (" + script + (profile == null ? "" : ", " + profile)
+				+ (enabled ? "" : ", disabled") + ")";
 	}
 }

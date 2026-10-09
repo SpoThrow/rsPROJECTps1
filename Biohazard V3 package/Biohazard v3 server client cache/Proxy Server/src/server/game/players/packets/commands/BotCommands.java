@@ -6,6 +6,8 @@ import server.game.bots.BotController;
 import server.game.bots.BotManager;
 import server.game.bots.BotPlayer;
 import server.game.bots.BotProfile;
+import server.game.bots.BotProfiles;
+import server.game.bots.BotProvisioning;
 import server.game.bots.BotTrace;
 import server.game.players.Client;
 
@@ -18,6 +20,7 @@ import server.game.players.Client;
  * ::bot spawn &lt;account&gt;  spawn a configured row now
  * ::bot despawn &lt;account&gt; stop a live bot and save its character
  * ::bot reload           re-read Data/cfg/bots.cfg and move the live set to match
+ * ::bot reprovision &lt;account&gt; &lt;profile&gt;  rebuild a live character's kit (dev tool)
  * ::bot info &lt;account&gt;   what a live bot is doing, and what it last failed at
  * ::botinfo &lt;account&gt;    the same, under the name the roadmap gives it
  * </pre>
@@ -72,6 +75,9 @@ final class BotCommands {
 			return;
 		case "reload":
 			reload(c);
+			return;
+		case "reprovision":
+			reprovision(c, args);
 			return;
 		case "info":
 			info(c, args, 2);
@@ -140,6 +146,39 @@ final class BotCommands {
 	}
 
 	/**
+	 * Dev-only: rebuild a live bot's character from {@link BotProfiles} — clear, then re-apply
+	 * ({@code BOT_ACCOUNTS.md} §4.1). The sanctioned way to change a kit, because provisioning runs only
+	 * at creation, so an existing account would otherwise keep whatever it was first made with.
+	 *
+	 * <p><b>The bot must be live.</b> The change is applied to the character in memory and persisted by
+	 * the ordinary save; a bot that is not possessed has no client to apply it to. To rebuild one that is
+	 * not running, delete its {@code Data/characters/<name>.txt} and spawn it again.
+	 *
+	 * <p><b>The script is not restarted</b>, so a bot mid-chop loses its axe underneath it and will fail
+	 * the current cycle. Timing is the operator's, which is why this is owner-gated and documented as a
+	 * testing tool rather than an everyday action.
+	 */
+	private static void reprovision(Client c, String[] args) {
+		if (args.length < 4) {
+			c.sendMessage("Usage: ::bot reprovision <account> <profile>");
+			return;
+		}
+		BotPlayer bot = BotManager.get(args[2]);
+		if (bot == null) {
+			c.sendMessage("No live bot called \"" + args[2] + "\". Try ::bot list.");
+			return;
+		}
+		BotProfiles.Profile kit = BotProfiles.named(args[3]);
+		if (kit == null) {
+			c.sendMessage("No profile called \"" + args[3] + "\". Known: " + BotProfiles.names() + ".");
+			return;
+		}
+		BotProvisioning.reprovision(bot, kit);
+		c.sendMessage("Reprovisioned " + bot.playerName + " from \"" + kit.name() + "\" ("
+				+ kit.itemCount() + " item(s)); it saves like any other character change.");
+	}
+
+	/**
 	 * The observability dump (roadmap Phase F): what this bot is doing right now, and what it last gave
 	 * up on. Three short blocks, because this is read in a game chat window.
 	 *
@@ -177,6 +216,6 @@ final class BotCommands {
 
 	private static void usage(Client c) {
 		c.sendMessage("::bot list | ::bot spawn <account> | ::bot despawn <account> | ::bot reload"
-				+ " | ::botinfo <account>");
+				+ " | ::bot reprovision <account> <profile> | ::botinfo <account>");
 	}
 }

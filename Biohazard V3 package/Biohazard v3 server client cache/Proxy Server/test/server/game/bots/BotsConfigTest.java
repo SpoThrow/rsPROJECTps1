@@ -174,4 +174,35 @@ class BotsConfigTest {
 		assertEquals(profile.script(), only(reloaded).script());
 		assertEquals(profile.home(), only(reloaded).home());
 	}
+
+	// ---- the profile field (BOT_ACCOUNTS.md §4.1) --------------------------------------------
+
+	@Test
+	void theProfileFieldIsParsedAndRoundTrips() {
+		BotProfile row = only(parse("account botwillow password x script gather_oak profile woodcutter"));
+
+		assertEquals("woodcutter", row.profile());
+
+		// The row form and the parse must stay inverses, or a workshop-written config would reload
+		// differently from the way it was authored.
+		BotProfile rewritten = only(parse(BotsConfig.toRow(row)));
+		assertEquals("woodcutter", rewritten.profile());
+	}
+
+	@Test
+	void aRowWithNoProfileLeavesItUnset() {
+		// Null, not an empty string: the spawn path treats "unset" and "unrecognised" differently only in
+		// what it logs, and an empty string would be an unrecognised profile name.
+		assertNull(only(parse("account botwillow password x script gather_oak")).profile());
+	}
+
+	@Test
+	void anUnknownProfileNameIsNotRejectedAtParseTime() {
+		// It is validated at spawn, where it only matters if the account is about to be created. Rejecting
+		// it here would refuse a row whose account already exists and needs no kit at all.
+		BotsConfig.Result result = parse("account botwillow password x script gather_oak profile nope");
+
+		assertTrue(result.problems().isEmpty(), result.problems().toString());
+		assertEquals("nope", only(result).profile());
+	}
 }

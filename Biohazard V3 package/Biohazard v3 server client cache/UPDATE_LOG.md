@@ -1,5 +1,19 @@
 # Update Log
 
+## 2026-10-10 - Bot provisioning: a spawned bot now owns the tools its script needs
+
+**What changed:**
+- **The gap is closed.** `BotManager.createAccount` used to grant no kit at all, so a config-spawned woodcutter owned no axe and `Gather` failed on its first click. It now applies **`BotProvisioning.provision(...)`** from a named **`BotProfiles`** kit before the character is saved.
+- **`BotProfiles`** — four lean kits: `default`, `woodcutter`, `miner`, `fisher`. **`default` is the generalist** (bronze axe + pickaxe + net + tinderbox), so the obvious config line — account, password, script — works with no fourth field; a row that wants a leaner kit names one. **`bots.cfg` gained an optional `profile` column** (a bad name logs and falls back to `default`, like a bad `home`).
+- **Granted only at creation, never on possess**, so a restart cannot accumulate a second axe. `reprovision` (clear, then apply) is the replace path, and **`::bot reprovision <account> <profile>`** makes it reachable — the command `BOT_ACCOUNTS.md` §4.1 promised but which did not exist.
+- Three traps found and pinned by tests rather than left implicit: **(1)** `Player`'s constructor seeds every skill to 1 *except hitpoints (10)*, so a "set all skills to 1" reset leaves a character dead on arrival — hitpoints is restored explicitly; **(2)** `provision` is **additive for items**, safe only because creation starts empty, documented so nobody "fixes" it into an inventory wipe; **(3)** item ids are checked against this server's own `Data/cfg/item.cfg` (a test reads it), because `addItem` silently grants nothing for an undefined id.
+- The starter-kit "drift note" in `BOT_ACCOUNTS.md` §4.1 was **wrong in its goal** and is corrected: the adventurer starter grants 2,000,000 coins, so sharing the list would have meant sharing *and* filtering. The bots keep their own lean kits and there is no drift to reconcile.
+- ⚠️ One test premise had to change, and it failed *because provisioning works*: `ChopTreeStateTest`'s "without an axe" case relied on a fresh bot owning nothing. The fixture now hands every bot the default kit, so that test clears the inventory explicitly.
+
+**Files touched:** new `bots/BotProfiles.java`, `bots/BotProvisioning.java`, `test/.../BotProvisioningTest.java`. Modified `bots/BotManager.java`, `bots/BotProfile.java`, `bots/BotsConfig.java`, `players/packets/commands/BotCommands.java`, `Data/cfg/bots.cfg` (template + `profile` docs), `test/.../{BotProfileSpawnTest,BotsConfigTest,ChopTreeStateTest}.java`, `BOT_ACCOUNTS.md`, `BOT_ROADMAP.md`.
+
+**Status:** done. **767 tests, 0 failures** (650 server + 117 workshop). Next: **H (scale)** — or the residual half of G, making object dispatch actor-generic so an NPC can skill.
+
 ## 2026-10-10 - Bot roadmap G: the Agent seam (one behaviour library, two actors)
 
 **What changed:**

@@ -33,9 +33,6 @@ public final class BotManager {
 	/** The marker written to {@code connectedFrom} for a sessionless client. */
 	public static final String BOT_CONNECTED_FROM = "bot";
 
-	/** Where a freshly created bot stands until a profile says otherwise. */
-	private static final int DEFAULT_X = 3087, DEFAULT_Y = 3236, DEFAULT_PLANE = 0;
-
 	private static final List<BotPlayer> live = new ArrayList<BotPlayer>();
 
 	/** So the cap is reported once, not once per refused possess. */
@@ -152,10 +149,8 @@ public final class BotManager {
 	 *
 	 * <p><b>A missing account is created, not an error.</b> A config line is meant to be sufficient
 	 * ({@code BOT_ACCOUNTS.md} §1), so an account file that is not there yet is created with the row's
-	 * own password and then possessed. Creating it grants no kit: what a fresh account of a given kind
-	 * should own is {@code BotProfiles}/{@code BotProvisioning} ({@code BOT_ACCOUNTS.md} §4.1), which is
-	 * not part of this phase. Such an account is possessed and runs its script, and will be missing the
-	 * tools anything that needs one would want.
+	 * own password, provisioned from the row's {@code profile} (or {@link BotProfiles#DEFAULT}), and then
+	 * possessed — which is what gives a fresh bot the axe its script needs.
 	 *
 	 * @return the live bot, or null when it could not be spawned
 	 */
@@ -174,7 +169,7 @@ public final class BotManager {
 			return null;
 		}
 		if (!characterFile(profile.account()).exists()
-				&& !createAccount(profile.account(), profile.password())) {
+				&& !createAccount(profile.account(), profile.password(), kitFor(profile))) {
 			Misc.println("[bots] " + profile.account() + ": could not create the account");
 			return null;
 		}
@@ -190,6 +185,28 @@ public final class BotManager {
 	/** Releases the account a profile names, if it is running. */
 	public static boolean despawn(BotProfile profile) {
 		return profile != null && release(profile.account());
+	}
+
+	/**
+	 * Resolves the kit a row asks for, falling back to {@link BotProfiles#DEFAULT} with a note.
+	 *
+	 * <p><b>An unknown profile name is a message, not a refusal</b> — the same treatment an unknown
+	 * {@code home} gets, and for the same reason. It is only consulted when the character does not exist
+	 * yet, so refusing the row would also refuse an account that is perfectly fine on disk; and the
+	 * default kit carries a tool for every resource the world supports, so a typo costs a leaner kit
+	 * rather than a dead bot.
+	 */
+	private static BotProfiles.Profile kitFor(BotProfile row) {
+		if (row.profile() == null) {
+			return BotProfiles.DEFAULT;
+		}
+		BotProfiles.Profile kit = BotProfiles.named(row.profile());
+		if (kit == null) {
+			Misc.println("[bots] " + row.account() + ": no profile named \"" + row.profile()
+					+ "\" (known: " + BotProfiles.names() + "); using the default kit");
+			return BotProfiles.DEFAULT;
+		}
+		return kit;
 	}
 
 	/**
@@ -228,11 +245,27 @@ public final class BotManager {
 	/**
 	 * Materialises an account on disk without logging it in and <b>without</b> the
 	 * new-player path (no {@code addStarter}: it is IP-gated and freezes walking — see
-	 * {@code BOT_ACCOUNTS.md} §4).
+	 * {@code BOT_ACCOUNTS.md} §4) — and with {@link BotProfiles#DEFAULT}'s kit.
 	 *
 	 * @return true if a character file was written; false if the name is illegal or taken
 	 */
 	public static boolean createAccount(String name, String password) {
+		return createAccount(name, password, BotProfiles.DEFAULT);
+	}
+
+	/**
+	 * As {@link #createAccount(String, String)}, but the new account is provisioned from {@code profile}:
+	 * tie flag, kit, skills, starting tile and spellbook.
+	 *
+	 * <p>This is the step whose absence left every spawned bot empty-handed. It used to create the
+	 * character and stop there, so a config-spawned woodcutter owned no axe and its {@code Gather} loop
+	 * failed on the first click — the gap the roadmap recorded as "a spawned woodcutter has no axe until
+	 * {@code BotProvisioning} lands". Provisioning runs here and only here, so re-possessing an existing
+	 * character never re-grants.
+	 *
+	 * @return true if a character file was written; false if the name is illegal or taken
+	 */
+	public static boolean createAccount(String name, String password, BotProfiles.Profile profile) {
 		if (!BotNames.isLoginLegal(name) || password == null || password.isEmpty()) {
 			return false;
 		}
@@ -246,9 +279,10 @@ public final class BotManager {
 		bot.newPlayer = false;      // PlayerSave refuses a "new" client
 		bot.addStarter = false;     // never the tutorial / IP-gated starter
 		bot.canWalk = true;
-		bot.position.absX = bot.position.teleportToX = DEFAULT_X;
-		bot.position.absY = bot.position.teleportToY = DEFAULT_Y;
-		bot.position.heightLevel = DEFAULT_PLANE;
+
+		// The kit, skills and starting tile — the profile is the only thing that decides where a
+		// character begins, so there is no second default position here to drift from it.
+		BotProvisioning.provision(bot, profile == null ? BotProfiles.DEFAULT : profile);
 
 		// saveGame refuses a client that is not in the player array, so the account is
 		// registered just long enough to be written and then taken back out of the world.

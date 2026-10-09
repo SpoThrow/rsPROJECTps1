@@ -69,7 +69,7 @@ Two records, one authoritative:
 | File | Holds | Role |
 | --- | --- | --- |
 | `Data/characters/<name>.txt` | `character-username`, `character-password = md5(...)` | **Authoritative account.** What login checks. |
-| `Data/cfg/bots.cfg` | account, **password (plaintext)**, script, home, enabled | **Operator's record.** What you read to log in. |
+| `Data/cfg/bots.cfg` | account, **password (plaintext)**, script, profile, home, enabled | **Operator's record.** What you read to log in. |
 
 Example:
 
@@ -103,9 +103,9 @@ path that can drift from the real one.
 3. Create a sessionless `Client`; set `playerName` / `playerName2` / `properName` and
    `playerPass` (already lowercase).
 4. **Do not set `addStarter`.** Grant the profile's kit directly with
-   `getItems().addItem(...)`, reusing the item ids `PlayerAssistant.addStarter()` already
-   grants for that archetype (e.g. `1351` bronze axe for a skiller), and set skills and the
-   starting position explicitly. This is the fix for the IP-gate and the tutorial freeze.
+   `getItems().addItem(...)` — the bot kits are their own lean tables, **not** the starter
+   lists (see the drift note in §4.1) — and set skills and the starting position explicitly.
+   This is the fix for the IP-gate and the tutorial freeze.
 5. Set the persistence flags immediately: `saveFile = true`, `saveCharacter = true`,
    `newPlayer = false`.
 6. `PlayerSave.saveGame(cl)` to materialise the file.
@@ -156,9 +156,32 @@ Provisioning runs **once, at `createAccount`** — never on `possess` — so re-
 character never re-grants. A dev-only `::bot reprovision <account> <profile>` (clear, then
 re-apply) exists for testing.
 
-**Drift note.** Ideally the kit lists are extracted so `addStarter` and `BotProfiles`
-share one source of truth. That touches core player code, so it is a deliberate follow-up,
-not slice-1 work; until then the duplication is acknowledged here.
+**Drift note — resolved by not sharing, on purpose.** The plan was to extract the kit lists so
+`addStarter` and `BotProfiles` had one source of truth. Building it showed that is the wrong goal: the
+`adventurer` starter grants **2,000,000 coins** and a suit of armour, which §4.1 above already rejects as
+"too rich for a bot meant to look like an ordinary new account". A shared list would therefore have to be
+shared *and* filtered, which is more machinery than the duplication it removes. So `BotProfiles` carries
+its own lean kits and there is **no drift to reconcile** — the two tables answer different questions.
+`1351` (bronze axe) is the one item they have in common, by coincidence rather than by design.
+
+**Implemented.** `BotProfiles` (table) + `BotProvisioning` (applies it) + an optional `profile` column on
+`bots.cfg`. Three things found while building it are worth recording, because each is invisible until it
+bites:
+
+- ⚠️ **Hitpoints is the one skill a "set them all to 1" loop must not touch.** `Player`'s constructor
+  seeds every skill to level 1 *except* hitpoints, which starts at 10 with the XP for 10. A naive reset
+  leaves the account at a single hitpoint — a character that is dead on arrival. `BotProvisioning`
+  restores it explicitly and the test pins it.
+- ⚠️ **`provision` grants items additively, not idempotently.** Calling it twice grants the kit twice. That
+  is safe only because `createAccount` provisions a brand-new empty character and `reprovision` clears
+  first; it is documented and tested so nobody "fixes" it into a silent inventory wipe.
+- ⚠️ **Item ids must come from this server's `item.cfg`, not from memory.** `addItem` grants nothing for an
+  undefined id, with no log line, so a wrong id means a bot that simply never gathers. A test reads
+  `item.cfg` and checks every id in the table against it.
+
+**No packets are sent by provisioning.** A bot is sessionless, so `getOutStream()` is null and every send
+in this codebase guards on that; `refreshSkill` would throw rather than refresh. The arrays are what
+`saveGame` persists, and the interface catches up if a human logs in.
 
 ---
 
@@ -190,8 +213,9 @@ A `::bot passwd <account> <newpass>` command (via the existing `CommandHandler` 
 
 ## 7. Open items
 
-- **Kit as a single source** — extract the kit lists so `addStarter` and `BotProfiles`
-  share them (§4.1 drift note). Touches core player code, so it is a follow-up.
+- **Kit as a single source** — ✅ **closed, by choosing not to share.** See the drift note in §4.1: the
+  starter kits are far richer than a bot should be, so a shared list would need to be shared *and*
+  filtered. `BotProfiles` keeps its own lean kits instead, and the two tables are not meant to agree.
 - **Ban checks** — `Connection.isNamedBanned` runs at login; ensure provisioned bot names
   are never accidentally in the banned list.
 - **Prefix vs registry-only** — revisit if the 12-char budget becomes restrictive (§2).

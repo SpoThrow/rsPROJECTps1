@@ -352,12 +352,17 @@ Each phase is additive; A is the only one that touches existing server code.
 Recommended order: **A → B → C → D → E → F**, then G, H, I as needs arise. B and C are
 the two phases that most change what "authoring a bot" feels like.
 
-**Implemented so far: A, B, C, D, E, F and G.** See `UPDATE_LOG.md` for what landed in each; the next
-phase in the recommended order is **H** (scale). G landed as the seam and **not** as a migration of
-`WorldAdventurer`: that NPC is now disabled (`Config.WORLD_ADVENTURER_ENABLED = false`), so migrating it
-onto the tree would have been work for something switched off. What G does deliver is the generic actor —
-`Agent`/`PlayerAgent`/`NpcAgent`, with `BotContext.agent()` replacing the `BotPlayer` it used to hand out —
-so travel states run on an NPC today, proven by test, and any tree grows the same property for free.
+**Implemented so far: A, B, C, D, E, F, G, and provisioning** (`BotProfiles`/`BotProvisioning`, the gap
+that made F's note "bot accounts still start with no kit" true). See `UPDATE_LOG.md` for what landed in
+each; the next phase in the recommended order is **H** (scale). One thing now works end to end that
+previously did not: a bot added by editing `Data/cfg/bots.cfg` is created with the tools its script needs,
+so a config-spawned woodcutter can actually chop rather than failing on its first click.
+
+G landed as the seam and **not** as a migration of `WorldAdventurer`: that NPC is now disabled
+(`Config.WORLD_ADVENTURER_ENABLED = false`), so migrating it onto the tree would have been work for
+something switched off. What G does deliver is the generic actor — `Agent`/`PlayerAgent`/`NpcAgent`, with
+`BotContext.agent()` replacing the `BotPlayer` it used to hand out — so travel states run on an NPC today,
+proven by test, and any tree grows the same property for free.
 **One limit was found and is recorded rather than glossed:** object interaction cannot be actor-generic
 yet, because `ObjectHandler.dispatch` and its `ObjectAction`s are `Client`-typed, so an NPC clicking a tree
 has no registry path. `NpcAgent.interactObject` throws with that reason instead of returning a false that
@@ -392,7 +397,7 @@ Concrete rules:
 
 ```
 # Data/cfg/bots.cfg
-account botyewn    password wq7f2k9r  script gather_yew  home falador  enabled true
+account botyewn    password wq7f2k9r  script gather_yew  profile woodcutter  home falador  enabled true
 ```
 
 `gather_yew` is registered once as
@@ -467,3 +472,9 @@ change with its own tests and lands **before** any RL types are introduced.
   `NpcAgent.interactObject` refuses loudly. An NPC can travel; it cannot yet skill.
 - **H:** N bots run within a bounded per-tick budget; a stress test shows tick time
   stays within budget as N grows.
+- **Provisioning** (cross-cutting; `BOT_ACCOUNTS.md` §4.1): a bot created from a config line owns the
+  tools its script needs, so a spawned woodcutter can chop. ✅ `BotProfiles` (named kits: `default`,
+  `woodcutter`, `miner`, `fisher`) + `BotProvisioning` (applies one at `createAccount`) + an optional
+  `profile` column. The `default` kit carries a tool for each of `TREE`/`ROCK`/`FISHING`, so the obvious
+  config line — account, password, script — works without a fourth field. Applied **only at creation**:
+  re-possessing never re-grants.
