@@ -15,6 +15,9 @@ import botworkshop.data.GroundMap;
 import botworkshop.export.Rle;
 import server.clip.region.ObjectDef;
 import server.clip.region.Region;
+import server.game.bots.world.Location;
+import server.game.bots.world.LocationsConfig;
+import server.game.bots.world.ResourceKinds;
 
 /**
  * Bot Workshop validator — {@code BOT_TOOLING.md} stages T1 and T6.
@@ -39,6 +42,11 @@ import server.clip.region.Region;
  *     server — the one failure an export can have that no amount of unit testing against the file
  *     would catch, because both sides would be reading the same wrong thing.
  * </ol>
+ *
+ * <p><b>And the authored bot table.</b> A second pass checks every {@code Data/cfg/bots/locations.cfg}
+ * row whose kind is a world object by scanning the box it names and counting matches. A row that
+ * claims oaks where there are none is a bot walking to an empty field, and nothing else in the system
+ * would report it — see {@link #reportLocationSeedRows()}.
  *
  * <p>Exit code is non-zero when anything mismatches, so this can gate a commit.
  */
@@ -137,13 +145,108 @@ public final class ValidateMap {
 		System.out.println("[validate] mismatched tiles        = " + mismatches);
 		System.out.println("[validate] unusable documents      = " + badDocuments);
 		int readerDisagreements = reportLocReaderDivergence();
-		boolean ok = mismatches == 0 && badDocuments == 0 && readerDisagreements == 0;
+		int unmatchedSeedRows = reportLocationSeedRows();
+		boolean ok = mismatches == 0 && badDocuments == 0 && readerDisagreements == 0
+				&& unmatchedSeedRows == 0;
 		System.out.println("[validate] " + (ok
-				? "OK — exported terrain agrees with Region.getClipping and ObjectDef agrees with loc.dat"
+				? "OK — exported terrain agrees with Region.getClipping, ObjectDef agrees with loc.dat,"
+						+ " and every seeded location row contains the objects it claims"
 				: "FAILED — the tool and the server disagree"));
 		if (!ok) {
 			System.exit(1);
 		}
+	}
+
+	/**
+	 * Checks the authored bot table against the world it describes — {@code BOT_LOCATIONS.md} A.3.
+	 *
+	 * <p>A {@code locations.cfg} row is a claim: "there are oaks between these four edges on this
+	 * plane". If the claim is false, the failure is silent and expensive — a bot walks to an empty box
+	 * and either stands there or gives up, and nothing anywhere says why. So every row whose kind is
+	 * something the world can be scanned for is checked by scanning the box and counting matches.
+	 *
+	 * <p>Rows whose kind is not a world object (a teleport, a shop, a monster, a master) are skipped:
+	 * they are joined from {@code Data/cfg} at load time and there is no object to find for them, so
+	 * scanning for one would report a false failure on every single row.
+	 *
+	 * @return the number of rows that name a box with nothing in it
+	 */
+	private static int reportLocationSeedRows() {
+		Path file = Paths.get("Data/cfg/bots/locations.cfg");
+		LocationsConfig.Result result = LocationsConfig.load(file);
+
+		System.out.println();
+		System.out.println("[validate] authored locations: " + result.locations().size()
+				+ " row(s) in " + file);
+
+		int problems = result.problems().size();
+		for (String problem : result.problems()) {
+			System.out.println("[validate]   unreadable " + problem);
+		}
+
+		int unmatched = 0;
+		int checked = 0;
+		for (Location location : result.locations()) {
+			if (!location.kind().isObjectKind()) {
+				continue;
+			}
+			checked++;
+			int found = countMatchingObjects(location);
+			if (found == 0) {
+				unmatched++;
+				System.out.println("[validate]   EMPTY " + location.name() + " (" + location.kind().id()
+						+ ") claims " + location.width() + "x" + location.height() + " at " + location.x()
+						+ "," + location.y() + " p" + location.plane() + " but contains no such object");
+			} else {
+				System.out.println("[validate]   ok    " + location.name() + " (" + location.kind().id()
+						+ ") contains " + found + " matching object(s)");
+			}
+		}
+		System.out.println("[validate]   rows with a world object kind = " + checked
+				+ ", empty = " + unmatched);
+		return unmatched + problems;
+	}
+
+	/**
+	 * Objects in {@code location}'s box, on its plane, that classify as its kind.
+	 *
+	 * <p>Walks the 64-tile regions the box overlaps rather than every region, so the cost is the box
+	 * rather than the world. Classification is done last and immediately after the definition is
+	 * fetched, because {@code ObjectDef} only caches 20 definitions at a time.
+	 *
+	 * <p>The classifier is the <em>runtime's</em> ({@link ResourceKinds}), not the tool's wrapper: what
+	 * is being checked is that the rows a bot will read describe places a bot can find.
+	 */
+	private static int countMatchingObjects(Location location) {
+		int found = 0;
+		int minBaseX = (location.x() >> 6) << 6;
+		int maxBaseX = ((location.x() + location.width() - 1) >> 6) << 6;
+		int minBaseY = (location.y() >> 6) << 6;
+		int maxBaseY = ((location.y() + location.height() - 1) >> 6) << 6;
+		for (int baseX = minBaseX; baseX <= maxBaseX; baseX += 64) {
+			for (int baseY = minBaseY; baseY <= maxBaseY; baseY += 64) {
+				Region region = Region.getRegion(baseX, baseY);
+				if (region == null) {
+					continue;
+				}
+				for (server.game.objects.Objects object : region.realObjects) {
+					if (object.objectId < 0) {
+						continue;
+					}
+					if (object.objectHeight != location.plane()) {
+						continue;
+					}
+					if (!location.contains(object.objectX, object.objectY, object.objectHeight)) {
+						continue;
+					}
+					String kind = ResourceKinds.classify(ObjectDef.getObjectDef(object.objectId));
+					if (location.kind().id().equals(kind)) {
+						found++;
+					}
+				}
+			}
+		}
+		return found;
 	}
 
 	/**

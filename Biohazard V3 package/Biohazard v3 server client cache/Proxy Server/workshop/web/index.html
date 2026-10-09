@@ -8,7 +8,7 @@
 </head>
 <body>
 
-<!-- Toolbar: which region, which plane, and where to jump to. -->
+<!-- Toolbar: where you are, which plane, and how to move. -->
 <header class="toolbar">
   <span class="brand">Bot Workshop<span class="brand-sub">map</span></span>
 
@@ -25,13 +25,15 @@
   </label>
   <button id="jump-button" type="button">Jump</button>
 
-  <button id="frame-button" type="button" title="Fit the whole region in view (F)">Frame</button>
+  <button id="frame-button" type="button" title="Fit the region under the camera (F)">Frame region</button>
+  <button id="world-button" type="button" title="Fit the whole world (W)">Frame world</button>
 
   <span class="spacer"></span>
+  <button id="world-summary" class="world-summary" type="button" title="Show the whole world"></button>
   <span id="status" class="status" role="status"></span>
 </header>
 
-<!-- Left: what gets drawn, and the resource filter of BOT_WORKSHOP_UX.md §4. -->
+<!-- Left: what gets drawn, the resource filter of BOT_WORKSHOP_UX.md §4, and the authored places. -->
 <aside class="panel left">
   <section>
     <h2>Layers</h2>
@@ -52,6 +54,13 @@
   </section>
 
   <section>
+    <h2>Places <span id="place-count" class="count"></span></h2>
+    <div id="place-list" class="place-list"></div>
+    <p class="hint">The rows in <code>Data/cfg/bots/locations.cfg</code>, read through the server's
+      own parser. Click one to jump to it.</p>
+  </section>
+
+  <section>
     <h2>Legend</h2>
     <div id="legend" class="legend"></div>
   </section>
@@ -61,15 +70,43 @@
 <main class="map-wrap">
   <canvas id="map"></canvas>
   <div id="tooltip" class="tooltip" hidden></div>
-  <div id="loading" class="loading">loading…</div>
+  <div id="loading" class="loading" hidden>loading…</div>
 </main>
 
-<!-- Right: the tile inspector of BOT_WORKSHOP_UX.md §2. -->
+<!-- Right: the tile inspector of BOT_WORKSHOP_UX.md §2 and the authoring tool of T3. -->
 <aside class="panel right">
   <section>
     <h2>Inspector</h2>
     <div id="inspector" class="inspector">
       <p class="hint">Click a tile to inspect it. Hovering shows the same summary.</p>
+    </div>
+  </section>
+
+  <section class="authoring">
+    <h2>Author a place</h2>
+    <p class="hint">Drag a box on the map, name it, and append it. The row is sent to the workshop
+      server, parsed with the server's own reader, and only the row it accepts is written to
+      <code>locations.cfg</code> — the browser never decides what the file says.</p>
+    <div class="author-fields">
+      <label class="field">Name
+        <input id="author-name" type="text" placeholder="draynor_bank" spellcheck="false">
+      </label>
+      <label class="field">Kind
+        <select id="author-kind"></select>
+      </label>
+      <label class="field">Tags
+        <input id="author-tags" type="text" placeholder="oak,draynor" spellcheck="false">
+      </label>
+    </div>
+    <div class="author-actions">
+      <label class="toggle"><input type="checkbox" id="author-draw"> draw box</label>
+      <button id="author-clear" type="button">Clear</button>
+    </div>
+    <pre id="author-row" class="author-row"></pre>
+    <p class="hint" id="author-feedback">Drag a box on the map with "draw box" on.</p>
+    <div class="author-actions">
+      <button id="author-append" type="button" disabled>Append to locations.cfg</button>
+      <button id="author-copy" type="button">Copy row</button>
     </div>
   </section>
 </aside>

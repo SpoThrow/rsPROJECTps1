@@ -3,6 +3,8 @@ package server.game.bots.composite;
 import server.game.bots.BotContext;
 import server.game.bots.BotState;
 import server.game.bots.BotStatus;
+import server.game.bots.meta.BotNode;
+import server.game.bots.meta.Param;
 
 /**
  * Runs children in order. A child's SUCCESS advances to the next child; a child's FAILURE
@@ -12,13 +14,16 @@ import server.game.bots.BotStatus;
  * instantly-succeeding children does not cost one tick each. The work is bounded by the
  * number of children, so this cannot spin the game thread.
  */
+@BotNode(id = "sequence", category = "composite",
+		summary = "Runs its children in order and stops the whole sequence on the first failure.")
 public final class Sequence implements BotState {
 
 	private final BotState[] children;
 	private int index;
 	private boolean active;
 
-	public Sequence(BotState... children) {
+	public Sequence(
+			@Param(description = "The steps, run in this order.") BotState... children) {
 		this.children = children == null ? new BotState[0] : children.clone();
 	}
 

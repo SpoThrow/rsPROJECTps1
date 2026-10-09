@@ -7,8 +7,10 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import botworkshop.classify.ResourceRules;
 import botworkshop.data.GroundMap;
@@ -16,11 +18,14 @@ import botworkshop.data.LocDefinition;
 import botworkshop.data.LocDefs;
 import botworkshop.data.MapIndex;
 import botworkshop.export.BankIndex;
+import botworkshop.export.LocationsDoc;
 import botworkshop.export.Placement;
 import botworkshop.export.RegionDocument;
+import botworkshop.export.WorldDoc;
 import server.clip.region.ObjectDef;
 import server.clip.region.ObjectSizes;
 import server.clip.region.Region;
+import server.game.bots.world.LocationsConfig;
 import server.game.objects.Objects;
 
 /**
@@ -29,7 +34,8 @@ import server.game.objects.Objects;
  * <p>Reads the world the server reads and writes one JSON document per region for the editor's map
  * view. Run from the server directory so {@code ./Data} resolves the way it does at boot:
  *
- * <pre>gradlew workshopExport                 # a small default set of landmark regions
+ * <pre>gradlew workshopExport                 # a contiguous block around Lumbridge
+ * gradlew workshopExport -PworkshopArea=3072,3136,4,3   # baseX,baseY,columns,rows
  * gradlew workshopExport -PworkshopRegions=12850,12338
  * gradlew workshopExport -PworkshopRegions=all          # every region the map contains</pre>
  *
@@ -49,8 +55,17 @@ import server.game.objects.Objects;
  */
 public final class ExportMap {
 
-	/** Regions a first run writes: Lumbridge, Draynor and Varrock. */
-	private static final int[] DEFAULT_REGIONS = { 12850, 12338, 12853 };
+	/**
+	 * The block a bare {@code workshopExport} writes: Draynor, Lumbridge and the castle, as one
+	 * contiguous 4x3 area.
+	 *
+	 * <p>Deliberately a <em>block</em> rather than a list of landmarks. The viewer draws the world
+	 * continuously ({@code BOT_TOOLING.md} §4, one map rather than a region picker), and three
+	 * scattered regions would leave it showing a
+	 * mostly-empty map whose gaps are an artefact of the export rather than a fact about the world.
+	 * This is {@code baseX, baseY, columns, rows}, each region 64 tiles.
+	 */
+	private static final int[] DEFAULT_AREA = { 3072, 3136, 4, 3 };
 
 	private static final String OUTPUT_DIR = "Data/workshop/map";
 
@@ -90,6 +105,7 @@ public final class ExportMap {
 
 		Files.createDirectories(outDir);
 		Map<String, Integer> kindCounts = new LinkedHashMap<String, Integer>();
+		Set<Integer> written = new LinkedHashSet<Integer>();
 		int objectsWritten = 0;
 		int skippedNoMapData = 0;
 		long bytesWritten = 0;
@@ -121,6 +137,7 @@ public final class ExportMap {
 				}
 			}
 			indexRows.add(row(entry, placements.size(), encoded.length));
+			written.add(entry.regionId);
 			System.out.println("[workshop] " + entry.regionId + " " + entry.baseX() + "," + entry.baseY()
 					+ " -> " + placements.size() + " objects, " + encoded.length + " bytes");
 		}
@@ -130,9 +147,28 @@ public final class ExportMap {
 				.getBytes(StandardCharsets.UTF_8));
 
 		// Banks are collected from every region the server loaded, not from `selected`: see BankIndex.
-		List<BankIndex.Bank> banks = banksOf(index, defs);
+		// The overview and the bank index come out of the same walk, so the two cannot disagree about
+		// how many banks a region holds. It is given the documents this run actually wrote, because
+		// "the export can open it" is what the viewer needs to know — not "terrain exists for it",
+		// which is true for regions this run never touched.
+		WorldScan scan = worldScan(index, defs, written);
 		Path bankFile = outDir.resolve("banks.json");
-		Files.write(bankFile, BankIndex.toJson(banks).getBytes(StandardCharsets.UTF_8));
+		Files.write(bankFile, BankIndex.toJson(scan.banks()).getBytes(StandardCharsets.UTF_8));
+
+		// The whole-world overview: every region in the index, so the viewer can draw the world and
+		// lazily open whatever the camera reaches (`BOT_TOOLING.md` §4, Layer 1).
+		Path worldFile = outDir.resolve("world.json");
+		Files.write(worldFile, WorldDoc.toJson(scan.entries()).getBytes(StandardCharsets.UTF_8));
+
+		// The authored places, read through the server's own parser so the editor draws what the
+		// server resolves, and each row carries the canonical text of LocationsConfig.toRow.
+		LocationsConfig.Result curated = LocationsConfig.load();
+		for (String problem : curated.problems()) {
+			System.out.println("[workshop] locations.cfg: " + problem);
+		}
+		Path locationsFile = outDir.resolve("locations.json");
+		Files.write(locationsFile, LocationsDoc.toJson(curated.locations())
+				.getBytes(StandardCharsets.UTF_8));
 
 		System.out.println();
 		System.out.println("[workshop] regions written        = " + indexRows.size());
@@ -140,8 +176,14 @@ public final class ExportMap {
 			System.out.println("[workshop] regions with no map data = " + skippedNoMapData + " (the server skips these too)");
 		}
 		System.out.println("[workshop] object placements      = " + objectsWritten);
-		System.out.println("[workshop] banks in the world     = " + banks.size()
+		System.out.println("[workshop] banks in the world     = " + scan.banks().size()
 				+ " (whole-world scan, not just the exported regions)");
+		System.out.println("[workshop] world overview         = " + scan.entries().size() + " regions, "
+				+ index.size() + " in the map index");
+		System.out.println("[workshop] authored places        = " + curated.locations().size()
+				+ " row(s) from " + LocationsConfig.DEFAULT_PATH
+				+ (curated.problems().isEmpty() ? "" : ", "
+						+ curated.problems().size() + " unreadable"));
 		System.out.println("[workshop] classified by icon rule:");
 		for (ResourceRules.Rule rule : ResourceRules.rules()) {
 			Integer n = kindCounts.get(rule.kind());
@@ -153,39 +195,80 @@ public final class ExportMap {
 	}
 
 	/**
-	 * All regions when {@code all} is set, the named regions when any are given, and the small
-	 * landmark set otherwise — a bare {@code workshopExport} must not write half a gigabyte.
+	 * All regions when {@code all} is set, the named regions when any ids are given, and
+	 * {@link #DEFAULT_AREA} otherwise — a bare {@code workshopExport} must not write half a gigabyte,
+	 * but it must write a <em>contiguous</em> patch so the viewer's continuous view has something to
+	 * be continuous about.
 	 */
 	private static List<MapIndex.Entry> select(List<MapIndex.Entry> index, boolean all,
-			List<String> wanted) {
+			List<String> options) {
 		if (all) {
 			return new ArrayList<MapIndex.Entry>(index);
 		}
+
 		List<Integer> ids = new ArrayList<Integer>();
-		if (wanted.isEmpty()) {
-			for (int id : DEFAULT_REGIONS) {
-				ids.add(id);
-			}
-		} else {
-			for (String value : wanted) {
-				ids.add(Integer.parseInt(value));
+		int[] area = DEFAULT_AREA;
+		for (String option : options) {
+			if (option.startsWith("area=")) {
+				area = parseArea(option.substring("area=".length()));
+			} else {
+				ids.add(Integer.parseInt(option));
 			}
 		}
-		List<MapIndex.Entry> selected = new ArrayList<MapIndex.Entry>();
-		for (Integer id : ids) {
-			boolean found = false;
-			for (MapIndex.Entry entry : index) {
-				if (entry.regionId == id) {
-					selected.add(entry);
-					found = true;
-					break;
+
+		if (!ids.isEmpty()) {
+			List<MapIndex.Entry> selected = new ArrayList<MapIndex.Entry>();
+			for (Integer id : ids) {
+				boolean found = false;
+				for (MapIndex.Entry entry : index) {
+					if (entry.regionId == id) {
+						selected.add(entry);
+						found = true;
+						break;
+					}
+				}
+				if (!found) {
+					throw new IllegalArgumentException("region " + id + " is not in map_index");
 				}
 			}
-			if (!found) {
-				throw new IllegalArgumentException("region " + id + " is not in map_index");
+			return selected;
+		}
+
+		// An area selects every indexed region whose corner falls in the window, without the caller
+		// having to know the region-id numbering — which is the point: "the block around Lumbridge"
+		// is what an author has in mind, not a list of ids.
+		int minX = area[0];
+		int minY = area[1];
+		int maxX = minX + 64 * (area[2] - 1);
+		int maxY = minY + 64 * (area[3] - 1);
+		List<MapIndex.Entry> selected = new ArrayList<MapIndex.Entry>();
+		for (MapIndex.Entry entry : index) {
+			if (entry.baseX() >= minX && entry.baseX() <= maxX
+					&& entry.baseY() >= minY && entry.baseY() <= maxY) {
+				selected.add(entry);
 			}
 		}
+		if (selected.isEmpty()) {
+			throw new IllegalArgumentException("no region in map_index lies in the area "
+					+ minX + "," + minY + " " + area[2] + "x" + area[3]);
+		}
 		return selected;
+	}
+
+	/** Parses {@code baseX,baseY,columns,rows}. */
+	private static int[] parseArea(String value) {
+		String[] parts = value.split(",");
+		if (parts.length != 4) {
+			throw new IllegalArgumentException("an area is baseX,baseY,columns,rows — got '" + value + "'");
+		}
+		int[] area = new int[4];
+		for (int i = 0; i < 4; i++) {
+			area[i] = Integer.parseInt(parts[i].trim());
+		}
+		if (area[2] < 1 || area[3] < 1) {
+			throw new IllegalArgumentException("an area needs at least one region: '" + value + "'");
+		}
+		return area;
 	}
 
 	/**
@@ -211,37 +294,50 @@ public final class ExportMap {
 	}
 
 	/**
-	 * Every classified bank object in the world, walked over the whole region directory.
+	 * One walk of the loaded world, producing both the bank index and the overview rows.
 	 *
-	 * <p>This deliberately does not reuse {@code select(...)}: the editor has to be able to answer
-	 * "nearest bank" for a region that was never exported, and the world is already in memory after
-	 * {@code Region.load()} either way.
+	 * <p>Deliberately not {@code select(..)}: the editor has to be able to answer "nearest bank" and
+	 * "what regions exist" for regions that were never exported, and the world is already in memory
+	 * after {@code Region.load()}. A single pass is also what keeps the overview's per-region bank
+	 * count and {@code banks.json} from disagreeing.
 	 */
-	private static List<BankIndex.Bank> banksOf(List<MapIndex.Entry> index, LocDefs defs) {
+	private static WorldScan worldScan(List<MapIndex.Entry> index, LocDefs defs, Set<Integer> written) {
 		List<BankIndex.Bank> banks = new ArrayList<BankIndex.Bank>();
+		List<WorldDoc.Entry> entries = new ArrayList<WorldDoc.Entry>(index.size());
 		for (MapIndex.Entry entry : index) {
 			Region region = Region.getRegion(entry.baseX(), entry.baseY());
 			if (region == null) {
-				// The 51 regions with no map data — Region.load skipped them, so there is nothing
-				// here and nothing to report.
+				entries.add(new WorldDoc.Entry(entry.regionId, entry.baseX(), entry.baseY(), false, 0, 0));
 				continue;
 			}
+			int objects = 0;
+			int regionBanks = 0;
 			for (Objects object : region.realObjects) {
 				if (object.objectId < 0) {
+					// A negative id marks a removed object; Region.addObject leaves the tombstone.
 					continue;
 				}
+				objects++;
 				LocDefinition def = defs.get(object.objectId);
 				if (!"bank".equals(ResourceRules.classify(def))) {
 					continue;
 				}
+				regionBanks++;
 				banks.add(new BankIndex.Bank(object.objectId, object.objectX, object.objectY,
 						object.objectHeight, def == null ? null : def.name()));
 			}
+			entries.add(new WorldDoc.Entry(entry.regionId, entry.baseX(), entry.baseY(),
+					written.contains(entry.regionId), objects, regionBanks));
 		}
-		return banks;
+		return new WorldScan(banks, entries);
 	}
 
-	private static String row(MapIndex.Entry entry, int objects, int bytes) {		return "    { \"regionId\": " + entry.regionId + ", \"baseX\": " + entry.baseX()
+	/** What the world walk produced: the bank list and the overview rows, from one pass. */
+	private record WorldScan(List<BankIndex.Bank> banks, List<WorldDoc.Entry> entries) {
+	}
+
+	private static String row(MapIndex.Entry entry, int objects, int bytes) {
+		return "    { \"regionId\": " + entry.regionId + ", \"baseX\": " + entry.baseX()
 				+ ", \"baseY\": " + entry.baseY() + ", \"objects\": " + objects
 				+ ", \"bytes\": " + bytes + " }";
 	}

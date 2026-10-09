@@ -3,6 +3,8 @@ package server.game.bots.states;
 import server.game.bots.BotContext;
 import server.game.bots.BotState;
 import server.game.bots.BotStatus;
+import server.game.bots.meta.BotNode;
+import server.game.bots.meta.Param;
 
 /**
  * Walks to a tile and reports SUCCESS once there and idle.
@@ -13,6 +15,8 @@ import server.game.bots.BotStatus;
  * the queue drains short of the destination, and a stuck budget so a blocked destination
  * becomes FAILURE rather than an infinite RUNNING.
  */
+@BotNode(id = "walk_to", category = "state",
+		summary = "Walks to a tile and succeeds once there and idle.")
 public final class WalkTo implements BotState {
 
 	/** Ticks without a net tile of movement before the destination is declared unreachable. */
@@ -31,7 +35,13 @@ public final class WalkTo implements BotState {
 		this(destX, destY, range, DEFAULT_STUCK_BUDGET);
 	}
 
-	public WalkTo(int destX, int destY, int range, int stuckBudget) {
+	public WalkTo(
+			@Param(description = "Destination tile x.") int destX,
+			@Param(description = "Destination tile y.") int destY,
+			@Param(description = "How many tiles away still counts as arrived.") int range,
+			@Param(description = "Ticks without net movement before the destination is declared "
+					+ "unreachable; the three-argument constructor uses this default.",
+					required = false, value = "40") int stuckBudget) {
 		this.destX = destX;
 		this.destY = destY;
 		this.range = range;

@@ -142,6 +142,12 @@ overlays: clipping (`Region.getClipping`), NPC spawns, global objects, teleports
 regions, and the resource/service icon layer below. Click a tile → coordinates, objects
 present, walkable or not. Useful on its own as a debug view.
 
+The map is **continuous rather than one region at a time**: `workshopExport` writes
+`world.json` describing every region in `map_index`, so the viewer can draw the world at a
+glance (density-shaded blocks, one dot per bank) and lazily fetch the regions a pan or zoom
+reaches, up to a bounded cache. A region the export did not write is drawn as a gap — a fact
+about the export, not a claim that the world is empty there.
+
 ### Layer 1b — Resource & service icon layer
 
 This is the layer that makes the map *usable* rather than merely accurate. Every static
@@ -318,7 +324,9 @@ internals.
 - **Regions vs absolute coords:** regions are 64×64, indexed 8×8, but the server's unit
   is absolute `absX`/`absY` — display absolute.
 - **Offset / instanced maps:** dungeons use coordinate offsets (e.g. y+6400) or dedicated
-  regions; the editor needs a region list, not one continuous map.
+  regions; the editor needs a region list, not one continuous map. The viewer has both: the
+  navigator lists the exported regions, and the map itself is continuous (`world.json`
+  covers all 1226, so a region that is not there is drawn as a gap rather than closed up).
 - **Static vs dynamic:** `Data/world` holds static spawns; fallen trees etc. are runtime.
   Mark statics.
 - **Revalidation:** if map data changes, a region may point at a tile that no longer holds
@@ -333,8 +341,8 @@ internals.
 | **T1** ✅ | Java exporter/validator library: read `Data/world` + `Data/cfg`, emit map JSON/tiles |
 | **T2** ✅ | Web map viewer: pan/zoom, planes, overlays, tile inspector (`BOT_WORKSHOP_UX.md` §2) |
 | **T2b** ✅ | Resource/service icon layer (`ObjectDef.actions` classification) + resource filter panel (`BOT_WORKSHOP_UX.md` §3–§4) |
-| **T3** | Region/patch authoring → `locations.cfg`; drag-a-box → `RandomTileIn` waypoints |
-| **T4** | `@BotNode` registry + `bot-nodes.json` export + parity test |
+| **T3** ✅ | Region/patch authoring → `locations.cfg`; drag-a-box → `RandomTileIn` waypoints |
+| **T4** ✅ | `@BotNode` registry + `bot-nodes.json` export + parity test |
 | **T5** | Step timeline editor → `BotScript` JSON (`BOT_WORKSHOP_UX.md` §5) |
 | **T5b** | Graph view over the same document (after roadmap B) |
 | **T6** | Round-trip validation: compile a timeline, load it via the runtime, run the slice-1 loop test |
@@ -382,7 +390,10 @@ first target is bots, and a bot-only tool that ships beats a general editor that
   from `ObjectDef.actions`, and the resource filter isolates one resource type.
 - **T3:** a region drawn in the editor appears in `locations.cfg`, loads without error,
   and `Locations` resolves "nearest oak" from it; a dragged box yields a `RandomTileIn`
-  waypoint that puts two bots on different tiles.
+  waypoint that puts two bots on different tiles. The editor reports how many objects of
+  the drawn kind the box holds before it writes, from the regions it has loaded, and says
+  when a box is empty — the same failure `ValidateMap` reports as `EMPTY`, caught earlier.
+  That count is a warning, not the check: `ValidateMap` scans the whole world server-side.
 - **T4:** every runtime `BotState` id appears in `bot-nodes.json`; the parity test fails
   if either side gains an unregistered entry.
 - **T5:** a timeline built in the editor serialises to a `BotScript` the runtime executes.

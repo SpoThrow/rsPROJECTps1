@@ -46,7 +46,10 @@ sourceSets {
             srcDirs = []
         }
         compileClasspath += sourceSets.main.output
-        runtimeClasspath += sourceSets.main.output
+        // Main's runtime classpath, not just its output: the node-coverage check loads every
+        // compiled BotState to ask whether it is annotated, and the ones that reach the network
+        // layer (BotPlayer and friends) need main's jars linked to load at all.
+        runtimeClasspath += sourceSets.main.runtimeClasspath
     }
     workshopTest {
         java {
@@ -56,7 +59,7 @@ sourceSets {
             srcDirs = []
         }
         compileClasspath += sourceSets.main.output + sourceSets.workshop.output
-        runtimeClasspath += sourceSets.main.output + sourceSets.workshop.output
+        runtimeClasspath += sourceSets.main.runtimeClasspath + sourceSets.workshop.output
     }
 }
 
@@ -82,6 +85,10 @@ dependencies {
 tasks.withType(JavaCompile).configureEach {
     // Sources are UTF-8; Compile.bat left this at the platform default (Cp1252).
     options.encoding = 'UTF-8'
+    // The Bot Workshop's node registry reflects constructor parameter names into bot-nodes.json
+    // (BOT_TOOLING.md T4). Without -parameters they compile to arg0 and BotNodeRegistry refuses
+    // to export, rather than shipping an editor schema it cannot label.
+    options.compilerArgs += ['-parameters']
 }
 
 application {
@@ -108,6 +115,10 @@ tasks.named('test', Test) {
     systemProperty 'realCharactersDir', file('Data/characters').absolutePath
     systemProperty 'objectSizeCfg', file('Data/objectSize.cfg').absolutePath
     systemProperty 'serverPropertiesTemplate', file('Data/server.properties.template').absolutePath
+    // The bot world layer reads Data/cfg, and the test task runs from build/testwork so ./Data is
+    // not the repo's. Point tests at the real directory the same way workshopTest already does,
+    // rather than making them reconstruct the path from another property.
+    systemProperty 'workshopDataRoot', file('Data').absolutePath
     doFirst {
         delete testWorkDir
         new File(testWorkDir, 'Data/characters').mkdirs()
@@ -157,6 +168,11 @@ tasks.register('workshopExport', JavaExec) {
     if (project.hasProperty('workshopRegions')) {
         args = project.property('workshopRegions').toString().split(',')
     }
+    // A contiguous window, for the viewer's continuous multi-region view. Mutually exclusive with
+    // workshopRegions in practice: whichever is given last wins, since both land in the same args.
+    if (project.hasProperty('workshopArea')) {
+        args = ['area=' + project.property('workshopArea').toString()]
+    }
 }
 
 tasks.register('workshopValidate', JavaExec) {
@@ -166,6 +182,20 @@ tasks.register('workshopValidate', JavaExec) {
     mainClass = 'botworkshop.ValidateMap'
     workingDir = projectDir
     jvmArgs = ['-Xmx2000m']
+}
+
+// ---- Bot Workshop node schema (BOT_TOOLING.md T4) -------------------------------------
+//
+// Reflects every @BotNode on the server's own BotState classes into the palette the editor
+// authors trees from. Separate from workshopExport because it reads no world data — it is
+// milliseconds, so there is no reason to make it wait on a map scan or vice versa.
+
+tasks.register('workshopExportNodes', JavaExec) {
+    description = 'Exports the @BotNode schema to Data/workshop/bot-nodes.json (T4).'
+    group = 'bot workshop'
+    classpath = sourceSets.workshop.runtimeClasspath
+    mainClass = 'botworkshop.ExportBotNodes'
+    workingDir = projectDir
 }
 
 // ---- Bot Workshop viewer (BOT_TOOLING.md T2) -----------------------------------------

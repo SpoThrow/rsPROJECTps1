@@ -3,6 +3,8 @@ package server.game.bots.states;
 import server.game.bots.BotContext;
 import server.game.bots.BotState;
 import server.game.bots.BotStatus;
+import server.game.bots.meta.BotNode;
+import server.game.bots.meta.Param;
 import server.game.players.actions.objects.ObjectClick;
 
 /**
@@ -18,6 +20,8 @@ import server.game.players.actions.objects.ObjectClick;
  * level), and otherwise re-issues the interaction, which is how a tree that fell or a
  * random event is recovered from rather than treated as terminal.
  */
+@BotNode(id = "chop_tree", category = "state",
+		summary = "Clicks a tree and chops until the inventory is full.")
 public final class ChopTree implements BotState {
 
 	/** The distance the tree click packet uses (see {@code ClickObject.FIRST_CLICK}). */
@@ -37,7 +41,12 @@ public final class ChopTree implements BotState {
 	private int ticks;
 	private boolean started;
 
-	public ChopTree(int treeId, int logItemId, int treeX, int treeY) {
+	public ChopTree(
+			@Param(description = "Object id of the tree to click.") int treeId,
+			@Param(description = "Item id of the log it yields, used to watch the inventory.")
+					int logItemId,
+			@Param(description = "x of the tree's tile.") int treeX,
+			@Param(description = "y of the tree's tile.") int treeY) {
 		this.treeId = treeId;
 		this.logItemId = logItemId;
 		this.treeX = treeX;

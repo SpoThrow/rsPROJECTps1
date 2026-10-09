@@ -3,6 +3,8 @@ package server.game.bots.states;
 import server.game.bots.BotContext;
 import server.game.bots.BotState;
 import server.game.bots.BotStatus;
+import server.game.bots.meta.BotNode;
+import server.game.bots.meta.Param;
 
 /**
  * Opens the bank and deposits every inventory slot holding {@code logItemId}.
@@ -10,6 +12,8 @@ import server.game.bots.BotStatus;
  * <p>Returns SUCCESS once none of the item remain in the inventory, FAILURE if the bank
  * never opens or the deposit cannot complete within the budget.
  */
+@BotNode(id = "bank_logs", category = "state",
+		summary = "Opens the nearest bank and deposits every stored item of one kind.")
 public final class BankLogs implements BotState {
 
 	private static final int BUDGET = 20;
@@ -17,7 +21,7 @@ public final class BankLogs implements BotState {
 	private final int logItemId;
 	private int ticks;
 
-	public BankLogs(int logItemId) {
+	public BankLogs(@Param(description = "Item id to deposit in full.") int logItemId) {
 		this.logItemId = logItemId;
 	}
 

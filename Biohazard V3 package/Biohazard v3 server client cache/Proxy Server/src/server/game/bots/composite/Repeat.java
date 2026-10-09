@@ -3,6 +3,8 @@ package server.game.bots.composite;
 import server.game.bots.BotContext;
 import server.game.bots.BotState;
 import server.game.bots.BotStatus;
+import server.game.bots.meta.BotNode;
+import server.game.bots.meta.Param;
 
 /**
  * Re-runs a child. A child's SUCCESS restarts it; FAILURE propagates and ends the repeat.
@@ -13,6 +15,8 @@ import server.game.bots.BotStatus;
  * — that is what stops a child which succeeds instantly from spinning the game thread.
  * A forever repeat is therefore the slice-1 root and simply keeps ticking.
  */
+@BotNode(id = "repeat", category = "composite",
+		summary = "Runs its child a fixed number of times, or forever.")
 public final class Repeat implements BotState {
 
 	private final BotState child;
@@ -22,7 +26,10 @@ public final class Repeat implements BotState {
 	/**
 	 * @param count how many times to run the child; a negative value means "forever"
 	 */
-	public Repeat(BotState child, int count) {
+	public Repeat(
+			@Param(description = "The step to repeat.") BotState child,
+			@Param(description = "How many times to run it; negative means forever.",
+					required = false, value = "-1") int count) {
 		this.child = child;
 		this.count = count;
 	}
