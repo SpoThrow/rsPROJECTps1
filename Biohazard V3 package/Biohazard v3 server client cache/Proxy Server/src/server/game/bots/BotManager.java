@@ -33,7 +33,40 @@ public final class BotManager {
 	/** The marker written to {@code connectedFrom} for a sessionless client. */
 	public static final String BOT_CONNECTED_FROM = "bot";
 
+	/**
+	 * The most tree ticks one game tick may perform, and the wall-clock ceiling on the time they may
+	 * take. Read once from {@link Config} so the scheduler's hot path is two field reads.
+	 */
+	public static final int TICK_BUDGET = Config.BOT_TICK_BUDGET;
+	private static final long TICK_BUDGET_NANOS = Config.BOT_TICK_BUDGET_MS * 1_000_000L;
+
+	/**
+	 * The live count budget, normally {@link #TICK_BUDGET}.
+	 *
+	 * <p>Mutable only so a test can shrink the budget below a handful of bots and so exercise the
+	 * throttle end to end — at the shipped budget of {@link #TICK_BUDGET} and a cap of
+	 * {@code MAX_BOTS}, the budget never bites, and a bound that is never reached is a bound that is
+	 * never proven. There is no operator-facing setter: {@code TICK_BUDGET} is a compile-time constant
+	 * like every other {@link Config} value.
+	 */
+	private static int tickBudget = TICK_BUDGET;
+
 	private static final List<BotPlayer> live = new ArrayList<BotPlayer>();
+
+	// ---- per-tick scheduling (roadmap Phase H) ----------------------------------------------
+	// Reset by beginTick() each game tick, consumed by tickTree(). Kept as plain fields rather than an
+	// object because there is exactly one tick in flight (the tick is single-threaded) and this is read
+	// once per bot per tick.
+
+	/** How many game ticks have been scheduled. Drives the rotation window; never reset. */
+	private static long tickNumber;
+
+	/** Wall-clock nanoseconds spent inside behaviour trees so far this tick. */
+	private static long treeNanosThisTick;
+
+	/** Tree ticks actually performed this tick, and those declined. Reported by {@link #tickStats()}. */
+	private static int treeTicksThisTick;
+	private static int deferredThisTick;
 
 	/** So the cap is reported once, not once per refused possess. */
 	private static boolean capReported;
@@ -128,11 +161,8 @@ public final class BotManager {
 		}
 		// Counted as a delta rather than by the return of spawn(), because spawn() is idempotent and
 		// returns an already-live bot too — counting that would report a spawn that did not happen.
-		int before = count();
-		for (BotProfile profile : result.enabled()) {
-			spawn(profile);
-		}
-		int spawned = count() - before;
+		// spawnAll() is that same delta, so the cohort path and this one cannot disagree.
+		int spawned = spawnAll(result.enabled());
 		if (spawned > 0 || !result.problems().isEmpty()) {
 			Misc.println("[bots] " + spawned + " of " + result.enabled().size()
 					+ " configured bot(s) running (" + count() + " live)");
@@ -384,6 +414,168 @@ public final class BotManager {
 			bot.attach(new BotController(bot, root));
 		}
 		return bot;
+	}
+
+	// ---- per-tick scheduling (roadmap Phase H §5.7) ------------------------------------------
+
+	/**
+	 * Starts a game tick for the bot system: advances the rotation and decides which bots may act.
+	 *
+	 * <p>Called once per tick by {@code Server.tick()}, before the player loop. Everything the budget
+	 * does is set up here and consumed in {@link #tickTree(BotPlayer)}, so a bot never has to compute its
+	 * own turn — {@link BotPlayer#treeTickAllowed} is simply read.
+	 *
+	 * <p><b>Why a rotating window rather than a queue.</b> The obvious budget — "tick the first K bots,
+	 * resume at K next tick" — starves the tail, because the player loop always visits bots in slot order
+	 * and the same low slots would win every tick. Offsetting the window by the tick number means the
+	 * bots exempted this tick are a different set next tick, so every bot is reached within
+	 * {@code ceil(live / budget)} ticks and none is starved. The cost is that a bot's tree runs every
+	 * {@code ceil(live / budget)} ticks rather than every tick, which <em>is</em> the throughput cap the
+	 * budget imposes — stated plainly rather than hidden.
+	 *
+	 * <p>With {@code live <= budget} (the default at {@code MAX_BOTS = 10}) every flag is true and the
+	 * tick is byte-for-byte what it was before this existed.
+	 */
+	public static void beginTick() {
+		tickNumber++;
+		treeNanosThisTick = 0;
+		treeTicksThisTick = 0;
+		deferredThisTick = 0;
+		int size = live.size();
+		for (int i = 0; i < size; i++) {
+			live.get(i).treeTickAllowed = inTickWindow(i, size, tickBudget, tickNumber);
+		}
+	}
+
+	/**
+	 * Shrinks (or restores) the live count budget. <b>Test seam only</b> — see {@link #tickBudget}.
+	 *
+	 * @param budget the budget to use, or a non-positive value to restore {@link #TICK_BUDGET}
+	 */
+	static void setTickBudgetForTesting(int budget) {
+		tickBudget = budget <= 0 ? TICK_BUDGET : budget;
+	}
+
+	/**
+	 * Whether bot {@code index} of {@code size} is inside this tick's window.
+	 *
+	 * <p>Pure and package-private so the rotation can be tested exhaustively at sizes no test could
+	 * afford to build as live bots — hundreds of indices, thousands of ticks, no world or disk involved.
+	 */
+	static boolean inTickWindow(int index, int size, int budget, long tick) {
+		if (budget <= 0 || size <= budget) {
+			return true;
+		}
+		long start = Math.floorMod(tick * (long) budget, (long) size);
+		return Math.floorMod((long) index - start, (long) size) < budget;
+	}
+
+	/**
+	 * Offers one bot's behaviour tree a tick, subject to the budget. Called from
+	 * {@link BotPlayer#process()} for every live bot, every game tick.
+	 *
+	 * <p>Declining is not an error and not silent: the bot keeps its state exactly as it was and is
+	 * offered again next tick. That is the whole point — deferring a <em>decision</em> costs nothing,
+	 * while overrunning the tick costs every real player on the server.
+	 *
+	 * <p>Both budgets are checked before the tree runs. The count budget is a flag already computed by
+	 * {@link #beginTick()}. The time budget is measured from the tree work alone
+	 * ({@link #treeNanosThisTick}), so engine work for real players earlier in the tick cannot consume
+	 * it — and it engages <b>only when the count budget is actually exceeded</b>. While every bot fits
+	 * inside the count budget there is no oversubscription for it to bound, so the tick stays fully
+	 * deterministic and machine-independent; a caller that drives bots without calling
+	 * {@link #beginTick()} (a test looping {@code process()}) therefore cannot be starved by an
+	 * accumulator nothing is resetting. When the population does exceed the budget, the reset is
+	 * guaranteed because {@code Server.tick()} calls {@code beginTick()} every tick.
+	 */
+	static void tickTree(BotPlayer bot) {
+		if (bot == null) {
+			return;
+		}
+		BotController controller = bot.controller();
+		if (controller == null) {
+			return;
+		}
+		boolean oversubscribed = tickBudget > 0 && live.size() > tickBudget;
+		if (!bot.treeTickAllowed
+				|| (oversubscribed && TICK_BUDGET_NANOS > 0 && treeNanosThisTick >= TICK_BUDGET_NANOS)) {
+			deferredThisTick++;
+			return;
+		}
+		long start = System.nanoTime();
+		controller.tick();
+		treeNanosThisTick += System.nanoTime() - start;
+		treeTicksThisTick++;
+	}
+
+	/**
+	 * What the budget did this tick: ticks performed, ticks deferred, tree nanoseconds spent.
+	 *
+	 * <p>Exposed because a deferred bot looks like a slow bot, and "why is it slow" should have an answer
+	 * that is not a profiler. {@code ::bot list} prints it; a test asserts on it.
+	 */
+	public static String tickStats() {
+		StringBuilder out = new StringBuilder();
+		out.append(treeTicksThisTick).append(" ticked");
+		if (deferredThisTick > 0) {
+			out.append(", ").append(deferredThisTick).append(" deferred");
+		}
+		if (TICK_BUDGET_NANOS > 0) {
+			out.append(", ").append(treeNanosThisTick / 1_000_000L).append("ms in trees");
+		}
+		return out.toString();
+	}
+
+	/** Tree ticks performed in the tick just scheduled. */
+	public static int tickedLastTick() {
+		return treeTicksThisTick;
+	}
+
+	/** Tree ticks the budget declined in the tick just scheduled. */
+	public static int deferredLastTick() {
+		return deferredThisTick;
+	}
+
+	/**
+	 * Spawns every row in {@code profiles}, in order — the cohort form.
+	 *
+	 * <p>A cohort rather than a loop at the call site because the count that matters is "how many
+	 * actually started", which only this method can compute correctly: {@link #spawn} is idempotent and
+	 * returns an already-live bot, so summing its returns would report spawns that did not happen.
+	 *
+	 * @return the number of bots that became live as a result
+	 */
+	public static int spawnAll(List<BotProfile> profiles) {
+		if (profiles == null || profiles.isEmpty()) {
+			return 0;
+		}
+		int before = count();
+		for (BotProfile profile : profiles) {
+			spawn(profile);
+		}
+		return count() - before;
+	}
+
+	/**
+	 * Stops every live bot — the graceful-stop path (roadmap Phase H): exit each tree with cleanup
+	 * (releasing charges, animations and the {@code CycleEvent}s a leaf owns), then save the character
+	 * and free its slot.
+	 *
+	 * <p><b>Called on shutdown, before the characters are written.</b> Without it a bot could be written
+	 * mid-tree with a cycle event still scheduled against an object, and its save would claim a state it
+	 * was about to leave. {@link #release} already does the ordered teardown for one bot; this is that
+	 * same path for all of them, over a snapshot so the iteration is not invalidated by the removal.
+	 *
+	 * @return the number of bots stopped
+	 */
+	public static int stopAll() {
+		int stopped = 0;
+		for (BotPlayer bot : all()) {
+			if (release(bot.playerName)) {
+				stopped++;
+			}
+		}
+		return stopped;
 	}
 
 	private static File characterFile(String name) {

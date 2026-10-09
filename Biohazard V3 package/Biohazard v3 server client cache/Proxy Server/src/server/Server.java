@@ -293,6 +293,10 @@ public class Server {
 	 * mid-update within a tick.
 	 */
 	private static void tick() {
+		// Bots first: beginTick() decides which of them may act this tick (the per-tick work budget,
+		// BOT_ROADMAP.md §5.7). It must run before the player loop, because that loop is what offers each
+		// bot its allotted tree tick, and it must run every tick so the rotation stays in step with the game.
+		server.game.bots.BotManager.beginTick();
 		itemHandler.process();
 		playerHandler.process();	
         npcHandler.process();
@@ -338,6 +342,14 @@ public class Server {
 	static void requestStop() {
 		shutdownServer = true;
 		stopTicker();
+		// Stop the bots before the characters are written: exiting each tree releases the charges,
+		// animations and CycleEvents a leaf owns, so a bot is never saved mid-routine with an event
+		// still scheduled against an object. release() saves each character as it goes, so the save
+		// below then has only the real players left to write.
+		int stopped = server.game.bots.BotManager.stopAll();
+		if (stopped > 0) {
+			System.out.println("[Shutdown] Stopped " + stopped + " bot(s).");
+		}
 		int saved = PlayerHandler.saveAllPlayers();
 		System.out.println("[Shutdown] Saved " + saved + " character(s).");
 	}

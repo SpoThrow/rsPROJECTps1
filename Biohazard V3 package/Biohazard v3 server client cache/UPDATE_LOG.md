@@ -1,5 +1,19 @@
 # Update Log
 
+## 2026-10-10 - Bot roadmap H: the per-tick budget (scale)
+
+**What changed:**
+- **The bot system now has a bounded per-tick cost.** `BotManager.beginTick()` runs first in `Server.tick()` and picks which bots may act; `BotPlayer.process()` offers its tree through `BotManager.tickTree(...)` instead of ticking it directly. At most `Config.BOT_TICK_BUDGET` trees tick per game tick.
+- **A rotating window, not a queue.** "First K, resume at K" would starve the tail, because the player loop always visits bots in slot order. Offsetting the window by the tick number (`inTickWindow`) guarantees every bot is reached within `ceil(live / budget)` ticks. With `live <= budget` (the default at `MAX_BOTS = 10`) nothing changes at all.
+- **The count budget is the mechanism; the wall-clock cap is a backstop, and it engages only when `live > budget`.** This is a correction made while building it: an always-on wall-clock cap needs a per-tick reset, and any caller driving `process()` without signalling a tick accumulates forever and starves every bot — which is exactly what **two existing loop tests (`ChopBankLoopTest`, `ScriptLoopTest`) did** the moment this landed. Those loops now call `beginTick()`, because they *are* the tick, and the cap is scoped to the case it exists to bound so no future caller can be starved by it.
+- **Graceful stop:** `stopAll()` wired into `Server.requestStop()` before the characters are written, so every tree is exited with `interrupted = true` (releasing charges and `CycleEvent`s) before its save. **Cohorts:** `spawnAll(...)`, counting by delta because `spawn()` is idempotent; `apply()` now uses it.
+- **Staggered scans come free:** `ResourceScan` already runs on retarget rather than per tick, so bounding when a tree acts bounds when it scans. No second scheduler was added.
+- `::bot list` now reports the last tick (`ticked, deferred, ms in trees`), because a budget-deferred bot otherwise looks like a slow bot.
+
+**Files touched:** new `test/.../BotSchedulingTest.java` (14 tests). Modified `bots/BotManager.java`, `bots/BotPlayer.java`, `Config.java` (`BOT_TICK_BUDGET`, `BOT_TICK_BUDGET_MS`), `Server.java` (`beginTick` in `tick()`, `stopAll` in `requestStop()`), `commands/BotCommands.java`, `test/.../{ChopBankLoopTest,ScriptLoopTest}.java`, `BOT_ROADMAP.md`.
+
+**Status:** done. **781 tests, 0 failures** (664 server + 117 workshop); `workshopValidate` green. ⚠️ The budget (32) exceeds `MAX_BOTS` (10), so it is deliberately dormant until the cap is raised — raising the cap is a product decision, not a Phase H one. Next: **I (RL)**, the only phase left and the one that touches core (tick-timer refactor first); or the residual half of G (object dispatch made actor-generic so an NPC can skill).
+
 ## 2026-10-10 - Bot provisioning: a spawned bot now owns the tools its script needs
 
 **What changed:**

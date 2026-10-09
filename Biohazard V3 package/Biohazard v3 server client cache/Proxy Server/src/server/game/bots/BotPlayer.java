@@ -33,6 +33,16 @@ public class BotPlayer extends Client {
 
 	private BotController controller;
 
+	/**
+	 * Whether this bot's behaviour tree may tick in the current game tick.
+	 *
+	 * <p>Set once per tick by {@link BotManager#beginTick()} as part of the per-tick work budget
+	 * ({@code BOT_ROADMAP.md} §5.7). <b>Defaults to true</b> so a bot driven outside the server's tick
+	 * loop — a test calling {@link #process()} directly — behaves exactly as it did before budgeting
+	 * existed; the budget is something the manager applies, not a precondition of ticking.
+	 */
+	boolean treeTickAllowed = true;
+
 	public BotPlayer(int slot) {
 		super(null, slot);
 		this.isBot = true;
@@ -57,14 +67,19 @@ public class BotPlayer extends Client {
 
 	/**
 	 * The per-player tick. {@code super.process()} keeps the ordinary timer, energy and
-	 * stat-restore upkeep; the behaviour tree is then ticked once, on the game thread.
+	 * stat-restore upkeep; the behaviour tree is then offered a tick through the manager, which
+	 * applies the per-tick work budget before letting it run.
+	 *
+	 * <p><b>The tree is not ticked directly here on purpose.</b> Routing it through
+	 * {@link BotManager#tickTree(BotPlayer)} is what lets the manager decide <em>whether</em> this bot
+	 * acts this tick and time how long the tree took, without the bot knowing anything about budgets.
+	 * Everything else about the tick — movement, timers, combat — is untouched, so a deferred bot still
+	 * walks, still counts its timers down, and simply receives its next instruction a tick or two later.
 	 */
 	@Override
 	public void process() {
 		super.process();
-		if (controller != null) {
-			controller.tick();
-		}
+		BotManager.tickTree(this);
 	}
 
 	/**

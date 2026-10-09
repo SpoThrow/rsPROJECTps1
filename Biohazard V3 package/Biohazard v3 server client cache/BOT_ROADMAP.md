@@ -331,6 +331,41 @@ At one bot none of this matters; at many it does. The rule: **no per-tick full s
 - Cohort spawn/despawn, and a `stop()` that `exit(..., true)`s every active tree so
   charge-release and `CycleEvent` cleanup are deterministic.
 
+**Implemented (Phase H).** Three decisions worth recording, because the obvious reading of each
+would have been wrong:
+
+- **The budget is a rotating window, not a queue.** "Tick the first K bots, resume at K next tick"
+  starves the tail: the player loop always visits bots in slot order, so the same low slots would win
+  every tick. Instead the window is offset by the tick number (`BotManager.inTickWindow`), so the
+  exempted set is different each tick and **every bot is reached within `ceil(live / budget)` ticks**.
+  The cost is that a bot's tree then runs every `ceil(live / budget)` ticks — that *is* the throughput
+  cap, stated rather than hidden. With `live <= budget` (the default at `MAX_BOTS = 10`) every bot
+  ticks every tick and the change is inert.
+- **The count budget is the mechanism; the time budget is a backstop, and it engages only when
+  oversubscribed.** A wall-clock cap on its own is a footgun: it needs a per-tick reset, and any caller
+  that drives `process()` without signalling a tick accumulates forever and starves every bot — which is
+  exactly what two existing loop tests did when this landed. So the time valve applies only when
+  `live > budget`, the case it exists to bound; below that the tick stays deterministic and
+  machine-independent.
+- **The tick boundary is explicit: `BotManager.beginTick()`, called first in `Server.tick()`.** The
+  game's own tick counter is private and there is no other per-tick hook, so a lazy alternative would
+  have been to guess the boundary from bot slot order — obscure and fragile. This is the one core line
+  Phase H adds (plus `stopAll()` in the shutdown sequence), and `beginTick()` is now part of the
+  contract for anything that simulates a tick, including tests.
+
+**Scans are staggered as a consequence, not separately.** `ResourceScan` already runs on retarget rather
+than per tick (`§7`, and its own note), so bounding *when a tree may act* bounds *when it may scan* — a
+second scan scheduler would have had nothing left to schedule.
+
+**Graceful stop** is `BotManager.stopAll()`, wired into `Server.requestStop()` before the characters are
+written: it is `release()` for every bot, so each tree is exited with `interrupted = true` (releasing
+charges, animations and `CycleEvent`s) before the save. **Cohort spawn** is `spawnAll(...)`, which counts
+by delta because `spawn()` is idempotent — the trap a naive sum would report as extra spawns.
+
+⚠️ **Not addressed here: the cap.** `MAX_BOTS` is still 10, below the budget, so the throttle is
+deliberately dormant. Raising it is a product decision (it consumes `MAX_PLAYERS` slots), not a Phase H
+one; the budget exists so that decision can be made without the tick being the thing that breaks.
+
 ---
 
 ## 6. Phase plan
@@ -346,17 +381,19 @@ Each phase is additive; A is the only one that touches existing server code.
 | **E — Data-driven defs** | `Data/CFG/bots.cfg`, `BotProfile` loading, `::bot spawn/despawn` | New bots = config lines, no rebuild | No (one startup call) |
 | **F — Observability** | State labels, per-bot trace buffer, `::botinfo`, failure logging | Bots are debuggable while authoring | No |
 | **G — Agent generic** | `Agent`/`PlayerAgent`/`NpcAgent`; `BotContext.agent()` replaces `client()` | One behavior library for players and NPCs | Minor |
-| **H — Scale** | Staggered scans, per-tick budget, cohorts, graceful stop | Dozens–hundreds of bots | No |
+| **H — Scale** | Staggered scans, per-tick budget, cohorts, graceful stop | Dozens–hundreds of bots | No (one tick call) |
 | **I — RL** | Tick-timer refactor, then `Observation`/`Action`/`Policy` | Learning agents | Yes (see §9) |
 
 Recommended order: **A → B → C → D → E → F**, then G, H, I as needs arise. B and C are
 the two phases that most change what "authoring a bot" feels like.
 
-**Implemented so far: A, B, C, D, E, F, G, and provisioning** (`BotProfiles`/`BotProvisioning`, the gap
-that made F's note "bot accounts still start with no kit" true). See `UPDATE_LOG.md` for what landed in
-each; the next phase in the recommended order is **H** (scale). One thing now works end to end that
+**Implemented so far: A, B, C, D, E, F, G, H, and provisioning** (`BotProfiles`/`BotProvisioning`, the
+gap that made F's note "bot accounts still start with no kit" true). See `UPDATE_LOG.md` for what landed
+in each; the next phase in the recommended order is **I** (RL), which is the one that touches core
+(tick-timer refactor) and is the only phase not yet started. Two things now work end to end that
 previously did not: a bot added by editing `Data/cfg/bots.cfg` is created with the tools its script needs,
-so a config-spawned woodcutter can actually chop rather than failing on its first click.
+so a config-spawned woodcutter can actually chop rather than failing on its first click; and the bot system
+has a bounded per-tick cost, so raising the cap is no longer a question of whether the tick survives.
 
 G landed as the seam and **not** as a migration of `WorldAdventurer`: that NPC is now disabled
 (`Config.WORLD_ADVENTURER_ENABLED = false`), so migrating it onto the tree would have been work for
@@ -471,7 +508,12 @@ change with its own tests and lands **before** any RL types are introduced.
   object interaction is still player-only: `ObjectHandler.dispatch`/`ObjectAction` take a `Client`, so
   `NpcAgent.interactObject` refuses loudly. An NPC can travel; it cannot yet skill.
 - **H:** N bots run within a bounded per-tick budget; a stress test shows tick time
-  stays within budget as N grows.
+  stays within budget as N grows. ✅ `BotManager.beginTick()`/`tickTree()` with a rotating
+  `Config.BOT_TICK_BUDGET`-bot window, a wall-clock backstop for the oversubscribed case, cohort
+  `spawnAll`, and `stopAll()` wired into shutdown. `BotSchedulingTest` proves the bound is tight
+  (exactly the budget each tick) and starvation-free (every bot reached within `ceil(n/budget)` ticks) at
+  200 bots over 1250 ticks, and end to end against five real bots with a budget of two. ⚠️ The shipped
+  budget (32) exceeds `MAX_BOTS` (10), so it is inert until the cap is raised — by design.
 - **Provisioning** (cross-cutting; `BOT_ACCOUNTS.md` §4.1): a bot created from a config line owns the
   tools its script needs, so a spawned woodcutter can chop. ✅ `BotProfiles` (named kits: `default`,
   `woodcutter`, `miner`, `fisher`) + `BotProvisioning` (applies one at `createAccount`) + an optional

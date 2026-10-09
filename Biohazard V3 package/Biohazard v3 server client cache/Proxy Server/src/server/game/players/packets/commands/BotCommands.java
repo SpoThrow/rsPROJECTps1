@@ -89,7 +89,8 @@ final class BotCommands {
 
 	private static void list(Client c) {
 		List<BotProfile> profiles = BotManager.profiles();
-		c.sendMessage("Bots: " + BotManager.count() + " live, " + profiles.size() + " configured");
+		c.sendMessage("Bots: " + BotManager.count() + " live, " + profiles.size() + " configured"
+				+ " (last tick: " + BotManager.tickStats() + ")");
 		if (profiles.isEmpty()) {
 			c.sendMessage("  no rows in Data/cfg/bots.cfg — add one, then ::bot reload");
 			return;

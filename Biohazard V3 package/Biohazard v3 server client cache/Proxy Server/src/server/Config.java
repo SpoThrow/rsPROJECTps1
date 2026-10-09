@@ -158,6 +158,39 @@ public class Config {
 	 */
 	public static final boolean WORLD_ADVENTURER_ENABLED = false;
 
+	/**
+	 * How many bots may have their behaviour tree ticked in one game tick — the per-tick work budget
+	 * ({@code BOT_ROADMAP.md} §5.7, Phase H).
+	 *
+	 * <p>The game tick is single-threaded and every bot competes with real players for the same
+	 * {@link #cycleRate} ms, so the scoring rule for the bot system is "does this keep per-bot, per-tick
+	 * work bounded". This is that bound. When more bots are live than this, the ticks are <b>staggered</b>:
+	 * a rotating window of {@code BOT_TICK_BUDGET} bots ticks each game tick and the rest resume next
+	 * tick, so every bot is reached within {@code ceil(bots / budget)} ticks.
+	 *
+	 * <p><b>Deliberately larger than {@code BotManager.MAX_BOTS}.</b> At the current cap the budget never
+	 * bites — every bot ticks every tick, exactly as before this existed — because there is no reason to
+	 * slow down ten bots. It is a ceiling for the case the cap is raised, not a throttle on the present
+	 * one. {@code 0} or less disables it entirely.
+	 */
+	public static final int BOT_TICK_BUDGET = 32;
+
+	/**
+	 * A wall-clock ceiling, in milliseconds, on time spent <em>inside bot behaviour trees</em> in one game
+	 * tick — the safety valve above {@link #BOT_TICK_BUDGET}.
+	 *
+	 * <p>The count budget bounds how many bots act; this bounds how long acting may take, which is the
+	 * thing that actually protects the tick when one bot's work is expensive (a pathfind, a region scan).
+	 * It counts tree time only, not the surrounding engine work, so it cannot be consumed by real players
+	 * processed earlier in the same tick. {@code 0} or less disables it.
+	 *
+	 * <p>Unlike the count budget this makes behaviour machine-dependent: a slower host ticks fewer bots
+	 * per tick. That is the intended reading of a <em>safety valve</em> — degrade bot throughput rather
+	 * than overrun the tick — and it is why the deterministic count bound is the primary mechanism and
+	 * this is the backstop.
+	 */
+	public static final int BOT_TICK_BUDGET_MS = 40;
+
 	public static final int[] UNDEAD_NPCS = {90,91,92,93,94,103,104,73,74,75,76,77};
 	
 	public static final int ATTACK = 0;

@@ -56,6 +56,10 @@ class ChopBankLoopTest {
 		PlayerHandler handler = new PlayerHandler();
 		int ticks = 0;
 		for (; ticks < TICK_CAP && bankedLogs(bot) == 0; ticks++) {
+			// This loop IS the game tick, so it signals the tick boundary the way Server.tick() does.
+			// BotManager's per-tick budget is reset here; a loop that skipped this would be driving bots
+			// outside the contract the server honours.
+			BotManager.beginTick();
 			handler.process();
 			CycleEventHandler.process();
 		}
