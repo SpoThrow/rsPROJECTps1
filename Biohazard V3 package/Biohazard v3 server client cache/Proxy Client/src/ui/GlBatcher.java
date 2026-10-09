@@ -210,7 +210,19 @@ public final class GlBatcher implements SceneBatch {
 			+ "    }\n"
 			+ "    vec2 uv = vUvW.xy / vUvW.z;\n"
 			+ "    ivec2 texel = ivec2(floor(uv * float(size)));\n"
-			+ "    texel = clamp(texel, ivec2(0), ivec2(size - 1));\n"
+			// ⚠⚠⚠ PHASE 7.8 - THE RANDOM-COLOURED TILES BUG. The two axes are NOT treated
+			// alike by the software, and clamping both was wrong on half the corners the live
+			// probe sampled. Texture.method379 CLAMPS the column (`if (i < 0) i = 0; else if
+			// (i > 16256) i = 16256;`, Texture.java:1969) but MASKS the row
+			// (`ai1[(j & 0x3f80) + (i >> 7)]`, Texture.java:1995), and 0x3f80 == 127 << 7 makes
+			// that mask a WRAP MODULO 128. So: column clamped, row wrapped. ⚠ Measured on the
+			// probe's own values - the software wraps 194->66, 167->39, 256->0, -5->123, -18->110
+			// where a clamp gives 127 or 0 every time, and roughly HALF of all probed corners
+			// resolved out of range. The mirror of this rule in Java is
+			// GlTextures.texelColumn / GlTextures.texelRow, which the harness pins; this is a
+			// transcription of that owner rather than a second copy of the rule.
+			+ "    texel.x = clamp(texel.x, 0, size - 1);\n"
+			+ "    texel.y = ((texel.y % size) + size) % size;\n"
 			+ "    uvec4 t = texelFetch(uAtlas, ivec3(texel, vLayer), 0);\n"
 			+ "    int shade = int(vShade);\n"
 			+ "    uint rgb = (t.r << 16u) | (t.g << 8u) | t.b;\n"
@@ -458,7 +470,20 @@ public final class GlBatcher implements SceneBatch {
 		GL11.glViewport(0, 0, frameWidth, frameHeight);
 		GL11.glEnable(GL11.GL_DEPTH_TEST);
 		GL11.glDepthFunc(GL11.GL_LEQUAL);
-		GL11.glDisable(GL11.GL_BLEND);
+		// ⚠⚠⚠ PHASE 7.10: BLENDING IS ON, AND THE ALPHA IT USES IS THE SOFTWARE'S PER-FACE
+		// ALPHA. It used to be disabled, with the pipeline OR-ing a constant opaque byte into
+		// every colour - which drew every transparent flat face (bank windows, glass) as an
+		// opaque slab, because the software blends those through Texture.method375 and this
+		// path threw the alpha away. The factor pair is not arbitrary: the software computes
+		// `src*(256-a)/256 + dst*(a/256)`, and SRC_ALPHA/ONE_MINUS_SRC_ALPHA with a fragment
+		// alpha of `(256-a)/256` is the same expression - see GlFacePipeline#alphaByte, which
+		// owns the mapping and states the half-step quantisation it cannot avoid.
+		// ⚠ Opaque fragments (alpha 0xff) are untouched by this: src*1 + dst*0 == src, so
+		// enabling it globally is a no-op for every face the software draws opaque - which is
+		// all of them except the ones that really carry an alpha. The TEXTURED path outputs a
+		// hard 1.0 from the shader for the same reason (method378 never blends).
+		GL11.glEnable(GL11.GL_BLEND);
+		GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
 		GL11.glDisable(GL11.GL_CULL_FACE);
 		GL11.glClearColor(((clearArgb >> 16) & 0xff) / 255f, ((clearArgb >> 8) & 0xff) / 255f,
 				(clearArgb & 0xff) / 255f, 1f);
@@ -488,12 +513,15 @@ public final class GlBatcher implements SceneBatch {
 		if (!ready) {
 			return false;
 		}
-		positions.put(x0, y0, z0).put(x1, y1, z1).put(x2, y2, z2);
-		colours.putTriangle(argb0, argb1, argb2);
-		// Keep every attribute buffer vertex-aligned; the texture branch below fills
-		// these with real values and the shader takes the colour path when layer is -1.
-		uvws.put(0f, 0f, 1f).put(0f, 0f, 1f).put(0f, 0f, 1f);
-		textureControls.put(0f, UNTEXTURED).put(0f, UNTEXTURED).put(0f, UNTEXTURED);
+		// ⚠⚠ Both triangle kinds append through appendVertex, which owns all four attribute
+		// buffers. The draw call counts vertices in `positions` and rewind() truncates all
+		// four by the same count, so they are only ever consistent if every triangle adds
+		// exactly three vertices to every one of them. Writing them individually is a bug
+		// waiting to happen: textured() once did, and its missing `positions` turned the
+		// whole frame into one triangle's geometry wearing another's texture.
+		appendVertex(x0, y0, z0, argb0, 0f, 0f, 1f, 0f, UNTEXTURED);
+		appendVertex(x1, y1, z1, argb1, 0f, 0f, 1f, 0f, UNTEXTURED);
+		appendVertex(x2, y2, z2, argb2, 0f, 0f, 1f, 0f, UNTEXTURED);
 		noteTriangle(false);
 		return true;
 	}
@@ -568,12 +596,61 @@ public final class GlBatcher implements SceneBatch {
 		}
 		// The colour slot is unused for a textured face - its slot holds a SHADE, not a
 		// colour - but it must still be written so the buffers stay vertex-aligned.
-		colours.putTriangle(0xffffffff, 0xffffffff, 0xffffffff);
-		uvws.put(u0, v0, w0).put(u1, v1, w1).put(u2, v2, w2);
 		float layer = textureId;
-		textureControls.put(shade0, layer).put(shade1, layer).put(shade2, layer);
+		appendVertex(x0, y0, z0, 0xffffffff, u0, v0, w0, shade0, layer);
+		appendVertex(x1, y1, z1, 0xffffffff, u1, v1, w1, shade1, layer);
+		appendVertex(x2, y2, z2, 0xffffffff, u2, v2, w2, shade2, layer);
+		reportTexturedProbe(x0, y0, u0, v0, w0, shade0, x1, y1, u1, v1, w1, shade1, textureId);
 		noteTriangle(true);
 		return true;
+	}
+
+	/** One-shot count for {@link #reportTexturedProbe}. */
+	private int texturedProbeSeen;
+
+	/**
+	 * One-shot report of the first few TEXTURED submissions (Phase 7.7a).
+	 *
+	 * <p>⚠⚠ <b>Why this probe and not another corner-colour one.</b> Every instrument so far has
+	 * looked at the COLOUR a face was given, and the ground probe duly came back olive and
+	 * correct. But the dumped frame is a patchwork of olive, grey, white and red tiles - which a
+	 * correct colour cannot produce - so the question that has never been asked is <b>which TEXEL
+	 * the shader actually fetches, and from which LAYER</b>. This prints exactly that: the layer
+	 * the face samples, the three corner shades, and the texel coordinate each corner resolves to
+	 * via {@code floor((u/w) * size)} - the same expression the fragment shader evaluates.
+	 *
+	 * <p>⚠ A corner whose {@code w} is zero or whose texel lands outside {@code [0, size-1]} is a
+	 * mapping fault; several faces sharing one layer but resolving to wildly different texels is not
+	 * a fault at all; the pattern is what tells them apart, which is why several are printed.
+	 */
+	private void reportTexturedProbe(float x0, float y0, float u0, float v0, float w0, int shade0,
+			float x1, float y1, float u1, float v1, float w1, int shade1, int textureId) {
+		if (texturedProbeSeen >= 8) {
+			return;
+		}
+		texturedProbeSeen++;
+		System.out.println("Renderer 'gl': TEXTURED PROBE #" + texturedProbeSeen + " layer "
+				+ textureId + " (size " + layerSize + ") shades " + shade0 + "/" + shade1
+				+ " - corner0 at (" + (int) x0 + "," + (int) y0 + ") uv " + f(u0) + "/" + f(v0)
+				+ " w " + f(w0) + " -> texel " + texelOf(u0, w0) + "," + texelOf(v0, w0)
+				+ " ; corner1 at (" + (int) x1 + "," + (int) y1 + ") uv " + f(u1) + "/" + f(v1)
+				+ " w " + f(w1) + " -> texel " + texelOf(u1, w1) + "," + texelOf(v1, w1));
+	}
+
+	private String texelOf(float num, float den) {
+		if (den == 0f) {
+			return "NaN(w=0)";
+		}
+		float uv = num / den;
+		int t = (int) Math.floor(uv * layerSize);
+		if (uv < 0f || uv >= 1f) {
+			return t + "(OUT-OF-RANGE uv=" + f(uv) + ")";
+		}
+		return String.valueOf(t);
+	}
+
+	private static String f(float v) {
+		return String.format("%.3f", v);
 	}
 
 	/** Number of triangles queued since {@link #beginFrame}. */
@@ -610,6 +687,32 @@ public final class GlBatcher implements SceneBatch {
 	/** Number of TEXTURED triangles accepted since {@link #beginFrame}. */
 	public int texturedCount() {
 		return texturedTriangles;
+	}
+
+	/**
+	 * Appends ONE vertex to all four attribute buffers.
+	 *
+	 * <p>⚠⚠ <b>This is the only place any of the four buffers is appended to, and that is
+	 * deliberate.</b> {@link #draw} sizes the draw call from {@code positions}, and
+	 * {@link #rewind} truncates every buffer by {@code triangleCount * 3} vertices, so the
+	 * buffers are only mutually consistent while each triangle contributes exactly three
+	 * vertices to each. Phase 7.9: {@code textured()} used to write colours/uvws/controls
+	 * but NOT positions, and because most faces of a textured model take the textured
+	 * branch, the vertex streams slipped by three per textured triangle - the GPU then drew
+	 * one triangle's <i>geometry</i> with another's <i>texture and shade</i>. That is what
+	 * made the character's colours appear on the ground and buildings. Funnelling both
+	 * triangle kinds through here makes the invariant unbreakable-by-omission.
+	 *
+	 * @param argb  the packed colour (the flat path) - ignored by the shader on a textured
+	 *              face, whose per-vertex value is {@code shade}, but it must still occupy a
+	 *              slot so the colour buffer keeps pace with the others
+	 */
+	private void appendVertex(float x, float y, float z, int argb, float u, float v, float w,
+			float shade, float layer) {
+		positions.put(x, y, z);
+		colours.put(argb);
+		uvws.put(u, v, w);
+		textureControls.put(shade, layer);
 	}
 
 	/**

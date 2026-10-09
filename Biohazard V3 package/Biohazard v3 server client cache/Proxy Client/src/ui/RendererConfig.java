@@ -159,7 +159,7 @@ public final class RendererConfig {
 		public boolean drawGroundTriangle(int x0, int y0, int x1, int y1, int x2, int y2,
 				int colour0, int colour1, int colour2, int textureId, boolean flatMesh,
 				int t0, int t1, int t2, int t3, int t4, int t5, int t6, int t7, int t8,
-				int depth) {
+				int depth, int depth0, int depth1, int depth2) {
 			reportScene();
 			return false;
 		}

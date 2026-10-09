@@ -1,0 +1,553 @@
+[probe] ObjectDef.loadConfig() = 9 ms
+[probe] loc.dat entries (loc.idx/12) = 42001
+
+=== raw loc.dat entry hex (first 64 bytes) ===
+id 1276: 0e 02 0f 02 44 00 00 1e 43 68 6f 70 20 64 6f 77 6e 00 20 68 69 64 64 65 6e 00 51 2a 28 01 0d 8e 16 21 05 01 06 22 02 54 72 65 65 00 00 
+id 1278: 0e 02 0f 02 44 00 01 1e 43 68 6f 70 20 64 6f 77 6e 00 20 68 69 64 64 65 6e 00 51 2a 28 01 0d 8e 16 21 29 02 00 98 00 4e 00 50 00 4d 05 01 06 65 02 54 72 65 65 00 00 
+id 2091: 1e 4d 69 6e 65 00 1f 50 72 6f 73 70 65 63 74 00 20 68 69 64 64 65 6e 00 44 00 0c 12 28 01 00 18 12 25 05 01 05 6f 02 52 6f 63 6b 73 00 00 
+id 2213: 1e 55 73 65 00 1f 55 73 65 2d 71 75 69 63 6b 6c 79 00 20 43 6f 6c 6c 65 63 74 00 1d 19 27 19 12 05 01 04 f6 02 42 61 6e 6b 20 62 6f 6f 74 68 00 00 
+id 1530: 13 01 1e 4f 70 65 6e 00 4b 00 01 02 25 04 00 25 05 09 02 44 6f 6f 72 00 00 
+[probe] decoded ok = 42001, failed/unsupported = 0
+[probe] objects with a name = 19406, with >=1 action = 10526
+[probe] distinct action strings = 472
+
+=== (1a) action string histogram (count, up to 5 samples) ===
+Inspect                  1435   Broken multicannon | Railing | Trawler net | Tomb dolmen | Belladonna patch
+Open                     1235   Door | Sacks | Gate | Large door | Chest
+Search                   1166   Crate | Wall Pipe | Chest | Open chest | Compost heap
+Guide                    1101   Belladonna patch | Belladonna | Diseased Belladonna | Dead Belladonna | Bush Patch
+Mine                      786   Rocks | Rune Essence | Rock slide | Rock of Dalgroth | Pile of Rock
+Prospect                  783   Rocks | Rune Essence | Rock of Dalgroth | Pile of Rock | Mineral vein
+Remove                    680   Hellhound | Boxing mat | Boxing ring | Fencing ring | Combat ring
+Climb-down                540   Ladder | Staircase | Stairs | Ship's ladder | Rocks
+Climb-up                  532   Ladder | Staircase | Stairs | Ship's ladder | Steps
+Close                     507   Chest | Large open cupboard | Wardrobe | Coffin | Manhole
+Enter                     394   Cave Entrance | Hollowed rock | City Gate | Magic Portal | Hillside entrance
+Climb                     216   Staircase | Ladder | Climbing rope | Dead tree | Rocks
+Build                     212   Window space | Treasure space | Monster space | Monster space 3 | Decoration space
+Use                       175   Telescope | Bank booth | Portal | Winch | Winch bucket
+Look-at                   143   Broken cart | Mound of earth | Fissure | Strange looking stone | Ancient gallows
+Repair                    143   Hole | Broken Wall | Temple wall | Catapult | Broken door
+Study                     110   Monument | Abstract mural | Unicorn's head | Bull's head | Strange wall
+Cross                     101   Gangplank | A wooden log | Stepping stones | Broken Bridge | Ledge
+Check                      89   Vine | Chaos altar | Crate | Fountain | Points settings
+Talk-to                    84   Spirit tree | Sir Palomedes | Awowogei | Pirate Captain | Wall of flame
+Pick                       83   Potato | Wheat | Cabbage | Nettles | Pineapple Plant
+Read                       81   Plaque | Glarial's tombstone | Grave of Scorpius | Signpost | Stone tablet
+Chop down                  79   Tree | Oak | Dead tree | Dramen tree | Magic tree
+Pull                       77   Lever | Crystal collector | Pressure Lever | Lever A | Lever B
+Take                       75   Sulphur | Tar | Saradomin Standard | Zamorak Standard | Canopic Jar
+Go-through                 67   Gate | Shantay pass | Ice gate | Tent door | Cave entrance
+Jump-to                    65   Stepping stone | Beach | Rocky shore | Rock | Stepping log
+Shut                       65   Open chest | Drawers | Open Cupboard | Cupboard | Chest
+Attack                     64   Dummy | Large door | Bush | Disturbed sand | Snow drift
+Climb-over                 62   Rock pile | Mud pile | Stile | Crumbling wall | Obstacle net
+Light                      62   Fire altar | Funeral pyre | Decorative Pillar | Torch | Incense burner
+Collect                    61   Bank booth | Coke | Crystal collector | Bank Booth | Desk
+Exit                       61   Grotto | Cave Exit | Portal | Cave exit | Underwater Cavern Entrance
+Take-from                  57   Beehive | Monument | Table | Pile of canes | Rotten Apple Pile
+Squeeze-through            55   Loose Railing | Obstacle pipe | Fence | Pipe | Hole
+Pick-lock                  53   Door | Gate | Cage | Jail Door | Trapdoor
+Investigate                51   Watchtower fence | Coal Truck | Strange looking stone | Tribal Statue | Well stacked rocks
+Pass                       46   Sticks | Energy Barrier | Tree | Hot vent door | Speartrap
+Walk-across                44   Log balance | Balancing ledge | Fixed bridge | Crystal bridge | Floor
+Push                       38   Wall | Odd looking wall | Roots | Memorial | Boulder
+Operate                    35   Winch | Hopper controls | Fractionalizing still | Catapult | Teleportation Device
+Dismantle                  34   Bird snare | Box trap | Deadfall | Spiked pit | Collapsed trap
+Sweep-away                 32   Line
+Pick-from                  31   Thorny bushes | Cadavaberry bush | Dwellberry bush | Jangerberry bush | Poison Ivy bush
+Steal-from                 31   Tea stall | Silk stall | Baker's stall | Gem stall | Fur stall
+Add-to                     30   Snowman
+Pray                       30   Altar | Altar of Guthix | Decayed altar
+Pray-at                    30   Chaos altar | Altar | Altar of Guthix | Altar of nature | Tribal Statue
+Renew-points               30   Obelisk | Small obelisk
+Look                       26   Crate | Desk | Bookcase | Jagged wall | Carved rock
+View                       26   Scoreboard | Information Scroll | Orrery | Telescope | Upcoming tournament rules
+Deposit                    25   Chest | Bank Deposit Box | Coin Collector | Food chute | Hole
+Pick-up                    25   Dwarf multicannon | Cannon base | Cannon stand | Cannon barrels | Dung
+Sit-on                     25   Wooden bench | Oak bench | Carved oak bench | Teak bench | Carved teak bench
+Jump                       24   Bridge | Leaves | Hurdle | Gap | Wall
+Use-quickly                24   Bank booth | Bank Booth | Gate
+Check-health               22   Cadavaberry bush | Dwellberry bush | Jangerberry bush | Poison Ivy bush | Redberry bush
+Chop-down                  22   Jungle Tree | Jungle Bush | Vines | Apple tree | Banana tree
+Look at                    22   Winch | Winch bucket | Mine Cart | Tracks | Footprints
+Level                      21   Dwarven Stout | Mature Dwarven Stout | Asgarnian Ale | Mature Asgarnian Ale | Greenmans Ale
+Activate                   20   Treasure Hunt Fairy House | Jacky Jester | Elemental balance | Hangman game | Obelisk
+Choose                     20   Shooting spot (level 10 approx.) | Shooting spot (level 20 approx.) | Shooting spot (level 30 approx.) | Shooting spot (level 40 approx.) | Shooting spot (level 50 approx.)
+Pick-fruit                 20   Calquat Tree | Papaya tree | White Tree patch | Sq'irk tree
+Remove-room                20   Ladder | Dungeon entrance | Staircase | Trapdoor
+Leave                      19   Cave exit | Underground pass exit | Exit | Portal | Our lives
+Pass-through               19   Tunnel | Holy barrier | Light door | Magic barrier | Barrier
+Lean against               18   Wall
+Grapple                    17   Rocks | Strong Tree | Wall | Crossbow Tree | Broken Raft
+Jump-over                  16   Gap | Jagged wall | Strange floor | Fence | Low fence
+Touch                      16   Fire Wall | Strange shrine | Door | Statue
+Craft-rune                 15   Altar | Runecrafting altar
+Exit-through               15   Fire rift | Earth rift | Body rift | Cosmic rift | Nature rift
+Harvest                    15   Asgarnian Hops | Hammerstone Hops | Barley | Krandorian Hops | Jute
+Step-on                    15   Platform | Transport platform | Springboard
+Dig                        14   Grave | Loose soil | Dirt | Hole | Mess
+Forfeit                    14   Entrance | Trapdoor
+Jump-across                14   Basalt rock | Clump of rocks | Flat stone | Stepping stone | Pit
+Move-creature              14   Blackbird pen | Bat pen | Snail pen | Spider pen | Reptile pen
+Smelt                      14   Furnace | Lava forge | Small furnace
+Swing-on                   14   Ropeswing | Rope swing | Vine hanging from branch | Vine
+Check-bowl                 13   Statue
+Go-down                    13   Trapdoor | Lift | Open trapdoor
+Play                       13   Church organ | Windchimes | Bells | Organ | Piano
+Walk-through               13   Tent door | Mystic portal | Shimmering field | Doorway | Wooden doors
+Walk-up                    13   Staircase | Spooky stairs | Stairs
+Hack                       12   Light Jungle | Medium Jungle | Dense Jungle
+Press                      12   Zero | One | Two | Three | Four
+Tag                        12   Ticket Dispenser | Pinball Post
+Walk-down                  12   Staircase | Spooky stairs | Stairs
+Chop                       11   Achey Tree | Tree | Tendrils | Dream tree | Beanstalk
+Crawl-through              11   Cart tunnel | Cave entrance | Little crack | Cut vines | Vines
+Force                      11   Door
+Take-Egg                   11   Boulder | Wheelbarrow | Mysterious statue | Statue of Saradomin | Shop counter
+Turn                       11   Water Valve | Statuette in alcove | Valve | Output Tap | Water controls
+Cast                       10   Book (level 10 approx.) | Tree stump (level 20 approx.) | Helm (level 30 approx.) | Shield (level 40 approx.) | Armour (level 50 approx.)
+Escape                     10   Exit path | Path | Cell wall window | Portal | Cave entrance
+Spin                       10   Spinning wheel
+Add                         9   Puppet heads | Puppet arms | Puppet legs
+Climb-into                  9   Hole | Underwall tunnel | Trapdoor tunnel | Tunnel | Trapdoor
+Extract-creature            9   Wrongly labelled crate (toads) | Wrongly labelled crate (newts) | Wrongly labelled crate (newts and toads) | Relabelled crate (newts) | Relabelled crate (toads)
+Look-in                     9   Barrel | Broken kiln | Egg hopper
+Quick-pass                  9   Shantay pass | Shantay Pass
+Search for traps            9   Lever | Chest
+Teleport                    9   Spirit tree | Zamorak altar | Saradomin altar | Armadyl altar | Bandos altar
+Upgrade                     9   Tools | Workbench | Clockmaker's bench
+Walk-on                     9   Balancing rope | Log balance | Plank
+Board                       8   Log raft | Travel cart | Raft | Swamp Boaty | Boat
+Burst                       8   Party Balloon
+Destroy                     8   Broken door | Barrier
+Hit                         8   Dummy
+Spectate                    8   Rat wall | Rat Wall
+Unlock                      8   Locked Ogre chest | Cell Door | Prison Door | Door | Cage
+Change-clothes              7   Shoe box | Oak drawers | Oak wardrobe | Teak drawers | Teak wardrobe
+Cut                         7   Kharidian cactus (Healthy) | Crystal outcrop | Roots | Wild jade vine | Vines
+Fire                        7   Dwarf multicannon | Ballista | Pottery Oven | Dwarf MultiCannon
+Fix                         7   Bellows | Runner trap(1) | Broken trap(0) | Penance cave | Cage
+Infuse-pouch                7   Obelisk
+Look-into                   7   Mystical mirror | Viewing orb
+Paddle Canoe                7   Canoe station
+Pick-leaf                   7   Curry tree | Doogle bush
+Preen                       7   Shaving stand | Dresser
+Read-plaque on              7   Jail door
+Set-trap                    7   Boulder | Young tree
+Squeeze-past                7   Stalagmite | Jutting wall
+Take-decoration             7   Decorations Box
+Add-logs                    6   Unlit beacon | Beacon
+Bait                        6   Fishing spot | Ominous Fishing Spot
+Empty                       6   Flour bin | Bone grinder | Bin
+Fill                        6   Crate | Leak | Loader | Ship hull
+Knock-at                    6   Large door | Door | Wall
+Look-inside                 6   Dark hole
+Pick-apple                  6   Apple tree
+Pick-banana                 6   Banana tree
+Pick-coconut                6   Palm tree
+Pick-orange                 6   Orange tree
+Pick-pineapple              6   Pineapple plant
+Remove-label                6   Relabelled crate (newts) | Relabelled crate (toads) | Relabelled crate (newts and toads)
+Ride                        6   Train cart | Aged log
+Ring                        6   Bell | Rope bell-pull | Bell-pull | Posh bell-pull
+Roll                        6   Dice
+Shoot-at                    6   Archery target
+Smash-to-bits               6   Boulder
+Steal from                  6   Crafting Stall | Food Stall | General Stall | Magic Stall | Scimitar Stall
+Take-kettle                 6   Firepit with hook | Firepit with pot | Small oven | Large oven | Steel range
+Take-seed                   6   Roses | Dying roses | Growing roses
+Walk through                6   Mine cave | Cave entrance | Cave exit
+Bless                       5   Gravestone | Grave marker
+Build-in                    5   Cage
+Cast-Alchemy                5   Armour (level 60 approx.) | Stool (level 70 approx.) | Dumb-bells (level 80 approx.) | Assistant (level 90 approx.) | Anvil (level 99 approx.)
+Cast-Teleport               5   Armour (level 60 approx.) | Stool (level 70 approx.) | Dumb-bells (level 80 approx.) | Assistant (level 90 approx.) | Anvil (level 99 approx.)
+Churn                       5   Dairy churn
+Continue-trek               5   Path | Boat
+Craft                       5   Smashed table | Clockmaker's bench
+Descend                     5   Cave Stairs | Steps | Stairs
+Examine                     5   Healing certificate | Ornament
+Grab                        5   Bones | Wire
+Harvest-twigs               5   Cinnamon tree | Sassafras tree | Ailanthus tree | Cedar tree | Mastic tree
+Jump-onto                   5   Stepping stone | Rock | Boat | Damaged wall
+Levitate                    5   Rat (level 10 approx.) | Cat (level 20 approx.) | Bowl (level 30 approx.) | Penguin (level 40 approx.) | Ork (level 50 approx.)
+Load                        5   Egg hopper
+Loot                        5   Crate | Corpse
+Make-ball-of                5   Snow
+Net                         5   Fishing spot
+Prune                       5   Jade vine
+Pull-down                   5   Eagle lever
+Push-through                5   Magical wheat
+Push-up                     5   Eagle lever
+Say-name                    5   Grave
+Stand-on                    5   Balance beam | Bog
+Take-Coffin                 5   Grave
+Take-egg                    5   Pile of eggs | Incubator
+Take-powder                 5   Powder Barrel | Barrel
+Turn-left                   5   Sewer valve
+Turn-right                  5   Sewer valve
+Work-at                     5   Workbench
+Break                       4   Smashed window | Window | Rocks
+Capture                     4   Standard Stand | Saradomin Standard | Zamorak Standard
+Charm Snake                 4   Urn
+Clear                       4   Water Channel | Wall
+Climb down                  4   Rock | Tree | Ladder | Rope
+Climb up                    4   Tree | Beard | Stairs | Rope
+Climb-through               4   Hole | Shortcut | Cave opening | Hidden doorway
+Cut-down                    4   Jungle Tree | Scrapey Tree
+Dunk                        4   Lava crater | Poison crater
+Excavate                    4   Statue | Mass of debris
+Flag                        4   Dirt | Hole
+Hide-behind                 4   Cactus | Crate
+Jump-through                4   Wall of flame
+Look-over                   4   Balcony
+Make-canoe                  4   
+Mine-through                4   Collapsed tunnel | Cave entrance
+Observe                     4   Telescope
+Pay-toll(10gp)              4   Gate
+Remove fuel                 4   Storage box
+Slash                       4   Web
+Squeeze-into                4   Skull nose cavity
+Swing across                4   Monkeybars | Monkey bars
+Take-axe                    4   Logs | Rock | Rocks
+Take-sigil                  4   Pedestal
+Take-tomato                 4   Compost Bin
+Tie-rope                    4   Rock | Hole | Broken pillar
+View-game                   4   Table
+Weed                        4   Herbs
+Bank                        3   Bank chest | Chest
+Challenge-mode              3   Lever
+Check for Snakes            3   Urn
+Climb-on                    3   Barrel
+Climb-out                   3   Crate wall | Warren exit
+Climb-to                    3   Rock
+Crawl                       3   Tunnel
+Crawl-down                  3   Cart tunnel
+Direct-portal               3   Scrying pool | Teleportation focus | Greater teleport focus
+Drain                       3   Barrel
+Float Canoe                 3   Canoe station
+Get-down                    3   Balance beam
+Harpoon                     3   Fishing spot
+Hide-in                     3   Crate
+Jump-down                   3   Weathered wall | Wall
+Listen-at                   3   Grill | Large door
+Lock                        3   Door | Portal
+Lure                        3   Ominous Fishing Spot
+Paint-bauble                3   Paintcans
+Pick-spine                  3   Cactus
+Plunder                     3   Closed chest | Open chest
+Pray at                     3   Statue of Saradomin | Statue of Zamorak | Statue of Guthix
+Push through                3   Reeds
+Refuel                      3   Stove
+Reinforce                   3   Temple wall | Village fence
+Set-up                      3   Attack stone
+Smash                       3   Giant crystal | Barrel | Drilling machine
+Take-armour                 3   Melee armour table | Ranger armour table | Mage armour table
+Take-rum                    3   Conveyor Belt
+Teeth-grip                  3   Zip line
+Travel                      3   Boat
+Wind                        3   Clock | Bone grinder
+Add-Chocolate               2   Chocolate mixer
+Add-Coal                    2   Incubator coal scuttle
+Add-Water                   2   Incubator water tank
+Ascend                      2   Cave Stairs | Steps
+Buy                         2   Crate
+Cage                        2   Fishing spot
+Call                        2   Horn of glory
+Check-contents              2   Fire pit
+Climb-Down                  2   Ladder
+Climb-under                 2   Castle wall
+Collapse                    2   Cave wall | Entrance
+Crack                       2   Wall safe
+Crawl-under                 2   Wall
+Deactivate                  2   Magic box | Magic box failed
+Deposit-all                 2   Deposit table | Bank deposit box
+Dig-below                   2   Roots
+Dig-up                      2   Mud | Wintumber tree
+Dive                        2   Pier | Chain
+Dive in                     2   Whirlpool
+Drink-from                  2   Healer spring | Fountain
+Enter-cloud                 2   Cloud bank
+Evade-event                 2   Path
+Exit-cave                   2   Exit cavern | Archway
+Fill-Buckets                2   Coal | Water pool
+Fill-bowl                   2   Maggie's cauldron
+Fire-at                     2   Target | Guide rope
+Free                        2   King Arthur
+Hoop                        2   Stick | Stick and hoop
+Jump-from                   2   Stepping stone
+Kick                        2   Badly repaired wall | Gramophone
+Leave Tomb                  2   Tomb Door
+Leave through               2   Exit
+Listen-to                   2   Shining pool
+Milk                        2   Dairy cow | Dairy Cow
+Pay-fare                    2   Travel cart
+Peek                        2   Hatch door
+Peer-through                2   Telescope | Peephole
+Quick-pay(100)              2   Hardwood Grove Doors
+Raise                       2   Flag
+Ransack                     2   Barrel
+Retrieve                    2   Bars | Magic box
+Revert-crystal              2   Singing bowl
+Ring-bell                   2   Antiques Shop Stall | Bell
+Shoot                       2   Gnome goal | Egg launcher
+Shout-in                    2   Pipe
+Shout-through               2   Barred window | Door
+Sing-glass                  2   Singing bowl
+Slide                       2   slope
+Status                      2   Bone grinder
+Steal-cowbell               2   Dairy cow | Dairy Cow
+Step                        2   Broken pier
+Step-into                   2   Sparkling pool
+Step-over                   2   Tripwire | Tree stump
+Stir                        2   Maggie's cauldron
+Stock-up                    2   Defender item machine | Healer item machine
+Stoke                       2   Furnace
+Swim to                     2   Rock
+Swing                       2   Rope | Cable
+Swing Across                2   Monkeybars
+Swing-across                2   Monkey bars | Ladder
+Take From                   2   Barrel of flour
+Take treasure               2   Chalice of Eternity
+Take-tofu                   2   Defender item machine | Healer item machine
+Take-tool                   2   Workbench | Tool table
+Take-weapon                 2   Melee weapon table | Mage weapon table
+Take-worms                  2   Defender item machine | Healer item machine
+Talk-through                2   Cell door | Prison door
+Throw                       2   Shot
+Throw-at                    2   Dartboard
+Trap                        2   Pit
+Use-lift                    2   Platform | Lift Platform
+Watch                       2   Mine door entrance
+Weave                       2   Loom
+Add-Egg                     1   Incubator
+Add-bottom                  1   Crate
+Adjust                      1   Machine
+Adjust-Temperature          1   Incubator controls
+Admire                      1   Tall mirror
+Bang                        1   Big door
+Bend                        1   Cell wall window
+Block                       1   Penance cave
+Board ( Pay 10 )            1   Swamp Boaty
+Borrow                      1   A suit of Armour
+Burn-down                   1   Boil
+Buy-food                    1   Chest
+Buy-items                   1   Chest
+Carpent                     1   Doorway
+Change                      1   Agility changing room
+Climb Down                  1   Chute
+Climb-across                1   Hand holds
+Climb-off                   1   Ice bridge
+Climb-thru                  1   Door
+Collect-from                1   Weeping wall
+Construct                   1   Pyre site
+Control                     1   Dwarven machinery
+Convert                     1   Collector Converter
+Count                       1   Pressure Barrel
+Count-plunder               1   Plunder Storage
+Cross-bridge                1   Rope bridge
+Cross-over                  1   Broken wall
+Crouch                      1   Minecart
+Cut down                    1   Arctic Pine
+Cut-branch                  1   Swaying tree
+Cut-wood                    1   Woodcutting stump
+Decapitate                  1   Ice Troll King
+Demolish                    1   Penance cave
+Deposit-Eggs                1   Rabbit hole
+Dip-Egg                     1   Chocolate pool
+Disembark                   1   Crude raft
+Distract                    1   Eyes
+Drink From                  1   Cauldron
+Empty-out                   1   Cannon
+Escape-event                1   Boat
+Exchange                    1   Desk
+Exit-room                   1   Archway
+Fill-bucket                 1   Sink
+Fire!                       1   Cannon
+Fish-in                     1   Aquarium
+Float Log                   1   Canoe station
+Flush                       1   Rabbit hole
+Fly                         1   Gnomecopter
+Follow                      1   Tracks
+Get in                      1   Barrel
+Get-spikes                  1   Petrified mushroom
+Go-through-wall             1   Tunnel entrance
+Go-up                       1   Lift
+History                     1   Desk
+Insert-kebbit               1   Kebbit chute
+J-mod Options               1   Table
+Jiggle                      1   Pipes
+Jump off                    1   End of bridge
+Jump-on                     1   Pillar
+Jump-out                    1   Light
+Jump-thru                   1   Destroyed wall
+Jump-up                     1   Weathered wall
+Kick-down                   1   Floor
+Knock                       1   Door
+Leave-Warren                1   Rabbit hole
+Lift                        1   Totem pole
+Listen                      1   Pipes
+Look in                     1   Barrel
+Look-under                  1   Potted plant
+Look-up                     1   Trellis
+Make                        1   Bed
+Make-helmet                 1   Helmet pluming stand
+Make-wish                   1   Wishing well
+Move                        1   Boulder
+Paddle Log                  1   Canoe station
+Pan                         1   Panning point
+Pay-toll(2-Ecto)            1   Energy Barrier
+Pedal                       1   Pedals
+Peek-in                     1   Passage
+Pick Banana                 1   Strange Banana Tree
+Pick Nuts                   1   Tchiki Monkey Nut Bush
+Process                     1   Creation kiln
+Prod                        1   Sacks
+Pull Up                     1   Large root
+Pull-back                   1   Poster
+Pull-spade                  1   Stone Door
+Pump                        1   Steam Pump
+Push-over                   1   Stone pillar
+Put-inside                  1   Pipe
+Put-ore-on                  1   Conveyor belt
+Quick-leave                 1   Portal
+Reach                       1   Vent
+Read-book                   1   Shrine
+Release                     1   Gnome on a rack
+Remove-bone                 1   Pot-boiler
+Remove-coal                 1   Coal Truck
+Remove-pot                  1   Pot-boiler
+Reposition                  1   Painting
+Return                      1   Train cart
+Return-to-Burgh             1   Path
+Return-to-Paterdomus        1   Path
+Rotate                      1   Crane
+Rub                         1   Amulet of Glory
+Rummage                     1   Skeleton
+Scry                        1   Scrying pool
+Sets                        1   Desk
+Shake                       1   Leafy Palm Tree
+Shape-canoe                 1   Canoe station
+Shout-over                  1   Rockslide
+Sleep-in                    1   Pet blanket
+Slide-down                  1   Slide
+Smelt-ore                   1   Clay forge
+Squeeze-under               1   Fence
+Steal                       1   Candles
+Steal-keys                  1   A lazy Khazard guard
+Step-off                    1   Ice ledge
+Store                       1   Locker
+Store-plunder               1   Plunder Storage
+Swim                        1   River
+Take-Bucket                 1   Large table
+Take-arrows                 1   Attacker item machine
+Take-barrier                1   Barrier table
+Take-beam                   1   Crate
+Take-beer                   1   Table
+Take-bow                    1   Bow table
+Take-bowl                   1   Table
+Take-clay                   1   Sacred clay table
+Take-crackers               1   Defender item machine
+Take-cutting                1   Budding branch
+Take-food                   1   Food table
+Take-honey                  1   Beehive
+Take-log                    1   Log Store
+Take-marionette             1   Crate
+Take-meat                   1   Healer item machine
+Take-potion                 1   Potion table
+Take-pouch                  1   Summoning table
+Take-pulley-beam            1   Crate
+Take-rock                   1   Rubble
+Take-rope                   1   Crate
+Take-runes                  1   Attacker item machine
+Take-stone                  1   Stone dispenser
+Take-vial                   1   Healer item machine
+Talk to                     1   Tree
+Talk-into                   1   Drain Pipe
+Tap                         1   Pipes
+Taunt-through               1   Railing
+Tell-story                  1   Juna
+Tread-softly                1   Icicles
+Turn-off                    1   Gramophone
+Unblock                     1   Tunnel
+Untie                       1   Zanik
+Unwrap presents             1   Gifts
+Use-driftwood               1   Embers
+Use-logs                    1   
+Vent                        1   Steam Pump
+Walk-along                  1   Tunnel
+Walk-here                   1   Rope bridge
+Warm-by                     1   
+Waterproof                  1   Ship hull
+Wind-up                     1   Gramophone
+Worship                     1   Ectofuntus
+climb-up                    1   Wooden beam
+enter                       1   
+test                        1   Argento
+
+=== (1b) icon-rule object matches (action substring; + name for Bank) ===
+Bank             33   16700=Bank booth, 34752=Bank booth, 18491=Bank booth, 2213=Bank booth, 19230=Bank booth, 35647=Bank booth
+Chop down       112   16604=Dream tree, 1276=Tree, 1277=Tree, 1278=Tree, 1280=Tree, 1281=Oak
+Mine            795   16576=Rocks, 16577=Rocks, 16578=Rocks, 16579=Rocks, 16580=Rocks, 16581=Rocks
+Cook              0   
+Smith             0   
+Pray             63   61=Chaos altar, 409=Altar, 410=Altar of Guthix, 411=Chaos altar, 412=Chaos altar, 17010=Altar
+Recharge          0   
+
+=== (1c) def-vs-handler diff ===
+[handler] registry keys: FIRST=132 SECOND=37 THIRD=0
+[handler] switch cases: FIRST=100 SECOND=4 THIRD=1
+[handler] union of handler ids = 261
+def-only (has action, no handler)   = 10268
+handler-only (handler, no action)   = 3
+both                                 = 258
+def-only sample:
+   1 Crate [Search, null, null, null, null, null, null, null, null]
+   3 Door [Open, null, null, null, null, null, null, null, null]
+   4 Door [Open, null, null, null, null, null, null, null, null]
+   5 Broken multicannon [Inspect, null, null, null, null, null, null, null, null]
+   10 Ladder [Climb-down, null, null, null, null, null, null, null, null]
+   11 Ladder [Climb-up, null, null, null, null, null, null, null, null]
+   12 Rock pile [Climb-over, null, null, null, null, null, null, null, null]
+   13 Mud pile [Climb-over, null, null, null, null, null, null, null, null]
+   14 Railing [Inspect, null, null, null, null, null, null, null, null]
+   15 Railing [Inspect, null, null, null, null, null, null, null, null]
+   16 Railing [Inspect, null, null, null, null, null, null, null, null]
+   17 Railing [Inspect, null, null, null, null, null, null, null, null]
+   18 Railing [Inspect, null, null, null, null, null, null, null, null]
+   19 Railing [Inspect, null, null, null, null, null, null, null, null]
+   20 Railing [Inspect, null, null, null, null, null, null, null, null]
+   22 Door [Open, null, null, null, null, null, null, null, null]
+   23 Sacks [Prod, Open, null, null, null, null, null, null, null]
+   24 Door [Open, null, null, null, null, null, null, null, null]
+   33 Lever [Pull, null, null, null, null, null, null, null, null]
+   34 Lever [Pull, null, null, null, null, null, null, null, null]
+   35 Lever [Pull, null, null, null, null, null, null, null, null]
+   36 Lever [Pull, null, null, null, null, null, null, null, null]
+   37 Gate [Open, null, null, null, null, null, null, null, null]
+   38 Gate [Open, null, null, null, null, null, null, null, null]
+   39 Gate [Go-through, null, null, null, null, null, null, null, null]
+handler-only sample:
+   10284 <no name>
+   6725 <no name>
+   2781 Catapult
+
+[probe] Region.load() = 843 ms
+
+=== (3) Region.realObjects measurements ===
+regions in registry          = 1226
+regions with >=1 realObject  = 809
+total realObjects            = 1939931
+per-region min/avg/median/max= 0 / 1582.3 / 832 / 15833 (max region 12433)
+live realObjects per icon rule:
+   Bank             176
+   Chop down      12951
+   Mine            1724
+   Cook               0
+   Smith              0
+   Pray              45
+   Recharge           0
+
+nearest-scan window: 9 regions (22779 objects) around 3087,3236
+distance-only scan  : 0.128 ms/scan
+distance+name scan  : 0.439 ms/scan

@@ -1,0 +1,18 @@
+---
+description: Record every change in UPDATE_LOG.md as a short progress report
+alwaysApply: true
+---
+
+- Keep a running update log in UPDATE_LOG.md at the project root. Create it if it doesn't exist.
+- After every completed change (feature, fix, refactor, config change), add a new entry at the top of the log, newest first.
+- Each entry uses this format:
+  - Heading: `## YYYY-MM-DD - short title`
+  - **What changed:** 1-3 bullets, plain language.
+  - **Files touched:** list of main files or folders only.
+  - **Status:** done, partial, or blocked, plus one line on what's next if not done.
+- Keep entries brief: a progress report, not documentation. Aim for under 10 lines per entry.
+- Note anything that behaves differently now, was removed, or needs follow-up. Skip trivial edits like typos or formatting.
+- Group multiple small changes from the same session into one entry.
+- Never edit or delete past entries. If something was wrong, add a new entry that corrects it.
+- Before stopping mid-task, log what was done and what remains.
+- Only log a change as done once it builds and works. Otherwise mark it partial or blocked.

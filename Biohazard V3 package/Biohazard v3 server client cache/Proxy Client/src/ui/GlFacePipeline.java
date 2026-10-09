@@ -275,8 +275,15 @@ public final class GlFacePipeline {
 	/** The depth above which {@code Texture.method374} applies fog. Mirrors its guard. */
 	private static final int FOG_MIN_DEPTH = 50;
 
-	/** Alpha byte the batcher receives. Blending is off, so it cannot change a pixel. */
-	private static final int OPAQUE = 0xff000000;
+	/**
+	 * ⚠⚠ PHASE 7.10 REMOVED THE {@code OPAQUE} CONSTANT THAT USED TO LIVE HERE. It pinned the
+	 * alpha byte to {@code 0xff} on the reasoning that "blending is off, so it cannot change a
+	 * pixel" - which was true and was exactly the bug. Blending is now ON, and the alpha is
+	 * the fact the software blends with, so the byte is derived per face through
+	 * {@link #alphaByte} instead of being fixed. The TEXTURED path still reaches the GPU with
+	 * a white colour whose alpha is 1.0; that is the shader's own {@code vec4(rgb, 1.0)} and
+	 * is correct, because {@code method378} never alpha-blends.
+	 */
 
 	private static final int[] NO_VERTICES = new int[0];
 	private static final boolean[] NO_FLAGS = new boolean[0];
@@ -386,6 +393,15 @@ public final class GlFacePipeline {
 		int[] colourB = model.faceCornerColoursB();
 		int[] colourC = model.faceCornerColoursC();
 		boolean lit = colourA != null && colourB != null && colourC != null;
+		// ⚠⚠⚠ PHASE 7.10: THE PER-FACE ALPHA, WHICH THIS PATH USED TO THROW AWAY. method484
+		// reads anIntArray1639[i] into {@code Texture.anInt1465} before EVERY face, and the
+		// flat rasteriser blends with it (method374 fills its spans through method375:
+		// `ai[i] = src*(256-a)/256 + dst*a/256`). Writing a constant OPAQUE byte instead made
+		// every transparent FLAT face - bank windows, glass, the translucent scenery - an
+		// opaque slab. See {@link #alphaByte} for how the software's `a` becomes GL's factor.
+		// ⚠ Only the FLAT paths use it: method378/method379 never read anInt1465, so a
+		// textured face is opaque in the software however this array is set.
+		int[] alphas = model.faceAlphas();
 
 		for (int face = 0; face < faces; face++) {
 			int a = faceA[face];
@@ -442,9 +458,10 @@ public final class GlFacePipeline {
 				if (flat < 0) {
 					outcome = NO_COLOUR;
 				} else {
-					sink.triangle(vertexX[a], vertexY[a], absoluteZ(vertexDepth[a]), OPAQUE | flat,
-							vertexX[b], vertexY[b], absoluteZ(vertexDepth[b]), OPAQUE | flat,
-							vertexX[c], vertexY[c], absoluteZ(vertexDepth[c]), OPAQUE | flat);
+					int packed = (faceAlphaByte(alphas, face) << 24) | flat;
+					sink.triangle(vertexX[a], vertexY[a], absoluteZ(vertexDepth[a]), packed,
+							vertexX[b], vertexY[b], absoluteZ(vertexDepth[b]), packed,
+							vertexX[c], vertexY[c], absoluteZ(vertexDepth[c]), packed);
 					triangles++;
 				}
 			} else {
@@ -457,14 +474,16 @@ public final class GlFacePipeline {
 				} else {
 					// Face-index order, deliberately: see the class doc for why this
 					// reproduces the software's tie-breaking rather than fighting it.
-					// ⚠ The opaque alpha is added HERE, not by resolveCornerColour:
-					// that method's return value is compared against a pixel the
-					// software path painted, and those are 0x00RRGGBB. The batcher's
-					// input is ARGB and blending is off, so the byte is inert either
-					// way - but it is stated rather than left to chance.
-					sink.triangle(vertexX[a], vertexY[a], absoluteZ(vertexDepth[a]), OPAQUE | ca,
-							vertexX[b], vertexY[b], absoluteZ(vertexDepth[b]), OPAQUE | cb,
-							vertexX[c], vertexY[c], absoluteZ(vertexDepth[c]), OPAQUE | cc);
+					// ⚠ The per-face ALPHA is added HERE, not by resolveCornerColour: that
+					// method's return value is compared against a pixel the software path
+					// painted, and those carry a zero alpha byte. ⚠ It is ONE value for the
+					// whole face because the software's array is per FACE
+					// (method484 sets anInt1465 once, before the rasteriser runs), so a
+					// per-corner alpha would invent an interpolation method378 never had.
+					int alpha = faceAlphaByte(alphas, face) << 24;
+					sink.triangle(vertexX[a], vertexY[a], absoluteZ(vertexDepth[a]), alpha | ca,
+							vertexX[b], vertexY[b], absoluteZ(vertexDepth[b]), alpha | cb,
+							vertexX[c], vertexY[c], absoluteZ(vertexDepth[c]), alpha | cc);
 					triangles++;
 				}
 			}
@@ -573,9 +592,10 @@ public final class GlFacePipeline {
 			if (flat < 0) {
 				return NO_COLOUR;
 			}
-			submitClipped(0, 1, 2, flat, flat, flat, sink);
+			int alpha = faceAlphaByte(model.faceAlphas(), face) << 24;
+			submitClipped(0, 1, 2, flat, flat, flat, alpha, sink);
 			if (points == 4) {
-				submitClipped(0, 2, 3, flat, flat, flat, sink);
+				submitClipped(0, 2, 3, flat, flat, flat, alpha, sink);
 			}
 			return CLIPPED;
 		}
@@ -587,9 +607,12 @@ public final class GlFacePipeline {
 			return NO_COLOUR;
 		}
 		// method485's quad split, in its order: (0,1,2) then (0,2,3), colours following.
-		submitClipped(0, 1, 2, k0, k1, k2, sink);
+		// ⚠ 7.10: the face's alpha travels with both triangles, for the same reason
+		// method484 sets it before either of them runs.
+		int alpha = faceAlphaByte(model.faceAlphas(), face) << 24;
+		submitClipped(0, 1, 2, k0, k1, k2, alpha, sink);
 		if (points == 4) {
-			submitClipped(0, 2, 3, k0, k2, k3, sink);
+			submitClipped(0, 2, 3, k0, k2, k3, alpha, sink);
 		}
 		return CLIPPED;
 	}
@@ -600,10 +623,11 @@ public final class GlFacePipeline {
 	 * intersections sitting on the near plane - one shared depth would flatten the front
 	 * corners onto the plane and lose the depth ordering between clipped faces.
 	 */
-	private void submitClipped(int i0, int i1, int i2, int c0, int c1, int c2, TriangleSink sink) {
-		sink.triangle(clipX[i0], clipY[i0], absoluteZ(clipDepth[i0]), OPAQUE | c0,
-				clipX[i1], clipY[i1], absoluteZ(clipDepth[i1]), OPAQUE | c1,
-				clipX[i2], clipY[i2], absoluteZ(clipDepth[i2]), OPAQUE | c2);
+	private void submitClipped(int i0, int i1, int i2, int c0, int c1, int c2, int alpha,
+			TriangleSink sink) {
+		sink.triangle(clipX[i0], clipY[i0], absoluteZ(clipDepth[i0]), alpha | c0,
+				clipX[i1], clipY[i1], absoluteZ(clipDepth[i1]), alpha | c1,
+				clipX[i2], clipY[i2], absoluteZ(clipDepth[i2]), alpha | c2);
 		triangles++;
 	}
 
@@ -806,11 +830,52 @@ public final class GlFacePipeline {
 			// and being conservative costs a software frame while being wrong costs fidelity.
 			if (!ramps.reproducesExactlyAt(sampleX, sampleY, sampleCount)) {
 				noteTextureDecline(TEXTURE_RAMP_OVERFLOW);
+				reportRampOverflow(face, textureId,
+						new int[] { vertexCamX[ta], vertexCamX[tb], vertexCamX[tc] },
+						new int[] { vertexCamY[ta], vertexCamY[tb], vertexCamY[tc] },
+						new int[] { wa, wb, wc }, centreX, centreY, size,
+						ramps.reproducesExactlyAt(sampleX, sampleY, sampleCount));
 				return null;
 			}
 		}
 		texturedId = textureId;
 		return ramps;
+	}
+
+	private static boolean reportedRampOverflow;
+
+	/**
+	 * One-shot report of a TEXTURE_RAMP_OVERFLOW decline, with the NINE it was built from
+	 * (Phase 7.7b).
+	 *
+	 * <p>⚠⚠ <b>The live log names this as the reason an entire actor is MISSING from the GL
+	 * image</b> - "skipping MODEL uid ... NEEDS_TEXTURE x1 of 233 faces, first at face 200:
+	 * TEXTURE_RAMP_OVERFLOW" - and a missing actor is the most visible kind of wrong there is.
+	 * ⚠ The guard declines because a numerator left 32 bits, which means the camera-space products
+	 * are far outside what a normal model produces, and 7.4c already recorded that as pointing at
+	 * "an upstream bug in the nine rather than at the guard". This prints the nine so that claim
+	 * can be settled by reading rather than by repeating it.
+	 *
+	 * @param camX the three {@code vertexCamX} values at the texture vertices
+	 * @param camY the three {@code vertexCamY} values at the texture vertices
+	 * @param w    the three denominators, i.e. {@code depth + sceneDepth}
+	 */
+	private void reportRampOverflow(int face, int textureId, int[] camX, int[] camY, int[] w,
+			int centreX, int centreY, int size, boolean reproduces) {
+		if (reportedRampOverflow) {
+			return;
+		}
+		reportedRampOverflow = true;
+		long prod = (long) Math.max(Math.abs(camX[0] - centreX), Math.abs(camX[1] - centreX));
+		long prodY = (long) Math.max(Math.abs(camY[0] - centreY), Math.abs(camY[1] - centreY));
+		long prodW = (long) Math.max(Math.abs(w[0]), Math.max(Math.abs(w[1]), Math.abs(w[2])));
+		System.out.println("Renderer 'gl': RAMP OVERFLOW PROBE - face " + face + " layer "
+				+ textureId + " centre (" + centreX + "," + centreY + ") size " + size
+				+ " - camX " + camX[0] + "/" + camX[1] + "/" + camX[2] + " camY " + camY[0] + "/"
+				+ camY[1] + "/" + camY[2] + " w " + w[0] + "/" + w[1] + "/" + w[2]
+				+ " - largest |camX-centreX| " + prod + ", |camY-centreY| " + prodY + ", |w| "
+				+ prodW + " (a 32-bit wrap needs |a*b| > 2^31, i.e. both factors > 46341), "
+				+ "exact-reproduction sample says " + reproduces);
 	}
 
 	/**
@@ -924,6 +989,57 @@ public final class GlFacePipeline {
 			return -1;
 		}
 		return palette[code];
+	}
+
+	/**
+	 * ⚠⚠⚠ PHASE 7.10: THE SOFTWARE'S PER-FACE ALPHA AS A GL FRAGMENT ALPHA BYTE.
+	 *
+	 * <p><b>The software's blend, and why this maps onto {@code SRC_ALPHA}.</b>
+	 * {@code Texture.method375} (which {@code method374} fills its spans through) does:
+	 * <pre>{@code
+	 *   int j1 = anInt1465;            // the face's alpha, 0..255
+	 *   int k1 = 256 - anInt1465;
+	 *   j  = src * k1 >> 8;            // source weight
+	 *   ai[i] = j + dst * j1 >> 8;     // + destination weight
+	 * }</pre>
+	 * i.e. {@code out = src*(256-a)/256 + dst*(a/256)}. GL's
+	 * {@code SRC_ALPHA, ONE_MINUS_SRC_ALPHA} computes
+	 * {@code out = src*f + dst*(1-f)} for a fragment alpha {@code f}, so the two agree when
+	 * {@code f = (256-a)/256} - which is what {@code 255 - a} approximates to within the
+	 * 8-bit quantisation GL applies anyway (at most half a step, {@code 0.5/255}). The
+	 * software's {@code >> 8} and GL's normalised byte cannot be made bit-identical
+	 * through fixed-function blending at all, so this is stated rather than hidden.
+	 *
+	 * <p>⚠ <b>{@code a == 0} MEANS FULLY OPAQUE, not fully transparent.</b> That is the
+	 * software's own convention - {@code method375} takes the no-blend branch on
+	 * {@code anInt1465 == 0} - and it is why the natural-looking {@code a} would be
+	 * backwards. {@code 255 - 0 = 255} gives an opaque fragment, which is the required
+	 * direction; the mapping is also monotone, so a larger {@code a} is always more
+	 * see-through.
+	 *
+	 * @param faceAlpha {@code Model.faceAlphas()[face]}, or any value outside {@code 0..255}
+	 *                  to be clamped
+	 * @return the alpha byte to OR into a packed ARGB colour (255 = opaque)
+	 */
+	public static int alphaByte(int faceAlpha) {
+		int a = faceAlpha < 0 ? 0 : (faceAlpha > 255 ? 255 : faceAlpha);
+		return 255 - a;
+	}
+
+	/**
+	 * {@link #alphaByte} for face {@code face} of {@code alphas}, opaque when the model
+	 * carries no alpha array at all.
+	 *
+	 * <p>⚠ <b>{@code null} is the ordinary case, not an error.</b> {@code anIntArray1639} is
+	 * allocated only for models whose stream carries alphas ({@code Model.hasFaceAlphas()}),
+	 * and method484 treats a null array as {@code anInt1465 = 0} - i.e. opaque. Defaulting to
+	 * transparent here would turn every ordinary model into a ghost, so the default is stated.
+	 */
+	private static int faceAlphaByte(int[] alphas, int face) {
+		if (alphas == null || face < 0 || face >= alphas.length) {
+			return 0xff;
+		}
+		return alphaByte(alphas[face]);
 	}
 
 	/**

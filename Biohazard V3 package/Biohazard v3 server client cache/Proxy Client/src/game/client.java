@@ -119,6 +119,7 @@ import ui.RegenMeter;
 import ui.Renderer;
 import ui.SavedCharacters;
 import ui.SlayerTracker;
+import ui.SpecialAttackOrb;
 import ui.Sprite;
 import ui.StatusBars;
 import ui.StatusTimers;
@@ -11210,68 +11211,33 @@ public class client extends RSApplet {
 	        smallText.method382(getOrbTextColor(100), ox + scaleHudOffset(42, ow, srcW), currentEnergy, oy + scaleHudOffset(27, oh, srcH), true);
 	    }
 
-	private static final int[][] SPEC_ORB_MAP = {
-		{ 12335, 48023 }, { 7611, 29163 }, { 8505, 33033 }, { 7486, 29038 },
-		{ 7511, 29063 }, { 7586, 29138 }, { 7561, 29113 }, { 7686, 29238 }, { 7636, 29188 }
-	};
+	/**
+	 * The live spec bar, latched from the server's own bar text (see {@link SpecialAttackOrb}).
+	 * A fixed scan over the known bars cannot work: every bar keeps its last text, so the
+	 * first match is the first spec weapon the player ever held rather than the one in hand.
+	 */
+	private final SpecialAttackOrb specOrbState = new SpecialAttackOrb();
+
+	private String currentSpecMessage() {
+		int frame = specOrbState.frame();
+		if (RSInterface.interfaceCache == null || frame < 0
+				|| frame >= RSInterface.interfaceCache.length
+				|| RSInterface.interfaceCache[frame] == null) {
+			return null;
+		}
+		return RSInterface.interfaceCache[frame].message;
+	}
 
 	private int currentSpecPercent() {
-		if (RSInterface.interfaceCache == null) {
-			return 0;
-		}
-		for (int i = 0; i < SPEC_ORB_MAP.length; i++) {
-			int id = SPEC_ORB_MAP[i][0];
-			if (id < 0 || id >= RSInterface.interfaceCache.length || RSInterface.interfaceCache[id] == null) {
-				continue;
-			}
-			String msg = RSInterface.interfaceCache[id].message;
-			if (msg == null) {
-				continue;
-			}
-			int start = msg.lastIndexOf('(');
-			int end = msg.lastIndexOf('%');
-			if (start >= 0 && end > start) {
-				try {
-					return Integer.parseInt(msg.substring(start + 1, end).trim());
-				} catch (Exception e) {
-				}
-			}
-		}
-		return 0;
+		return SpecialAttackOrb.percentOf(currentSpecMessage());
 	}
 
 	private int currentSpecButton() {
-		if (RSInterface.interfaceCache == null) {
-			return -1;
-		}
-		for (int i = 0; i < SPEC_ORB_MAP.length; i++) {
-			int id = SPEC_ORB_MAP[i][0];
-			if (id < 0 || id >= RSInterface.interfaceCache.length || RSInterface.interfaceCache[id] == null) {
-				continue;
-			}
-			String msg = RSInterface.interfaceCache[id].message;
-			if (msg != null && msg.toLowerCase().indexOf("special attack") >= 0) {
-				return SPEC_ORB_MAP[i][1];
-			}
-		}
-		return -1;
+		return specOrbState.button();
 	}
 
-	private boolean specOrbActive() {
-		if (RSInterface.interfaceCache == null) {
-			return false;
-		}
-		for (int i = 0; i < SPEC_ORB_MAP.length; i++) {
-			int id = SPEC_ORB_MAP[i][0];
-			if (id < 0 || id >= RSInterface.interfaceCache.length || RSInterface.interfaceCache[id] == null) {
-				continue;
-			}
-			String msg = RSInterface.interfaceCache[id].message;
-			if (msg != null && msg.startsWith("@yel@")) {
-				return true;
-			}
-		}
-		return false;
+	boolean specOrbActive() {
+		return SpecialAttackOrb.isActive(currentSpecMessage());
 	}
 
 	public void drawSpecOrb() {
@@ -11290,7 +11256,8 @@ public class client extends RSApplet {
 		ORBS[0] = new Sprite(s + "ORBS 0.png", 27, getOrbFill(spec));
 		int srcW = ORBS[1] != null ? ORBS[1].myWidth : 57;
 		int srcH = ORBS[1] != null ? ORBS[1].myHeight : 34;
-		drawHudSprite(ORBS[specOrbActive() ? 7 : 1], ox, oy, ow, oh);
+		boolean specArmed = specOrbActive();
+		drawHudSprite(ORBS[specArmed ? 7 : 1], ox, oy, ow, oh);
 		drawHudPart(ORBS[4], ox + scaleHudOffset(3, ow, srcW), oy + scaleHudOffset(3, oh, srcH), ow, oh, srcW, srcH);
 		drawHudPart(ORBS[0], ox + scaleHudOffset(4, ow, srcW), oy + scaleHudOffset(3, oh, srcH), ow, oh, srcW, srcH);
 		if (specOrbIcon != null) {
@@ -11298,6 +11265,9 @@ public class client extends RSApplet {
 		}
 		smallText.method382(getOrbTextColor(spec), ox + scaleHudOffset(44, ow, srcW), Integer.toString(spec), oy + scaleHudOffset(26, oh, srcH), true);
 		RegenMeter.drawSpec(ox, oy, ow, oh, spec);
+		if (specArmed && loopCycle % 20 < 10) {
+			DrawingArea.method335(0xffd200, oy, ow > 0 ? ow : 57, oh > 0 ? oh : 34, 70, ox);
+		}
 	}
 
 	private void processMiddleClickWear() {
@@ -15218,6 +15188,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 				boolean flag1 = inStream.readUnsignedByte() == 1;
 				int j13 = inStream.readUnsignedWord();
 				RSInterface.interfaceCache[j13].isMouseoverTriggered = flag1;
+				specOrbState.onHiddenUpdate(j13, flag1);
 				pktType = -1;
 				return true;
 
@@ -15254,6 +15225,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 						return true;
 					}
 					RSInterface.interfaceCache[frame].message = text;
+					specOrbState.onStringUpdate(frame, text);
 					applySkillWidget(frame, text);
 					if (RSInterface.interfaceCache[frame].parentID == tabInterfaceIDs[tabID]
 							|| frame >= 7562 && frame <= 7586)

@@ -116,13 +116,33 @@ public final class SceneRasterizer {
 		 *
 		 * <p>⚠ <b>It is a per-TILE quantity, not per-vertex, and that mirrors the
 		 * software's own granularity</b> - {@code method315} submits a whole tile as a unit
-		 * in painter order and fogs it with the one mean depth. A listener that needs a
-		 * gradient across the tile must take it from the {@code w} plane of the nine rather
-		 * than from here; a listener reproducing the software's fog wants exactly this.
+		 * in painter order and fogs it with the one mean depth. A listener reproducing the
+		 * software's FOG wants exactly this and nothing else.
 		 *
-		 * <p>⚠ <b>Do not re-derive it from the nine.</b> The {@code w} plane is the
-		 * per-vertex form of the same quantity, but its ORDERING is not one vertex order and
-		 * its mean is not this number; the two are consistent, not interchangeable.
+		 * <p>⚠⚠ <b>{@code depth0..depth2} are the SAME AXIS at PER-VERTEX resolution, and
+		 * they exist because {@code depth} alone cannot composite the ground against modelled
+		 * geometry (Phase 7.11).</b> Each is the absolute camera-space depth of the corner at
+		 * {@code (x0,y0)}, {@code (x1,y1)}, {@code (x2,y2)} respectively - literally the
+		 * divisor the software divided that corner by to project it
+		 * ({@code textureInt1 + (rotX << 9) / w}), so it is the same quantity
+		 * {@code Model.method443} writes per vertex. ⚠ Note that {@code depth} is their mean
+		 * for {@code method315} but is NOT one for {@code method316}, whose overlay meshes are
+		 * fogged by a distance formula instead - a second reason the two are carried
+		 * separately rather than one being derived from the other.
+		 *
+		 * <p>⚠⚠ <b>Why the {@code w} plane of the nine could not serve this purpose, and why
+		 * this is a corrected comment rather than a new feature.</b> The planes were previously
+		 * documented here as the place a listener "must" take a per-tile gradient from. That is
+		 * FALSE for at least one of the three hooks: {@code method315}'s first hook passes the
+		 * flat mapping set {@code (i2,i3,l1)} / {@code (k2,j2,j3)}, whose index 0 belongs to
+		 * corner {@code (j1,k1)}, while the screen triangle it is submitted for is
+		 * {@code (j1+1,k1+1),(j1,k1+1),(j1+1,k1)} - so {@code t6} there is a DIFFERENT
+		 * corner's depth, off by the tile diagonal. A depth buffer built on {@code t6..t8}
+		 * would therefore keep exactly the diagonal-wall occlusion this argument exists to
+		 * remove. The planes remain an input description of the MAPPING (see the layout warning
+		 * above); geometry takes its depths from {@code depth0..depth2}, which are in
+		 * screen-corner order for every hook and both branches BY CONSTRUCTION rather than by
+		 * convention - each is read at the same call site as the coordinate it describes.
 		 *
 		 * @param x0,y0..x2,y2 the projected screen triangle
 		 * @param colour0..2   the 16-bit model face colours (palette indices)
@@ -131,14 +151,17 @@ public final class SceneRasterizer {
 		 * @param t0..t8       the nine camera-space values used for texture mapping, in the
 		 *                     order the software rasteriser receives them
 		 * @param depth        the tile's absolute camera-space depth, {@code Fog.sceneDepth}
-		 *                     at the call site - see above
+		 *                     at the call site - the FOG depth, see above
+		 * @param depth0..2    the absolute camera-space depths of the corners at
+		 *                     {@code (x0,y0)}, {@code (x1,y1)}, {@code (x2,y2)} - the
+		 *                     per-vertex form of the same axis, see above
 		 * @return {@code true} if handled, {@code false} to DECLINE and let the caller
 		 *         fall through to software
 		 */
 		boolean drawGroundTriangle(int x0, int y0, int x1, int y1, int x2, int y2,
 				int colour0, int colour1, int colour2, int textureId, boolean flatMesh,
 				int t0, int t1, int t2, int t3, int t4, int t5, int t6, int t7, int t8,
-				int depth);
+				int depth, int depth0, int depth1, int depth2);
 	}
 
 	private static Implementation implementation;
@@ -197,15 +220,24 @@ public final class SceneRasterizer {
 	 * its fog distance - so it is threaded through here rather than reconstructed by a
 	 * listener. See {@link Implementation#drawGroundTriangle} for what it is and what it is
 	 * not.
+	 *
+	 * <p><b>The {@code depth0..depth2} arguments (Phase 7.11).</b> Per-corner on the same axis,
+	 * added because the per-tile value above cannot composite the ground against walls and
+	 * models. {@code method315} reads them from the four post-rotation corner depths it has
+	 * already computed and projected with, and {@code method316} from
+	 * {@code Class40.anIntArray692}. See {@link Implementation#drawGroundTriangle} for why the
+	 * {@code w} plane of the nine was NOT the source.
 	 */
 	public static boolean dispatchGroundTriangle(int x0, int y0, int x1, int y1, int x2, int y2,
 			int colour0, int colour1, int colour2, int textureId, boolean flatMesh,
-			int t0, int t1, int t2, int t3, int t4, int t5, int t6, int t7, int t8, int depth) {
+			int t0, int t1, int t2, int t3, int t4, int t5, int t6, int t7, int t8, int depth,
+			int depth0, int depth1, int depth2) {
 		Implementation impl = implementation;
 		if (impl == null) {
 			return false;
 		}
 		return impl.drawGroundTriangle(x0, y0, x1, y1, x2, y2, colour0, colour1, colour2,
-				textureId, flatMesh, t0, t1, t2, t3, t4, t5, t6, t7, t8, depth);
+				textureId, flatMesh, t0, t1, t2, t3, t4, t5, t6, t7, t8, depth,
+				depth0, depth1, depth2);
 	}
 }

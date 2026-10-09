@@ -27,6 +27,7 @@ import ui.DrawingArea;
 import ui.GlBatcher;
 import ui.GlClipper;
 import ui.GlFacePipeline;
+import ui.GlFrameDiff;
 import ui.GlModelProjection;
 import ui.GlScene;
 import ui.GlSceneRenderer;
@@ -38,6 +39,7 @@ import ui.RSImageProducer;
 import ui.RendererConfig;
 import ui.SceneBatch;
 import ui.SceneRasterizer;
+import ui.SpecialAttackOrb;
 import ui.Sprite;
 import ui.TriangleSink;
 
@@ -117,6 +119,8 @@ public final class ClientHarness {
 		glFrameLatchCoversTheWholeFrame();
 		glFrameLatchBringsTheBatchUpFirst();
 		glBatcherDegradesAndTheArgbContractHolds();
+		glBatcherKeepsItsAttributeBuffersVertexAligned();
+		glFlatFacesCarryTheSoftwarePerFaceAlpha();
 		rasterPinsAreStanding();
 		modelGeometryExposesLocalVertices();
 		modelGeometryDecodesRenderTypeAndTexture();
@@ -149,12 +153,16 @@ public final class ClientHarness {
 		texturedFacesResolveTheSoftwareTextureInputs();
 		modelFaceDeclinesNameTheirOutcome();
 		glTexturesMatchTheSoftwareShadeBlocks();
+		glTexturesWrapTheTextureRowAndClampTheColumn();
 		groundTexturePlaneRoles();
 		texturedFaceNineSourceIsMeasured();
 		textureRampsResolveTheSoftwareMapping();
 		textureRampsMatchAtBothDetailLevels();
 		rampOverflowIsMeasured();
 		groundRampOverflowSkipsTheTileAndKeepsTheFrame();
+		groundDepthIsPerCornerNotPerTile();
+		glFrameDiffClassifiesDisagreementByShape();
+		glFrameDiffIsDrivenByTheSeamInTheRightOrder();
 		clippedTexturedFacesUseTheUncutRamps();
 		curseFrameRemapRedirectsCurseFilesToTheHighSlots();
 		curseFrameRemapLeavesOriginalFrameSlotsAlone();
@@ -192,6 +200,8 @@ public final class ClientHarness {
 		streamLoaderOutOfRangeIndexExtentIsSafe();
 		streamLoaderTruncatedHeaderIsSafe();
 		streamLoaderTruncatedIndexTableIsSafe();
+
+		specialAttackOrbFollowsTheLiveBar();
 
 		System.out.println("=====================================");
 		System.out.println("passed: " + passed + "   failed: " + failed);
@@ -1704,7 +1714,7 @@ public final class ClientHarness {
 			public boolean drawGroundTriangle(int x0, int y0, int x1, int y1, int x2, int y2,
 					int colour0, int colour1, int colour2, int textureId, boolean flatMesh,
 					int t0, int t1, int t2, int t3, int t4, int t5, int t6, int t7, int t8,
-					int depth) {
+					int depth, int depth0, int depth1, int depth2) {
 				calls[0]++;
 				return true;
 			}
@@ -1761,7 +1771,7 @@ public final class ClientHarness {
 			public boolean drawGroundTriangle(int x0, int y0, int x1, int y1, int x2, int y2,
 					int colour0, int colour1, int colour2, int textureId, boolean flatMesh,
 					int t0, int t1, int t2, int t3, int t4, int t5, int t6, int t7, int t8,
-					int depth) {
+					int depth, int depth0, int depth1, int depth2) {
 				return true;
 			}
 
@@ -1800,7 +1810,7 @@ public final class ClientHarness {
 					!SceneRasterizer.dispatch(Model.aModel_1621, 0, 0, 0, 0, 0, 0, 0, 0, 0));
 			check("Decline contract: a declining renderer does not consume a ground triangle",
 					!SceneRasterizer.dispatchGroundTriangle(1, 2, 3, 4, 5, 6, 7, 8, 9, -1, false,
-							11, 12, 13, 14, 15, 16, 17, 18, 19, 600));
+							11, 12, 13, 14, 15, 16, 17, 18, 19, 600, 600, 600, 600));
 			check("Decline contract: a declining renderer declines the present",
 					!GpuRenderer.presentGameFrame(null, 0, 0));
 			check("Decline contract: the renderer is installed, so this is DECLINING not absent",
@@ -1862,7 +1872,7 @@ public final class ClientHarness {
 					!SceneRasterizer.dispatch(Model.aModel_1621, 0, 0, 0, 0, 0, 0, 0, 0, 0));
 			check("GL arm: does not consume a ground triangle",
 					!SceneRasterizer.dispatchGroundTriangle(1, 2, 3, 4, 5, 6, 7, 8, 9, -1, false,
-							11, 12, 13, 14, 15, 16, 17, 18, 19, 600));
+							11, 12, 13, 14, 15, 16, 17, 18, 19, 600, 600, 600, 600));
 			check("GL arm: declines the present, so the UI still composites in software",
 					!GpuRenderer.presentGameFrame(null, 0, 0));
 		} finally {
@@ -1960,7 +1970,7 @@ public final class ClientHarness {
 			// back - and the assertions below are what make that a measurement.
 			check("GL frame: an untextured ground tile is NOT consumed either",
 					!SceneRasterizer.dispatchGroundTriangle(0, 0, 10, 0, 0, 10, 1, 2, 3,
-							-1, false, 11, 12, 13, 14, 15, 16, 17, 18, 19, 900));
+							-1, false, 11, 12, 13, 14, 15, 16, 17, 18, 19, 900, 900, 900, 900));
 			check("GL frame: further submissions do NOT start another frame",
 					batch.beginFrames == 1);
 			check("GL frame: the tile's own camera-space depth arrives at the renderer",
@@ -1985,7 +1995,8 @@ public final class ClientHarness {
 			batch.beginFrames = 0;
 			SceneRasterizer.dispatch(Model.aModel_1621, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 			SceneRasterizer.dispatchGroundTriangle(0, 0, 10, 0, 0, 10, 1, 2, 3,
-					TEXTURED_TEX_ID, false, 11, 12, 13, 14, 15, 16, 17, 18, 19, 900);
+					TEXTURED_TEX_ID, false, 11, 12, 13, 14, 15, 16, 17, 18, 19, 900, 900, 900,
+					900);
 			check("GL frame: a LOW-DETAIL textured ground tile is not representable",
 					GlSceneRenderer.GROUND_LOWMEM_DECLINE.equals(renderer.frameDeclineReason()));
 			check("GL frame: a non-whole frame is NOT read back, so the software scene stands",
@@ -2018,7 +2029,8 @@ public final class ClientHarness {
 			batch.beginFrames = 0;
 			SceneRasterizer.dispatch(Model.aModel_1621, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 			SceneRasterizer.dispatchGroundTriangle(0, 0, 10, 0, 0, 10, 0xbc614e, 2, 3,
-					TEXTURED_TEX_ID, false, 11, 12, 13, 14, 15, 16, 17, 18, 19, 900);
+					TEXTURED_TEX_ID, false, 11, 12, 13, 14, 15, 16, 17, 18, 19, 900, 900, 900,
+					900);
 			check("GL frame: the software's skip sentinel is not a decline - it is drawn by nobody",
 					renderer.frameDeclineReason() == null);
 			check("GL frame: and that frame is read back",
@@ -2106,7 +2118,7 @@ public final class ClientHarness {
 		try {
 			SceneRasterizer.dispatch(Model.aModel_1621, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 			SceneRasterizer.dispatchGroundTriangle(0, 0, 10, 0, 0, 10, 1, 2, 3,
-					-1, false, 11, 12, 13, 14, 15, 16, 17, 18, 19, 900);
+					-1, false, 11, 12, 13, 14, 15, 16, 17, 18, 19, 900, 900, 900, 900);
 			check("GL frame: a batch that is not ready YET still latches, because the latch ASKS it to come up",
 					lazy.beginFrames == 1 && renderer.framesLatched() == 1);
 			check("GL frame: and it is asked ONCE per frame, not once per submission",
@@ -2164,6 +2176,11 @@ public final class ClientHarness {
 		 */
 		boolean comeUpOnEnsure;
 		/**
+		 * ⚠ When true, {@link #readInto} fills EVERY pixel rather than one, so the A/B diff
+		 * sees a frame that disagrees everywhere and must reach its AREA-CLASS verdict.
+		 */
+		boolean paintAll;
+		/**
 		 * Whether the batch accepts the size it is asked for. True models the real
 		 * {@code GlBatcher}, which restates its frame target; {@code false} models a batch
 		 * that cannot, and is what the size-gate check needs.
@@ -2190,6 +2207,21 @@ public final class ClientHarness {
 		int lastShade0;
 		int lastShade1;
 		int lastShade2;
+		/**
+		 * ⚠⚠ 7.11: the last submitted triangle's three vertex DEPTHS. This double is the only
+		 * place the ground's {@code z} is observable, so it is the only way to tell "one z for
+		 * the whole tile" (the diagonal-wall occlusion) from "one z per corner" (the fix).
+		 */
+		float lastZ0;
+		float lastZ1;
+		float lastZ2;
+		/**
+		 * ⚠⚠ 7.11: the last untextured triangle's three resolved vertex colours. Needed to pin
+		 * that the per-corner depths did NOT leak into the FOG, which must stay the tile mean.
+		 */
+		int lastArgb0;
+		int lastArgb1;
+		int lastArgb2;
 
 		public boolean beginFrame(int clearArgb) {
 			beginFrames++;
@@ -2205,7 +2237,17 @@ public final class ClientHarness {
 		public boolean readInto(int[] dest, int destStride, int destX, int destY) {
 			readBacks++;
 			if (dest != null && dest.length > 0) {
-				dest[destY * destStride + destX] = PAINTED;
+				if (paintAll) {
+					// ⚠ The SOLID-frame mode, so the A/B diff can be driven through the real
+					// seam into its AREA-CLASS branch. Painting one pixel can only ever
+					// produce the SAMPLING-CLASS verdict, because a single pixel cannot fill
+					// an 8x8 block - so without this the interesting verdict would be
+					// reachable only by calling GlFrameDiff directly, and "the seam calls it"
+					// would go unproven.
+					java.util.Arrays.fill(dest, PAINTED);
+				} else {
+					dest[destY * destStride + destX] = PAINTED;
+				}
 			}
 			return true;
 		}
@@ -2249,6 +2291,12 @@ public final class ClientHarness {
 		public boolean triangle(float x0, float y0, float z0, int argb0, float x1, float y1,
 				float z1, int argb1, float x2, float y2, float z2, int argb2) {
 			triangles++;
+			lastZ0 = z0;
+			lastZ1 = z1;
+			lastZ2 = z2;
+			lastArgb0 = argb0;
+			lastArgb1 = argb1;
+			lastArgb2 = argb2;
 			return true;
 		}
 
@@ -2263,6 +2311,9 @@ public final class ClientHarness {
 				return false;
 			}
 			texturedTriangles++;
+			lastZ0 = z0;
+			lastZ1 = z1;
+			lastZ2 = z2;
 			// ⚠ 7.4j: the SHADES are captured, not just counted. The ground path's fade cannot
 			// be observed any other way - this double is the only seam the ground submits
 			// through - and "the ground fades its shades too" is a claim that must be measured
@@ -2276,6 +2327,19 @@ public final class ClientHarness {
 		/** The three shade codes of the last textured triangle the GROUND path submitted. */
 		public int lastShade(int corner) {
 			return corner == 0 ? lastShade0 : corner == 1 ? lastShade1 : lastShade2;
+		}
+
+		/**
+		 * The three vertex depths of the last triangle submitted by ANY ground path (textured
+		 * or not). See {@link #lastZ0}.
+		 */
+		public float lastZ(int corner) {
+			return corner == 0 ? lastZ0 : corner == 1 ? lastZ1 : lastZ2;
+		}
+
+		/** The three resolved corner colours of the last submitted UNTEXTURED triangle. */
+		public int lastArgb(int corner) {
+			return corner == 0 ? lastArgb0 : corner == 1 ? lastArgb1 : lastArgb2;
 		}
 
 		public String describe() {
@@ -2382,6 +2446,301 @@ public final class ClientHarness {
 						&& ((packed >> 8) & 0xff) == 0x7a && (packed & 0xff) == 0x21);
 		check("GL batcher: 0x00FF0000 decodes as RED, not blue - the byte-order contract",
 				((0x00FF0000 >> 16) & 0xff) == 0xff && (0x00FF0000 & 0xff) == 0);
+	}
+
+	/**
+	 * ⚠⚠ PHASE 7.8: THE FOUR ATTRIBUTE BUFFERS MUST STAY VERTEX-ALIGNED, FOR BOTH TRIANGLE
+	 * KINDS. This is the test that would have caught the frame-wide corruption, and nothing
+	 * before it could.
+	 *
+	 * <p><b>The bug.</b> {@code GlBatcher} batches a whole frame into four parallel buffers -
+	 * positions, colours, uv numerators and the (shade, layer) texture controls - and draws
+	 * them in ONE {@code glDrawArrays} whose vertex count is {@code positions.position() / 3}.
+	 * {@code rewind} truncates all four by the same {@code triangleCount * 3}. The four are
+	 * therefore only mutually consistent while EVERY triangle appends exactly three vertices
+	 * to EVERY one of them. {@code textured()} appended colours, uvws and controls but NOT
+	 * positions, so from the first textured face onward the streams slipped by three and the
+	 * GPU drew one triangle's GEOMETRY wearing another's TEXTURE and SHADE. That is exactly
+	 * the reported symptom - "my entire character is being rendered onto the buildings and
+	 * tiles" - and it is why every colour and ramp probe read back CORRECT while the picture
+	 * stayed a patchwork: the inputs were right and the pairing was not. A probe inspects one
+	 * submission at a time and never the buffer offsets <i>between</i> submissions.
+	 *
+	 * <p><b>Why this is a real test and not a source grep.</b> The alignment is bookkeeping in
+	 * plain objects, so it needs no driver. GL is absent from the harness, so {@code ready},
+	 * {@code atlasReady} and {@code layerCount} are forced, and REAL {@code triangle()} and
+	 * {@code textured()} calls drive the REAL buffers, whose {@code position()} counters are
+	 * read back. Reverting the fix - dropping the {@code positions} append from {@code
+	 * textured()} - fails the textured-path checks while every other test stays green.
+	 *
+	 * <p>The invariant is stated the way the draw call and {@code rewind} rely on it: {@code
+	 * colours} holds one entry per vertex, and positions/uvws/controls are exact multiples.
+	 */
+	private static void glBatcherKeepsItsAttributeBuffersVertexAligned() {
+		try {
+			ui.GlBatcher batcher = new ui.GlBatcher();
+			parkTexture(TEXTURED_TEX_ID, new int[128 * 128]);
+			writeField(batcher, "ready", Boolean.TRUE);
+			writeField(batcher, "atlasReady", Boolean.TRUE);
+			writeField(batcher, "layerCount", Integer.valueOf(TEXTURED_TEX_ID + 1));
+
+			ui.GpuFloatBuffer positions = (ui.GpuFloatBuffer) readField(batcher, "positions");
+			ui.GpuFloatBuffer uvws = (ui.GpuFloatBuffer) readField(batcher, "uvws");
+			ui.GpuFloatBuffer controls =
+					(ui.GpuFloatBuffer) readField(batcher, "textureControls");
+			ui.GpuIntBuffer colours = (ui.GpuIntBuffer) readField(batcher, "colours");
+
+			// (a) The flat path - three vertices into every buffer.
+			check("GL batcher [7.9]: an untextured triangle is queued once the batch is usable",
+					batcher.triangle(5f, 6f, 0.5f, 0xffff0000, 7f, 6f, 0.5f, 0xffff0000,
+							6f, 8f, 0.5f, 0xffff0000));
+			check("GL batcher [7.9]: an untextured triangle advances positions by nine floats",
+					positions.position() == 9);
+			check("GL batcher [7.9]: an untextured triangle advances colours by three ints",
+					colours.position() == 3);
+			check("GL batcher [7.9]: an untextured triangle advances uvws by nine floats",
+					uvws.position() == 9);
+			check("GL batcher [7.9]: an untextured triangle advances texture controls by six floats",
+					controls.position() == 6);
+
+			// (b) ⚠⚠ THE ONE THAT WAS BROKEN - the textured path must advance positions too.
+			check("GL batcher [7.9]: a textured triangle is accepted",
+					batcher.textured(5f, 6f, 0.5f, 11f, 12f, 1f, 0xff,
+							7f, 6f, 0.5f, 21f, 22f, 1f, 0xff,
+							6f, 8f, 0.5f, 31f, 32f, 1f, 0xff, TEXTURED_TEX_ID));
+			check("GL batcher [7.9]: ⚠⚠ a TEXTURED triangle ALSO advances positions by nine "
+					+ "floats - textured() once appended only colours/uvws/controls, and that one "
+					+ "missing append desynced the streams so a triangle's geometry wore another's "
+					+ "texture (the 'character rendered onto the tiles' corruption)",
+					positions.position() == 18);
+			check("GL batcher [7.9]: a textured triangle advances colours by three ints",
+					colours.position() == 6);
+			check("GL batcher [7.9]: a textured triangle advances uvws by nine floats",
+					uvws.position() == 18);
+			check("GL batcher [7.9]: a textured triangle advances texture controls by six floats",
+					controls.position() == 12);
+
+			// (c) The single invariant the draw call and rewind actually assume.
+			int vertices = colours.position();
+			check("GL batcher [7.9]: colours is one entry per vertex and the other three buffers "
+					+ "are the exact multiples the draw call and rewind rely on",
+					batcher.mark() * 3 == vertices
+							&& positions.position() == vertices * 3
+							&& uvws.position() == vertices * 3
+							&& controls.position() == vertices * 2);
+
+			// (d) rewind must restore all four together, or the veto path in GlSceneRenderer
+			// leaves a tail of triangles belonging to no model.
+			int token = batcher.mark();
+			batcher.textured(1f, 2f, 0.5f, 3f, 4f, 1f, 0xff,
+					5f, 2f, 0.5f, 6f, 7f, 1f, 0xff,
+					1f, 4f, 0.5f, 8f, 9f, 1f, 0xff, TEXTURED_TEX_ID);
+			check("GL batcher [7.9]: the extra triangle is counted before it is dropped",
+					batcher.mark() == token + 1);
+			batcher.rewind(token);
+			check("GL batcher [7.9]: rewind drops the textured triangle from texturedCount() too",
+					batcher.texturedCount() == 1);
+			check("GL batcher [7.9]: rewind restores ALL FOUR buffers to the mark alongside the "
+					+ "counts - a dropped model leaves no stranded, misaligned tail",
+					positions.position() == 18 && colours.position() == 6
+							&& uvws.position() == 18 && controls.position() == 12);
+		} catch (Exception e) {
+			throw new RuntimeException("could not drive the GL batcher's attribute buffers", e);
+		}
+	}
+
+	/**
+	 * ⚠⚠⚠ PHASE 7.10: THE PER-FACE ALPHA REACHES THE FRAME, AND IT IS THE SOFTWARE'S ALPHA.
+	 *
+	 * <p><b>The bug.</b> {@code Model.method484} assigns {@code Texture.anInt1465 =
+	 * anIntArray1639[i]} before EVERY face, and the flat rasteriser blends with it -
+	 * {@code method374} fills its spans through {@code method375}, which computes
+	 * {@code src*(256-a)/256 + dst*(a/256)}. The GL path wrote a constant {@code 0xff} alpha
+	 * byte and ran with blending OFF, so every transparent flat face - bank windows, glass -
+	 * was drawn as an opaque slab.
+	 *
+	 * <p><b>Why the direction of the mapping is the thing to pin.</b> {@code a == 0} means
+	 * FULLY OPAQUE in the software ({@code method375} takes its no-blend branch), which is the
+	 * opposite of what "alpha 0" means to GL - so the natural-looking error is an inverted
+	 * mapping, and {@link ui.GlFacePipeline#alphaByte} is checked head-on for it. The same
+	 * mistake in the other direction is worse than a wrong picture: a zero fragment alpha
+	 * under {@code SRC_ALPHA/ONE_MINUS_SRC_ALPHA} would erase the GROUND, which is why the
+	 * ground's own opacity has its own check below.
+	 *
+	 * <p><b>Why the plumbing half is driven rather than read.</b> The fixture carries a real
+	 * alpha array and is pushed through the REAL pipeline into a recording sink, so this fails
+	 * if the alpha is dropped anywhere between {@code Model} and the colour the batcher is
+	 * handed - which is exactly the seam that was wrong. ⚠ The check also asserts it SAW both
+	 * an opaque face and a transparent one, because a fixture whose alphas were all zero would
+	 * pass the equality while exercising nothing.
+	 */
+	private static void glFlatFacesCarryTheSoftwarePerFaceAlpha() {
+		// ---- Part 1: the mapping, head-on, including its counter-intuitive direction.
+		check("GL alpha [7.10]: an alpha of 0 is FULLY OPAQUE, not transparent - the software's "
+				+ "own convention (method375 takes its no-blend branch on anInt1465 == 0), so the "
+				+ "mapping is INVERTED relative to the word 'alpha' and must be",
+				GlFacePipeline.alphaByte(0) == 255);
+		check("GL alpha [7.10]: and alpha 255 is nearly fully transparent, which is the other "
+				+ "end of the inversion - a mapping that passed its argument through would give "
+				+ "255 here and fail both checks",
+				GlFacePipeline.alphaByte(255) == 0);
+		boolean monotone = true;
+		for (int a = 0; a < 255; a++) {
+			if (GlFacePipeline.alphaByte(a) < GlFacePipeline.alphaByte(a + 1)) {
+				monotone = false;
+			}
+		}
+		check("GL alpha [7.10]: a larger face alpha is never MORE opaque, so a face can only "
+				+ "get more see-through as the software's value rises", monotone);
+		check("GL alpha [7.10]: out-of-range alphas CLAMP rather than wrap - an int alpha byte "
+				+ "off a model stream is signed and normalised elsewhere, so -1 must not become "
+				+ "a near-transparent fragment",
+				GlFacePipeline.alphaByte(-1) == 255 && GlFacePipeline.alphaByte(256) == 0);
+		check("GL alpha [7.10]: the mapping is not the identity, so a reverted `alphaByte` that "
+				+ "simply returned its argument is caught here rather than in the picture",
+				GlFacePipeline.alphaByte(128) == 127 && GlFacePipeline.alphaByte(128) != 128);
+
+		// ---- Part 2: the plumbing. A real model with a real alpha array, through the real
+		// pipeline, into a recording sink.
+		//
+		// ⚠ The fixture's flat faces come in OPPOSITE-WINDING PAIRS over the same vertex set
+		// (0/2 over {0,1,2} and 1/6 over {0,1,3}), so exactly one of each pair survives the
+		// front-facing test - and WHICH one depends on the camera. Spreading DISTINCT non-zero
+		// alphas over all four flat faces makes the per-face check independent of that, and the
+		// second emit below covers the opaque direction rather than trusting the winding to
+		// hand it over.
+		Model m = buildFaceFixture();
+		int[] alphas = new int[] { 96, 128, 160, 0, 0, 0, 192 };
+		writeField(m, "anIntArray1639", alphas);
+
+		GlFacePipeline pipeline = new GlFacePipeline();
+		RecordingSink sink = new RecordingSink();
+		int centreX = 382;
+		int centreY = 251;
+		pipeline.emit(m, 0, 0, 65536, 0, 65536, 10, 20, 700, centreX, centreY, sink);
+
+		int[] outcomes = pipeline.outcomes();
+		int[] colourA = m.faceCornerColoursA();
+		int[] colourB = m.faceCornerColoursB();
+		int[] colourC = m.faceCornerColoursC();
+		int[] cornerCodes = new int[3];
+		int sceneDepth = pipeline.sceneDepth();
+		boolean matches = true;
+		boolean opaqueExpectationDiffers = false;
+		int firstDrawnAlpha = Integer.MIN_VALUE;
+		boolean distinctAlphasSeen = false;
+		int tri = 0;
+		int drawnFaces = 0;
+		for (int face = 0; face < m.faceCount(); face++) {
+			if (outcomes[face] != GlFacePipeline.DRAWN) {
+				continue;
+			}
+			drawnFaces++;
+			if (firstDrawnAlpha == Integer.MIN_VALUE) {
+				firstDrawnAlpha = alphas[face];
+			} else if (alphas[face] != firstDrawnAlpha) {
+				distinctAlphasSeen = true;
+			}
+			cornerCodes[0] = colourA[face];
+			cornerCodes[1] = colourB[face];
+			cornerCodes[2] = colourC[face];
+			int alpha = GlFacePipeline.alphaByte(alphas[face]) << 24;
+			for (int corner = 0; corner < 3; corner++) {
+				int expected = alpha
+						| GlFacePipeline.resolveCornerColour(cornerCodes[corner], sceneDepth);
+				// ⚠ The float accessor, not colour(): a PARTIAL alpha puts the packed value
+				// past 24 bits of magnitude, where colour()'s int cast rounds the low bits
+				// away and the comparison would stop meaning what it says.
+				if (sink.colourFloat(tri, corner) != (float) expected) {
+					matches = false;
+				}
+				// The pre-7.10 behaviour, restated: every corner carrying 0xff000000. If that
+				// still equalled what the sink got, this face's alpha went nowhere - so the
+				// MUTATION-CATCHER is that the two DIFFER.
+				if (sink.colourFloat(tri, corner) != (float) (0xff000000
+						| GlFacePipeline.resolveCornerColour(cornerCodes[corner], sceneDepth))) {
+					opaqueExpectationDiffers = true;
+				}
+			}
+			tri++;
+		}
+
+		check("GL alpha [7.10]: the fixture actually submitted flat faces, so the checks below "
+				+ "are not vacuous", drawnFaces > 0);
+		check("GL alpha [7.10]: every corner of every submitted flat face carries its OWN face's "
+				+ "alpha (method484's per-FACE value, indexed by the face and not by the vertex) "
+				+ "ORed onto the colour the software resolves - so the alpha survives "
+				+ "Model -> GlFacePipeline -> the sink",
+				matches);
+		check("GL alpha [7.10]: and the camera exposes BOTH flat-face winding pairs, so more "
+				+ "than one flat face is submitted and the per-face indexing is exercised",
+				drawnFaces >= 2);
+		check("GL alpha [7.10]: and those faces do NOT all share one alpha, so the per-face "
+				+ "indexing above cannot pass by every face having the same value",
+				distinctAlphasSeen);
+		check("GL alpha [7.10]: MUTATION-CATCHER - on these transparent faces the old constant "
+				+ "0xff000000 expectation is genuinely different from what was submitted, so "
+				+ "restoring the pre-7.10 OPAQUE would turn the check above red",
+				opaqueExpectationDiffers);
+
+		// The OPAQUE direction, established by construction rather than by hoping the winding
+		// hands over a zero-alpha face: an all-zero alpha array must come out fully opaque.
+		Model zeroed = buildFaceFixture();
+		writeField(zeroed, "anIntArray1639", new int[] { 0, 0, 0, 0, 0, 0, 0 });
+		GlFacePipeline zeroPipeline = new GlFacePipeline();
+		RecordingSink zeroSink = new RecordingSink();
+		zeroPipeline.emit(zeroed, 0, 0, 65536, 0, 65536, 10, 20, 700, centreX, centreY, zeroSink);
+		int[] zeroOutcomes = zeroPipeline.outcomes();
+		boolean zeroIsOpaque = true;
+		int zeroFaces = 0;
+		int zeroTri = 0;
+		for (int face = 0; face < zeroed.faceCount(); face++) {
+			if (zeroOutcomes[face] != GlFacePipeline.DRAWN) {
+				continue;
+			}
+			zeroFaces++;
+			for (int corner = 0; corner < 3; corner++) {
+				if ((zeroSink.colour(zeroTri, corner) >>> 24) != 0xff) {
+					zeroIsOpaque = false;
+				}
+			}
+			zeroTri++;
+		}
+		check("GL alpha [7.10]: an all-zero alpha array - the software's FULLY OPAQUE encoding "
+				+ "- comes out with an 0xff fragment alpha on every corner, which is the "
+				+ "direction a reverted or inverted mapping would flip",
+				zeroFaces > 0 && zeroIsOpaque);
+
+		// ---- Part 3: the direction that would be catastrophic rather than merely wrong.
+		// A model with NO alpha array is the ordinary case, and method484 treats it as
+		// anInt1465 = 0 - i.e. opaque. Defaulting it to transparent would ghost the world.
+		Model plain = buildFaceFixture();
+		GlFacePipeline plainPipeline = new GlFacePipeline();
+		RecordingSink plainSink = new RecordingSink();
+		plainPipeline.emit(plain, 0, 0, 65536, 0, 65536, 10, 20, 700, centreX, centreY, plainSink);
+		boolean plainOpaque = plainSink.triangles > 0;
+		for (int t = 0; t < plainSink.triangles && plainOpaque; t++) {
+			for (int corner = 0; corner < 3; corner++) {
+				if ((plainSink.colour(t, corner) >>> 24) != 0xff) {
+					plainOpaque = false;
+				}
+			}
+		}
+		check("GL alpha [7.10]: a model with NO alpha array is drawn fully OPAQUE, because that "
+				+ "is what method484's null branch means (anInt1465 = 0) - defaulting it the other "
+				+ "way would make every ordinary model a ghost",
+				plain.faceCount() > 0 && plainOpaque);
+
+		// ---- Part 4: the GROUND, whose opacity is not a detail but the whole landscape.
+		// resolveCornerColour returns a palette entry with a ZERO alpha byte, so a ground
+		// triangle submitted straight from it would be FULLY TRANSPARENT once blending is on.
+		// The renderer ORs 0xff000000 in explicitly; this pins that the palette really is the
+		// 0x00RRGGBB the correction exists for.
+		int groundPalette = GlFacePipeline.resolveCornerColour(0x002f15, 0);
+		check("GL alpha [7.10]: the palette colour a ground tile resolves to carries a ZERO "
+				+ "alpha byte, which is why the ground path must OR an opaque one in now that "
+				+ "blending is enabled - without it the entire landscape would vanish",
+				groundPalette >= 0 && (groundPalette >>> 24) == 0);
 	}
 
 	// ------------------------------------ GL model projection (Phase 7.2b-2a)
@@ -2715,6 +3074,33 @@ public final class ClientHarness {
 		}
 	}
 
+	/**
+	 * Whether a PNG reloads at the expected size with every pixel the given colour.
+	 *
+	 * <p>⚠ Loads the file back rather than checking it exists, because the failure this guards
+	 * is a dump that writes a plausible-looking file containing the WRONG image - all black, or
+	 * transparent, or transposed. Every one of those would be read as a rendering fault.
+	 */
+	private static boolean reloadsAs(File png, int width, int height, int expectedArgb) {
+		try {
+			java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(png);
+			if (img == null || img.getWidth() != width || img.getHeight() != height) {
+				return false;
+			}
+			int expected = expectedArgb & 0xFFFFFF;
+			for (int y = 0; y < height; y++) {
+				for (int x = 0; x < width; x++) {
+					if ((img.getRGB(x, y) & 0xFFFFFF) != expected) {
+						return false;
+					}
+				}
+			}
+			return true;
+		} catch (Exception e) {
+			return false;
+		}
+	}
+
 	/** Saves the {@link DrawingArea} fields a scene draw reads and writes. */
 	private static int[] saveDrawingArea() {
 		return new int[] { DrawingArea.width, DrawingArea.height, DrawingArea.topX,
@@ -2913,6 +3299,21 @@ public final class ClientHarness {
 
 		int colour(int tri, int corner) {
 			return (int) floats[tri * FLOATS_PER_TRIANGLE + corner * 4 + 3];
+		}
+
+		/**
+		 * The corner colour as the RAW FLOAT it was stored as.
+		 *
+		 * <p>⚠ {@link #colour} casts to {@code int}, and that is only lossless while the packed
+		 * value fits in 24 bits of magnitude. An ARGB with a {@code 0xff} alpha does
+		 * ({@code 0xff000abc} is only just past {@code -2^24}), which is why every pre-7.10
+		 * check could use it - but a PARTIAL alpha (the whole point of 7.10) puts the value far
+		 * outside that range and the cast would round the low bits away, silently. Comparing
+		 * two casts of the SAME int is exact, so this is the accessor a per-face-alpha check
+		 * has to use.
+		 */
+		float colourFloat(int tri, int corner) {
+			return floats[tri * FLOATS_PER_TRIANGLE + corner * 4 + 3];
 		}
 	}
 
@@ -4705,6 +5106,112 @@ public final class ClientHarness {
 	 * ({@code k - (k >>> n) & 0xf8f8ff}) - see {@link GlTextures#blockColour}, which
 	 * transcribes it, and the note there about how it is verified.
 	 */
+	/**
+	 * ⚠⚠⚠ PHASE 7.8: THE TEXTURE ROW **WRAPS** AND THE COLUMN **CLAMPS** - the fix for the
+	 * random-coloured tiles.
+	 *
+	 * <p><b>Why this is a test and not a comment.</b> The two axes being treated alike looked
+	 * entirely reasonable, and it was wrong: {@code method379} CLAMPS the column and MASKS the row,
+	 * so a coordinate past the texture edge continues on the opposite row in the software and sticks
+	 * to the edge in GL. The live probe showed roughly half of all probed corners out of range, so
+	 * this is not a corner case - it is most of the world sampling the wrong row, which is exactly a
+	 * patchwork of unrelated colours.
+	 *
+	 * <p>⚠ Three claims, each pinned against the thing it could drift from rather than against a
+	 * restatement of itself:
+	 * <ol>
+	 *   <li>{@link GlTextures#texelRow} equals the SOFTWARE's own mask expression
+	 *       {@code (raw & 0x3f80) >> 7} (and {@code (raw & 0xfc0) >> 6} at size 64) over a wide
+	 *       sweep INCLUDING negatives - so the rule is tied to {@code Texture.java:1995/1840}, not to
+	 *       a belief about them.</li>
+	 *   <li>It is NOT a clamp - asserted explicitly, because "clamp" is the wrong answer that reads
+	 *       as the safe one, and a test that only checked in-range values would pass either way.</li>
+	 *   <li>The fragment shader TRANSCRIBES the rule - clamp on {@code .x}, wrap on {@code .y} - read
+	 *       from {@code FRAGMENT_SOURCE} itself, so the shader cannot silently keep the old both-axis
+	 *       clamp while this test passes.</li>
+	 * </ol>
+	 */
+	private static void glTexturesWrapTheTextureRowAndClampTheColumn() {
+		String tag = "GL textures [7.8]";
+		final int rowMask128 = 0x3f80;
+		final int rowMask64 = 0xfc0;
+
+		// ---- (a) the row rule IS the software's mask, at BOTH detail levels, negatives included.
+		int bad128 = 0;
+		int bad64 = 0;
+		int firstBad = 0;
+		for (int t = -300; t <= 300; t++) {
+			int software128 = ((t << 7) & rowMask128) >> 7;
+			if (GlTextures.texelRow(t, 128) != software128) {
+				if (bad128 == 0) {
+					firstBad = t;
+				}
+				bad128++;
+			}
+			int software64 = ((t << 6) & rowMask64) >> 6;
+			if (GlTextures.texelRow(t, 64) != software64) {
+				bad64++;
+			}
+		}
+		check(tag + ": GlTextures.texelRow equals the software's own row mask "
+				+ "(raw & 0x3f80) >> 7 for every texel index from -300 to 300, so the WRAP is tied "
+				+ "to Texture.method379 rather than to a belief about it"
+				+ (bad128 == 0 ? "" : " (first mismatch at " + firstBad + ")"), bad128 == 0);
+		check(tag + ": and the same holds at size 64, where the software's mask is 0xfc0 - so the "
+				+ "rule is a property of both detail levels and not of one", bad64 == 0);
+
+		// ---- (b) it is NOT a clamp, using the live probe's own out-of-range values.
+		int[] probeTexels = { 194, 167, 256, -5, 136, 140, 131, -18 };
+		int[] probeExpected = { 66, 39, 0, 123, 8, 12, 3, 110 };
+		int wrapOk = 0;
+		int clampDiffers = 0;
+		for (int i = 0; i < probeTexels.length; i++) {
+			int t = probeTexels[i];
+			if (GlTextures.texelRow(t, 128) == probeExpected[i]) {
+				wrapOk++;
+			}
+			if (GlTextures.texelRow(t, 128) != GlTextures.texelColumn(t, 128)) {
+				clampDiffers++;
+			}
+		}
+		check(tag + ": every out-of-range texel the LIVE probe reported (194, 167, 256, -5, 136, "
+				+ "140, 131, -18) wraps to the row the software reads (66, 39, 0, 123, 8, 12, 3, "
+				+ "110) - the values are the probe's, not invented for the test",
+				wrapOk == probeTexels.length);
+		check(tag + ": and on every one of them the WRAP differs from the CLAMP, so a reverted "
+				+ "clamp would be caught here instead of shipping as 'the safe answer'",
+				clampDiffers == probeTexels.length);
+
+		// ---- (c) the column IS a clamp, and the software's pre-shift bound agrees with size-1.
+		int colBad = 0;
+		for (int t = -300; t <= 300; t++) {
+			int expected = t < 0 ? 0 : t >= 128 ? 127 : t;
+			if (GlTextures.texelColumn(t, 128) != expected) {
+				colBad++;
+			}
+		}
+		check(tag + ": the COLUMN is clamped, not wrapped - the asymmetry is the whole point, and a "
+				+ "future reader who 'tidies' the two axes back together will fail here", colBad == 0);
+		check(tag + ": and the software's own pre-shift column bound agrees with that clamp: "
+				+ "16256 >> 7 == size-1 at 128 and 4032 >> 6 == size-1 at 64, so the clamp's range "
+				+ "is read out of method379 rather than chosen",
+				(16256 >> 7) == 127 && (4032 >> 6) == 63);
+
+		// ---- (d) the shader transcribes the rule, read from the source itself.
+		String frag = (String) readStatic(ui.GlBatcher.class, "FRAGMENT_SOURCE");
+		check(tag + ": the fragment shader CLAMPS the column (texel.x) and WRAPS the row (texel.y), "
+				+ "so the tested rule is the rule the GPU runs rather than a sibling of it - this is "
+				+ "the check that would have caught the original bug, where both axes were clamped",
+				frag.contains("texel.x = clamp(texel.x, 0, size - 1);")
+						&& frag.contains("texel.y = ((texel.y % size) + size) % size;"));
+		check(tag + ": and the old both-axis clamp is GONE from the shader - leaving it in place "
+				+ "would silently override the wrap line whenever it ran after it",
+				!frag.contains("texel = clamp(texel, ivec2(0), ivec2(size - 1));"));
+
+		System.out.println("  note  " + tag + ": row wraps (194->66, 256->0, -5->123), column "
+				+ "clamps ([0,127]) - the software's asymmetry, now transcribed in the shader.");
+	}
+
 	private static void glTexturesMatchTheSoftwareShadeBlocks() {
 		int width = 503;
 		int height = 765;
@@ -6180,6 +6687,344 @@ public final class ClientHarness {
 	 *       live runs could not get past.</li>
 	 * </ol>
 	 */
+	/**
+	 * Phase 7.5a: the A/B comparator's CLASSIFIER, which is the part that has to be right.
+	 *
+	 * <p>⚠ <b>Why this is pinned as a pure unit rather than only through the renderer.</b> A
+	 * comparator that over-reports would send the next session hunting a bug that is not
+	 * there, and one that under-reports is worse than no comparator at all. So each branch is
+	 * driven with a synthetic image whose answer is known by construction, including the two
+	 * that a naive implementation gets wrong: SCATTERED pixel differences must NOT be called
+	 * an area problem however large their deltas are, and a PARTIAL edge block must be judged
+	 * on its own area rather than on 64.
+	 */
+	private static void glFrameDiffClassifiesDisagreementByShape() {		int w = 32;
+		int h = 32;
+		int[] sw = new int[w * h];
+		int[] gl = new int[w * h];
+		java.util.Arrays.fill(sw, 0xFF204020);
+		GlFrameDiff d = new GlFrameDiff();
+
+		check("Frame diff [7.5a]: a snapshot is taken from a usable source",
+				d.capture(sw, w, h));
+		check("Frame diff [7.5a]: an unusable source is REFUSED rather than snapshotted, so a "
+				+ "null or short buffer cannot be compared against",
+				!new GlFrameDiff().capture(null, 4, 4)
+						&& !new GlFrameDiff().capture(new int[4], 8, 8));
+
+		// ---- (a) identical: the case a run should normally see, and the one that must not be
+		// ---- mistaken for "no comparison happened".
+		java.util.Arrays.fill(gl, 0xFF204020);
+		check("Frame diff [7.5a]: an identical image is IDENTICAL, and the full frame was really "
+				+ "walked (every pixel counted) rather than short-circuited",
+				d.compare(gl, w, h) && d.differing() == 0 && d.identical() == w * h
+						&& d.compared() == w * h && d.verdict().contains("IDENTICAL"));
+
+		// ---- (b) SCATTERED differences with LARGE deltas: the load-bearing negative case.
+		// A naive comparator would see big colour differences and cry "wrong texture". Shape
+		// says otherwise, and shape is right: a merely-off-by-a-texel mapping flips isolated
+		// pixels wherever a texel boundary falls, in whatever colour the neighbour happens to
+		// be - so delta size cannot distinguish the classes and must not be allowed to decide.
+		java.util.Arrays.fill(gl, 0xFF204020);
+		int scattered = 0;
+		for (int y = 0; y < h; y++) {
+			for (int x = 0; x < w; x++) {
+				if ((x * 3 + y * 5) % 11 == 0) {
+					gl[y * w + x] = 0xFF0000FF;
+					scattered++;
+				}
+			}
+		}
+		d.compare(gl, w, h);
+		check("Frame diff [7.5a]: the scattered fixture really does differ (" + scattered
+				+ " pixels)", scattered > 0 && d.differing() == scattered);
+		check("Frame diff [7.5a]: ⚠ SCATTERED differences with LARGE deltas are SAMPLING-CLASS, "
+				+ "because not one " + GlFrameDiff.BLOCK + "x" + GlFrameDiff.BLOCK + " block is "
+				+ "entirely different - the classifier must NOT cry 'wrong asset' at a colour "
+				+ "difference of " + d.maxDelta() + "/255 alone (solid=" + d.solidBlocks() + ")",
+				d.solidBlocks() == 0 && d.far() == scattered && d.near() == 0
+						&& d.verdict().contains("SAMPLING-CLASS"));
+
+		// ---- (c) one ENTIRELY different block with large deltas -> the wrong asset.
+		java.util.Arrays.fill(gl, 0xFF204020);
+		for (int y = 0; y < GlFrameDiff.BLOCK; y++) {
+			for (int x = 0; x < GlFrameDiff.BLOCK; x++) {
+				gl[y * w + x] = 0xFF0000FF;
+			}
+		}
+		d.compare(gl, w, h);
+		check("Frame diff [7.5a]: ONE entirely-different block is AREA-CLASS with LARGE deltas "
+				+ "-> 'the wrong colour came from somewhere', which is the wrong-texture-id / "
+				+ "wrong-atlas-layer hypothesis this tool exists to separate from sampling",
+				d.solidBlocks() == 1 && d.solidFar() == 1 && d.solidNear() == 0
+						&& d.verdict().contains("AREA-CLASS")
+						&& d.verdict().contains("WRONG COLOUR"));
+
+		// ---- (d) the same block, SMALL deltas -> the right asset shaded wrong. This is the
+		// shape the 7.4j fog fade had, and it is why magnitude is kept as a SECONDARY signal:
+		// it cannot separate sampling from assets, but it does separate these two.
+		java.util.Arrays.fill(gl, 0xFF204020);
+		for (int y = 0; y < GlFrameDiff.BLOCK; y++) {
+			for (int x = 0; x < GlFrameDiff.BLOCK; x++) {
+				gl[y * w + x] = 0xFF244022;
+			}
+		}
+		d.compare(gl, w, h);
+		check("Frame diff [7.5a]: an entirely-different block with SMALL deltas is still "
+				+ "AREA-CLASS but blamed on SHADING rather than on the asset - the right texture "
+				+ "coloured systematically wrong (shade block, fog fade)",
+				d.solidBlocks() == 1 && d.solidFar() == 0 && d.solidNear() == 1
+						&& d.verdict().contains("AREA-CLASS") && d.verdict().contains("shaded"));
+
+		// ---- (e) a run of differing pixels: the secondary diagnostic.
+		java.util.Arrays.fill(gl, 0xFF204020);
+		for (int x = 0; x < 20; x++) {
+			gl[16 * w + x] = 0xFF0000FF;
+		}
+		d.compare(gl, w, h);
+		check("Frame diff [7.5a]: the longest differing run is measured, and a 20px run is NOT "
+				+ "an area problem because a run is 1 pixel tall and a block is not",
+				d.longestRun() == 20 && d.differing() == 20 && d.solidBlocks() == 0);
+
+		// ---- (f) alpha is excluded from the colour delta but counted separately, because
+		// "does the picture agree" and "did the shader reach the right branch" are two facts.
+		java.util.Arrays.fill(gl, 0xFF204020);
+		for (int i = 0; i < 10; i++) {
+			gl[i] = 0x00204020;
+		}
+		d.compare(gl, w, h);
+		check("Frame diff [7.5a]: an alpha-only difference is NOT a picture difference, and is "
+				+ "reported separately rather than inflating the disagreement count (differing "
+				+ d.differing() + ", identical " + d.identical() + " of " + (w * h)
+				+ ", alphaOnly " + d.alphaOnly() + ")",
+				d.differing() == 0 && d.identical() == w * h && d.alphaOnly() == 10);
+
+		// ---- (g) THE PARTIAL EDGE BLOCK, which a width that is not a multiple of 8 creates.
+		// Judging a 4x8 edge block by 64 would make it impossible for it to ever be solid; the
+		// mirror-image mistake - judging it by 32 while it only has 32 pixels - is right, and
+		// the check below pins that a single pixel short of its OWN area is not solid either.
+		int w2 = 12;
+		int h2 = 8;
+		int[] sw2 = new int[w2 * h2];
+		int[] gl2 = new int[w2 * h2];
+		java.util.Arrays.fill(sw2, 0xFF204020);
+		java.util.Arrays.fill(gl2, 0xFF204020);
+		for (int y = 0; y < h2; y++) {
+			for (int x = 8; x < w2; x++) {
+				gl2[y * w2 + x] = 0xFF0000FF;
+			}
+		}
+		GlFrameDiff d2 = new GlFrameDiff();
+		d2.capture(sw2, w2, h2);
+		d2.compare(gl2, w2, h2);
+		check("Frame diff [7.5a]: a PARTIAL edge block is judged on its OWN area ("
+				+ d2.blocks() + " blocks over a " + w2 + "px width), so a fully-different 4x8 "
+				+ "block IS solid rather than being unreachable by a 64-pixel rule",
+				d2.blocks() == 2 && d2.solidBlocks() == 1);
+		gl2[7 * w2 + 8] = 0xFF204020;
+		d2.compare(gl2, w2, h2);
+		check("Frame diff [7.5a]: and ONE pixel short of its own area is NOT solid - so the "
+				+ "partial rule cannot manufacture the area-class signal out of 31 pixels",
+				d2.solidBlocks() == 0 && d2.differing() == 31);
+
+		// ---- (h) a size that changed between the snapshot and the readback.
+		check("Frame diff [7.5a]: a frame whose size changed between the snapshot and the "
+				+ "readback reports NO comparison rather than reading out of bounds - a resize "
+				+ "is survivable, and 'no comparison' is not the same answer as 'identical'",
+				!d.compare(new int[10], 10, 1) && d.compared() == 0
+						&& d.verdict().contains("no comparison"));
+
+		// ---- (i) 7.5a-2: THE ALIGNMENT SEARCH, because a wrong one gives a confidently wrong
+		// answer to the most important question this tool is asked. If the GL image is the
+		// software image shifted by two columns, the search MUST find (-2,0) and the match at
+		// that offset must be near-total - that is the signature of a misaligned readback,
+		// and mistaking it for "the picture is wrong" would send the next session rewriting
+		// mapping code that is fine.
+		int w3 = 64;
+		int h3 = 64;
+		int[] sw3 = new int[w3 * h3];
+		int[] gl3 = new int[w3 * h3];
+		for (int y = 0; y < h3; y++) {
+			for (int x = 0; x < w3; x++) {
+				// A noisy image, so an accidental match is implausible: a flat field would
+				// make every offset look good and the check would prove nothing.
+				sw3[y * w3 + x] = 0xFF000000 | ((x * 7919 + y * 104729) & 0xFFFFFF);
+			}
+		}
+		for (int y = 0; y < h3; y++) {
+			for (int x = 0; x < w3; x++) {
+				int sx = x - 2;
+				gl3[y * w3 + x] = sx >= 0 ? sw3[y * w3 + sx] : 0xFF000000;
+			}
+		}
+		GlFrameDiff d3 = new GlFrameDiff();
+		d3.capture(sw3, w3, h3);
+		d3.compare(gl3, w3, h3);
+		check("Frame diff [7.5a-2]: a GL image that is the software image SHIFTED by 2 columns "
+				+ "is reported as best-aligned at (-2,0) - i.e. a misaligned readback is "
+				+ "identifiable as itself instead of being read as 'the picture is wrong' "
+				+ "(found (" + d3.bestOffsetX() + "," + d3.bestOffsetY() + "), matching "
+				+ d3.bestOffsetMatches() + " of " + d3.bestOffsetTotal() + " samples)",
+				d3.bestOffsetX() == -2 && d3.bestOffsetY() == 0
+						&& d3.bestOffsetMatches() * 10 > d3.bestOffsetTotal() * 9);
+		check("Frame diff [7.5a-2]: and the CONTENT signature separates the two images' own "
+				+ "statistics rather than only their difference, so an empty or channel-swapped "
+				+ "image is identifiable from the line (software blank " + d3.softwareBlank()
+				+ ", GL blank " + d3.glBlank() + ")",
+				d3.diagnose().contains("software:") && d3.diagnose().contains("Best alignment:"));
+		check("Frame diff [7.5a-2]: the samples really are the SAME coordinates from each image, "
+				+ "so a channel swap is readable by eye rather than inferred",
+				d3.samples() != null && d3.samples().contains("(12,16)s=")
+						&& d3.samples().contains(" g="));
+
+		// ---- (j) 7.5c: the SIGNED bias, which is what separates "a transform" from "different
+		// content" without another live run. A uniform darkening must show a consistent NEGATIVE
+		// bias; genuinely different content must average out near zero.
+		java.util.Arrays.fill(gl, 0xFF204020);
+		for (int i = 0; i < w * h; i++) {
+			int swc = 0xFF204020;
+			gl[i] = 0xFF000000 | ((((swc >> 16) & 0xFF) - 10) << 16)
+					| ((((swc >> 8) & 0xFF) - 10) << 8) | ((swc & 0xFF) - 10);
+		}
+		d.compare(gl, w, h);
+		check("Frame diff [7.5c]: a UNIFORM darkening of 10 per channel reports a consistent "
+				+ "signed bias - the signature of a transform (shade block, extra darkening) "
+				+ "rather than of different content (R " + d.signedR() + ", G " + d.signedG()
+				+ ", B " + d.signedB() + " over " + d.differing() + " pixels)",
+				d.differing() == w * h && d.signedR() / d.differing() == -10
+						&& d.signedG() / d.differing() == -10 && d.signedB() / d.differing() == -10
+						&& d.diagnose().contains("R -10"));
+
+		// ---- (k) the PNG dump, which is the point where analysis stops and looking starts.
+		File tmp = new File(System.getProperty("java.io.tmpdir"), "gldiff-harness-" + System.nanoTime());
+		check("Frame diff [7.5c]: the temp directory for the dump could be created",
+				tmp.mkdirs() && tmp.isDirectory());
+		String prefix = new File(tmp, "gldiff").getAbsolutePath();
+		boolean wrote = d.writePngs(prefix, gl, w, h);
+		File swPng = new File(prefix + "-software.png");
+		File glPng = new File(prefix + "-gl.png");
+		check("Frame diff [7.5c]: BOTH images are written, so the software image and the GL "
+				+ "image can be looked at side by side rather than only counted",
+				wrote && swPng.length() > 0 && glPng.length() > 0);
+		check("Frame diff [7.5c]: and each PNG reloads at the frame's own size with the software "
+				+ "image's pixels intact - a dump that writes a black or transposed image would "
+				+ "look like a rendering fault and send the next session chasing it",
+				reloadsAs(swPng, w, h, 0xFF204020) && reloadsAs(glPng, w, h, 0xFF163616));
+		check("Frame diff [7.5c]: a dump whose size does not match the comparison is REFUSED "
+				+ "rather than writing a truncated image",
+				!d.writePngs(prefix + "-odd", gl, w + 1, h));
+		check("Frame diff [7.5c]: and an unwritable path fails quietly - a debug dump must "
+				+ "never take the client down",
+				!d.writePngs(new File(tmp, "no-such-dir/nested/gldiff").getAbsolutePath(), gl,
+						w, h));
+		swPng.delete();
+		glPng.delete();
+		tmp.delete();
+	}
+
+	/**
+	 * Phase 7.5a: the seam really drives the comparator, on the frame that was read back.
+	 *
+	 * <p>⚠⚠ <b>The load-bearing check here is {@code differing() == 1}, and it is not a
+	 * formality - it is what proves the ORDER.</b> The snapshot has to be taken BEFORE the GL
+	 * readback overwrites the software image in place. If the two were reversed the snapshot
+	 * would be the GL image comparing against itself and EVERY frame would report IDENTICAL,
+	 * i.e. the tool would silently always say "fine" - the worst possible failure for a
+	 * verification aid. A comparator that always agrees is worse than none, and this is the
+	 * check that a single painted pixel exists to catch.
+	 */
+	private static void glFrameDiffIsDrivenByTheSeamInTheRightOrder() {
+		int w = 40;
+		int h = 24;
+		String savedProperty = System.getProperty("soultrail.gldiff");
+		Object savedTextureInt1 = readStatic(Texture.class, "textureInt1");
+		Object savedTextureInt2 = readStatic(Texture.class, "textureInt2");
+		try {
+			// ⚠ The gate first: normal play must not allocate a comparator at all, and the
+			// property is read ONCE in the constructor so it cannot flip under a frame.
+			System.clearProperty("soultrail.gldiff");
+			check("Frame diff [7.5a]: with no property the comparator is NOT allocated, so normal "
+					+ "play pays nothing for a debug tool",
+					new GlSceneRenderer("harness-nodiff", new RecordingSceneBatch()).diff() == null);
+			System.setProperty("soultrail.gldiff", "false");
+			check("Frame diff [7.5a]: and an explicit 'false' is honoured as off rather than "
+					+ "treated as a value that means on - the PacketTap convention",
+					new GlSceneRenderer("harness-nodiff2", new RecordingSceneBatch()).diff() == null);
+
+			System.setProperty("soultrail.gldiff", "true");
+			writeStatic(Texture.class, "textureInt1", 382);
+			writeStatic(Texture.class, "textureInt2", 251);
+			Model m = buildTexturedFaceFixture();
+			int orientation = 0;
+			int camA = 0;
+			int camB = 65536;
+			int camC = 0;
+			int camD = 65536;
+			int dx = 10;
+			int dy = 20;
+			int dz = 700;
+
+			RSImageProducer scene = new RSImageProducer(w, h, null);
+			RecordingSceneBatch batch = new RecordingSceneBatch();
+			// ⚠ The model is refused so its textured face is unrepresentable - but under the
+			// 7.4h actor-scoped policy the FRAME is still read back, which is exactly what the
+			// diff needs: a real composited frame whose software counterpart is known.
+			batch.refuseTextured = true;
+			GlSceneRenderer renderer = new GlSceneRenderer("harness-diff", batch);
+			GpuRenderer.install(renderer);
+			check("Frame diff [7.5a]: the property is honoured - a session that asks for the "
+					+ "diff gets a comparator", renderer.diff() != null);
+
+			// The SOFTWARE image for this frame, stated rather than inherited: whatever the
+			// shadow stage left in the buffer, this is the picture the diff is measured against.
+			java.util.Arrays.fill(scene.anIntArray315, 0xFF204020);
+			SceneRasterizer.dispatch(m, orientation, camA, camB, camC, camD, dx, dy, dz,
+					SKIPPED_MODEL_UID);
+			check("Frame diff [7.5a]: the frame is read back, so there is a GL image to compare "
+					+ "against at all",
+					GpuRenderer.sceneFinished(scene) && renderer.framesReadBack() == 1);
+			GlFrameDiff d = renderer.diff();
+			check("Frame diff [7.5a]: ⚠⚠ the snapshot was taken BEFORE the readback overwrote "
+					+ "the software image - exactly the ONE pixel GL painted differs, so the "
+					+ "software pixels were still there to compare against (a snapshot taken "
+					+ "after the readback would compare GL with itself and report everything "
+					+ "identical)",
+					d != null && d.compared() == w * h && d.differing() == 1
+							&& d.identical() == w * h - 1);
+			check("Frame diff [7.5a]: and a single differing pixel does NOT produce an area "
+					+ "verdict, because one pixel cannot fill a block - the seam reports what "
+					+ "the classifier concluded rather than inventing its own threshold",
+					d.solidBlocks() == 0 && d.differing() == 1);
+
+			// A second frame in which GL disagrees EVERYWHERE, so the AREA-CLASS path is
+			// reached THROUGH THIS SEAM rather than only by calling GlFrameDiff directly.
+			batch.paintAll = true;
+			java.util.Arrays.fill(scene.anIntArray315, 0xFF204020);
+			SceneRasterizer.dispatch(m, orientation, camA, camB, camC, camD, dx, dy, dz,
+					SKIPPED_MODEL_UID);
+			GpuRenderer.sceneFinished(scene);
+			check("Frame diff [7.5a]: a frame that disagrees EVERYWHERE is AREA-CLASS with the "
+					+ "deltas attributed as large - every block solid (" + d.solidBlocks()
+					+ " of " + d.blocks() + "), so the seam reaches the interesting verdict and "
+					+ "not just the clean one",
+					d.compared() == w * h && d.differing() == w * h && d.blocks() == 15
+							&& d.solidBlocks() == d.blocks() && d.solidFar() == d.blocks());
+			check("Frame diff [7.5a]: and the verdict names the wrong-asset cause, which is the "
+					+ "question a live run cannot otherwise answer from a log",
+					d.verdict().contains("AREA-CLASS")
+							&& d.verdict().contains("WRONG COLOUR")
+							&& !d.verdict().contains("IDENTICAL"));
+		} finally {
+			writeStatic(Texture.class, "textureInt1", savedTextureInt1);
+			writeStatic(Texture.class, "textureInt2", savedTextureInt2);
+			if (savedProperty == null) {
+				System.clearProperty("soultrail.gldiff");
+			} else {
+				System.setProperty("soultrail.gldiff", savedProperty);
+			}
+		}
+	}
+
 	private static void groundRampOverflowSkipsTheTileAndKeepsTheFrame() {
 		int w = 503;
 		int h = 765;
@@ -6280,7 +7125,7 @@ public final class ClientHarness {
 				renderer.drawGroundTriangle(sx[0], sy[0], sx[1], sy[1], sx[2], sy[2], groundShade,
 						groundShade, groundShade, TEXTURED_TEX_ID, false, scaled[0][0], scaled[0][1],
 						scaled[0][2], scaled[0][3], scaled[0][4], scaled[0][5], scaled[0][6],
-						scaled[0][7], scaled[0][8], depth);
+						scaled[0][7], scaled[0][8], depth, depth, depth, depth);
 				check("Ground overflow [7.4h]: the CANCELLING overflow is SUBMITTED - the "
 						+ "widened guard does not decline a wrap that reproduces the exact "
 						+ "mapping, which is what 7.4e was for",
@@ -6328,7 +7173,7 @@ public final class ClientHarness {
 				renderer.drawGroundTriangle(sx[0], sy[0], sx[1], sy[1], sx[2], sy[2], 0xff404040,
 						0xff404040, 0xff404040, TEXTURED_TEX_ID, false, scaled[1][0], scaled[1][1],
 						scaled[1][2], scaled[1][3], scaled[1][4], scaled[1][5], scaled[1][6],
-						scaled[1][7], scaled[1][8], depth);
+						scaled[1][7], scaled[1][8], depth, depth, depth, depth);
 				check("Ground overflow [7.4h]: the PICTURE-BREAKING overflow is NOT submitted, "
 						+ "and the tile count does not move",
 						batch.texturedTriangles == 1);
@@ -7563,15 +8408,130 @@ public final class ClientHarness {
 	 * by reading and by the live gate, not here. What is asserted here is the plumbing and
 	 * the argument order, which is what a future implementation depends on.
 	 */
+	/**
+	 * Phase 7.11: the ground's z must be PER CORNER, and the ground's FOG must still be per
+	 * TILE, and both halves are asserted here because getting one right by breaking the other
+	 * is the available failure.
+	 *
+	 * <p><b>Why this is asserted at the batch rather than at the seam.</b>
+	 * {@code groundSeamInterceptsWhenInstalled} proves the three depths are CARRIED, and would
+	 * still pass if {@code GlSceneRenderer} then discarded two of them - which is exactly the
+	 * state that produced the diagonal-wall occlusion. The batch double is the last place the
+	 * {@code z} values exist, so it is the only place they can be pinned.
+	 *
+	 * <p>⚠ <b>The controls are not decoration.</b> "Three distinct corner depths become three
+	 * distinct z's" is only evidence if an EQUAL-depth submission yields equal z's - otherwise a
+	 * renderer scattering arbitrary values passes. And the fade arm needs the fade to actually
+	 * move with depth at these depths, or comparing colours would compare them with themselves.
+	 */
+	private static void groundDepthIsPerCornerNotPerTile() {
+		Object savedFogStrength = readStatic(game.client.class, "fogStrength");
+		try {
+			writeStatic(game.client.class, "fogStrength", 3);
+			RSImageProducer scene = new RSImageProducer(765, 503, null);
+			RecordingSceneBatch batch = new RecordingSceneBatch();
+			GlSceneRenderer renderer = new GlSceneRenderer("harness-ground-per-corner", batch);
+			GpuRenderer.install(renderer);
+			try {
+				// A tile whose corners span 120 units along the view axis: the spread a
+				// 128-unit-wide tile really has at a grazing angle, and exactly what the
+				// single mean depth collapses. Deep enough to sit inside the fog band, since
+				// the fade arm below needs a depth where the fade actually moves.
+				int mean = 2000;
+				int near = mean - 60;
+				int far = mean + 60;
+				// The SAME colour code on all three corners, so the colour is not a variable in
+				// any arm below - an arm that varied it would compare three different colours
+				// and could not assert uniformity across the vertices.
+				int code = 1;
+
+				// ---- arm 1: CONTROL - equal corner depths must give equal z's, so the arm
+				// below cannot pass on a renderer that simply scatters values.
+				SceneRasterizer.dispatchGroundTriangle(0, 0, 10, 0, 0, 10, code, code, code,
+						-1, false, 11, 12, 13, 14, 15, 16, 17, 18, 19, mean, mean, mean, mean);
+				check("Ground depth [7.11]: CONTROL - a tile whose corners are all the same "
+						+ "distance is submitted at one z, so the per-corner arm below is not "
+						+ "measuring scatter",
+						batch.triangles == 1 && batch.lastZ(0) == batch.lastZ(1)
+								&& batch.lastZ(1) == batch.lastZ(2));
+
+				// ---- arm 2: the real spread must reach the three vertices.
+				SceneRasterizer.dispatchGroundTriangle(0, 0, 10, 0, 0, 10, code, code, code,
+						-1, false, 11, 12, 13, 14, 15, 16, 17, 18, 19, mean, near, mean, far);
+				float z0 = batch.lastZ(0);
+				float z1 = batch.lastZ(1);
+				float z2 = batch.lastZ(2);
+				check("Ground depth [7.11]: an untextured ground tile is submitted with ONE z "
+						+ "PER CORNER - corners at depth " + near + "/" + mean + "/" + far
+						+ " give z " + z0 + "/" + z1 + "/" + z2 + ", strictly increasing with "
+						+ "distance instead of one flat tile z (the diagonal-wall occlusion)",
+						z0 < z1 && z1 < z2);
+				check("Ground depth [7.11]: and the near corner is CLOSER than the tile mean, "
+						+ "which is the half a mean-depth tile cannot express - so a wall whose "
+						+ "base is at the far corner is no longer erased",
+						z0 < GlFacePipeline.depthToZ(mean) && z2 > GlFacePipeline.depthToZ(mean));
+
+				// ---- arm 3: the FOG must follow the TILE MEAN, not the corners. Done as an
+				// A/B on the mean with the corner depths held FIXED: if the corners leaked
+				// into the fade, both calls would produce the same colours and the check
+				// below would fail. Holding the corners fixed is what makes the mean the only
+				// variable, so nothing else can explain a difference.
+				int deep = 6000;
+				int shallowColour = GlFacePipeline.resolveCornerColour(code, mean);
+				int deepColour = GlFacePipeline.resolveCornerColour(code, deep);
+				check("Ground depth [7.11]: CONTROL - the fade really does differ between the "
+						+ "two tile means this A/B uses (" + mean + " -> "
+						+ Integer.toHexString(shallowColour) + " vs " + deep + " -> "
+						+ Integer.toHexString(deepColour) + "), so the check below "
+						+ "discriminates at all",
+						shallowColour != deepColour);
+
+				SceneRasterizer.dispatchGroundTriangle(0, 0, 10, 0, 0, 10, code, code, code,
+						-1, false, 11, 12, 13, 14, 15, 16, 17, 18, 19, mean, near, mean, far);
+				int shallow0 = batch.lastArgb(0);
+				int shallow1 = batch.lastArgb(1);
+				int shallow2 = batch.lastArgb(2);
+				SceneRasterizer.dispatchGroundTriangle(0, 0, 10, 0, 0, 10, code, code, code,
+						-1, false, 11, 12, 13, 14, 15, 16, 17, 18, 19, deep, near, mean, far);
+				int deep0 = batch.lastArgb(0);
+				int deep1 = batch.lastArgb(1);
+				int deep2 = batch.lastArgb(2);
+				check("Ground depth [7.11]: but every vertex is still FOGGED at the tile's one "
+						+ "mean depth, not at its own corner depth - the SAME corners at tile "
+						+ "depth " + mean + " and " + deep + " give "
+						+ Integer.toHexString(shallow0) + "/" + Integer.toHexString(deep0)
+						+ " respectively, each uniform across its three vertices",
+						shallow0 == (0xff000000 | shallowColour)
+								&& shallow1 == (0xff000000 | shallowColour)
+								&& shallow2 == (0xff000000 | shallowColour)
+								&& deep0 == (0xff000000 | deepColour)
+								&& deep1 == (0xff000000 | deepColour)
+								&& deep2 == (0xff000000 | deepColour));
+			} finally {
+				GpuRenderer.install(null);
+			}
+			check("Ground depth [7.11]: the renderer is uninstalled, so the software path is "
+					+ "restored", SceneRasterizer.implementation() == null);
+		} finally {
+			writeStatic(game.client.class, "fogStrength", savedFogStrength);
+		}
+	}
+
+	/**
+	 * Ground (landscape) triangle seam - Phase 4.1c-2c. Deliberately inert by default, so
+	 * a listener that is not installed cannot change what the scene is.
+	 */
 	private static void groundSeamIsInertByDefault() {
 		boolean handled = SceneRasterizer.dispatchGroundTriangle(
-				1, 2, 3, 4, 5, 6, 7, 8, 9, -1, false, 11, 12, 13, 14, 15, 16, 17, 18, 19, 600);
+				1, 2, 3, 4, 5, 6, 7, 8, 9, -1, false, 11, 12, 13, 14, 15, 16, 17, 18, 19, 600,
+				601, 602, 603);
 		check("Ground rasteriser seam: declines (returns false) when no rasteriser is installed",
 				!handled);
 	}
 
 	private static void groundSeamInterceptsWhenInstalled() {
 		final int[] seen = new int[21];
+		final int[] cornerDepths = new int[3];
 		final int[] calls = new int[1];
 		GpuRenderer.install(new GpuRenderer.Implementation() {
 			public boolean presentGameFrame(RSImageProducer producer, int destX, int destY) {
@@ -7587,11 +8547,14 @@ public final class ClientHarness {
 			public boolean drawGroundTriangle(int x0, int y0, int x1, int y1, int x2, int y2,
 					int colour0, int colour1, int colour2, int textureId, boolean flatMesh,
 					int t0, int t1, int t2, int t3, int t4, int t5, int t6, int t7, int t8,
-					int depth) {
+					int depth, int depth0, int depth1, int depth2) {
 				calls[0]++;
 				int[] v = { x0, y0, x1, y1, x2, y2, colour0, colour1, colour2, textureId,
 						flatMesh ? 1 : 0, t0, t1, t2, t3, t4, t5, t6, t7, t8, depth };
 				System.arraycopy(v, 0, seen, 0, 21);
+				cornerDepths[0] = depth0;
+				cornerDepths[1] = depth1;
+				cornerDepths[2] = depth2;
 				return true;
 			}
 
@@ -7602,7 +8565,7 @@ public final class ClientHarness {
 		try {
 			boolean handled = SceneRasterizer.dispatchGroundTriangle(
 					10, 20, 30, 40, 50, 60, 70, 80, 90, 7, true, 101, 102, 103, 104, 105, 106,
-					107, 108, 109, 700);
+					107, 108, 109, 700, 701, 702, 703);
 			boolean orderOk = seen[0] == 10 && seen[1] == 20 && seen[2] == 30 && seen[3] == 40
 					&& seen[4] == 50 && seen[5] == 60 && seen[6] == 70 && seen[7] == 80
 					&& seen[8] == 90 && seen[9] == 7 && seen[10] == 1 && seen[11] == 101
@@ -7611,6 +8574,15 @@ public final class ClientHarness {
 					handled && calls[0] == 1);
 			check("Ground rasteriser seam: the whole payload arrives in order (coords, colours, "
 					+ "textureId, flatMesh, t0..t8)", orderOk);
+			// ⚠⚠ Phase 7.11. The THREE PER-CORNER depths are asserted as their own values, in
+			// order, and DISTINCT from each other and from the tile mean. A listener that read
+			// the tile mean three times would satisfy every check above this one - and that is
+			// exactly the bug this step removes, so it must not be allowed to pass here.
+			check("Ground rasteriser seam [7.11]: the three PER-CORNER depths arrive in "
+					+ "SCREEN-CORNER order, distinct from each other and from the tile mean "
+					+ "(got " + cornerDepths[0] + "," + cornerDepths[1] + "," + cornerDepths[2]
+					+ "; expected 701,702,703 against a mean of 700)",
+					cornerDepths[0] == 701 && cornerDepths[1] == 702 && cornerDepths[2] == 703);
 			// ⚠ Phase 7.2c-2. The depth is asserted SEPARATELY from the payload order above,
 			// because that check would still pass if the field were appended to the record and
 			// the value were a constant: this one pins the VALUE the caller supplied, which is
@@ -9117,7 +10089,7 @@ public final class ClientHarness {
 		public boolean drawGroundTriangle(int x0, int y0, int x1, int y1, int x2, int y2,
 				int colour0, int colour1, int colour2, int textureId, boolean flatMesh,
 				int t0, int t1, int t2, int t3, int t4, int t5, int t6, int t7, int t8,
-				int depth) {
+				int depth, int depth0, int depth1, int depth2) {
 			return false;
 		}
 
@@ -9335,6 +10307,114 @@ public final class ClientHarness {
 			}
 		}
 		return false;
+	}
+
+	// ------------------------------------------------ the special-attack orb link
+
+	/**
+	 * The minimap special-attack orb reads, and drives, the SPECIAL BAR the server is using.
+	 *
+	 * <p>Everything here pins a contract rather than an implementation detail:
+	 * <ul>
+	 *   <li>the orb must follow the bar the server writes LAST. All ten bars keep their old
+	 *       text forever, so a first-match scan latches the first spec weapon the account
+	 *       ever held - which is the live bug this replaced: after a whip, no other weapon
+	 *       could take the orb over, so the orb sent the whip's button and read the whip's
+	 *       bar while the player held something else.</li>
+	 *   <li>the button ids are the SERVER's ({@code SpecialAttackButtons}, plus the two
+	 *       execute-style bodies for the gmaul and dragon battleaxe that stay in
+	 *       {@code ClickingButtons}). They are mirrored here as a wire contract, so a change
+	 *       on either side fails this test.</li>
+	 *   <li>a hidden spec-bar container means the weapon in hand cannot spec at all
+	 *       ({@code addSpecialBar}'s default arm hides them), so the orb must stop reporting
+	 *       a percentage and stop sending a button.</li>
+	 * </ul>
+	 */
+	private static void specialAttackOrbFollowsTheLiveBar() {
+		SpecialAttackOrb orb = new SpecialAttackOrb();
+		check("SpecOrb: a fresh orb has no live bar (frame and button are both -1)",
+				orb.frame() == -1 && orb.button() == -1 && !orb.live());
+
+		// The cache's static caption. It is letter-spaced, carries no percentage, and is the
+		// same string on every bar - latching it would point the orb at whichever bar the
+		// interface loader reached first.
+		orb.onStringUpdate(12335, "S P E C I A L  A T T A C K");
+		check("SpecOrb: the cache's letter-spaced caption cannot latch", orb.frame() == -1);
+
+		// A frame the client does not know as a spec bar, even with convincing text.
+		orb.onStringUpdate(9999, "@yel@ Special Attack (100%)");
+		check("SpecOrb: spec-looking text on an unknown frame does not latch", orb.frame() == -1);
+
+		orb.onStringUpdate(12335, "@yel@ Special Attack (100%)");
+		check("SpecOrb: the whip's bar text latches the whip bar",
+				orb.frame() == 12335 && orb.button() == 48023);
+		check("SpecOrb: ... is read as the server's armed colour", SpecialAttackOrb.isActive(
+				"@yel@ Special Attack (100%)"));
+
+		// THE REGRESSION. Under the old first-match scan the whip bar stayed latched here for
+		// the rest of the session, so the orb sent 48023 (whip) while a scimitar was held.
+		orb.onStringUpdate(7611, "@bla@ Special Attack (55%)");
+		check("SpecOrb: a later bar TAKES OVER from the one latched earlier (the old bug)",
+				orb.frame() == 7611 && orb.button() == 29163);
+		check("SpecOrb: ... and the dead bar's own percentage is not what is read",
+				SpecialAttackOrb.percentOf("@bla@ Special Attack (55%)") == 55);
+
+		// The bar text is the ONLY thing that reports charge, so the parser is the readout.
+		check("SpecOrb: parses the percentage out of the server's bar text",
+				SpecialAttackOrb.percentOf("@bla@ Special Attack (62%)") == 62);
+		check("SpecOrb: a percentage past 100 is clamped, not passed through",
+				SpecialAttackOrb.percentOf("@yel@ Special Attack (150%)") == 100);
+		check("SpecOrb: a negative percentage reads as nothing",
+				SpecialAttackOrb.percentOf("@bla@ Special Attack (-5%)") == 0);
+		check("SpecOrb: text in the brackets that is not a number reads as nothing",
+				SpecialAttackOrb.percentOf("@bla@ Special Attack (n/a%)") == 0);
+		check("SpecOrb: a missing bar reads as 0 and idle",
+				SpecialAttackOrb.percentOf(null) == 0 && !SpecialAttackOrb.isActive(null));
+		check("SpecOrb: @bla@ is not the armed colour",
+				!SpecialAttackOrb.isActive("@bla@ Special Attack (100%)"));
+		check("SpecOrb: a percentage is what separates a bar from the caption",
+				SpecialAttackOrb.isSpecText("@bla@ Special Attack (0%)")
+						&& !SpecialAttackOrb.isSpecText("S P E C I A L  A T T A C K"));
+
+		// Every bar the server can show, as the SERVER numbers it: text frame, toggle button,
+		// container. The container is what addSpecialBar shows or hides, and it is always the
+		// bar frame minus 12 (the bar text is the container's own last child).
+		int[][] serverBars = {
+				{ 12335, 48023, 12323 }, // whip
+				{ 7611, 29163, 7599 }, // dragon scimitar
+				{ 8505, 33033, 8493 }, // dragon halberd
+				{ 7486, 29038, 7474 }, // granite maul (executes)
+				{ 7511, 29063, 7499 }, // dragon battleaxe (executes)
+				{ 7812, 30108, 7800 }, // dragon claws
+				{ 7586, 29138, 7574 }, // dragon dagger / longsword and most 2h swords
+				{ 7561, 29113, 7549 }, // bows
+				{ 7686, 29238, 7674 }, // dragon spear and other controlled weapons
+				{ 7636, 29188, 7624 } // dragon mace
+		};
+		for (int i = 0; i < serverBars.length; i++) {
+			int barFrame = serverBars[i][0];
+			int button = serverBars[i][1];
+			int container = serverBars[i][2];
+			SpecialAttackOrb b = new SpecialAttackOrb();
+			b.onStringUpdate(barFrame, "@bla@ Special Attack (75%)");
+			check("SpecOrb: bar " + barFrame + " drives the server's button " + button,
+					b.frame() == barFrame && b.button() == button);
+			b.onHiddenUpdate(container, true);
+			check("SpecOrb: hiding container " + container + " disables bar " + barFrame,
+					b.frame() == -1 && b.button() == -1 && !b.live());
+			b.onHiddenUpdate(container, false);
+			check("SpecOrb: showing container " + container + " re-enables bar " + barFrame,
+					b.frame() == barFrame && b.button() == button);
+			check("SpecOrb: container " + container + " is bar " + barFrame + " minus 12",
+					container == barFrame - 12);
+		}
+
+		// A visibility frame for something that is not a spec bar must not touch the latch.
+		SpecialAttackOrb other = new SpecialAttackOrb();
+		other.onStringUpdate(7561, "@yel@ Special Attack (100%)");
+		other.onHiddenUpdate(3214, true);
+		check("SpecOrb: an unrelated interface being hidden leaves the orb alone",
+				other.frame() == 7561 && other.button() == 29113 && other.live());
 	}
 
 	// ------------------------------------------------------------------ plumbing

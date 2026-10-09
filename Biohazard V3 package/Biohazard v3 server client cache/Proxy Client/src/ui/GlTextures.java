@@ -183,6 +183,56 @@ public final class GlTextures {
 	}
 
 	/**
+	 * The COLUMN a texture coordinate selects - <b>CLAMPED</b>, which is what {@code method379} does
+	 * to {@code i}.
+	 *
+	 * <p>⚠⚠ <b>This and {@link #texelRow} are separate methods because the software treats the two
+	 * axes DIFFERENTLY, and that asymmetry was the bug (Phase 7.8).</b> Both call sites of
+	 * {@code method379} clamp the column - {@code Texture.java:1969}
+	 * ({@code if (i < 0) i = 0; else if (i > 16256) i = 16256;}) at size 128 and the equivalent at
+	 * 64 - and the pre-shift bound {@code 16256 >> 7} IS {@code size - 1}, so a plain
+	 * {@code clamp(0, size-1)} is the right transcription.
+	 */
+	public static int texelColumn(int texel, int size) {
+		if (texel < 0) {
+			return 0;
+		}
+		return texel >= size ? size - 1 : texel;
+	}
+
+	/**
+	 * The ROW a texture coordinate selects - <b>WRAPPED, not clamped</b>, which is what
+	 * {@code method379} does to {@code j}.
+	 *
+	 * <p>⚠⚠⚠ <b>This one method is the fix for the random-coloured tiles.</b> The software's fetch
+	 * is {@code ai1[(j & 0x3f80) + (i >> 7)]} ({@code Texture.java:1995} at size 128, and
+	 * {@code (j & 0xfc0) + (i >> 6)} at {@code Texture.java:1840} for size 64) - so the row is taken
+	 * through a bitwise MASK, which is a WRAP modulo the texture side, while the column two tokens
+	 * to its right was CLAMPED by the guard above. {@code 0x3f80 = 127 << 7}, so the mask is exactly
+	 * {@code (j >> 7) & 127}, i.e. the row index modulo 128.
+	 *
+	 * <p>⚠ <b>THE GL SHADER USED TO CLAMP BOTH AXES, and the divergence is total rather than
+	 * subtle:</b> for the live probe's own values the software wraps {@code 194 -> 66},
+	 * {@code 167 -> 39}, {@code 256 -> 0}, {@code -5 -> 123} and {@code -18 -> 110}, where a clamp
+	 * gives the edge texel ({@code 127} or {@code 0}) every time. ⚠⚠ <b>And the probe showed roughly
+	 * HALF of all probed corners resolving out of range</b>, so on those faces the two renderers
+	 * sample unrelated rows of the texture - which is precisely a patchwork of unrelated colours,
+	 * the symptom this step exists to remove.
+	 *
+	 * <p>⚠ Verified rather than asserted: {@code (raw & 0x3f80) >> 7} was evaluated against
+	 * {@code ((texel % size) + size) % size} for {@code 194, 167, 256, -5, 136, 140, 131, 108, 66,
+	 * -18} and agreed on every one. The modulo form is used rather than a bitwise {@code &} because
+	 * it states the wrap without depending on a language's signed-shift behaviour - and because the
+	 * software's own mask is equivalent to it, which is the only thing that matters.
+	 *
+	 * @param texel the row the coordinate resolves to, possibly negative or past the end
+	 * @param size  the texture side, a power of two
+	 */
+	public static int texelRow(int texel, int size) {
+		return ((texel % size) + size) % size;
+	}
+
+	/**
 	 * Whether the loaded cache holds a usable texture for this id.
 	 *
 	 * <p>The uploader must ask, because {@code Texture.unpack} swallows per-texture

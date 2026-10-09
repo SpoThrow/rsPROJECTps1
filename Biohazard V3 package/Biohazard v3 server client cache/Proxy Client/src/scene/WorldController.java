@@ -1699,12 +1699,26 @@ label0:
 			// fog this tile with, so passing the field is passing the software's own number
 			// instead of a second derivation of it. All four corner depths are still live here
 			// (the perspective divides below do not write them), and both triangles of this
-			// tile share the one value - which is the software's granularity, not a shortcut.
+			// tile share the one value - which is the software's fog granularity, correct for
+			// fog and NOT sufficient for a depth buffer.
+			//
+			// ⚠⚠ PHASE 7.11 adds the three PER-CORNER depths after it, and they are read off
+			// the projections at the top of this method rather than taken from the t6..t8 slots
+			// above. The reason is not tidiness: t6..t8 carry the software's MAPPING set, and in
+			// the flat branch that set's first element (k2) belongs to corner (j1,k1) while this
+			// triangle's first screen corner (i6,j6) is (j1+1,k1+1) - a whole diagonal away. A
+			// depth buffer built on that would keep the very occlusion this argument removes.
+			//
+			// The mapping is unambiguous here because each corner's depth IS the divisor its
+			// projection used: (i6,j6) = (l2<<9)/k3 and (j6) = (j4<<9)/k3, so this corner's
+			// depth is k3; likewise (k6,l6) is j3 and (k5,l5) is j2. Passed in the same order
+			// as the screen coordinates for that reason - by construction, not by convention.
 			boolean flatGround = class43.aBoolean721;
 			if (!SceneRasterizer.dispatchGroundTriangle(i6, j6, k6, l6, k5, l5, class43.anInt718, class43.anInt719, class43.anInt717, class43.anInt720, flatGround,
 					flatGround ? i2 : l2, flatGround ? i3 : l1, flatGround ? l1 : i3,
 					flatGround ? l3 : j4, flatGround ? i4 : k4, flatGround ? k4 : i4,
-					flatGround ? k2 : k3, flatGround ? j2 : j3, flatGround ? j3 : j2, Fog.sceneDepth))
+					flatGround ? k2 : k3, flatGround ? j2 : j3, flatGround ? j3 : j2, Fog.sceneDepth,
+					k3, j3, j2))
 			{
 				if(class43.anInt720 == -1)
 				{
@@ -1740,7 +1754,12 @@ label0:
 			// Ground rasterisation seam (Phase 4.1c-2c). Declines when no rasteriser is
 			// installed, so the software path below runs unchanged. It sits AFTER the tile
 			// picking above, which must keep running either way.
-			if (!SceneRasterizer.dispatchGroundTriangle(i5, j5, k5, l5, k6, l6, class43.anInt716, class43.anInt717, class43.anInt719, class43.anInt720, class43.aBoolean721, i2, i3, l1, l3, i4, k4, k2, j2, j3, Fog.sceneDepth))
+			//
+			// ⚠⚠ Phase 7.11: the three arguments after Fog.sceneDepth are this triangle's
+			// PER-CORNER depths, in the same order as the screen coordinates above. They are
+			// (k2,j2,j3) - the divisors used to project (i5,j5), (k5,l5) and (k6,l6)
+			// respectively, read off the projections at the top of this method.
+			if (!SceneRasterizer.dispatchGroundTriangle(i5, j5, k5, l5, k6, l6, class43.anInt716, class43.anInt717, class43.anInt719, class43.anInt720, class43.aBoolean721, i2, i3, l1, l3, i4, k4, k2, j2, j3, Fog.sceneDepth, k2, j2, j3))
 			{
 				if(class43.anInt720 == -1)
 				{
@@ -2000,7 +2019,16 @@ label0:
 				// ⚠ Phase 7.2c-2: the depth is method316's own per-MESH value, assigned once
 				// before this loop (Fog.sceneDepth = (dx + dy) * 96 + 300) - so every triangle
 				// of the overlay mesh shares it, exactly as the software fogs them.
-				if (!SceneRasterizer.dispatchGroundTriangle(i4, l4, j4, i5, k4, j5, class40.anIntArray676[j2], class40.anIntArray677[j2], class40.anIntArray678[j2], (class40.anIntArray682 == null ? -1 : class40.anIntArray682[j2]), class40.aBoolean683, Class40.anIntArray690[l2], Class40.anIntArray690[j3], Class40.anIntArray690[l3], Class40.anIntArray691[l2], Class40.anIntArray691[j3], Class40.anIntArray691[l3], Class40.anIntArray692[l2], Class40.anIntArray692[j3], Class40.anIntArray692[l3], Fog.sceneDepth))
+				//
+				// ⚠⚠ Phase 7.11 appends the three PER-CORNER depths for the depth buffer. They
+				// are Class40.anIntArray692, written at the top of this method as the divisor
+				// each vertex was projected by ((i2<<9)/i3 -> anIntArray688), so the entry that
+				// pairs with a screen x in anIntArray688 is the depth of that same corner. The
+				// indices are therefore the SAME l2/j3/l3 used for the coordinates above, which
+				// is what puts them in screen-corner order. Note that the per-mesh value they
+				// accompany is NOT their mean: an overlay mesh is fogged by the distance
+				// formula above, so these two arguments are genuinely independent quantities.
+				if (!SceneRasterizer.dispatchGroundTriangle(i4, l4, j4, i5, k4, j5, class40.anIntArray676[j2], class40.anIntArray677[j2], class40.anIntArray678[j2], (class40.anIntArray682 == null ? -1 : class40.anIntArray682[j2]), class40.aBoolean683, Class40.anIntArray690[l2], Class40.anIntArray690[j3], Class40.anIntArray690[l3], Class40.anIntArray691[l2], Class40.anIntArray691[j3], Class40.anIntArray691[l3], Class40.anIntArray692[l2], Class40.anIntArray692[j3], Class40.anIntArray692[l3], Fog.sceneDepth, Class40.anIntArray692[l2], Class40.anIntArray692[j3], Class40.anIntArray692[l3]))
 				{
 					if(class40.anIntArray682 == null || class40.anIntArray682[j2] == -1)
 					{

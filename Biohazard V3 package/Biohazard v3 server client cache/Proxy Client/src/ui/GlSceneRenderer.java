@@ -50,6 +50,14 @@ import scene.WorldController;
  * projected corners. Ground and models therefore land on ONE depth axis - see
  * {@link GlFacePipeline#depthToZ}, including the note on why the depth fed to it is absolute.
  *
+ * <p><b>⚠⚠ AND THE DEPTH IT CARRIES IS PER CORNER, NOT PER TILE (Phase 7.11).</b> One depth for
+ * the whole tile is the right granularity for the software's FOG but the wrong one for a depth
+ * BUFFER: a tile is 128 world units across, so its corners' true depths differ, and a flat plate
+ * compared against the wall standing on it hides that wall's base wherever the wall is further
+ * away than the tile's mean. That was the diagonal-wall occlusion. {@link #drawGroundTriangle}
+ * now takes the three corner depths as well and gives each vertex its own {@code z}; the tile
+ * mean remains, and is still the only thing the fog uses.
+ *
  * <p><b>What still declines, and each is named rather than silent</b> - see
  * {@link #frameDeclineReason()}, so a live run measures what is left instead of leaving it to
  * be inferred:
@@ -169,8 +177,39 @@ public final class GlSceneRenderer implements GpuRenderer.Implementation {
 	private boolean reportedDiscard;
 	private boolean reportedSizeMismatch;
 	private boolean reportedGroundSkip;
+	/** See {@link #reportGroundColour}: counted per screen band, not by draw order. */
+	private int groundProbeSeen;
+	private int groundProbeAllOlive;
+	private int groundProbeAllGrey;
+	private int groundProbeNearBand;
+	private int groundProbeNearOlive;
+	private int groundProbeNearGrey;
+	private int groundProbeNearReported;
+	/** The near-field band the GL dump shows as grey and the software dump as olive. */
+	private static final int NEAR_BAND_Y = 480;
+	private static final int GROUND_PROBE_SUMMARY_AT = 500;
 	private boolean reportedComposite;
 	private String modelSkipReason;
+
+	/**
+	 * The software image, kept aside so the GL image can be compared against it (Phase 7.5a).
+	 *
+	 * <p>⚠⚠ <b>Null unless {@code -Dsoultrail.gldiff=true}, and that is not just politeness
+	 * about cost.</b> The comparison copies the whole framebuffer and walks it every frame,
+	 * and normal play must not pay for a debug tool. The property is read ONCE, in the
+	 * constructor, so the answer cannot change under a frame - the same rule the latch
+	 * follows about preconditions.
+	 *
+	 * <p>⚠ The oracle is free: the software scene is fully drawn into the producer's array in
+	 * the shadow stage and the GL readback then overwrites it there, so the array holds the
+	 * software's own answer for this frame at the instant {@link #readBack} runs. One copy at
+	 * that instant is a per-pixel ground truth needing no fixture and no second render.
+	 */
+	private final GlFrameDiff diff;
+	/** Window for the throttled diff line - see {@link #maybeReportDiff()}. */
+	private static final long DIFF_REPORT_INTERVAL_MS = 5000L;
+	private long lastDiffReportMillis;
+	private boolean reportedDiff;
 	/** Window for the throttled skip-rate line - see {@link #maybeReportSkipRate()}. */
 	private static final long SKIP_REPORT_INTERVAL_MS = 10000L;
 	private long lastSkipReportMillis;
@@ -204,6 +243,24 @@ public final class GlSceneRenderer implements GpuRenderer.Implementation {
 	public GlSceneRenderer(String name, SceneBatch batch) {
 		this.name = name;
 		this.batch = batch;
+		this.diff = diffRequested() ? new GlFrameDiff() : null;
+	}
+
+	/**
+	 * Whether the A/B diff was asked for on the command line ({@code -Dsoultrail.gldiff=true}).
+	 *
+	 * <p>⚠ Follows {@code PacketTap}'s convention rather than inventing a second one: a debug
+	 * tool is off unless a property names it, so normal play is unchanged and "it was on" is
+	 * never an assumption. ⚠ Read in the constructor, so it cannot flip mid-frame.
+	 */
+	private static boolean diffRequested() {
+		try {
+			String v = System.getProperty("soultrail.gldiff");
+			return v != null && !v.trim().isEmpty() && !"false".equalsIgnoreCase(v.trim());
+		} catch (SecurityException e) {
+			// A property read that is denied must not cost the player their renderer.
+			return false;
+		}
 	}
 
 	// ---------------------------------------- the present seam
@@ -338,12 +395,18 @@ public final class GlSceneRenderer implements GpuRenderer.Implementation {
 			lastSkipReportMillis = now;
 			return;
 		}
-		long windowMs = lastSkipReportMillis == 0 ? now : now - lastSkipReportMillis;
+		// ⚠ A NONSENSE DURATION WAS PRINTED HERE ON THE FIRST REPORT, and the live log showed it
+		// as "in the last 1791374742s" - because the sentinel for "no previous report" was 0,
+		// which is the epoch, so the window came out as the entire age of the clock. A log line
+		// whose first instance reads as nonsense invites the reader to distrust the rest of it.
+		// The sentinel is now recognised as itself and named in words instead.
+		String window = lastSkipReportMillis == 0 ? "since startup"
+				: "in the last " + ((now - lastSkipReportMillis) / 1000) + "s";
 		lastSkipReportMillis = now;
 		modelSkipEventsAtReport = modelSkipEvents;
 		groundTilesSkippedAtReport = groundTilesSkipped;
 		System.out.println("Renderer '" + name + "': GL skipped " + modelDelta + " model submissions "
-				+ "and " + tileDelta + " ground tiles in the last " + (windowMs / 1000) + "s ("
+				+ "and " + tileDelta + " ground tiles " + window + " ("
 				+ modelSkipEvents + " model and " + groundTilesSkipped + " tile skips since startup, "
 				+ skippedModelUids.size() + " distinct model uids); frames read back "
 				+ framesReadBack + ", discarded " + framesDiscarded + ".");
@@ -401,7 +464,7 @@ public final class GlSceneRenderer implements GpuRenderer.Implementation {
 	public boolean drawGroundTriangle(int x0, int y0, int x1, int y1, int x2, int y2,
 			int colour0, int colour1, int colour2, int textureId, boolean flatMesh,
 			int t0, int t1, int t2, int t3, int t4, int t5, int t6, int t7, int t8,
-			int depth) {
+			int depth, int depth0, int depth1, int depth2) {
 		if (!latch()) {
 			return false;
 		}
@@ -412,10 +475,30 @@ public final class GlSceneRenderer implements GpuRenderer.Implementation {
 			return false;
 		}
 		lastGroundDepth = depth;
-		// ⚠ ONE z for the whole tile, and that is the software's own granularity rather than
-		// a shortcut: method315 submits a whole tile as a unit and fogs it with this one mean
-		// depth. See SceneRasterizer.Implementation#drawGroundTriangle.
-		float z = GlFacePipeline.depthToZ(depth);
+		// ⚠⚠⚠ PHASE 7.11: ONE z PER CORNER, NOT ONE PER TILE. This is the fix for the
+		// diagonal-wall occlusion, and it is worth stating exactly what was wrong before.
+		//
+		// Through 7.10 this method gave all three vertices `depthToZ(depth)`, i.e. the TILE's
+		// single mean camera-space depth (for method315, (k2+j2+k3+j3)/4). That is the right
+		// granularity for the software, which has no depth buffer at all and relies on painter
+		// order - but it is WRONG for a z-buffer, because a tile is 128 world units across and
+		// its corners' true depths differ by up to ~128*|sin yaw| fixed-point units. The buffer
+		// was therefore comparing a FLAT plate against the wall standing on it: wherever the
+		// wall's base was further away than the tile's mean, the tile won and the wall's lower
+		// part was erased - which is what makes it appear only for tiles carrying a diagonal
+		// wall, and only at the pitch angles that widen the spread.
+		//
+		// The three depths arrive in screen-corner order for method315 and method316 alike
+		// (see SceneRasterizer.Implementation#drawGroundTriangle), are the SAME absolute axis as
+		// Model.method443's per-vertex depths, and go through the SAME depthToZ - so a wall's
+		// base now lands on the tile's own surface value instead of on a mean it never had.
+		//
+		// ⚠ `depth` itself is still used, and must stay used, for the FOG (see
+		// submitTexturedGround): the software fogs a whole tile with its one mean depth, and
+		// reproducing that is a different job from occluding correctly.
+		float z0 = GlFacePipeline.depthToZ(depth0);
+		float z1 = GlFacePipeline.depthToZ(depth1);
+		float z2 = GlFacePipeline.depthToZ(depth2);
 
 		if (textureId != -1) {
 			// The software's own branch: `anIntArray720 == -1` is the only untextured case,
@@ -426,7 +509,7 @@ public final class GlSceneRenderer implements GpuRenderer.Implementation {
 				return false;
 			}
 			return submitTexturedGround(x0, y0, x1, y1, x2, y2, colour0, colour1, colour2,
-					t0, t1, t2, t3, t4, t5, t6, t7, t8, textureId, z, depth);
+					t0, t1, t2, t3, t4, t5, t6, t7, t8, textureId, z0, z1, z2, depth);
 		}
 
 		// method374's colour contract, through the ONE owner of it: the code is fogged first
@@ -439,7 +522,20 @@ public final class GlSceneRenderer implements GpuRenderer.Implementation {
 			declineFrame(GROUND_COLOUR_DECLINE);
 			return false;
 		}
-		if (!batch.triangle(x0, y0, z, c0, x1, y1, z, c1, x2, y2, z, c2)) {
+		reportGroundColour(y0, y1, y2, colour0, colour1, colour2, c0, c1, c2, depth);
+		// ⚠⚠⚠ PHASE 7.10: THE GROUND IS FORCED OPAQUE, AND IT MUST BE STATED HERE. The
+		// software does exactly this - WorldController.java:1665 and :1971 both assign
+		// `Texture.anInt1465 = 0` before walking the tiles - so a ground tile is never
+		// alpha-blended however the model path left that static. Since 7.10 turned blending
+		// ON, this is load-bearing rather than cosmetic: resolveCornerColour returns a palette
+		// entry whose alpha byte is ZERO (the palette is 0x00RRGGBB, which is why the old
+		// comment could call the byte "inert"), and a zero fragment alpha under
+		// SRC_ALPHA/ONE_MINUS_SRC_ALPHA is FULLY TRANSPARENT - the entire ground would have
+		// vanished. The whole scene that is not a modelled face is opaque ground, so this one
+		// OR is the difference between a blended scene and no landscape at all.
+		int opaque = 0xff000000;
+		if (!batch.triangle(x0, y0, z0, opaque | c0, x1, y1, z1, opaque | c1, x2, y2, z2,
+				opaque | c2)) {
 			declineFrame(GROUND_MAPPING_DECLINE);
 			return false;
 		}
@@ -471,11 +567,18 @@ public final class GlSceneRenderer implements GpuRenderer.Implementation {
 	 * <p>⚠ <b>The shade codes are passed RAW, deliberately</b> - matching the model path, and
 	 * leaving the fog fade as the one joint item the class doc describes rather than fixing it
 	 * in one path only.
+	 *
+	 * <p>⚠⚠ <b>{@code z0..z2} are PER-CORNER and {@code depth} is the tile mean, and the two
+	 * must not be merged (Phase 7.11).</b> The z's are the corners' own camera-space depths and
+	 * are what the depth test compares; {@code depth} is the single value the software fogs the
+	 * whole tile with and is what the fade below must keep using. Using the mean for the z's is
+	 * the diagonal-wall occlusion this step removes; using a corner z for the fade would fog one
+	 * of the tile's three vertices differently from the software.
 	 */
 	private boolean submitTexturedGround(int x0, int y0, int x1, int y1, int x2, int y2,
 			int shade0, int shade1, int shade2,
 			int t0, int t1, int t2, int t3, int t4, int t5, int t6, int t7, int t8,
-			int textureId, float z, int depth) {
+			int textureId, float z0, float z1, float z2, int depth) {
 		if (!batch.supportsTextures()) {
 			declineFrame(GROUND_MAPPING_DECLINE);
 			return false;
@@ -516,9 +619,9 @@ public final class GlSceneRenderer implements GpuRenderer.Implementation {
 		int[] a = ramps.attributeAt(x0, y0);
 		int[] b = ramps.attributeAt(x1, y1);
 		int[] c = ramps.attributeAt(x2, y2);
-		if (!batch.textured(x0, y0, z, a[0], a[1], a[2], shade0,
-				x1, y1, z, b[0], b[1], b[2], shade1,
-				x2, y2, z, c[0], c[1], c[2], shade2, textureId)) {
+		if (!batch.textured(x0, y0, z0, a[0], a[1], a[2], shade0,
+				x1, y1, z1, b[0], b[1], b[2], shade1,
+				x2, y2, z2, c[0], c[1], c[2], shade2, textureId)) {
 			// ⚠⚠ PHASE 7.4h: per-actor, like the ramp overflow above. The sink's own refusals
 			// here are PER-TILE - a texture id missing from the atlas - so skipping the tile is
 			// the scoped answer. (A sink that is not ready at all is a different case and is
@@ -539,6 +642,92 @@ public final class GlSceneRenderer implements GpuRenderer.Implementation {
 	 * software scene, so a skipped tile is a MISSING patch of ground rather than a tile that
 	 * merely fell back - and that must be visible in the log rather than inferred.
 	 */
+	/**
+	 * Reports the ground's resolved colours, split by WHERE on screen the triangle lands
+	 * (Phase 7.6g).
+	 *
+	 * <p>⚠⚠ <b>Why the first-triangle version was not enough, and this is a correction of my own
+	 * 7.6f probe rather than an extension.</b> That probe printed the FIRST untextured ground
+	 * triangle and it came back OLIVE (`1c1e00/1c1e00/6e791e`), which on its own reads as "the
+	 * ground colours are fine, look elsewhere". ⚠ <b>But the first triangle is by definition the
+	 * one drawn earliest, and the walk order puts the FAR ground first - it was a dark horizon
+	 * tile, not the near field that the dumps show as grey.</b> A sample chosen by DRAW ORDER is
+	 * not a sample of the region in question, and treating it as one would have retired the
+	 * strongest lead on the strength of an unrepresentative pixel.
+	 *
+	 * <p>So this splits the report by SCREEN BAND: every untextured triangle whose topmost vertex
+	 * is below y=480 (the band the class grid shows as a solid olive field in the software and a
+	 * grey field in GL) is counted and classified, and the first five are printed in full.
+	 */
+	private void reportGroundColour(int y0, int y1, int y2, int code0, int code1, int code2,
+			int c0, int c1, int c2, int depth) {
+		groundProbeSeen++;
+		boolean olive = olive(c0) && olive(c1) && olive(c2);
+		boolean grey = grey(c0) && grey(c1) && grey(c2);
+		if (olive) {
+			groundProbeAllOlive++;
+		}
+		if (grey) {
+			groundProbeAllGrey++;
+		}
+		int minY = Math.min(y0, Math.min(y1, y2));
+		if (minY >= NEAR_BAND_Y) {
+			groundProbeNearBand++;
+			if (olive) {
+				groundProbeNearOlive++;
+			}
+			if (grey) {
+				groundProbeNearGrey++;
+			}
+			if (groundProbeNearReported < 5) {
+				groundProbeNearReported++;
+				System.out.println("Renderer '" + name + "': GROUND NEAR BAND (y>="
+						+ NEAR_BAND_Y + ") - codes " + hex(code0) + "/" + hex(code1) + "/"
+						+ hex(code2) + " -> palette " + hex(c0) + "/" + hex(c1) + "/" + hex(c2)
+						+ " topY " + minY + " depth " + depth + " - "
+						+ (olive ? "OLIVE" : grey ? "GREY" : "OTHER"));
+			}
+		}
+		if (groundProbeSeen == GROUND_PROBE_SUMMARY_AT) {
+			System.out.println("Renderer '" + name + "': GROUND COLOUR SUMMARY over "
+					+ groundProbeSeen + " untextured ground triangles - all-olive "
+					+ groundProbeAllOlive + ", all-grey " + groundProbeAllGrey
+					+ ". NEAR BAND (topY>=" + NEAR_BAND_Y + "): " + groundProbeNearBand
+					+ " triangles, " + groundProbeNearOlive + " OLIVE, " + groundProbeNearGrey
+					+ " GREY. " + (groundProbeNearBand > 0 && groundProbeNearOlive == groundProbeNearBand
+							? "Every near-field triangle is OLIVE, so the ground colours are correct "
+									+ "all the way down and the grey in the GL image is introduced "
+									+ "AFTER submission (z, a later pass, or the composite) - NOT a "
+									+ "colour-resolution bug."
+							: groundProbeNearBand > 0 && groundProbeNearGrey > 0
+									? "Some near-field triangles resolve GREY, so the palette or the "
+											+ "code IS wrong for them before any pixel is drawn."
+									: "No near-field triangles yet - the summary is inconclusive."));
+		}
+	}
+
+	private static boolean olive(int c) {
+		if (c < 0) {
+			return false;
+		}
+		int r = (c >> 16) & 0xFF, g = (c >> 8) & 0xFF, b = c & 0xFF;
+		return g >= r - 25 && g > b + 20;
+	}
+
+	private static boolean grey(int c) {
+		if (c < 0) {
+			return false;
+		}
+		int r = (c >> 16) & 0xFF, g = (c >> 8) & 0xFF, b = c & 0xFF;
+		int mx = Math.max(r, Math.max(g, b));
+		int mn = Math.min(r, Math.min(g, b));
+		return mx - mn <= 20;
+	}
+
+	private static String hex(int v) {
+		return v < 0 ? "DECLINED" : String.format("%06x", v & 0xFFFFFF);
+	}
+
 	private void reportGroundSkippedOnce() {
 		groundTilesSkipped++;
 		maybeReportSkipRate();
@@ -595,7 +784,23 @@ public final class GlSceneRenderer implements GpuRenderer.Implementation {
 		if (inGl) {
 			batch.flush();
 			if (whole) {
+				// ⚠⚠ SNAPSHOT BEFORE THE READBACK, and this ordering is the entire mechanism
+				// (Phase 7.5a). The software scene was already drawn into this array by the
+				// shadow stage; readInto is about to overwrite it in place with the GL
+				// image. So this is the last instant at which the software's own answer for
+				// THIS frame exists, and copying here is what makes the comparison an oracle
+				// rather than a guess. Taken after the flush so a flush that throws cannot
+				// leave a snapshot of a frame that never completed.
+				boolean snapped = diff != null && producer != null
+						&& producer.anIntArray315 != null
+						&& diff.capture(producer.anIntArray315, producer.anInt316,
+								producer.anInt317);
 				replaced = readBack(producer);
+				if (replaced && snapped
+						&& diff.compare(producer.anIntArray315, producer.anInt316,
+								producer.anInt317)) {
+					reportDiff(producer);
+				}
 			}
 			if (!replaced) {
 				framesDiscarded++;
@@ -606,6 +811,67 @@ public final class GlSceneRenderer implements GpuRenderer.Implementation {
 		}
 		resetFrame();
 		return replaced;
+	}
+
+	/**
+	 * Prints how far the GL image and the software image DISAGREE, and what shape the
+	 * disagreement has (Phase 7.5a).
+	 *
+	 * <p>⚠⚠ <b>Why this is not covered by anything that came before.</b> Every other line this
+	 * renderer prints answers "could GL draw it": the skip notes, the composite counts, the
+	 * decline reasons. None of them can see a frame that is fully representable and still the
+	 * WRONG PICTURE - a mis-resolved texture id, a wrong atlas layer, a shade block off by one.
+	 * The live log could prove a frame was composited and still leave "is the ground garbled?"
+	 * answerable only by eye, which is where this plan was left.
+	 *
+	 * <p>⚠ The verdict is {@link GlFrameDiff#verdict()}'s rather than a threshold here, because
+	 * the classification is the part that has to be right and is the part the harness pins.
+	 *
+	 * <p>⚠ Two cadences, for the same reason the skip line has two: the FIRST comparison is
+	 * printed in full (it is the one taken at the frame the run started on), and later ones are
+	 * throttled, so a player can walk around and see whether the verdict CHANGES with the scene
+	 * rather than only what it was once.
+	 */
+	private void reportDiff(RSImageProducer producer) {
+		long now = System.currentTimeMillis();
+		if (!reportedDiff) {
+			reportedDiff = true;
+			lastDiffReportMillis = now;
+			System.out.println("Renderer '" + name + "': GL vs SOFTWARE diff of frame #"
+					+ framesReadBack + " (" + producer.anInt316 + "x" + producer.anInt317
+					+ ") - " + diff.describe() + ". VERDICT: " + diff.verdict());
+			// ⚠⚠ WHAT THE IMAGES ACTUALLY CONTAIN, on the first comparison only (Phase 7.5a-2).
+			// The first live run of this tool reported 99.7% of pixels differing - which cannot
+			// be read as "the mapping is slightly off" and does not look like a comparison
+			// between two renders of one scene at all. This line is what distinguishes the
+			// mundane explanations (an empty image, a channel-order swap, a misaligned
+			// readback) from a genuine content difference, and it prints ONCE because the
+			// answer is structural rather than per-frame.
+			System.out.println("Renderer '" + name + "': GL vs SOFTWARE CONTENT - " + diff.diagnose());
+			// ⚠⚠ 7.5c: AND THE TWO IMAGES THEMSELVES, because the content line above ruled out
+			// everything that could be ruled out numerically and the remaining question - "what
+			// does each image look like?" - is a question for eyes. Written ONCE, at the same
+			// moment as the content line, so the PNGs are provably the frame that was measured.
+			if (diff.writePngs("gldiff", producer.anIntArray315, producer.anInt316,
+					producer.anInt317)) {
+				System.out.println("Renderer '" + name + "': wrote " + new java.io.File(
+						"gldiff-software.png").getAbsolutePath() + " and " + new java.io.File(
+								"gldiff-gl.png").getAbsolutePath()
+						+ " - compare them side by side; this frame is the one measured above.");
+			} else {
+				System.out.println("Renderer '" + name + "': could not write the comparison PNGs "
+						+ "(the working directory is not writable?) - the numbers above are the "
+						+ "only record of frame #" + framesReadBack + ".");
+			}
+			return;
+		}
+		if (now - lastDiffReportMillis < DIFF_REPORT_INTERVAL_MS) {
+			return;
+		}
+		lastDiffReportMillis = now;
+		System.out.println("Renderer '" + name + "': GL vs SOFTWARE diff (latest of "
+				+ framesReadBack + " frames, " + diff.differing() + " pixels differ): "
+				+ diff.verdict());
 	}
 
 	/**
@@ -808,6 +1074,18 @@ public final class GlSceneRenderer implements GpuRenderer.Implementation {
 
 	public int texturedModelTriangles() {
 		return texturedModelTriangles;
+	}
+
+	/**
+	 * The A/B comparator, or {@code null} when {@code -Dsoultrail.gldiff} did not ask for one.
+	 *
+	 * <p>⚠ Exposed so the harness can drive the comparison THROUGH this renderer's seam rather
+	 * than only against {@link GlFrameDiff} directly - the classifier is pinned as a pure unit,
+	 * but "the seam actually calls it, in the right order, on the frame that was read back" is
+	 * a separate claim and the one that decides whether a live run prints anything.
+	 */
+	public GlFrameDiff diff() {
+		return diff;
 	}
 
 	/** The camera-space depth of the last ground tile the seam handed over. */

@@ -1,66 +1,61 @@
 @echo off
 REM ---------------------------------------------------------------------------
-REM DEPRECATED - prefer the Gradle build (CLIENT_REFACTORING_PLAN.md, Phase 1):
-REM     gradlew.bat installBin     compile and copy classes into bin\
-REM     gradlew.bat check          harness + stale-class + cfg-freshness checks
-REM     gradlew.bat build          the lot
+REM Client compile - a thin wrapper over the Gradle build (CLIENT_REFACTORING_PLAN.md, Phase 1).
 REM
-REM Kept as a working fallback until a Gradle-built client has been confirmed on
-REM a live session against the server. Two differences from Gradle:
-REM   * Gradle pins --release 8; this script used -source/-target 1.7, which
-REM     modern javac rejects outright and which only worked because the script
-REM     pins a JDK 8 below.
-REM   * Gradle reads the sources as UTF-8. This script used to set no -encoding,
-REM     so it fell back to the platform default (Cp1252) while the sources are
-REM     UTF-8: four player-visible strings compiled to mojibake, and any comment
-REM     containing a non-ASCII character (e.g. the warning sign) failed the
-REM     compile outright with "unmappable character for encoding Cp1252".
-REM     This script now passes -encoding UTF-8 so BOTH builds agree. Verified:
-REM     without the flag the client fails with 3 unmappable-character errors;
-REM     with it, 207 classes compile and the em dash is a real U+2014.
+REM ---------------------------------------------------------------------------
+REM WHY THIS IS A WRAPPER AND NOT A javac SCRIPT ANY MORE - and it is a bug this
+REM file caused itself, not a matter of taste.
+REM
+REM It used to compile a hand-written source list: `src\*.java src\sign\*.java`.
+REM Phase 3.1 moved every class into a package, so `src\*.java` has matched
+REM NOTHING since that commit. The failure is indirect, which is what made it
+REM survive: javac does not report "no files matched"; it treats the unexpanded
+REM pattern as a filename and exits with
+REM
+REM     javac: file not found: src\*.java
+REM
+REM so the message points at a missing file rather than at a stale source list,
+REM and this script then printed "Client compile failed" for the wrong reason.
+REM
+REM The blast radius was wider than this file, which is the part worth recording:
+REM StartAll.bat calls this script and aborts the whole run on a non-zero exit,
+REM so the master script died at its client step and the server was never
+REM started. Run.bat's own "Run Compile.bat first" message also pointed here.
+REM
+REM There is no way to keep a second source list in step with the tree by
+REM inspection - that is the whole reason the Gradle build exists - so this now
+REM calls that build instead of duplicating it.
+REM
+REM `gradlew.bat installBin` compiles to build/ and then copies the classes into
+REM bin/, the directory Run.bat launches from. `gradlew.bat check` additionally
+REM runs the harness, the stale-class report and the collision-size freshness
+REM check. This script deliberately runs ONLY the compile, so starting the game
+REM never depends on the test suite passing - RunTests.bat and `check` are for
+REM that, and keeping them separate is the pre-existing intent (RunTests.bat's
+REM header says so).
+REM
+REM Two behaviours are carried over from the old script because other scripts
+REM depend on them, not out of nostalgia:
+REM   * the `nopause` argument, which StartAll.bat passes so that its unattended
+REM     run is not left waiting on a keypress; and
+REM   * :killclient, which runs BEFORE the compile. Gradle's copy cannot
+REM     overwrite a .class file the running JVM has open, and "close the game
+REM     window and try again" is not something a player should have to infer
+REM     from a file-lock error.
 REM
 REM WARNING: :killclient below runs taskkill /F on the game window. Do not run
 REM this as a convenience step while playing.
 REM ---------------------------------------------------------------------------
 cd /d "%~dp0"
 
-if not exist bin mkdir bin
-
-set JAVAC="C:\Program Files\Java\jdk1.8.0_202\bin\javac.exe"
-if not exist %JAVAC% set JAVAC="C:\Program Files\Java\jdk1.7.0_80\bin\javac.exe"
-if not exist %JAVAC% set JAVAC=javac
-
-set BUILDDIR=%TEMP%\soultrail-client-build
-if exist "%BUILDDIR%" rmdir /s /q "%BUILDDIR%"
-mkdir "%BUILDDIR%"
-
 call :killclient
 
-rem Phase 7.2a: LWJGL 2 (deps\lwjgl.jar) is not used - it shadows LWJGL 3's org.lwjgl.opengl.*.
-rem NOTE: this script is superseded by `gradlew.bat installBin` (see build.gradle); its source
-rem list still names the pre-package src\*.java layout and no longer matches the tree.
-set CP=
-if exist deps\lwjgl3 set CP=-cp "deps\lwjgl3\*"
-
 echo Compiling client...
-%JAVAC% -encoding UTF-8 -source 1.7 -target 1.7 %CP% -d "%BUILDDIR%" -sourcepath src src\*.java src\sign\*.java
+call gradlew.bat --console=plain installBin
 if errorlevel 1 (
-	echo.
-	echo Client compile failed.
-	if /I not "%~1"=="nopause" pause
-	exit /b 1
-)
-
-call :installbin
-if errorlevel 1 (
-	echo First copy into bin failed, retrying after closing locked class files...
+	echo First attempt failed - retrying after closing locked class files...
 	call :killclient
-	call :installbin
-)
-if errorlevel 1 (
-	echo Second copy into bin failed, retrying once more...
-	call :killclient
-	call :installbin
+	call gradlew.bat --console=plain installBin
 )
 if errorlevel 1 (
 	echo.
@@ -82,9 +77,3 @@ taskkill /F /FI "WINDOWTITLE eq Soul-Trail" >nul 2>&1
 powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-CimInstance Win32_Process | Where-Object { ($_.Name -eq 'java.exe' -or $_.Name -eq 'javaw.exe') -and $_.CommandLine -and ($_.CommandLine -match 'Loader' -or $_.CommandLine -match 'Xmx1024m') } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }; $deadline = (Get-Date).AddSeconds(8); while ((Get-Date) -lt $deadline) { $left = Get-CimInstance Win32_Process | Where-Object { ($_.Name -eq 'java.exe' -or $_.Name -eq 'javaw.exe') -and $_.CommandLine -and ($_.CommandLine -match 'Loader' -or $_.CommandLine -match 'Xmx1024m') }; if (-not $left) { break }; Start-Sleep -Milliseconds 250 }"
 ping -n 2 127.0.0.1 >nul
 goto :eof
-
-:installbin
-robocopy "%BUILDDIR%" bin /E /IS /IT /R:3 /W:1 /NFL /NDL /NJH /NJS /NP /NC /NS >nul
-set COPYRC=%ERRORLEVEL%
-if %COPYRC% GEQ 8 exit /b 1
-exit /b 0
