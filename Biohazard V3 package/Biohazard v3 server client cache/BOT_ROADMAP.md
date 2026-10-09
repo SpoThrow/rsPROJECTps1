@@ -112,7 +112,7 @@ curated or scanned.
 
 ## 5. The abstractions
 
-### 5.1 `Agent` — separate "an agent" from "a player" (Phase G, deferred)
+### 5.1 `Agent` — separate "an agent" from "a player" (Phase G)
 
 Today `BotContext` wraps a `BotPlayer`. Later it should wrap an `Agent` so the same
 behavior library drives a player bot *and* an NPC — and `WorldAdventurer` is already a
@@ -131,10 +131,25 @@ final class PlayerAgent implements Agent { /* wraps Client */ }
 final class NpcAgent    implements Agent { /* wraps NPC, a la WorldAdventurer */ }
 ```
 
-**Deferred to Phase G on purpose.** Player bots are the requirement now; NPC reuse is a
-nice-to-have that would broaden slice 1 and slow it down. The cost of deferring is
-bounded *provided* seam 2 above is adopted (context behind an interface), because then
-G is "add `PlayerAgent`, re-point one constructor" rather than touching every state.
+**Implemented (Phase G), with two honest differences from the sketch above.**
+
+1. **The interface is smaller than the five methods sketched here.** `name()`, `height()`,
+   `arrivedAt(...)` and a range on `interactObject` are all there; inventory, skills and the bank are
+   *not*, and deliberately so. Those are player facts, and an interface that promised an NPC an inventory
+   would be promising something no NPC can keep — so they live on `BotContext` instead. The consequence
+   is that the seam is genuinely honest for travel and honest about where it stops.
+2. **`interactObject` is not implementable for an NPC.** Object dispatch is
+   `ObjectHandler.dispatch(Client, ...)` and its `ObjectAction`s are `Client`-typed, so there is no
+   registry path for an NPC click. `NpcAgent` throws with that reason rather than returning `false`,
+   because `false` is indistinguishable from "out of range" and would make a `Gather` loop retry
+   forever. **An NPC can walk and patrol; it cannot click scenery until object dispatch takes an actor
+   instead of a `Client`.** That is the remaining work, and it is a change to the skill-dispatch path
+   rather than to `Agent`.
+
+`WorldAdventurer` was *not* migrated onto the tree: it is disabled
+(`Config.WORLD_ADVENTURER_ENABLED = false`), so there is nothing live to migrate. The seam is the part
+that had value either way, and the NPC case is now proven by `AgentSeamTest` — slice-1's `WalkTo`, never
+touched, drives a real `NPC` to its destination.
 
 **Relation to possession.** The possession lifecycle (`BOT_PLAN.md` §5.4) is the runtime
 embodiment of this split: a controller is *attached* to a real character and can be
@@ -142,9 +157,10 @@ embodiment of this split: a controller is *attached* to a real character and can
 generic — the same controller shape will later drive an NPC with no change to the
 behavior library.
 
-Tradeoff, stated plainly: deferring means slice-1 states are written against a
-player-shaped context. That is acceptable because skills, walking and banking are all
-player operations; the NPC case is a later migration, not a redesign.
+The prediction held: because seam 2 above (context behind an interface) *was* adopted, this landed as
+"add `PlayerAgent`, re-point one constructor" — the seven states that reached for a `Client` needed only
+narrow observation methods (`isBanking`/`isDead`/`isSkilling`/`skillLevel`) instead of being rewritten,
+and **no state class changed shape**. That is what bounded the cost of deferring.
 
 ### 5.2 `Locator` / `Locations` — separate "what" from "where" (Phase C)
 
@@ -329,18 +345,24 @@ Each phase is additive; A is the only one that touches existing server code.
 | **D — Scripts & builder** | `BotScript`, fluent builder, generic `GatherLoop` for any resource | A custom gathering bot in ~5 lines | No |
 | **E — Data-driven defs** | `Data/CFG/bots.cfg`, `BotProfile` loading, `::bot spawn/despawn` | New bots = config lines, no rebuild | No (one startup call) |
 | **F — Observability** | State labels, per-bot trace buffer, `::botinfo`, failure logging | Bots are debuggable while authoring | No |
-| **G — Agent generic** | `Agent`/`PlayerAgent`/`NpcAgent`; migrate `WorldAdventurer` onto the tree | One behavior library for players and NPCs | Minor |
+| **G — Agent generic** | `Agent`/`PlayerAgent`/`NpcAgent`; `BotContext.agent()` replaces `client()` | One behavior library for players and NPCs | Minor |
 | **H — Scale** | Staggered scans, per-tick budget, cohorts, graceful stop | Dozens–hundreds of bots | No |
 | **I — RL** | Tick-timer refactor, then `Observation`/`Action`/`Policy` | Learning agents | Yes (see §9) |
 
 Recommended order: **A → B → C → D → E → F**, then G, H, I as needs arise. B and C are
 the two phases that most change what "authoring a bot" feels like.
 
-**Implemented so far: A, B, C, D, E and F.** See `UPDATE_LOG.md` for what landed in each; the next
-phase in the recommended order is **G** (the `Agent` abstraction), which migrates `WorldAdventurer` onto
-the shared behaviour tree so one behaviour library drives players and NPCs. F now has real,
-config-spawned bots to inspect, and the same trace records — with no new work — the transitions of an
-NPC once G gives it a context.
+**Implemented so far: A, B, C, D, E, F and G.** See `UPDATE_LOG.md` for what landed in each; the next
+phase in the recommended order is **H** (scale). G landed as the seam and **not** as a migration of
+`WorldAdventurer`: that NPC is now disabled (`Config.WORLD_ADVENTURER_ENABLED = false`), so migrating it
+onto the tree would have been work for something switched off. What G does deliver is the generic actor —
+`Agent`/`PlayerAgent`/`NpcAgent`, with `BotContext.agent()` replacing the `BotPlayer` it used to hand out —
+so travel states run on an NPC today, proven by test, and any tree grows the same property for free.
+**One limit was found and is recorded rather than glossed:** object interaction cannot be actor-generic
+yet, because `ObjectHandler.dispatch` and its `ObjectAction`s are `Client`-typed, so an NPC clicking a tree
+has no registry path. `NpcAgent.interactObject` throws with that reason instead of returning a false that
+a `Gather` loop would retry forever. Widening that is a change to the skill-dispatch path, and it is the
+one piece of G's original promise still outstanding — so an NPC can travel and patrol, but not yet skill.
 
 ---
 
@@ -438,7 +460,10 @@ change with its own tests and lands **before** any RL types are introduced.
   and is capped by `MAX_BOTS`.
 - **F:** `::botinfo <name>` prints the current state path and the last failure reason. ✅
   `BotTrace` + `Traced` + `::botinfo`/`::bot info`, with a throttled one-line failure log.
-- **G:** `WorldAdventurer` runs on the shared behavior tree; the same `gather` script
-  drives a player bot and an NPC.
+- **G:** the same state classes drive a player bot and an NPC. ✅ (seam only)
+  `Agent`/`PlayerAgent`/`NpcAgent`, and `WalkTo` — written in slice 1, unmodified — walks a real `NPC` to
+  its destination in `AgentSeamTest`. ⚠️ **Not** `WorldAdventurer` on the tree (that NPC is disabled), and
+  object interaction is still player-only: `ObjectHandler.dispatch`/`ObjectAction` take a `Client`, so
+  `NpcAgent.interactObject` refuses loudly. An NPC can travel; it cannot yet skill.
 - **H:** N bots run within a bounded per-tick budget; a stress test shows tick time
   stays within budget as N grows.

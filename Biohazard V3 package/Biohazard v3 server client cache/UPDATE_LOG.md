@@ -1,5 +1,18 @@
 # Update Log
 
+## 2026-10-10 - Bot roadmap G: the Agent seam (one behaviour library, two actors)
+
+**What changed:**
+- **`Agent`** (`name`/`x`/`y`/`height`/`arrivedAt`/`isIdle`/`walkTo`/`interactObject`) with two implementations: **`PlayerAgent`** (wraps `Client`) and **`NpcAgent`** (wraps `NPC`). **`BotContext.client()` is gone** — states get `agent()` plus narrow observation (`isBanking`/`isDead`/`isSkilling`/`skillLevel`), so nothing in the tree is written against "the actor is a player" any more.
+- The movement/interaction glue moved out of `PlayerBotContext` into `PlayerAgent` **verbatim**, so runtime behaviour is unchanged; the 7 `client()` call sites needed only the new narrow observations and **no state class changed shape**. That is the payoff for having put the context behind an interface in slice 1.
+- ⚠️ **`NpcAgent.interactObject` throws.** Object dispatch is `Client`-typed (`ObjectHandler.dispatch` and its `ObjectAction`s), so an NPC has no registry path to click scenery. It throws *with the reason* rather than returning `false`, because `false` is indistinguishable from "out of range" and would make a `Gather` loop retry forever. **An NPC can travel and patrol; it cannot yet skill** — widening object dispatch is the one piece of G still outstanding.
+- Tests: `NpcAgentTest` (9) pins the NPC contract including the refusal; `AgentSeamTest` (5) drives one walker that only ever sees `Agent` through **both** actors, and runs slice-1's `WalkTo` — never modified — against a **real `NPC`** to its destination. `FakeAgent` was split out of `FakeBotContext` to mirror the actor/player-only division.
+- Roadmap §5.1/§6/§8 updated: G recorded as **the seam, not a `WorldAdventurer` migration** (that NPC is disabled), with the object-dispatch limit written down instead of glossed.
+
+**Files touched:** new `bots/Agent.java`, `bots/PlayerAgent.java`, `bots/NpcAgent.java`, `test/.../FakeAgent.java`, `test/.../NpcAgentTest.java`, `test/.../AgentSeamTest.java`. Modified `bots/BotContext.java`, `bots/PlayerBotContext.java`, `bots/BotController.java`, `bots/states/{WalkToNearest,BankLogs,ChopTree}.java`, `bots/condition/{IsDead,BankOpen,SkillAtLeast}.java`, `test/.../FakeBotContext.java`, `BOT_ROADMAP.md`.
+
+**Status:** done. **743 tests, 0 failures** (626 server + 117 workshop); `workshopValidate` green (19,410 named objects). Next: **H (scale)**, or bot provisioning — still the gap that leaves a spawned woodcutter with no axe.
+
 ## 2026-10-10 - WorldAdventurer ("Max") disabled behind a config flag
 
 **What changed:**

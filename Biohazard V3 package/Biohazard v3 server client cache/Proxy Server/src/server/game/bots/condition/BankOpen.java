@@ -35,7 +35,7 @@ public final class BankOpen implements BotState {
 
 	@Override
 	public BotStatus tick(BotContext ctx) {
-		return ctx.client().isBanking ? BotStatus.SUCCESS : BotStatus.FAILURE;
+		return ctx.isBanking() ? BotStatus.SUCCESS : BotStatus.FAILURE;
 	}
 
 	@Override

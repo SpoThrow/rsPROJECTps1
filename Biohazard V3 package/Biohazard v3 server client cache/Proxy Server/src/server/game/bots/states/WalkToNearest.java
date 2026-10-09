@@ -137,7 +137,7 @@ public final class WalkToNearest implements BotState {
 		if (seed != SEED_FROM_BOT) {
 			return seed;
 		}
-		String name = ctx.client().playerName;
+		String name = ctx.agent().name();
 		return name == null ? 0 : name.hashCode();
 	}
 

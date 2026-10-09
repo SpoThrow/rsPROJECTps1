@@ -88,9 +88,9 @@ public final class ChopTree implements BotState {
 		return BotStatus.RUNNING;
 	}
 
-	/** Reads the client's skill session state; this is observation, not a skill call. */
+	/** Reads whether a skill session is running; this is observation, not a skill call. */
 	private boolean isChopping(BotContext ctx) {
-		return ctx.client().woodcutting.active;
+		return ctx.isSkilling();
 	}
 
 	@Override

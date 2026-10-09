@@ -35,7 +35,7 @@ public final class IsDead implements BotState {
 
 	@Override
 	public BotStatus tick(BotContext ctx) {
-		return ctx.client().isDead ? BotStatus.SUCCESS : BotStatus.FAILURE;
+		return ctx.isDead() ? BotStatus.SUCCESS : BotStatus.FAILURE;
 	}
 
 	@Override

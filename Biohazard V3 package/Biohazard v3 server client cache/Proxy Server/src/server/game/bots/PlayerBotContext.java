@@ -1,63 +1,67 @@
 package server.game.bots;
 
-import server.game.players.PathFinder;
 import server.game.players.actions.objects.ObjectClick;
-import server.game.players.actions.objects.ObjectHandler;
 
 /**
- * The concrete {@link BotContext} for a possessed player.
+ * The concrete {@link BotContext} for a possessed player — roadmap Phase G.
  *
- * <p>Every intent method keeps the client's own state in step with what a real click or
- * walk would have done, so the ordinary skill/action code sees a bot exactly as it sees a
- * human. Nothing here calls a skill class: {@link #interactObject} dispatches through the
- * registry.
+ * <p><b>The actor half is delegated; the player half is here.</b> Position, walking, idleness and object
+ * interaction moved to {@link PlayerAgent} when the seam was introduced, so this class is now mostly the
+ * player-specific facts {@link Agent} deliberately does not promise: inventory, skills and the bank. The
+ * division is what makes {@code NpcAgent} possible at all.
  */
 public final class PlayerBotContext implements BotContext {
 
 	private final BotPlayer bot;
+	private final PlayerAgent agent;
 	private final BotTrace trace = new BotTrace();
 	private int ticks;
 
 	public PlayerBotContext(BotPlayer bot) {
 		this.bot = bot;
+		this.agent = new PlayerAgent(bot);
+	}
+
+	// --- the actor ---
+
+	@Override
+	public Agent agent() {
+		return agent;
 	}
 
 	// --- observation ---
 
 	@Override
-	public BotPlayer client() {
-		return bot;
-	}
-
-	@Override
-	public BotTrace trace() {
-		return trace;
-	}
-
-	@Override
 	public int x() {
-		return bot.getX();
+		return agent.x();
 	}
 
 	@Override
 	public int y() {
-		return bot.getY();
+		return agent.y();
 	}
 
 	@Override
 	public int height() {
-		return bot.position.heightLevel;
+		return agent.height();
 	}
 
 	@Override
 	public boolean arrivedAt(int x, int y, int range) {
-		return bot.goodDistance(x, y, bot.getX(), bot.getY(), range);
+		return agent.arrivedAt(x, y, range);
 	}
 
 	@Override
 	public boolean isIdle() {
-		// Walk queue drained and no skill session running.
-		return bot.wQueueReadPtr == bot.wQueueWritePtr && !bot.woodcutting.active;
+		// Two separate questions, deliberately: the actor is not walking, and no skill session is running.
+		// A bot standing still mid-chop is not idle, which is what a caller draining a queue means.
+		return agent.isIdle() && !isSkilling();
+	}
+
+	@Override
+	public boolean isSkilling() {
+		// Woodcutting is the only skill that runs a session today; see WoodcuttingSession.active.
+		return bot.woodcutting.active;
 	}
 
 	@Override
@@ -68,6 +72,27 @@ public final class PlayerBotContext implements BotContext {
 	@Override
 	public boolean hasItem(int itemId) {
 		return bot.getItems().playerHasItem(itemId);
+	}
+
+	@Override
+	public boolean isBanking() {
+		return bot.isBanking;
+	}
+
+	@Override
+	public boolean isDead() {
+		return bot.isDead;
+	}
+
+	@Override
+	public int skillLevel(int skill) {
+		int[] levels = bot.skills.playerLevel;
+		return skill >= 0 && skill < levels.length ? levels[skill] : 0;
+	}
+
+	@Override
+	public BotTrace trace() {
+		return trace;
 	}
 
 	@Override
@@ -84,47 +109,12 @@ public final class PlayerBotContext implements BotContext {
 
 	@Override
 	public void walkTo(int x, int y) {
-		// Mirror the walking packet: arriving by walking closes any open interface (a bank,
-		// a shop). Without this a bank left open would make isIdle() permanently false.
-		bot.getPA().closeAllWindows();
-		bot.getPA().removeAllWindows();
-		bot.clickObjectType = 0;
-		bot.walkRepath.lastWalkDestX = x;
-		bot.walkRepath.lastWalkDestY = y;
-		PathFinder.getPathFinder().findRoute(bot, x, y, true, 1, 1);
+		agent.walkTo(x, y);
 	}
 
 	@Override
 	public boolean interactObject(int objectId, int x, int y, ObjectClick click, int range) {
-		// The click fields the migrated ObjectActions read.
-		bot.objectX = x;
-		bot.objectY = y;
-		bot.objectId = objectId;
-		bot.objectDistance = range;
-		bot.objectXOffset = 0;
-		bot.objectYOffset = 0;
-
-		if (!bot.goodDistance(x, y, bot.getX(), bot.getY(), range)) {
-			return false; // let the caller's WalkTo retry
-		}
-		if (ObjectHandler.dispatch(bot, objectId, click, x, y)) {
-			return true;
-		}
-		// Not migrated yet: fall through to the legacy switch, the same order ActionHandler
-		// itself uses.
-		switch (click) {
-			case FIRST:
-				bot.getActions().firstClickObject(objectId, x, y);
-				return true;
-			case SECOND:
-				bot.getActions().secondClickObject(objectId, x, y);
-				return true;
-			case THIRD:
-				bot.getActions().thirdClickObject(objectId, x, y);
-				return true;
-			default:
-				return false;
-		}
+		return agent.interactObject(objectId, x, y, click, range);
 	}
 
 	@Override

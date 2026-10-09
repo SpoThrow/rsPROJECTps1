@@ -102,9 +102,9 @@ public final class BotController {
 		Misc.println(lastReportedFailure);
 	}
 
-	/** The account name of the bot this controller drives, or a placeholder before one is set. */
+	/** The display name of the actor this controller drives, or a placeholder before one is set. */
 	private String name() {
-		String name = ctx.client().playerName;
+		String name = ctx.agent().name();
 		return name == null ? "?" : name;
 	}
 

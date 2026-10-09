@@ -35,7 +35,7 @@ public final class BankLogs implements BotState {
 	public BotStatus tick(BotContext ctx) {
 		ticks++;
 
-		if (!ctx.client().isBanking) {
+		if (!ctx.isBanking()) {
 			if (ticks >= BUDGET) {
 				return BotStatus.FAILURE;
 			}

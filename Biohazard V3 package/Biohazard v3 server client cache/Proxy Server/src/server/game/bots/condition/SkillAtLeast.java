@@ -53,9 +53,7 @@ public final class SkillAtLeast implements BotState {
 
 	@Override
 	public BotStatus tick(BotContext ctx) {
-		int[] levels = ctx.client().skills.playerLevel;
-		boolean satisfied = skill >= 0 && skill < levels.length && levels[skill] >= level;
-		return satisfied ? BotStatus.SUCCESS : BotStatus.FAILURE;
+		return ctx.skillLevel(skill) >= level ? BotStatus.SUCCESS : BotStatus.FAILURE;
 	}
 
 	@Override

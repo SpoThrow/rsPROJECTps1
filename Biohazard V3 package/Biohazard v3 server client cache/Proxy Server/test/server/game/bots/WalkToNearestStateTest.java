@@ -155,17 +155,11 @@ class WalkToNearestStateTest {
 		WalkToNearest walk = new WalkToNearest(
 				Locations.curated(Arrays.asList(OAKS)).forKind(LocationKind.TREE), LocationKind.TREE, 3,
 				WalkToNearest.SEED_FROM_BOT);
-		FakeBotContext ctx = ctxAt(3100, 3200).client(named(name));
+		FakeBotContext ctx = ctxAt(3100, 3200).named(name);
 
 		walk.enter(ctx);
 		assertEquals(BotStatus.SUCCESS, walk.tick(ctx));
 		return ctx.lastWalk();
-	}
-
-	private static BotPlayer named(String name) {
-		BotPlayer bot = new BotPlayer(0);
-		bot.playerName = name;
-		return bot;
 	}
 
 	/** Guards the helper's own assumption: a curated table with nothing in it filters to nothing. */
