@@ -29,8 +29,11 @@ import server.game.bots.decorator.Succeed;
 import server.game.bots.decorator.Timeout;
 import server.game.bots.states.BankLogs;
 import server.game.bots.states.ChopTree;
+import server.game.bots.states.Gather;
 import server.game.bots.states.WalkTo;
+import server.game.bots.states.WalkToNearest;
 import server.game.bots.world.Location;
+import server.game.bots.world.LocationKind;
 import server.game.bots.world.Tile;
 
 /**
@@ -65,7 +68,9 @@ public final class BotNodeRegistry {
 	 */
 	private static final List<Class<? extends BotState>> NODES = List.of(
 			WalkTo.class,
+			WalkToNearest.class,
 			ChopTree.class,
+			Gather.class,
 			BankLogs.class,
 			HasItem.class,
 			InventoryFull.class,
@@ -223,6 +228,9 @@ public final class BotNodeRegistry {
 		}
 		if (javaType == Location.class) {
 			return ParamType.LOCATION;
+		}
+		if (javaType == LocationKind.class) {
+			return ParamType.KIND;
 		}
 		if (javaType == BotState.class) {
 			return ParamType.NODE;

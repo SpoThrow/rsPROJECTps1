@@ -19,7 +19,6 @@ import server.game.bots.decorator.Invert;
 import server.game.bots.decorator.Retry;
 import server.game.bots.decorator.Succeed;
 import server.game.bots.decorator.Timeout;
-import server.game.players.actions.objects.ObjectClick;
 
 /**
  * Roadmap Phase B: the tree kit. Selector, Parallel and the decorators, tested the same way
@@ -74,48 +73,10 @@ class TreeKitTest {
 	}
 
 	/**
-	 * A context that answers every question without a world. {@code random} returns a scripted
-	 * value, so {@code RandomSelector}'s shuffle can be pinned exactly.
+	 * A context that answers every question without a world, and records what it was asked to do.
+	 * Shared with the other state tests so there is one fake rather than one per file.
 	 */
-	private static final class FakeContext implements BotContext {
-
-		private final Deque<Integer> randoms = new ArrayDeque<Integer>();
-		private final int randomDefault;
-
-		FakeContext(int randomDefault) {
-			this.randomDefault = randomDefault;
-		}
-
-		/** Queues the values {@code random} returns, in order. */
-		FakeContext scripted(int... values) {
-			for (int value : values) {
-				randoms.add(value);
-			}
-			return this;
-		}
-
-		@Override public BotPlayer client() { return null; }
-		@Override public int x() { return 0; }
-		@Override public int y() { return 0; }
-		@Override public int height() { return 0; }
-		@Override public boolean arrivedAt(int x, int y, int range) { return true; }
-		@Override public boolean isIdle() { return true; }
-		@Override public int freeSlots() { return 28; }
-		@Override public boolean hasItem(int itemId) { return false; }
-		@Override public int ticksInState() { return 0; }
-		@Override public int random(int bound) {
-			return randoms.isEmpty() ? randomDefault : randoms.poll();
-		}
-		@Override public void walkTo(int x, int y) { }
-		@Override public boolean interactObject(int objectId, int x, int y, ObjectClick click,
-				int range) { return true; }
-		@Override public void openBank() { }
-		@Override public boolean depositItem(int itemId) { return true; }
-		@Override public void onStateEntered() { }
-		@Override public void onTick() { }
-	}
-
-	private final BotContext ctx = new FakeContext(0);
+	private final BotContext ctx = new FakeBotContext();
 
 	// ------------------------------------------------------------------ Selector
 

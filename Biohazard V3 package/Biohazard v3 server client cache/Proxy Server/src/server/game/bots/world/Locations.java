@@ -134,6 +134,22 @@ public final class Locations {
 	}
 
 	/**
+	 * The family for one kind, whatever it is.
+	 *
+	 * <p>Needed because a script names a kind, not a family method: a behaviour there is built from a
+	 * {@code LocationKind} (so the same builder can say {@code walkToNearest(TREE)} and {@code
+	 * walkToNearest(BANK)}), and this is the one place that turns a kind into a locator. It reuses
+	 * {@link #family}, so the curated-then-scanned preference and the caching are the same as the named
+	 * families rather than a second implementation of them.
+	 */
+	public Locator<Location> forKind(LocationKind kind) {
+		if (kind == null) {
+			throw new IllegalArgumentException("a kind is required");
+		}
+		return family("kind:" + kind.id(), kind);
+	}
+
+	/**
 	 * A family view, built once and kept.
 	 *
 	 * <p>The scan arm is attached only when the family contains object kinds. A teleport has no object

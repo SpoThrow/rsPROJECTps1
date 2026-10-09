@@ -26,6 +26,9 @@ public enum ParamType {
 	/** A named place ({@link server.game.bots.world.Location}). */
 	LOCATION,
 
+	/** A kind of place or resource ({@link server.game.bots.world.LocationKind}). */
+	KIND,
+
 	/** A single child node ({@link server.game.bots.BotState}). */
 	NODE,
 

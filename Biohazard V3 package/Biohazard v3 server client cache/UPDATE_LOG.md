@@ -1,5 +1,22 @@
 # Update Log
 
+## 2026-10-09 - Bot roadmap D: scripts, the fluent builder, and a generic gather leaf
+
+**What changed:**
+- **`BotScript` + `ScriptBuilder` + `BotScripts`.** A script is a *named* tree (`name()` + `root()`), and `BotScript.named("...")` reads down the chain: `walkToNearest(...)`, `gather(...)`, `bankAll(...)`, then a terminal (`forever()`/`times(n)`/`once()`). `gatherLoop(resource, item, service)` is the whole four-step cycle in one call. `BotScripts` is the name→script registry `bots.cfg` (Phase E) will read, with a built-in `gather_oak` so there is something to spawn before a config file exists.
+- **Two generic leaves, no per-resource state.** `WalkToNearest(kind, range, seed)` resolves the nearest place of a `LocationKind` through the new `Locations.forKind` and spreads within its box (`RandomTileIn`) — points are taken as-is. `Gather(kind, itemId, range, radius, click)` resolves a real world object through the new `ResourceScan`, walks to it, clicks it, and treats "a slot filled" as progress. `walkToNearest(TREE, 3)` + `gather(TREE, LOGS)` is a woodcutter; the same two lines with `ROCK` are a miner.
+- **`ResourceScan` + `ObjectTarget`.** `ScannedLocator` answers "nearest *place*" and deliberately drops the object; an interaction needs the id and tile. `ResourceScan` asks the same two injected seams `ScannedLocator` uses (`RegionSource`/`KindSource`), classifies through the same `ResourceKinds` table, and keeps the object. Bounded to a radius (8 tiles = at most 2x2 regions) and called on retarget, never per tick.
+- **Palette.** `ParamType.KIND` (so the editor has a field for a kind rather than free text) and the two nodes registered; `bot-nodes.json` now exports **23 nodes**.
+
+**Three details worth recording:**
+- **D's "no core file changed" criterion holds** — `BotController`, `BotPlayer`, `BotManager`, `BotContext` and `PlayerBotContext` are untouched. That is a consequence of `root()` taking no `BotContext`, which is a deliberate deviation from the roadmap sketch in §5.5 (recorded there): resolution moved to state *entry*, so a bot that banked and returned re-resolves "nearest" against where it actually is, and building a script reads no world.
+- **Progress is measured in slots filled, not by a skill's session flag.** `ctx.isIdle()` and `ChopTree`'s `woodcutting.active` are woodcutting-shaped by name, so a generic leaf reading them would be lying about mining and fishing. A slot filling is true for every gathering skill — but a *stackable* yield (coins, feathers) would show no progress and be given up on. Every gathering skill in this cache drops a slot-filling item, so this is a documented limitation rather than a live bug.
+- **The give-up budget resets when a slot fills.** Otherwise a normal retarget after a tree falls would count towards "there is no resource here" and abandon a good tree field after a few logs. `MAX_TARGETS` now means distinct objects tried since the last gain.
+
+**Files touched:** `Proxy Server/src/server/game/bots/` (new `script/{BotScript,BotScripts,ScriptBuilder}`, new `states/{WalkToNearest,Gather}`, new `world/{ObjectTarget,ResourceScan}`, `world/Locations` (`forKind`), `meta/{ParamType,BotNodeRegistry}`), `test/server/game/bots/` (new `FakeBotContext` shared double, `WalkToNearestStateTest`, `GatherStateTest`, `ScriptLoopTest`, `world/ResourceScanTest`, `script/{ScriptBuilderTest,BotScriptsTest}`; `TreeKitTest` now uses the shared fake), `BOT_ROADMAP.md`, `BOT_TOOLING.md`. (`Data/workshop/bot-nodes.json` was regenerated to 23 nodes; that folder is gitignored, so it is a local build output.)
+
+**Status:** done. **669 tests, 0 failures** (554 server + 115 workshop), including `ScriptLoopTest` — Phase D's acceptance criterion, which declares a chopping-and-banking bot in one `BotScript` block with no new state class and runs it through the real tick loop. `workshopValidate` green. Roadmap A–D complete; **T5 (timeline → `BotScript` JSON) is now unblocked** and Phase E (`bots.cfg`) has a registry to point at.
+
 ## 2026-10-09 - Bot roadmap B: the tree kit
 
 **What changed:**

@@ -235,15 +235,27 @@ None require core changes because a decorator is just a `BotState` that owns a c
 Two layers: a builder for the common case, a registry + data file for zero-code bots.
 
 ```java
-public interface BotScript { String name(); BotState root(BotContext ctx); }
+public interface BotScript { String name(); BotState root(); }
 
-BotScripts.register("gather_oak", BotScript.named("gather_oak")
-    .repeat(
-        walkToNearest(Tree.OAK, 3),
-        gather(Tree.OAK, Item.LOGS).untilFull(),
-        walkToNearest(Bank.DRAYNOR),
-        bankAll(Item.LOGS)));
+BotScripts.register(BotScript.named("gather_oak")
+    .gatherLoop(LocationKind.TREE, LOGS, LocationKind.BANK)
+    .forever());
 ```
+
+**Implemented (Phase D).** The sketch above differs from what landed in one way worth recording,
+because it is an improvement rather than a compromise. `root()` takes **no context**: the sketch
+assumed "nearest oak" was resolved when the tree was *built*, so it needed a `BotContext` to resolve
+against. Resolution instead happens when a state is *entered* (`WalkToNearest`, `Gather`), which is
+better twice over — a bot that banked and came back re-resolves "nearest" against where it actually
+is, and building a script touches no world, so registering one reads no files and `BotController` did
+not have to change to hand a context in. The steps also accumulate down the chain rather than nesting
+as arguments, so a leaf factory can be given a test world: `BotScript.named(name, locations, scan)` is
+the deterministic form the end-to-end test uses.
+
+The generic leaves are `WalkToNearest(kind, range, seed)` (resolve a place through `Locations.forKind`
+and spread within its box) and `Gather(kind, itemId, range, radius, click)` (resolve a real object
+through `ResourceScan`, walk to it, click it, and treat a slot filling as progress). `gatherLoop` is
+those plus `BankLogs` — the shape every gathering bot has.
 
 Then a startup-loaded data file matching the existing `Data/CFG` convention:
 
@@ -301,8 +313,9 @@ Each phase is additive; A is the only one that touches existing server code.
 Recommended order: **A → B → C → D → E → F**, then G, H, I as needs arise. B and C are
 the two phases that most change what "authoring a bot" feels like.
 
-**Implemented so far: A, B and C.** See `UPDATE_LOG.md` for what landed in each; the next
-phase in the recommended order is **D** (scripts and the fluent builder).
+**Implemented so far: A, B, C and D.** See `UPDATE_LOG.md` for what landed in each; the next
+phase in the recommended order is **E** (data-driven definitions), which now has a registry
+(`BotScripts.byName`) to point a config line at.
 
 ---
 

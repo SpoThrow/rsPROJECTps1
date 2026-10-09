@@ -25,6 +25,7 @@ import server.game.bots.composite.Sequence;
 import server.game.bots.decorator.Retry;
 import server.game.bots.states.BankLogs;
 import server.game.bots.states.ChopTree;
+import server.game.bots.states.Gather;
 import server.game.bots.states.WalkTo;
 import server.game.bots.world.Location;
 import server.game.bots.world.Tile;
@@ -102,6 +103,25 @@ class BotNodeRegistryTest {
 		assertEquals(Arrays.asList("skill:INT", "level:INT"), signature(registry("skill_at_least")));
 	}
 
+	/**
+	 * Phase D's nodes, reflected. Both take a {@code LocationKind}, which is why the type mapping gained
+	 * {@link ParamType#KIND}: a script names a kind ({@code tree}, {@code bank}), and the editor needs a
+	 * field for it that is not a free-text string.
+	 */
+	@Test
+	void thePhaseDScriptNodesReflectTheirDeclaredParameters() {
+		assertEquals(Arrays.asList("kind:KIND", "range:INT", "seed:INT"),
+				signature(registry("walk_to_nearest")));
+		assertEquals(Arrays.asList("kind:KIND", "itemId:INT", "range:INT", "radius:INT", "click:INT"),
+				signature(registry("gather")));
+
+		assertEquals("-1", registry("walk_to_nearest").params().get(2).defaultValue());
+		assertEquals("3", registry("gather").params().get(2).defaultValue());
+		assertEquals("8", registry("gather").params().get(3).defaultValue());
+		assertEquals("0", registry("gather").params().get(4).defaultValue(),
+				"the first click, which is what a tree and a rock both answer to");
+	}
+
 	/** A constant question has no fields for the editor to render. */
 	@Test
 	void aConstantConditionDeclaresNoParameters() {
@@ -118,7 +138,7 @@ class BotNodeRegistryTest {
 			types.add(BotNodeRegistry.typeOf(KitchenSink.class, parameter));
 		}
 		assertEquals(Arrays.asList(ParamType.INT, ParamType.BOOLEAN, ParamType.STRING, ParamType.TILE,
-				ParamType.LOCATION, ParamType.NODE, ParamType.NODE_LIST), types);
+				ParamType.LOCATION, ParamType.KIND, ParamType.NODE, ParamType.NODE_LIST), types);
 	}
 
 	@Test
@@ -151,6 +171,8 @@ class BotNodeRegistryTest {
 				registry("walk_to").params().get(3).defaultValue());
 		assertEquals(integerConstant(Retry.class, "DEFAULT_ATTEMPTS"),
 				registry("retry").params().get(1).defaultValue());
+		assertEquals(integerConstant(Gather.class, "DEFAULT_RANGE"),
+				registry("gather").params().get(2).defaultValue());
 	}
 
 	private static String integerConstant(Class<?> owner, String name) throws Exception {
@@ -228,8 +250,8 @@ class BotNodeRegistryTest {
 	@BotNode(id = "kitchen_sink", category = "test", summary = "every parameter type")
 	static final class KitchenSink extends Stub {
 
-		KitchenSink(int whole, boolean flag, String text, Tile tile, Location place, BotState child,
-				BotState... children) {
+		KitchenSink(int whole, boolean flag, String text, Tile tile, Location place,
+				server.game.bots.world.LocationKind kind, BotState child, BotState... children) {
 		}
 	}
 

@@ -343,7 +343,7 @@ internals.
 | **T2b** ✅ | Resource/service icon layer (`ObjectDef.actions` classification) + resource filter panel (`BOT_WORKSHOP_UX.md` §3–§4) |
 | **T3** ✅ | Region/patch authoring → `locations.cfg`; drag-a-box → `RandomTileIn` waypoints |
 | **T4** ✅ | `@BotNode` registry + `bot-nodes.json` export + parity test |
-| **T5** | Step timeline editor → `BotScript` JSON (`BOT_WORKSHOP_UX.md` §5) |
+| **T5** | Step timeline editor → `BotScript` JSON (`BOT_WORKSHOP_UX.md` §5) — unblocked: roadmap D's `BotScript`/`ScriptBuilder` is the document it compiles to |
 | **T5b** | Graph view over the same document (roadmap B is done, so the nodes exist) |
 | **T6** | Round-trip validation: compile a timeline, load it via the runtime, run the slice-1 loop test |
 | **T7** *(optional)* | Live channel: spawn/step + running-bot trace overlay |

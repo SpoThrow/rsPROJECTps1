@@ -62,6 +62,17 @@ class LocationsTest {
 	}
 
 	@Test
+	void forKindFindsAnyKindThroughTheSameFamiliesItAlreadyHas() {
+		Locations locations = Locations.curated(table());
+
+		// A script names a kind, not a family method, so this is the one seam a builder needs.
+		assertEquals(locations.trees().all(), locations.forKind(LocationKind.TREE).all());
+		assertEquals(TREE, locations.forKind(LocationKind.TREE).nearest(3103, 3217, 0, 1).get(0));
+		assertEquals(BANK, locations.forKind(LocationKind.BANK).nearest(3091, 3243, 0, 1).get(0));
+		assertTrue(locations.forKind(LocationKind.ROCK).isEmpty(), "no rocks were authored");
+	}
+
+	@Test
 	void aCuratedOnlyTableHasNoScanArmSoAnUnknownPlaceIsSimplyAbsent() {
 		Locations locations = Locations.curated(table());
 
