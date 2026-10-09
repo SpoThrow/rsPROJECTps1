@@ -1,5 +1,20 @@
 # Update Log
 
+## 2026-10-09 - Bot Workshop T1: isolated world exporter + parity validator
+
+**What changed:**
+- **Isolated source set.** `workshop` + `workshopTest` in `Proxy Server/build.gradle`, with `workshopTest`, `workshopExport` and `workshopValidate` tasks. Nothing here reaches the server jar; no server source file was modified.
+- **Decoders** (`botworkshop.data`). `MapIndex` reads `map_index` into region/landscape/object file ids and tolerates the **51** regions that have no landscape file, matching what `Region.load()` skips at boot. `GroundMap`/`GroundTile` port the client-style terrain byte stream (heights, overlay floors 2-49, flags 50-81, underlay floors 82+) and **keep the overlay/underlay floor ids that the server's `Region.loadMaps()` discards**, which is what makes the map renderable. `LocDefs`/`LocDefinition` decode all **42001** `loc.dat` entries using the `0x00` terminator this cache actually uses.
+- **Classifier and serializers** (`botworkshop.classify`/`export`). `ResourceRules` maps actions and exact names to icon categories (tree/rock/fishing/bank/cooking/smithing/prayer); bank booths such as object `2213` carry no `Bank` action and are matched by exact name so that scenery like "Bank wall" is not over-matched. Zero-dependency `Json` builder, `Rle` (`value*count` runs per 64x64 plane), and `RegionDocument`, which emits name, actions, category, footprint (`objectSize.cfg`) and the server-verified clipping bits.
+- **CLIs.** `ExportMap` writes `Data/workshop/map/<regionId>.json` plus `index.json`, defaulting to three landmark regions (Lumbridge 12850, Draynor 12338, Varrock 12853) instead of all 1175 (~500 MB) unless `-PworkshopRegions=all` is passed. `ValidateMap` re-reads the written JSON and checks terrain occupancy against the live `Region.getClipping` bit `0x200000`.
+- **⚠️ A server defect, measured rather than assumed.** `ValidateMap` now also reports how far the server's own reader diverges from this tool's, and the number is total: of **19410 named objects, `ObjectDef.getObjectDef` returns a name for 0 of them and falls back to `setDefaults()` for all 19410.** The cause is exact — `getObjectDef` always prefers `archive` → `readValues`, whose `readString()` scans for `0x0A`, while this cache terminates strings with `0x00`; the parse therefore throws and the catch applies defaults. The reader that is correct for this file, `readValues377` (`readNewString()`, `0x00`), is only reached when the archive has *no* entry for the id, which is never true for `loc.dat`. **The client does not share the bug** — its `forID` calls `readValues474`, which uses `readNewString()`. So for every named object the server holds a null name, null actions and `aBoolean767 = true`, while the client holds the real values. **Deliberately not fixed here:** it changes world collision globally and needs live verification, so it is logged below as the top follow-up rather than slipped into tooling work.
+
+**Files touched:**
+- `Proxy Server/build.gradle`, `.gitignore`
+- `Proxy Server/workshop/src/botworkshop/**` (new), `Proxy Server/workshop/test/botworkshop/**` (new)
+
+**Status:** done. **447 tests, 0 failures** (385 server + 62 workshop); `workshopValidate` reports **0 mismatched tiles**. Next: `BOT_TOOLING.md` **T2** — the web map viewer over `Data/workshop/map/*.json`, or the `ObjectDef` reader fix first; that ordering is the user's call.
+
 ## 2026-10-09 - Bot slice 1 (Phase A), steps 3-7: a working chop-to-bank bot
 
 **What changed:**

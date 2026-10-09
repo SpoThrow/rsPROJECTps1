@@ -6,3 +6,16 @@
 # ignored files when -x is passed, and losing a backup to a cleanup is exactly
 # the failure mode this plan exists to avoid.
 _client-backup-*/
+
+# Bot Workshop generated exports (BOT_TOOLING.md T1).
+#
+# These are derived entirely from Data/world and Data/cfg: a full-world export is ~500 MB and
+# rebuilding it takes about five seconds, so it is a build artefact rather than content. The
+# tool's *inputs* live in Data/cfg and are committed by hand; only its output is ignored.
+Proxy Server/Data/workshop/
+
+# The same export, written to the JDT output directories by a run whose working directory was
+# jdt-bin rather than the project root. Identical content to the line above; ignored for the
+# same reason, so a stray run cannot dirty the tree.
+jdt-bin/workshop/
+Proxy Server/jdt-bin/workshop/

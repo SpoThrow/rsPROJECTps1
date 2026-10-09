@@ -32,6 +32,32 @@ sourceSets {
             srcDirs = []
         }
     }
+
+    // The Bot Workshop exporter/validator — BOT_TOOLING.md stage T1. A sibling track: it reads
+    // the server's data and reuses its collision model, but the server never references it and
+    // deleting workshop/ leaves the server fully functional. It is a separate source set rather
+    // than part of src/ so it stays out of the server jar while still compiling and unit testing
+    // under this build (an untested decoder is how the tool and the server would drift apart).
+    workshop {
+        java {
+            srcDirs = ['workshop/src']
+        }
+        resources {
+            srcDirs = []
+        }
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+    }
+    workshopTest {
+        java {
+            srcDirs = ['workshop/test']
+        }
+        resources {
+            srcDirs = []
+        }
+        compileClasspath += sourceSets.main.output + sourceSets.workshop.output
+        runtimeClasspath += sourceSets.main.output + sourceSets.workshop.output
+    }
 }
 
 dependencies {
@@ -47,6 +73,10 @@ dependencies {
 
     testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    workshopImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
+    workshopTestImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
+    workshopTestRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 tasks.withType(JavaCompile).configureEach {
@@ -86,4 +116,54 @@ tasks.named('test', Test) {
         events 'passed', 'failed', 'skipped'
         exceptionFormat 'full'
     }
+}
+
+// ---- Bot Workshop (BOT_TOOLING.md T1) -------------------------------------------------
+//
+// The exporter decodes the world for the editor; the validator re-loads what the exporter
+// wrote through the server's own collision model and fails on a single diverging tile. Both
+// run from the project directory so ./Data resolves exactly as it does for the server.
+
+tasks.register('workshopTest', Test) {
+    description = 'Runs the Bot Workshop exporter/validator unit tests.'
+    group = 'verification'
+    testClassesDirs = sourceSets.workshopTest.output.classesDirs
+    classpath = sourceSets.workshopTest.runtimeClasspath
+    useJUnitPlatform()
+    // ObjectSizes resolves ./Data/objectSize.cfg against the working directory, exactly as it does
+    // for the server, so the tests run where the server runs. Nothing here writes to Data.
+    workingDir = projectDir
+    // The decoders are pointed at the real world files by absolute path so nothing depends on
+    // the working directory. Same idiom as the objectSizeCfg property the server test task uses.
+    systemProperty 'workshopDataRoot', file('Data').absolutePath
+    testLogging {
+        events 'passed', 'failed', 'skipped'
+        exceptionFormat 'full'
+    }
+}
+
+tasks.named('check') {
+    dependsOn 'workshopTest'
+}
+
+tasks.register('workshopExport', JavaExec) {
+    description = 'Exports Data/world + Data/cfg to JSON for the Bot Workshop editor (T1).'
+    group = 'bot workshop'
+    classpath = sourceSets.workshop.runtimeClasspath
+    mainClass = 'botworkshop.ExportMap'
+    workingDir = projectDir
+    // Stage 1 emits a whole-map scan; give it room and let it be interruptible.
+    jvmArgs = ['-Xmx2000m']
+    if (project.hasProperty('workshopRegions')) {
+        args = project.property('workshopRegions').toString().split(',')
+    }
+}
+
+tasks.register('workshopValidate', JavaExec) {
+    description = 'Re-loads the exported JSON and checks it against Region.getClipping (T1).'
+    group = 'bot workshop'
+    classpath = sourceSets.workshop.runtimeClasspath
+    mainClass = 'botworkshop.ValidateMap'
+    workingDir = projectDir
+    jvmArgs = ['-Xmx2000m']
 }
