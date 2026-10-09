@@ -1,5 +1,23 @@
 # Update Log
 
+## 2026-10-09 - Correction: the ObjectDef collision impact was described backwards
+
+**What changed:** No production code — this corrects the entry below, which reported that 77 placements "became walkable" and 230 "became blocked" after the `ObjectDef` fix. Both numbers came from testing `clip == 0`, which is not the walkability test. The clip is a bitmask, and `0x100` is the walk-block bit (`Region.addClippingForSolidObject` sets `clipping = 256`), while `0x20000` is projectile-solid and `0x200000` is terrain/type-22 occupancy. A tile with clip `8` or `128` is still walkable; a tile with `0x20000` is walkable for people but not for projectiles.
+
+**Measured properly, across the same 307 changed object-origin tiles:**
+- walk-block `0x100` — **lost on 217**, gained on 61
+- projectile `0x20000` — lost 161, gained 57
+- occupancy `0x200000` — **gained 19, lost 0** (never lost, as expected: terrain keeps it)
+- by region — Draynor 62 walkable / 0 blocked, Lumbridge 152 / 5, Varrock 3 / 56
+
+So the change runs **towards more walkability**, not more blocking — the direction that matches the client, since these are decorations the client lets you walk over. The cleanest example is "Stones": `131328 -> 0` (that is `0x20100 -> 0`) around Draynor and Lumbridge, 214 tiles in those two regions released in total.
+
+**The cause was also wrong, in two parts.** The earlier entry attributed the blocking direction to type-22 objects registering `hasActions()`. That explains the 19 gained `0x200000` bits, not the 61 gained `0x100` bits. The latter is consistent instead with **footprint growth**: `ObjectDef.setDefaults()` pins `anInt744`/`anInt761` to 1, so a definition that failed to parse blocked only its origin tile, while the same definition now blocks its true area — `addClippingForSolidObject` loops over the whole footprint. Worth recording because it is the part that is easy to misread: **a changed tile is not necessarily the changed object's own doing.** Clip is a per-tile union, and objects with no strings at all — e.g. 324/325/326, whose bytes are `15 28 03 13 1c 1b 90 17 21 17 16 13 23 1b 90 01 01 04 64 16 00` — moved only because of neighbouring objects. The bit counts above are measured; the two mechanisms are inferred from the code and labelled as such.
+
+**Files touched:** `UPDATE_LOG.md`
+
+**Status:** done — record corrected, no code change. The 307 targets are listed in `Proxy Server/build/workshop-clip-changes.txt` (build output, gitignored) for the live check.
+
 ## 2026-10-09 - Fixed the ObjectDef reader: the server had no object names, actions or walkability
 
 **What changed:**
