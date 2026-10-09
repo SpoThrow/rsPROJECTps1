@@ -7,6 +7,10 @@ import java.util.List;
 
 import core.util.Misc;
 import server.Config;
+import server.game.bots.script.BotScript;
+import server.game.bots.script.BotScripts;
+import server.game.bots.world.Location;
+import server.game.bots.world.Locations;
 import server.game.players.PlayerHandler;
 import server.game.players.PlayerSave;
 
@@ -37,6 +41,11 @@ public final class BotManager {
 	/** So the cap is reported once, not once per refused possess. */
 	private static boolean capReported;
 
+	/** The last config read, and whether {@link #start()} has already run. */
+	private static BotsConfig.Result loaded = new BotsConfig.Result(new ArrayList<BotProfile>(),
+			new ArrayList<String>());
+	private static boolean started;
+
 	private BotManager() {
 	}
 
@@ -62,11 +71,158 @@ public final class BotManager {
 	}
 
 	/**
-	 * Slice-1 wiring point. Left a no-op on purpose: bots are started through
-	 * {@code Data/cfg/bots.cfg} (roadmap Phase E), so {@code Server.main} stays untouched.
+	 * Loads {@code Data/cfg/bots.cfg} and spawns every enabled row — roadmap Phase E, the single call
+	 * {@code Server.main} makes.
+	 *
+	 * <p><b>A missing file spawns nothing, and that is the point.</b> With no config the server boots
+	 * exactly as it did before bots existed, which is what lets the whole package be deleted without a
+	 * trace. With a config, a new bot is a line rather than a rebuild — the phase's acceptance
+	 * criterion.
+	 *
+	 * <p>Runs once. A second call is ignored so a stray call site cannot double-spawn; reloading the
+	 * file at runtime is {@link #reload()}, which is explicit about what it does.
+	 *
+	 * @return the number of bots actually possessed
 	 */
-	public static void start() {
-		// Intentionally empty.
+	public static int start() {
+		if (started) {
+			return 0;
+		}
+		started = true;
+		return apply(BotsConfig.load());
+	}
+
+	/**
+	 * Re-reads the config and moves the live set to match it: rows that are new or newly enabled are
+	 * spawned, rows that were removed or disabled are released.
+	 *
+	 * <p>This is the "author a bot without restarting" path, and the reason the diff is by
+	 * <em>account</em> rather than a full restart is that a restart would throw away a running bot's
+	 * position and inventory. A row edited in place (a script swap) takes effect on the next
+	 * despawn/spawn pair, not mid-run — deliberately: silently swapping a live tree out from under a bot
+	 * is how you get a half-executed walk.
+	 *
+	 * @return the number of bots spawned by this reload
+	 */
+	public static int reload() {
+		return apply(BotsConfig.load());
+	}
+
+	/**
+	 * Makes the live set match {@code result}: releases bots that are gone or disabled, spawns the
+	 * enabled rows, and reports the read problems.
+	 *
+	 * <p>Package-private so a test can drive the whole config-to-live path from a temp file without
+	 * depending on the process working directory. {@link #start()} and {@link #reload()} are its two
+	 * public faces — boot and operator — and both exist only to decide <em>when</em> it runs.
+	 *
+	 * @return the number of bots spawned
+	 */
+	static int apply(BotsConfig.Result result) {
+		loaded = result;
+		for (String problem : result.problems()) {
+			Misc.println("[bots] bots.cfg " + problem);
+		}
+		for (BotPlayer bot : all()) {
+			BotProfile profile = result.byAccount(bot.playerName);
+			if (profile == null || !profile.enabled()) {
+				release(bot.playerName);
+			}
+		}
+		// Counted as a delta rather than by the return of spawn(), because spawn() is idempotent and
+		// returns an already-live bot too — counting that would report a spawn that did not happen.
+		int before = count();
+		for (BotProfile profile : result.enabled()) {
+			spawn(profile);
+		}
+		int spawned = count() - before;
+		if (spawned > 0 || !result.problems().isEmpty()) {
+			Misc.println("[bots] " + spawned + " of " + result.enabled().size()
+					+ " configured bot(s) running (" + count() + " live)");
+		}
+		return spawned;
+	}
+
+	/**
+	 * Possesses the account a profile names and attaches its script — the one place a config row becomes
+	 * a live bot.
+	 *
+	 * <p><b>The script is checked before the account is created.</b> A typo in {@code script} should not
+	 * leave a stray character file behind, so an unknown script is refused before any disk work.
+	 *
+	 * <p><b>A missing account is created, not an error.</b> A config line is meant to be sufficient
+	 * ({@code BOT_ACCOUNTS.md} §1), so an account file that is not there yet is created with the row's
+	 * own password and then possessed. Creating it grants no kit: what a fresh account of a given kind
+	 * should own is {@code BotProfiles}/{@code BotProvisioning} ({@code BOT_ACCOUNTS.md} §4.1), which is
+	 * not part of this phase. Such an account is possessed and runs its script, and will be missing the
+	 * tools anything that needs one would want.
+	 *
+	 * @return the live bot, or null when it could not be spawned
+	 */
+	public static BotPlayer spawn(BotProfile profile) {
+		if (profile == null) {
+			return null;
+		}
+		BotPlayer existing = get(profile.account());
+		if (existing != null) {
+			return existing; // already running: a spawn is idempotent, not an error
+		}
+		BotScript script = BotScripts.byName(profile.script());
+		if (script == null) {
+			Misc.println("[bots] " + profile.account() + ": no script named \"" + profile.script()
+					+ "\" (known: " + BotScripts.names() + ")");
+			return null;
+		}
+		if (!characterFile(profile.account()).exists()
+				&& !createAccount(profile.account(), profile.password())) {
+			Misc.println("[bots] " + profile.account() + ": could not create the account");
+			return null;
+		}
+		BotPlayer bot = possess(profile.account(), profile.password(), script.root());
+		if (bot == null) {
+			Misc.println("[bots] " + profile.account() + ": could not possess (see above)");
+			return null;
+		}
+		applyHome(bot, profile);
+		return bot;
+	}
+
+	/** Releases the account a profile names, if it is running. */
+	public static boolean despawn(BotProfile profile) {
+		return profile != null && release(profile.account());
+	}
+
+	/**
+	 * Moves a freshly possessed bot to its configured home, if it has one.
+	 *
+	 * <p>Resolved here rather than at parse time so reading {@code bots.cfg} touches no world (see
+	 * {@link BotProfile}). An unknown home is a message, not a failure: the bot is already possessed and
+	 * running, and standing where the account was saved is a survivable answer.
+	 */
+	private static void applyHome(BotPlayer bot, BotProfile profile) {
+		if (profile.home() == null) {
+			return;
+		}
+		Location place = Locations.live().everything().byName(profile.home());
+		if (place == null) {
+			Misc.println("[bots] " + profile.account() + ": no place named \"" + profile.home()
+					+ "\"; leaving the bot where the account was saved");
+			return;
+		}
+		bot.position.teleportToX = place.centreX();
+		bot.position.teleportToY = place.centreY();
+		bot.position.heightLevel = place.plane();
+		bot.getNextPlayerMovement();
+	}
+
+	/** The last config read. Empty until {@link #start()} or {@link #reload()} has run. */
+	public static List<BotProfile> profiles() {
+		return loaded.profiles();
+	}
+
+	/** The configured row for {@code account}, or null. Case-insensitive, like a login. */
+	public static BotProfile profileFor(String account) {
+		return loaded.byAccount(account);
 	}
 
 	/**

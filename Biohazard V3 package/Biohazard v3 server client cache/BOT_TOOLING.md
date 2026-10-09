@@ -291,7 +291,7 @@ but it is an add-on, not a foundation.
 | --- | --- | --- |
 | `Data/cfg/locations.cfg` | Named regions + resource points | `Locations` (roadmap C) |
 | `Data/cfg/bots/*.json` | One behaviour graph per script | `BotScripts` registry (roadmap D) |
-| `Data/cfg/bots.cfg` | Account lines (account, script, home region, enabled) | `BotManager` (roadmap E) |
+| `Data/cfg/bots.cfg` | Account lines (account, password, script, home, enabled) | `BotManager` (roadmap E) |
 | `bot-nodes.json` | Palette/schema export | The editor only (generated) |
 
 All of these are additive: the server ignores files it does not know about.

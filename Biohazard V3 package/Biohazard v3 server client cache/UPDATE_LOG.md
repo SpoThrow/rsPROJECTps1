@@ -1,5 +1,22 @@
 # Update Log
 
+## 2026-10-09 - Bot roadmap E: bots.cfg, data-driven spawn, and ::bot commands
+
+**What changed:**
+- **`Data/cfg/bots.cfg` is now the definition of a bot.** `BotProfile` is one row (`account`, `password`, `script`, `home`, `enabled`); `BotsConfig` reads the file in the `LocationsConfig` style — a missing file is "no bots configured" (empty, no problems, the server boots exactly as before), a bad line is reported and skipped so one typo does not cost the other rows. `enabled` defaults to true. The account must be *login-legal* (`[a-z0-9 ]`, ≤12 chars): a possessed bot is a real account a human can log into, so the roadmap's sketch names (`oak_chop`, `yew_north`) were corrected in the docs — the login decoder would refuse them.
+- **`BotManager` gained the config→live path.** `start()` reads the file and spawns every enabled row (one call, beside `WorldAdventurer.spawn()` in `Server.main`); `reload()` re-reads and moves the live set to match (spawn newly enabled, release removed/disabled); `spawn(profile)` creates the account if it is not there yet, then possesses it through the ordinary login path and attaches the script; `apply(Result)` is the shared, testable seam. Spawn is idempotent, and an unknown script is refused *before* any account is created.
+- **`::bot` command family** (owner-only, `BotCommands`): `list`, `spawn <account>`, `despawn <account>`, `reload`. Registered as **one** `where` entry rather than five literals, the same shape `ban `/`kick ` use to avoid swallowing longer words.
+- **`Data/cfg/bots.cfg` template shipped** with every line commented out, so a fresh checkout spawns nothing but the format is documented in place.
+
+**Three details worth recording:**
+- **CommandHandler is hand-edited, but the generated `*Commands` files are not.** `OwnerCommands` says "do not edit by hand", so `::bot` lives in its own `BotCommands` and is registered with one added line in `CommandHandler`. `CommandHandlerTest` pinned the registry at 61 commands and 21 composites; those counts are now 62 and 22, with the reason in the test.
+- **Creating an account grants no kit.** A config line for an account that does not exist yet is created and possessed, but it starts with nothing — what a fresh account of a given kind should *own* is `BotProfiles`/`BotProvisioning` (`BOT_ACCOUNTS.md` §4.1), which is not this phase. So a spawned woodcutter has no axe until it is provisioned. That is the next thing to wire, and it is called out in the spawn javadoc.
+- **`home` is resolved at spawn, not at parse.** Reading `bots.cfg` therefore touches no world (important: it happens at boot), and a home that no longer exists is a console message rather than a reason the whole file fails to load. `home` resolving to a real place is the one line of this phase not covered by a unit test — it would load the world into a test JVM; the grace path (unknown home still spawns) is covered.
+
+**Files touched:** `Proxy Server/src/server/game/bots/` (new `BotProfile`, `BotsConfig`; `BotManager` new `start/reload/apply/spawn/despawn/profiles/profileFor/applyHome`), `src/server/game/players/packets/commands/` (new `BotCommands`, `CommandHandler` registration), `src/server/Server.java` (one call), `Data/cfg/bots.cfg` (new template), `test/server/game/bots/` (new `BotsConfigTest`, `BotProfileSpawnTest`), `test/.../commands/` (new `BotCommandsTest`, updated `CommandHandlerTest` counts), `BOT_ROADMAP.md`, `BOT_TOOLING.md`.
+
+**Status:** done. **693 tests, 0 failures** (578 server + 115 workshop); `workshopValidate` green (42,001 objects, 10 authored locations). Roadmap A–E complete. Next: **F (observability)** — `::botinfo`, a per-bot trace buffer and failure reasons, which now has real config-spawned bots to inspect and a `::bot` family to extend.
+
 ## 2026-10-09 - Bot roadmap D: scripts, the fluent builder, and a generic gather leaf
 
 **What changed:**

@@ -189,6 +189,9 @@ public class Server {
 		DoubleDoors.getSingleton().load();
 		Connection.initialize();
 		WorldAdventurer.spawn();
+		// The one startup call the bot subsystem gets (roadmap Phase E). With no Data/cfg/bots.cfg
+		// this does nothing, so deleting the whole bot package leaves the boot path untouched.
+		server.game.bots.BotManager.start();
 		
 		/**
 		 * Server Successfully Loaded 

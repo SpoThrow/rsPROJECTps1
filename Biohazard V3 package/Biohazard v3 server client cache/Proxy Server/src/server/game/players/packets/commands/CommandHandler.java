@@ -31,6 +31,9 @@ public final class CommandHandler {
 		ModeratorCommands.register();
 		StaffCommands.register();
 		OwnerCommands.register();
+		// Hand-written, and registered after the generated groups because the generated files are
+		// regenerated from the old if-chain and must not be edited. See BotCommands.
+		BotCommands.register();
 	}
 
 	private CommandHandler() {

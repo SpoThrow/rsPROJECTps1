@@ -260,11 +260,20 @@ those plus `BankLogs` — the shape every gathering bot has.
 Then a startup-loaded data file matching the existing `Data/CFG` convention:
 
 ```
-# Data/CFG/bots.cfg
+# Data/cfg/bots.cfg  (see BOT_ACCOUNTS.md §3 for the credentials half)
 # account = the real character the script possesses (persisted; can also be logged into)
-account oak_chop   script gather_oak      home draynor   enabled true
-account willow     script gather_willow   home draynor   enabled true
+# password = the plaintext, because the character file holds only an md5 a human cannot log in with
+account botwillow   password wq7f2k9r  script gather_oak      home draynor   enabled true
+account botoakh01   password h3n8tz4m  script gather_oak      home draynor   enabled true
 ```
+
+**Implemented (Phase E).** `BotManager.start()` runs beside `WorldAdventurer.spawn()` in
+`Server.main` — the single startup call — and reads `Data/cfg/bots.cfg` with `BotsConfig`.
+The account name must be login-legal (`[a-z0-9 ]`, ≤ 12 chars): the sketch above used
+`oak_chop`/`willow`, but a possessed bot is a real account a human can log into
+(`BOT_ACCOUNTS.md` §1), and the login decoder would refuse a name with an underscore, so
+those rows could never be handed over. A missing file is "no bots" — the server boots
+exactly as before — and `::bot list | spawn | despawn | reload` drives the set at runtime.
 
 Adding a routine bot is one config line; a novel bot registers one `BotScript`; neither
 touches the core. Possession loads the account's character and `release` saves it back
@@ -313,9 +322,9 @@ Each phase is additive; A is the only one that touches existing server code.
 Recommended order: **A → B → C → D → E → F**, then G, H, I as needs arise. B and C are
 the two phases that most change what "authoring a bot" feels like.
 
-**Implemented so far: A, B, C and D.** See `UPDATE_LOG.md` for what landed in each; the next
-phase in the recommended order is **E** (data-driven definitions), which now has a registry
-(`BotScripts.byName`) to point a config line at.
+**Implemented so far: A, B, C, D and E.** See `UPDATE_LOG.md` for what landed in each; the next
+phase in the recommended order is **F** (observability), which now has real bots — spawned from
+config — to trace and a `::bot` command family to extend with `::botinfo`.
 
 ---
 
@@ -344,8 +353,8 @@ Concrete rules:
 ## 8. What a custom bot looks like at the end
 
 ```
-# Data/CFG/bots.cfg
-account yew_north  script gather_yew  home falador  enabled true
+# Data/cfg/bots.cfg
+account botyewn    password wq7f2k9r  script gather_yew  home falador  enabled true
 ```
 
 `gather_yew` is registered once as
