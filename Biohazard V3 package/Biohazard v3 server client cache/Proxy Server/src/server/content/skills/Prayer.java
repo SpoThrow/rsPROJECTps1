@@ -4,7 +4,7 @@ package server.content.skills;
 import java.util.HashMap;
 
 import server.Config;
-import server.game.minigames.randomevents.Zombie;
+import server.game.minigames.randomevents.RandomEventManager;
 import server.game.players.Client;
 import core.util.Misc;
 
@@ -109,8 +109,8 @@ public class Prayer {
                                                 
                                                 c.timers.buryDelay = System.currentTimeMillis();
                                                 c.startAnimation(827);
-                                				if(Misc.random(250) == 0) {
-                                					Zombie.spawnZombie(c);
+                                				if (RandomEventManager.onSkillAction(c)) {
+                                					return;
                                 				}
                                         } else if (doubleExperience == 0) {
                                                 c.getItems().deleteItem(ID, 1);
@@ -120,8 +120,8 @@ public class Prayer {
                                                 
                                                 c.timers.buryDelay = System.currentTimeMillis();
                                                 c.startAnimation(827);
-                                				if(Misc.random(250) == 0) {
-                                					Zombie.spawnZombie(c);
+                                				if (RandomEventManager.onSkillAction(c)) {
+                                					return;
                                 				}
                                         }
                                 }
@@ -145,8 +145,8 @@ public class Prayer {
                                         
                                         c.startAnimation(896);
                                 		c.gfx0(247);
-                        				if(Misc.random(80) == 0) {
-                        					Zombie.spawnZombie(c);
+                        				if (RandomEventManager.onSkillAction(c)) {
+                        					return;
                         				}
                                 } else if (Failure == 0) {
                                         c.gfx0(76);

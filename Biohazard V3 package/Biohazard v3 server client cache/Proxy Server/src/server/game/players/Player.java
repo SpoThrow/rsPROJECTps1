@@ -111,7 +111,18 @@ public abstract class Player {
 	public boolean trollSpawned = false, 
 			zombieSpawned = false, 
 			golemSpawned = false,
-			treeSpawned = false;
+			treeSpawned = false,
+			genieSpawned = false;
+
+	/**
+	 * Actions left before the next interrupting random event; see
+	 * {@code RandomEventManager.onSkillAction}.
+	 *
+	 * <p>{@code 0} means "not armed yet" — a fresh character, or a save from before this existed.
+	 * The manager arms it on the first skilling action rather than firing, so a new account cannot
+	 * have a random event on its first log. Saved, so a relog is not a way to avoid one.
+	 */
+	public int randomEventCounter = 0;
 	public int assaultPoints;
 	public int bandosKills, zamorakKills, saraKills, armaKills;
 	public boolean removedCount;

@@ -294,6 +294,47 @@ class PlayerSaveTest {
 	}
 
 	@Test
+	void randomEventCountdownRoundTrips() throws IOException {
+		// The countdown is the only thing standing between "random events happen" and "logging out
+		// is how you avoid them", so it is persisted rather than session state. Non-default on
+		// purpose: the field initialiser is 0, so a writer that silently dropped the line would
+		// still produce a 0 and the round trip would pass by accident.
+		Client saved = savableClient();
+		populate(saved);
+		saved.randomEventCounter = 123;
+		assertTrue(PlayerSave.saveGame(saved));
+
+		assertTrue(Files.readString(save(), StandardCharsets.UTF_8).contains("randomEventCounter = 123"),
+				"the countdown must reach the file");
+
+		Client loaded = new Client(null, SLOT);
+		PlayerHandler.players[SLOT] = loaded;
+		assertEquals(1, PlayerSave.loadGame(loaded, NAME, PASS));
+		assertEquals(123, loaded.randomEventCounter, "the countdown must survive a restart");
+	}
+
+	@Test
+	void aCharacterSavedBeforeTheCountdownExistedLoadsAsUnarmed() throws IOException {
+		// Every character file in existence predates this field. Without the line the counter has
+		// to come back as 0, which the manager reads as "arm me" rather than "fire now" -- if it
+		// meant the latter, every existing account would get a random event on its next action.
+		Client c = savableClient();
+		populate(c);
+		c.randomEventCounter = 77;
+		assertTrue(PlayerSave.saveGame(c));
+
+		List<String> lines = new ArrayList<>(Files.readAllLines(save(), StandardCharsets.UTF_8));
+		boolean removed = lines.removeIf(line -> line.startsWith("randomEventCounter = "));
+		assertTrue(removed, "expected a randomEventCounter line to remove");
+		Files.write(save(), lines, StandardCharsets.UTF_8);
+
+		Client loaded = new Client(null, SLOT);
+		PlayerHandler.players[SLOT] = loaded;
+		assertEquals(1, PlayerSave.loadGame(loaded, NAME, PASS), "an old file must still load cleanly");
+		assertEquals(0, loaded.randomEventCounter, "an absent key leaves the counter unarmed");
+	}
+
+	@Test
 	void wrongPasswordIsRejected() {
 		Client c = savableClient();
 		populate(c);

@@ -4,7 +4,7 @@ import server.Config;
 import server.event.CycleEvent;
 import server.event.CycleEventContainer;
 import server.event.CycleEventHandler;
-import server.game.minigames.randomevents.SpiritTree;
+import server.game.minigames.randomevents.RandomEventManager;
 import server.game.objects.Object;
 import server.game.players.Client;
 import server.game.players.PlayerHandler;
@@ -104,16 +104,13 @@ public class Woodcutting {
 					c.getItems().addItem(Tree_Settings[j][4], 1);
 					c.getPA().addSkillXP(xp, 8);
 				}
-				if(Misc.random(250) == 0) {
-					SpiritTree.spawnSpiritTree(c);
+				// One call for everything a chop can roll: the bird nest at its own rate, and the
+				// interrupting events on their countdown. A nest is announced and the chop carries
+				// on; an NPC appearing stops it.
+				if (RandomEventManager.onSkillAction(c)) {
 					container.stop();
+					return;
 				}
-				if (c.getItems().freeSlots() < 1) {
-					c.sendMessage("You have ran out of inventory slots.");
-					container.stop();
-				}
-				if (c.woodcutting.active)
-					birdNests(c);
 				if (c.getItems().freeSlots() < 1) {
 					c.sendMessage("You have ran out of inventory slots.");
 					container.stop();
@@ -156,12 +153,6 @@ public class Woodcutting {
 			return 3;
 		} else {
 			return (int)timer;
-		}
-	}
-	
-	public static void birdNests(Client c) {
-		if (Misc.random(100) < 5) {
-			c.getItems().addItem(5070, 1);
 		}
 	}
 	

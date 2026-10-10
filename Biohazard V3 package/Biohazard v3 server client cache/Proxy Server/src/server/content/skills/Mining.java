@@ -6,7 +6,7 @@ import server.event.CycleEvent;
 import server.event.CycleEventContainer;
 import server.event.CycleEventHandler;
 import server.game.items.ItemAssistant;
-import server.game.minigames.randomevents.RockGolem;
+import server.game.minigames.randomevents.RandomEventManager;
 import server.game.objects.Object;
 import server.game.players.Client;
 import server.game.players.Player;
@@ -42,8 +42,8 @@ public class Mining extends SkillHandler {
 				c.getPA().addSkillXP(5 * Config.MINING_EXPERIENCE, Player.playerMining);
 				
 				c.startAnimation(getAnimation(c));
-				if(Misc.random(250) == 0) {
-					RockGolem.spawnRockGolem(c);
+				// Everything a swing can roll, nests included, in one call.
+				if (RandomEventManager.onSkillAction(c)) {
 					resetMining(c);
 					container.stop();
 				}
@@ -147,8 +147,7 @@ public class Mining extends SkillHandler {
 							c.startAnimation(getAnimation(c));
 							//c.startAnimation(625);
 						}
-						if(Misc.random(250) == 0) {
-							RockGolem.spawnRockGolem(c);
+						if(RandomEventManager.onSkillAction(c)) {
 							resetMining(c);
 							container.stop();
 						}
@@ -236,8 +235,7 @@ public class Mining extends SkillHandler {
 								c.startAnimation(getAnimation(c));
 								//c.startAnimation(625);
 							}
-							if(Misc.random(250) == 0) {
-								RockGolem.spawnRockGolem(c);
+							if(RandomEventManager.onSkillAction(c)) {
 								resetMining(c);
 								container.stop();
 							}

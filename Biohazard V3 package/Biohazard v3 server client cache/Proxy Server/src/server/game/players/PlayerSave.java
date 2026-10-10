@@ -208,6 +208,8 @@ public class PlayerSave {
 						p.donated = Integer.parseInt(token2);
 					} else if (token.equals("assaultPoints")) {
 						p.assaultPoints = Integer.parseInt(token2);
+					} else if (token.equals("randomEventCounter")) {
+						p.randomEventCounter = Integer.parseInt(token2);
 					} else if(token.equals("killed-players")) {
 							p.lastKilledPlayers.add(token2);
 							//castlewars
@@ -483,6 +485,12 @@ public class PlayerSave {
 			characterfile.newLine();
 			characterfile.write("assaultPoints = ", 0, 16);
 			characterfile.write(Integer.toString(p.assaultPoints), 0, Integer.toString(p.assaultPoints).length());
+			characterfile.newLine();
+			// Written with the single-argument write() on purpose. Every other line here passes a
+			// hand-counted length as the third argument of write(String, int, int), which silently
+			// truncates the key if the count is off by one, and a truncated key is a value that
+			// loads as nothing at all. No count, no way to miscount.
+			characterfile.write("randomEventCounter = " + p.randomEventCounter);
 			characterfile.newLine();
 			for(int j = 0; j < p.lastKilledPlayers.size(); j++) {
 				characterfile.write("killed-players = ", 0, 17);

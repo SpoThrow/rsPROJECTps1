@@ -5,7 +5,7 @@ import server.event.CycleEvent;
 import server.event.CycleEventContainer;
 import server.event.CycleEventHandler;
 import server.game.items.Item;
-import server.game.minigames.randomevents.RiverTroll;
+import server.game.minigames.randomevents.RandomEventManager;
 import server.game.players.Client;
 import server.game.players.Player;
 import core.util.Misc;
@@ -129,8 +129,7 @@ public class Fishing {
 					if (s.getBait() != -1) {
 						c.getItems().deleteItem(s.getBait(), c.getItems().getItemSlot(s.getBait()), 1);
 					}
-					if(Misc.random(250) == 0) {
-						RiverTroll.spawnRiverTroll(c);
+					if(RandomEventManager.onSkillAction(c)) {
 						container.stop();
 					}
 					c.getItems().addItem(s.getRawFish()[wat], 1);

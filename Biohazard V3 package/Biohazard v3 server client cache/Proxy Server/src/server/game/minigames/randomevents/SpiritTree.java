@@ -15,16 +15,23 @@ public class SpiritTree  {
 		{111, 	138, 	443, 	150, 	7},
 	};
 
-	public static void spawnSpiritTree(Client c) {
+	/**
+	 * @return true if a spirit tree was actually spawned. False means one was already out, or no
+	 *         row of the table covers this combat level — the caller must not interrupt the player
+	 *         for an event that did not appear.
+	 */
+	public static boolean spawnSpiritTree(Client c) {
 		if(c.combatLevel <= 4)
-			return;
+			return false;
 		for (int[] aSpiritTree : spiritTree) {
 			if(!c.treeSpawned) {
 				if (c.combatLevel >= aSpiritTree[0] && c.combatLevel <= aSpiritTree[1]) {
 					Server.npcHandler.spawnNpc(c, aSpiritTree[2], c.getX() + Misc.random(1), c.getY() + Misc.random(1), c.position.heightLevel, 0, aSpiritTree[3], aSpiritTree[4], aSpiritTree[4] * 10, aSpiritTree[4] * 10, true, false);
 					c.treeSpawned = true;
+					return true;
 				}
 			}
 		}
+		return false;
 	}
 }

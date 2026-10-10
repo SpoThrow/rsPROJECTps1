@@ -34,6 +34,7 @@ public final class NpcActionHandler {
 		FishingNpcs.register();
 		PickpocketNpcs.register();
 		BankNpcs.register();
+		RandomEventNpcs.register();
 	}
 
 	private NpcActionHandler() {

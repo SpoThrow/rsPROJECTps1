@@ -15,17 +15,23 @@ public class RockGolem {
 		{111, 	138, 	418, 	150, 	7},
 	};
 
-	public static void spawnRockGolem(Client c) {
+	/**
+	 * @return true if a rock golem was actually spawned; false if one was already out or no table
+	 *         row covers this combat level.
+	 */
+	public static boolean spawnRockGolem(Client c) {
 		if(c.combatLevel <= 4)
-			return;
+			return false;
 		for (int[] aRockGolem : rockGolem) {
 			if(!c.golemSpawned) {
 				if (c.combatLevel >= aRockGolem[0] && c.combatLevel <= aRockGolem[1]) {
 					Server.npcHandler.spawnNpc(c, aRockGolem[2], c.getX() + Misc.random(1), c.getY() + Misc.random(1), c.position.heightLevel, 0, aRockGolem[3], aRockGolem[4], aRockGolem[4] * 10, aRockGolem[4] * 10, true, false);
 					c.golemSpawned = true;
+					return true;
 				}
 			}
 		}
+		return false;
 	}
 
 }

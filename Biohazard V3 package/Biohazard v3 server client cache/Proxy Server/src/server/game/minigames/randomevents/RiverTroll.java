@@ -15,17 +15,23 @@ public class RiverTroll {
 		{111, 	138, 	396, 	150, 	7},
 	};
 
-	public static void spawnRiverTroll(Client c) {
+	/**
+	 * @return true if a river troll was actually spawned; false if one was already out or no table
+	 *         row covers this combat level.
+	 */
+	public static boolean spawnRiverTroll(Client c) {
 		if(c.combatLevel <= 4)
-			return;
+			return false;
 		for (int[] aRiverTroll : riverTroll) {
 			if(!c.trollSpawned) {
 				if (c.combatLevel >= aRiverTroll[0] && c.combatLevel <= aRiverTroll[1]) {
 					Server.npcHandler.spawnNpc(c, aRiverTroll[2], c.getX() + Misc.random(1), c.getY() + Misc.random(1), c.position.heightLevel, 0, aRiverTroll[3], aRiverTroll[4], aRiverTroll[4] * 10, aRiverTroll[4] * 10, true, false);
 					c.trollSpawned = true;
+					return true;
 				}
 			}
 		}
+		return false;
 	}
 
 }

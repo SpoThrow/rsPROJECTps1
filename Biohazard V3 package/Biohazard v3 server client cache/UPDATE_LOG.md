@@ -1,5 +1,21 @@
 # Update Log
 
+## 2026-10-10 - QOL Phase 2: random events get a manager, and the flags start doing something
+
+**What changed:**
+- **There is now one place that decides a random event.** `RandomEventManager` holds an `Event` enum of the five interrupting events, each carrying its `Config` flag and a draw weight, plus a single `onSkillAction(Client)` entry point. The seven inline rolls it replaces were `Misc.random(250)` written out by hand in `Woodcutting` (1), `Mining` (3), `Fishing` (1) and `Prayer` (2, plus the altar's separate `Misc.random(80)`), each followed immediately by a hardcoded spawn.
+- **The `RANDOM_EVENT_*` flags were describing behaviour that did not exist.** `RANDOM_EVENT_CLASSIC_OTHERS_ENABLED` is `false`, and Spirit Tree, Rock Golem, River Troll and Zombie fired on every matching action anyway. They read the flag now, so those four are genuinely **off by default** — which is what was asked — and the genie and bird nest are the live pair.
+- **A nest and an NPC are rolled differently, on purpose.** A nest is a frequent small bonus and keeps the per-action roll it already had (`Misc.random(100) < 5` — the rate is unchanged, deliberately: Necrotic's is `1/61` and lowering ours would be a nerf nobody asked for). An NPC event is an interruption and runs on a per-player countdown of **350–450 actions**, which is Necrotic's `350 + random(100)` shape. A countdown rather than a flat chance cannot fire twice in a row.
+- **Nest type now uses Necrotic's table: seed 64.1%, ring 32.0%, the three egg nests 3.9%.** The old `birdNests` added `5070` (red egg) unconditionally, so seed and ring nests were unreachable from woodcutting even though `ClickItem` already knows how to open all five.
+- **The genie is real, and hands over the lamp the server already has** — item `4447`, rub it and the existing skill-choice interface opens, so no client work and no new interface. It appears for 200 cycles, talks, and gives one lamp per spawn. Registered as an NPC action in a new `RandomEventNpcs`, not in the generated NPC tables: it was never in the switch.
+- **`spawnSpiritTree` and its three siblings now return whether they actually spawned.** All four call sites stopped the player's action whether or not the NPC had appeared, so a level-3 player burying bones could be interrupted by nothing at all. An event now only interrupts if it arrived.
+- **Bots are skipped.** They hold real player slots and run the same skilling code, so a bot left chopping would otherwise accumulate genies and nests.
+- **The countdown is saved** as `randomEventCounter`, so relogging is not a way to avoid events. `0` means "not armed" and the manager arms it on the first action rather than firing, so a brand-new account cannot get an event on its first log.
+
+**Files touched:** added `server/game/minigames/randomevents/RandomEventManager.java` and `server/game/players/actions/npcs/RandomEventNpcs.java`; edited the four `randomevents/` spawn classes, `Woodcutting.java`, `Mining.java`, `Fishing.java`, `Prayer.java`, `NpcActionHandler.java`, `Player.java`, `PlayerSave.java`; added `test/.../RandomEventManagerTest.java` and two round-trip cases in `PlayerSaveTest.java`; updated `QOL_PLAN.md`.
+
+**Status:** done. **951 tests, 0 failures, 0 errors** (795 server + 156 workshop; 20 new — 18 for the manager, 2 for the countdown's persistence). Not done, and not attempted: Sandwich Lady, Evil Chicken, Freaky Forester, Swarm, Frog, Shade and Tree Spirit. Their NPC ids all exist but each needs behaviour and dialogue invented from nothing, so they wait for their dialogue to be written. Also left open for a decision: the lamp grants **level 70** in a skill, which is generous for a random event — the delay and the lamp id are both one-line changes. Next: Phase 3, skilling completeness, with bow stringing first since it does not exist in this server at all.
+
 ## 2026-10-10 - QOL Phase 0 (cont.): the content validator runs in the build, and three ids it caught as wrong were wrong in the test itself
 
 **What changed:**

@@ -338,7 +338,7 @@ Also removed: four `System.out.println` debug lines that ran on every arrow and 
 
 ## 6. Random events, flag-driven
 
-**Ours**: four events, **no dispatcher and no flag**, each fired inline by
+**Ours (before Phase 2)**: four events, **no dispatcher and no flag**, each fired inline by
 `Misc.random(250) == 0` — `SpiritTree` (Woodcutting `:108`), `RockGolem` (Mining `:46,
 151, 240`), `RiverTroll` (Fishing `:133`), `Zombie` (Prayer `:113, 124, 149`). Bird
 nests already work: `Woodcutting.birdNests` grants `5070` at `random(100) < 5`. No genie.
@@ -352,22 +352,50 @@ two *global world* events ticked from `World.sequence()` — `EvilTree` (1 h, 80
 So: classic randoms are **new in every source**; only the nest table and the world-event
 shape are rippable.
 
-**Proposal:**
+**Built (Phase 2):** `server/game/minigames/randomevents/RandomEventManager` — an `Event` enum of
+the five interrupting events, each carrying its `Config` flag and a draw weight; one
+`onSkillAction(Client)` entry point; and a per-player countdown persisted as
+`randomEventCounter` in `PlayerSave`.
 
-- New `RandomEventManager` — an enum of events, each with a `Config` flag and a weight,
-  one `addRandom(c)` entry point, a persisted counter, and a fail-teleport list (R1's
-  shape: `CALL_RANDOM = 350 + random(100)`, six `FAIL_COORDS`, "You wake up in a strange
-  location…").
-- Move the four existing spawns behind it; replace the inline `Misc.random(250)` sites.
-- **On by default: `BIRD_NEST`** (promote `birdNests` into the manager, adopting N1's
-  richer `5070–5074` table) and **`GENIE`**.
-- **Off by default but present**: SpiritTree, RockGolem, RiverTroll, Zombie, plus
-  Sandwich Lady, Evil Chicken, Freaky Forester, Swarm, Frog, Shade, Tree Spirit, and
-  optionally N1's EvilTree/ShootingStar as flagged world events.
-- Genie lamp reward: reuse our existing `items/impl/ExperienceLamp.java` rather than R1's
-  interface `2808`, which our client does not have.
+- **The seven inline sites are gone.** `Misc.random(250)` in `Woodcutting` (1), `Mining` (3),
+  `Fishing` (1) and `Prayer` (2 at 1/251, plus the altar at 1/81) are now one call each.
+- **The flags now do something.** `RANDOM_EVENT_CLASSIC_OTHERS_ENABLED` was `false` while
+  Spirit Tree, Rock Golem, River Troll and Zombie fired unconditionally, so the flag describing
+  the shipped behaviour was wrong. They read it now, which means those four are **off** by
+  default — the ask.
+- **Two rhythms on purpose.** A nest is a frequent small bonus, so it keeps its per-action roll
+  (`Misc.random(100) < 5`, unchanged); an NPC event is an interruption, so it runs on a
+  countdown of **350–450 actions** — Necrotic's `CALL_RANDOM = 350 + random(100)` shape. Giving
+  the nest a countdown weight would have made it ~20× rarer. Nest type now uses Necrotic's
+  distribution: seed 64.1%, ring 32.0%, the three egg nests 3.9%. The old code always gave
+  `5070` (red egg), so seed and ring nests — which `ClickItem` already opens — were unreachable.
+- **The genie hands over the lamp we already have**, item `4447`: rub it and the existing
+  skill-choice interface opens, so no client change and no new interface. It is spawned through
+  `spawnNpc2` (which returns the NPC, so the despawn timer does not need a fifth copy of the
+  block in `spawnNpc`) and registered as an NPC action in `RandomEventNpcs`, not in the generated
+  NPC tables — it was never in the switch.
+- **`spawnXxx` now returns whether it spawned.** All four stopped the player's action whether or
+  not the NPC had appeared, so a low-level player could be interrupted by nothing. An event only
+  interrupts if it actually arrived.
+- **Bots are skipped.** They occupy real slots and run the same skilling code, so without the
+  guard a bot would collect genies and nests.
 
-Tests: only enabled events fire; a disabled flag never fires; the counter survives save/load.
+**Not built, and why:** Sandwich Lady, Evil Chicken, Freaky Forester, Swarm, Frog, Shade and Tree
+Spirit. The NPC ids exist (`411` Swarm, `2463` Evil Chicken, `1830` Frog, `425-430` Shade,
+`438-443` Tree spirit), but each needs behaviour and dialogue invented from nothing, and this
+section's own rule is not to invent values that can be looked up. They go in when their
+dialogue is written, not before. Also open: the lamp is worth a **level-70** skill, which is
+generous for a random event — the countdown and the lamp id are both one-line changes if that
+should be toned down.
+
+**The fail-teleport list from R1 is not here.** It only means something for events a player can
+refuse or fail — the Sandwich Lady and friends — so it belongs with them, not with the genie,
+which cannot be failed.
+
+Tests: `RandomEventManagerTest` (18) pins the shipped enablement, that a disabled event can never
+be picked, the weight bands, the nest distribution, and the countdown arming/firing/re-arming
+contract. `PlayerSaveTest` pins that the counter round-trips and that a character file written
+before the field existed loads as unarmed rather than as "fire now".
 
 ---
 
@@ -642,9 +670,9 @@ reviewable, revertible file per batch.
 
 | # | Phase | Why here | Depends on |
 |---|---|---|---|
-| 0 | Registries + §2 safe accessor + validator | Everything after registers instead of editing switches, and may reference ids that do not exist yet | — — **done**, except the validator |
+| 0 | Registries + §2 safe accessor + validator | Everything after registers instead of editing switches, and may reference ids that do not exist yet | — — **done** |
 | 1 | Fletching realism (1-by-1, shaft fix, stringing) | Your headline; small; very visible | 0 (optional) — **bows and shafts done**, stringing/arrows/bolts still open |
-| 2 | Random events, flag-driven (nest + genie on) | Cheap, visible, exact flags you asked for | 0 |
+| 2 | Random events, flag-driven (nest + genie on) | Cheap, visible, exact flags you asked for | 0 — **done**; further classics need their dialogue written first |
 | 3 | Skilling completeness (N1 tables: potions, gems, glass, spinning, agility, rune/smith) | The "done to full completion" goal; §8.2 dose model | 0, 1 (pattern) |
 | 4 | World interactivity: fillables (R), pickables (R), searchable/climbable scenery, doors/gates | The "feels finished" layer; mostly data + registrations | 0 |
 | 5 | Shops, potions breadth, guilds, glider verify | Pure breadth, additive data; safest wins | 0 |
