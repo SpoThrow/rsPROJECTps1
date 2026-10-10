@@ -192,12 +192,13 @@ public class Config {
 	public static final int BOT_TICK_BUDGET_MS = 40;
 
 	/**
-	 * The loopback port the bot status endpoint listens on, or {@code 0} (default) for no endpoint.
+	 * The loopback port the bot status endpoint listens on, or {@code 0} for no endpoint.
 	 *
-	 * <p><b>Off by default, and that is the point.</b> The Bot Workshop is a tool that must stay
-	 * deletable ({@code BOT_TOOLING.md} §11): a server that opened a socket for it would make the tool
-	 * a thing the server depends on rather than a thing that reads the server's files. With this at
-	 * {@code 0} the boot path is exactly what it was, so nothing here is load-bearing.
+	 * <p><b>It is on at {@code 8081} so that the workshop's Live bots panel works out of the box</b>, which
+	 * is the one route in the tool that needs two processes running at once and the only one that cannot be
+	 * answered from a file. Set it back to {@code 0} to remove the socket entirely — the whole endpoint is
+	 * one guarded call in {@code Server.main}, so nothing else here is load-bearing and the feature can be
+	 * deleted without a trace ({@code BOT_TOOLING.md} §11).
 	 *
 	 * <p><b>Read-only, and loopback-only.</b> It answers {@code GET /live/bots} with what the live bots
 	 * are doing — position, current state path, last failure ({@code BOT_ROADMAP.md} Phase F) — and
@@ -205,12 +206,17 @@ public class Config {
 	 * on, nothing off the machine can reach it, which is what makes a debugging endpoint acceptable to
 	 * leave enabled in a live world.
 	 *
+	 * <p><b>The port matches the tool's default.</b> {@code LiveProxy.DEFAULT_PORT} and the
+	 * {@code botStatusPort} property {@code workshopServe} sets are both {@code 8081}, so watching a bot
+	 * needs no argument on either side. Changing this one means passing {@code -PbotStatusPort=} to the
+	 * workshop as well.
+	 *
 	 * <p><b>What it deliberately does not do yet.</b> {@code BOT_TOOLING.md} Stage T7 also sketches
 	 * possess/release and pause/step. Those are writes, they change a real character, and a runaway one
 	 * would be a way to drive bots without the {@code ::bot} command's gating — so they are not built
 	 * until the read-only half has been used enough to say what they should do.
 	 */
-	public static final int BOT_STATUS_PORT = 0;
+	public static final int BOT_STATUS_PORT = 8081;
 
 	public static final int[] UNDEAD_NPCS = {90,91,92,93,94,103,104,73,74,75,76,77};
 	

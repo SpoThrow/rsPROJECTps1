@@ -125,7 +125,7 @@ and skiller buttons do the same).
 | --- | --- | --- |
 | `tie` | `skiller` | Sets the matching `xxxPid` flag, so all profile-dependent logic agrees with a real skiller account. |
 | `items` | `(1351, 1)` bronze axe | The kit. Slice 1's test already assumes a held bronze axe. |
-| `skills` | all level 1, 0 XP | Base; `::train` / the lamp can lift it later. |
+| `skills` | woodcutting 30 | The level the kit is *for*. A kit grants the first useful target of its tool — oak 15, willow 30 for the axe in this row — because the tool alone is not enough: every shipped tree place refuses a level-1 character. Nothing else is lifted. |
 | `start` | a tile near the test tree, plane 0 | Where the character stands when first created. |
 | `spellbook` | modern | `magic.playerMagicBook`. |
 | `prefix` | `bot` | Preferred `BotNames` prefix for slug generation (§2). |
@@ -165,19 +165,38 @@ its own lean kits and there is **no drift to reconcile** — the two tables answ
 `1351` (bronze axe) is the one item they have in common, by coincidence rather than by design.
 
 **Implemented.** `BotProfiles` (table) + `BotProvisioning` (applies it) + an optional `profile` column on
-`bots.cfg`. Three things found while building it are worth recording, because each is invisible until it
+`bots.cfg`. Five things found while building it are worth recording, because each is invisible until it
 bites:
 
 - ⚠️ **Hitpoints is the one skill a "set them all to 1" loop must not touch.** `Player`'s constructor
   seeds every skill to level 1 *except* hitpoints, which starts at 10 with the XP for 10. A naive reset
   leaves the account at a single hitpoint — a character that is dead on arrival. `BotProvisioning`
   restores it explicitly and the test pins it.
+- ⚠️ **A tool with no level is the same dead bot as no tool.** This is the second half of the §4 gap and it
+  was found the same way — by a bot that owned its axe and still did nothing. `Woodcutting`'s requirement
+  tables put oaks at 15 and willows at 30, and *every* shipped tree place is one of those, so the profile
+  has to grant the level as well as the axe. Levels are per-profile, and only the skill the kit is for
+  (`WOODCUTTER` is still a level-1 miner) — a profile is a starting kit, not a raise.
+- ⚠️ **A level must be granted with the XP that reads back as it.** `Client.process()` drains
+  `playerLevel` back towards `getLevelForXP(playerXP)` a point at a time, and the skill tab, total level
+  and level-up message all read the XP. So `BotProvisioning` derives the XP from the server's own
+  `getXPForLevel` rather than writing the level alone, and a test walks the whole table asserting the round
+  trip: `getLevelForXP(playerXP[skill]) == playerLevel[skill]`.
 - ⚠️ **`provision` grants items additively, not idempotently.** Calling it twice grants the kit twice. That
   is safe only because `createAccount` provisions a brand-new empty character and `reprovision` clears
   first; it is documented and tested so nobody "fixes" it into a silent inventory wipe.
 - ⚠️ **Item ids must come from this server's `item.cfg`, not from memory.** `addItem` grants nothing for an
   undefined id, with no log line, so a wrong id means a bot that simply never gathers. A test reads
   `item.cfg` and checks every id in the table against it.
+
+**Known gap: a gather loop banks one item id, but the world decides the species.** `gather_oak` and the
+authored `chop_and_bank` both gather and deposit plain logs (1511), while the tree the bot walks to is
+whichever is nearest. In the shipped tree places the neighbours are mixed — plain trees, oaks and willows —
+so a bot whose nearest tree happens to be an oak fills up with oak logs (1521), deposits none of them, and
+shuttles between the bank and the field without emptying its bag. One `itemId` cannot describe a mixed
+field, and the two sample bots in `bots.cfg` are the first to run into it. Recorded here rather than
+designed around: the options are a species-aware gather, a species-aware deposit, or a homogeneous place,
+and all three change something that is currently simple.
 
 **No packets are sent by provisioning.** A bot is sessionless, so `getOutStream()` is null and every send
 in this codebase guards on that; `refreshSkill` would throw rather than refresh. The arrays are what

@@ -22,7 +22,8 @@ import server.Config;
  *
  * <p><b>The failure this exists to prevent.</b> Account creation used to grant no kit at all, so a
  * config-spawned woodcutter owned no axe and {@code Gather} failed on its first click. The headline test
- * here is therefore the plain one: a created woodcutter has its axe.
+ * here is therefore the plain one: a created woodcutter has its axe — and the level to use it, which is the
+ * second half of the same bug and was found the same way (see the level tests below).
  *
  * <p>These drive a bare {@link BotPlayer} rather than a real account file, because provisioning is pure
  * state mutation — {@code BotProfileSpawnTest} covers the on-disk path, and the two together pin both
@@ -130,14 +131,98 @@ class BotProvisioningTest {
 	@Test
 	void theOtherSkillsStartAtOne() {
 		BotPlayer bot = freshBot();
-		bot.skills.playerLevel[Config.WOODCUTTING] = 99; // as if the account had been trained
+		bot.skills.playerLevel[Config.ATTACK] = 99; // as if the account had been trained
+		bot.skills.playerXP[Config.ATTACK] = 13034431;
 
 		BotProvisioning.provision(bot, BotProfiles.DEFAULT);
 
-		assertEquals(1, bot.skills.playerLevel[Config.WOODCUTTING],
+		assertEquals(1, bot.skills.playerLevel[Config.ATTACK],
 				"provisioning starts the character clean rather than inheriting the client's state");
-		assertEquals(1, bot.skills.playerLevel[Config.MINING]);
+		assertEquals(1, bot.skills.playerLevel[Config.PRAYER]);
+		assertEquals(0, bot.skills.playerXP[Config.ATTACK]);
+	}
+
+	// ---- the levels a kit grants (the axe-in-hand-with-no-level bug) ---------------------------
+
+	@Test
+	void aWoodcutterCanCutTheTreesItsProfileIsFor() {
+		// The bug this pins: a freshly created woodcutter had its axe and level 1, and every shipped tree
+		// place refused it — "You need a Woodcutting level of 30 to cut this tree" — so the axe may as well
+		// not have been there. The requirement lives in Woodcutting.Tree_Settings (oak 15, willow 30) and in
+		// the click path, which both read skills.playerLevel directly.
+		BotPlayer bot = freshBot();
+
+		BotProvisioning.provision(bot, BotProfiles.WOODCUTTER);
+
+		assertTrue(bot.skills.playerLevel[Config.WOODCUTTING] >= 30,
+				"the Draynor and Lumbridge willow rows need 30; oaks need 15 and come free");
+		assertEquals(bot.skills.playerLevel[Config.WOODCUTTING],
+				bot.getPA().getLevelForXP(bot.skills.playerXP[Config.WOODCUTTING]),
+				"and the XP has to read back as the same level, or the skill tab and total level disagree");
+	}
+
+	@Test
+	void theDefaultKitCarriesTheLevelsItsThreeToolsNeed() {
+		// The same claim the item test makes, one level up: a row that names no profile has not said which
+		// resource its script wants, so the levels have to cover all three tools it hands out.
+		BotPlayer bot = freshBot();
+
+		BotProvisioning.provision(bot, BotProfiles.DEFAULT);
+
+		assertTrue(bot.skills.playerLevel[Config.WOODCUTTING] > 1, "the axe is for willows");
+		assertTrue(bot.skills.playerLevel[Config.MINING] > 1, "the pickaxe is for iron");
+		assertTrue(bot.skills.playerLevel[Config.FISHING] > 1, "the rod and feathers are for trout");
+	}
+
+	@Test
+	void aKitDoesNotRaiseASkillItHasNoBusinessWith() {
+		// A profile is the level its own job needs, not a general lift: if it also handed out woodcutting
+		// then profile choice would become power level and every number here would stop meaning anything.
+		BotPlayer bot = freshBot();
+
+		BotProvisioning.provision(bot, BotProfiles.MINER);
+
+		assertTrue(bot.skills.playerLevel[Config.MINING] > 1, "the miner can mine");
+		assertEquals(1, bot.skills.playerLevel[Config.WOODCUTTING], "but still cannot chop");
+		assertEquals(1, bot.skills.playerLevel[Config.FISHING]);
+	}
+
+	@Test
+	void everyGrantedLevelAndItsXpAgreeAndStayInsideTheSkillArray() {
+		// The table is data, so this reads it the way the game does: the array holds both halves, every
+		// index is a real skill, and the two always agree. A level written without its XP is the failure
+		// that shows up everywhere except the code that granted it.
+		for (BotProfiles.Profile profile : BotProfiles.all()) {
+			BotPlayer bot = freshBot();
+			BotProvisioning.provision(bot, profile);
+
+			for (int i = 0; i < profile.skillCount(); i++) {
+				int skill = profile.skillId(i);
+				String where = profile.name() + " skill " + skill;
+
+				assertTrue(skill >= 0 && skill < bot.skills.playerLevel.length,
+						where + " is not a skill index");
+				assertTrue(profile.skillLevel(i) > 1 && profile.skillLevel(i) <= 99,
+						where + " is not a level a kit should grant: " + profile.skillLevel(i));
+				assertEquals(profile.skillLevel(i), bot.skills.playerLevel[skill],
+						where + " was not applied");
+				assertEquals(profile.skillLevel(i),
+						bot.getPA().getLevelForXP(bot.skills.playerXP[skill]),
+						where + " has XP that reads back as a different level");
+			}
+		}
+	}
+
+	@Test
+	void clearingTakesTheGrantedLevelsBackOff() {
+		BotPlayer bot = freshBot();
+		BotProvisioning.provision(bot, BotProfiles.WOODCUTTER);
+
+		BotProvisioning.clear(bot);
+
+		assertEquals(1, bot.skills.playerLevel[Config.WOODCUTTING]);
 		assertEquals(0, bot.skills.playerXP[Config.WOODCUTTING]);
+		assertEquals(10, bot.skills.playerLevel[Config.HITPOINTS], "hitpoints survives the clear");
 	}
 
 	// ---- the rest of the §4.1 checklist -------------------------------------------------------

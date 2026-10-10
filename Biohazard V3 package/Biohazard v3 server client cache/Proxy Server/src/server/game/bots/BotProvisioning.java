@@ -27,12 +27,25 @@ import server.Config;
  * {@code 10} with the XP for {@code 10}. A loop that sets "all skills to 1" would quietly undo that and
  * leave the account at one hitpoint, so {@link #applySkills} restores hitpoints explicitly and
  * {@code BotProvisioningTest} asserts it.
+ *
+ * <p><b>Levels come from the profile, and their XP is derived, not guessed.</b> A kit grants the level its
+ * job needs ({@link BotProfiles} says why), and each is paired with the XP this server's own
+ * {@code getLevelForXP} reads back as that level — see {@link #xpForLevel}. Writing the level without the
+ * XP is the subtle half-failure: the skill would look right on the array and wrong everywhere the server
+ * asks {@code getLevelForXP} instead, which is the interface, the total level and the level-up message.
  */
 public final class BotProvisioning {
 
 	/** What every skill but hitpoints starts at. */
 	private static final int BASE_LEVEL = 1;
 	private static final int BASE_XP = 0;
+
+	/**
+	 * The highest level a profile may grant. {@code 99} because that is where {@code getLevelForXP} stops
+	 * and where the skill interface stops drawing; a profile is a starting kit, so nothing here should ever
+	 * be near it, but the table is data and data gets typo'd.
+	 */
+	private static final int MAX_LEVEL = 99;
 
 	/**
 	 * Hitpoints' starting level and XP, copied from {@code Player}'s constructor. Kept as its own constant
@@ -65,7 +78,7 @@ public final class BotProvisioning {
 		for (int i = 0; i < profile.itemCount(); i++) {
 			bot.getItems().addItem(profile.itemId(i), profile.itemAmount(i));
 		}
-		applySkills(bot);
+		applySkills(bot, profile);
 		placeAt(bot, profile);
 		bot.magic.playerMagicBook = profile.spellbook();
 
@@ -94,7 +107,7 @@ public final class BotProvisioning {
 		// ground-item logic meant for a live player. This one just zeroes the arrays.
 		bot.getItems().removeAllItems();
 		applyTie(bot, null);
-		applySkills(bot);
+		applySkills(bot, null);
 	}
 
 	/** Clears and then applies {@code profile} — the dev-only "rebuild this character" path. */
@@ -113,8 +126,14 @@ public final class BotProvisioning {
 		bot.skillerPid = tie == BotProfiles.Tie.SKILLER;
 	}
 
-	/** Every skill to level {@link #BASE_LEVEL}, then hitpoints restored — see the class comment. */
-	private static void applySkills(BotPlayer bot) {
+	/**
+	 * Every skill to level {@link #BASE_LEVEL}, then hitpoints restored, then {@code profile}'s own levels
+	 * — see the class comment for why hitpoints is the exception and {@link BotProfiles} for why a kit
+	 * carries levels at all.
+	 *
+	 * <p>A null {@code profile} is {@link #clear}'s "base levels, nothing else".
+	 */
+	private static void applySkills(BotPlayer bot, BotProfiles.Profile profile) {
 		int[] levels = bot.skills.playerLevel;
 		int[] xp = bot.skills.playerXP;
 		for (int skill = 0; skill < levels.length; skill++) {
@@ -127,6 +146,41 @@ public final class BotProvisioning {
 			levels[Config.HITPOINTS] = STARTING_HITPOINTS;
 			xp[Config.HITPOINTS] = STARTING_HITPOINTS_XP;
 		}
+		if (profile == null) {
+			return;
+		}
+		for (int i = 0; i < profile.skillCount(); i++) {
+			int skill = profile.skillId(i);
+			int level = profile.skillLevel(i);
+			if (skill < 0 || skill >= levels.length || skill >= xp.length
+					|| level < 1 || level > MAX_LEVEL) {
+				// A profile out of step with the skill array is a programming error, and the safe answer
+				// is to leave the base level rather than write past the end of it. BotProfilesTest reads
+				// the table directly, so this is a belt-and-braces guard rather than the check.
+				continue;
+			}
+			levels[skill] = level;
+			xp[skill] = xpForLevel(bot, level);
+		}
+	}
+
+	/**
+	 * The smallest XP this server reads as {@code level} — see {@link #applySkills} for why the two must
+	 * agree rather than the level being written on its own.
+	 *
+	 * <p><b>Deliberately not a second copy of the XP curve.</b> {@code getLevelForXP} is the server's own
+	 * answer to "what level is this XP", and it is the one everything else uses: the skill tab, total
+	 * level, the level-up message, and {@code Client.process}'s slow drain of {@code playerLevel} back
+	 * towards the trained level. Granting a level by writing {@code playerLevel} alone would leave those
+	 * disagreeing and let that drain walk the character back down a level at a time. So the XP is derived
+	 * from the server's own function, and {@code BotProvisioningTest} pins the round trip.
+	 *
+	 * <p><b>The {@code + 1} is the whole point.</b> {@code getXPForLevel(L)} returns the largest XP that
+	 * still reads as level {@code L - 1} ({@code getLevelForXP} advances only once XP <em>exceeds</em> a
+	 * threshold), so the first XP that reads as {@code L} is one past it.
+	 */
+	private static int xpForLevel(BotPlayer bot, int level) {
+		return bot.getPA().getXPForLevel(level) + 1;
 	}
 
 	private static void placeAt(BotPlayer bot, BotProfiles.Profile profile) {

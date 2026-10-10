@@ -1,5 +1,18 @@
 # Update Log
 
+## 2026-10-10 - An axe and no level is still a dead bot, and the two sample bots are on
+
+**What changed:**
+- **A profile now grants the level its tool is for, not just the tool.** Found by running the thing: a `woodcutter` bot owned its bronze axe, walked to its home trees, and was refused by every one of them — `Woodcutting` puts oaks at 15 and willows at 30 and *every* shipped tree place is one of those, so the axe alone buys nothing. `BotProfiles.Profile` gained `skillIds`/`skillLevels` (`skillCount`, `skillId(i)`, `skillLevel(i)`): `WOODCUTTER` 30 woodcutting, `MINER` 15 mining (iron), `FISHER` 20 fishing (trout), and `DEFAULT` all three, for the same reason it already carried all three tools — a row that names no profile has said nothing about which resource its script wants.
+- **The level is written with the XP that reads back as it, or it walks back down.** `Client.process()` drains `playerLevel` a point at a time towards `getLevelForXP(playerXP)`, and the skill tab, total level and level-up message all read the XP, so `BotProvisioning.applySkills` derives the XP from the server's own `getPA().getXPForLevel(level) + 1` (the `+1` because `getLevelForXP` advances only once XP *exceeds* a threshold) instead of writing `playerLevel` alone. The guard skips an out-of-range entry rather than writing past the array; `clear()` still means base levels, via a null profile.
+- **Both shipped sample bots are enabled.** `Data/cfg/bots.cfg` now runs `oakchopper` (built-in `gather_oak`) and `oakbanker` (authored `chop_and_bank.json`), both `profile woodcutter home draynor_oaks` — one row per way a script can arrive, so the workshop's Live panel shows a config row and a script file driving the same job.
+- **`Config.BOT_STATUS_PORT` is 8081 in the shipped config** (was `0`), so the workshop's live panel works from a plain server start with no extra flags. It is loopback-only and read-only, and `0` still turns it off without a code change.
+- **A gap the two bots are about to hit is written down rather than designed around.** A gather loop banks one `itemId` but the world picks the species: at `draynor_oaks` the neighbours are mixed, so a bot whose nearest tree is an oak fills up with oak logs and deposits none. Recorded in `BOT_ACCOUNTS.md` §4.1 with the three ways out (species-aware gather, species-aware deposit, or a homogeneous place), none of which is free.
+
+**Files touched:** `src/server/Config.java` (`BOT_STATUS_PORT` 8081), `src/server/game/bots/{BotProfiles,BotProvisioning,LiveBotsServer}.java`, `test/server/game/bots/BotProvisioningTest.java` (5 new), `Data/cfg/bots.cfg`, `BOT_ACCOUNTS.md` (§4.1 levels, two new ⚠️ findings, the mixed-species gap).
+
+**Status:** done. **889 tests, 0 failures** (733 + 156, 5 of them new in `BotProvisioningTest`); `workshopJsTest` 49/49. Then watched on a real boot rather than assumed: both bots are created with Woodcutting 30 / 13364 XP (exactly `getXPForLevel(30) + 1` — this cache's own curve, not OSRS memory), walk to a tree from the profile tile, chop a full 28-slot inventory (~350 ticks), bank it, and come back for more — no `lastFailure`, no restart. The workshop's Live panel lists both from `/live/bots` at 8081 with no extra flags, and clicking a row centres the map on the bot. Worth knowing before judging them slow: `Woodcutting.getTimer` gives this cache about 3 ticks per plain log and 19–39 for an oak, so a full load is minutes and the state path sits on `Gather(tree)` the whole time.
+
 ## 2026-10-10 - T7a: the live bot view — one read-only route, and the bot you cannot see from a chat window
 
 **What changed:**

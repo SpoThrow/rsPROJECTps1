@@ -19,9 +19,11 @@ import server.Config;
  * workshop holding the socket and the server pushing to it — would invert the dependency and make the
  * tool something the server needs, which is exactly what {@code BOT_TOOLING.md} §11 forbids.
  *
- * <p><b>Off unless asked for.</b> {@link Config#BOT_STATUS_PORT} is {@code 0} by default and
- * {@link #startIfEnabled()} is a no-op then, so the boot path is unchanged and the whole endpoint can be
- * deleted with the feature. Enabling it is a one-line config edit, not a code change.
+ * <p><b>One guarded call, so the endpoint can be removed with the feature.</b> {@link
+ * #startIfEnabled()} is a no-op when {@link Config#BOT_STATUS_PORT} is non-positive, so the boot path is
+ * unchanged and the whole endpoint can be deleted without a trace. It is enabled at {@code 8081} in the
+ * shipped config because the workshop's live panel is the one route that cannot be answered from a file;
+ * setting the port to {@code 0} turns it off without a code change.
  *
  * <p><b>One route, one method, one address.</b> {@code GET /live/bots} and nothing else; anything else is
  * a 404 and a POST is a 405. There is no write and no parameter, so the reachable surface is a document
