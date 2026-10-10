@@ -124,6 +124,11 @@ tasks.named('test', Test) {
     // not the repo's. Point tests at the real directory the same way workshopTest already does,
     // rather than making them reconstruct the path from another property.
     systemProperty 'workshopDataRoot', file('Data').absolutePath
+    // ItemHandler resolves item.cfg relative to the working directory, which for this task is the
+    // throwaway build/testwork tree and has no Data. Without this the item table is empty in every
+    // test, so "this item exists" and "this id has no definition" both assert nothing. Same idiom
+    // as workshopDataRoot above.
+    systemProperty 'serverCfgDir', file('Data/cfg').absolutePath
     doFirst {
         delete testWorkDir
         new File(testWorkDir, 'Data/characters').mkdirs()

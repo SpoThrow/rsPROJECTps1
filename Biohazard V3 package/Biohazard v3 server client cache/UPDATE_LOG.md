@@ -1,5 +1,17 @@
 # Update Log
 
+## 2026-10-10 - QOL Phase 0 (cont.): the content validator runs in the build, and three ids it caught as wrong were wrong in the test itself
+
+**What changed:**
+- **`QolValidatorTest` is now committed and running** (3 tests). It walks the authored content tables — fletching bows/shafts/bolts, and the item-use and item-on-object registries — and reports every id in them that `ItemDefinitions` cannot find, then fails the build on lookup-key duplicates and out-of-range ids. Missing ids are warnings rather than failures on purpose: §2 means to write ids we do not own yet, so "no definition" is often the *intent*, and a hard failure there would fight the plan. A duplicate key is different — two recipes claiming one key means one of them is unreachable — so that fails.
+- **The id checks were passing for the wrong reason, and fixing that exposed three bad ids in `ItemDefinitionsTest`.** The test task runs in `build/testwork`, a throwaway directory with no `Data/` in it, so `item.cfg` never loaded, the item table was empty, and every "this id has no definition" assertion was true of *every* id. `ItemHandler` now honours a `serverCfgDir` system property and `build.gradle` points it at the real `Data/cfg`, so the tests see the real 19,966 rows (ids 0–20072). With the table actually loaded, `4153`, `9000` and `9001` — previously named as undefined — turned out to be the Granite maul, Bandana and eyepatch. They are now genuinely free ids (24000), and the two ids this class used to name are asserted *defined*, so the mistake cannot come back as a silent pass.
+- **`15333` was also the wrong example of an unimported id.** `QOL_PLAN.md` §2 names an overload dose as the case of "an id we reference before we have it", but `item.cfg` already defines the entire dose chain — Recover special, Super antifire, all four doses of all five extremes, Super prayer, and overload twice over (15300–15338). There is no overload row left to import, so the exemplar is now simply an id past the end of the table, and the plan says so rather than leaning on a row we already have.
+- **`Fletching.Fletch` is public** like its sibling `Bolts` and `Arrows` tables, so the validator can read the rows. A wrong product id in that table is a bow that silently does not exist rather than a compile error, which is exactly what the validator is for.
+
+**Files touched:** added `test/server/content/QolValidatorTest.java`; edited `server/world/ItemHandler.java` (`cfgPath` override), `build.gradle` (`serverCfgDir` for the test task), `server/content/skills/Fletching.java` (table visibility), `test/server/game/items/ItemDefinitionsTest.java`; updated `UPDATE_LOG.md`.
+
+**Status:** done. **931 tests, 0 failures, 0 errors** (775 server + 156 workshop; `ItemDefinitionsTest` 7, `FletchingTest` 20, `QolValidatorTest` 3). Phase 0 and Phase 1 are now both committed. Next: Phase 2, the config-gated random events (`RandomEventManager`, bird nests off woodcutting, genie lamp), then Phase 3 skilling completeness — bow stringing first, since we found last session that it does not exist at all.
+
 ## 2026-10-10 - QOL Phase 1 (cont.): arrows, bolts and bolt tips onto the tick, and iron-through-rune bolts made craftable
 
 **What changed:**

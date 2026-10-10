@@ -34,6 +34,30 @@ public class ItemHandler {
 		loadItemList("item.cfg");
 		loadItemPrices("prices.txt");
 	}
+
+	/**
+	 * Resolves a data file under {@code Data/cfg}, honouring the {@code serverCfgDir} override.
+	 *
+	 * <p>The override exists for the test task. Tests run from a throwaway working directory
+	 * ({@code build/testwork}) so that {@code PlayerSave} cannot touch real character files, and
+	 * that directory has no {@code Data}. The relative path therefore resolved to nothing in every
+	 * test, so {@code Server.itemHandler.ItemList} was empty and any assertion of the form "item X
+	 * exists" or "item Y has no definition" passed for the wrong reason — it was really asserting
+	 * that <em>nothing</em> had a definition. Passing the repo's {@code Data/cfg} by absolute path
+	 * makes those assertions mean what they say.
+	 *
+	 * <p>Default behaviour is unchanged: with no property set this is exactly the old relative
+	 * path, which is what the running server uses.
+	 */
+	private static String cfgPath(String defaultDir, String fileName) {
+		String override = System.getProperty("serverCfgDir");
+		if (override == null || override.isEmpty()) {
+			return defaultDir + fileName;
+		}
+		return override.endsWith("/") || override.endsWith("\\")
+				? override + fileName
+				: override + "/" + fileName;
+	}
 	
 	/**
 	* Adds item to list
@@ -792,7 +816,7 @@ public class ItemHandler {
 	
 	public void loadItemPrices(String filename) {
 		try {
-			Scanner s = new Scanner(new File("./data/cfg/" + filename));
+			Scanner s = new Scanner(new File(cfgPath("./data/cfg/", filename)));
 			while (s.hasNextLine()) {
 				String[] line = s.nextLine().split(" ");
 				ItemList temp = getItemList(Integer.parseInt(line[0]));
@@ -827,7 +851,7 @@ public class ItemHandler {
 		int ReadMode = 0;
 		BufferedReader characterfile = null;
 		try {
-			characterfile = new BufferedReader(new FileReader("./Data/cfg/"+FileName));
+			characterfile = new BufferedReader(new FileReader(cfgPath("./Data/cfg/", FileName)));
 		} catch(FileNotFoundException fileex) {
 			Misc.println(FileName+": file not found.");
 			return false;

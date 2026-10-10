@@ -232,11 +232,12 @@ public class Fletching {
 	/**
 	 * The fletching table: which log makes which product, for how much xp and at what level.
 	 *
-	 * <p>Package-private rather than private so {@code FletchingTest} can pin it — the table is
-	 * the data the skill is built from, and a wrong product id here is a bow that silently does
-	 * not exist rather than a compile error.
+	 * <p>Public like {@link Bolts} and {@link Arrows} so the tables can be read from outside the
+	 * package — {@code FletchingTest} pins the rows and the QOL validator checks every id in them.
+	 * A wrong product id here is a bow that silently does not exist rather than a compile error,
+	 * so these rows are worth being able to look at from a test.
 	 */
-	enum Fletch {
+	public enum Fletch {
 
 		// Arrow shafts are level 1 in OSRS, and the old batch code never checked their level at
 		// all because the shafts branch had no guard. The 15 here would have been enforced for

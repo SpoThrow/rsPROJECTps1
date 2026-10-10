@@ -134,9 +134,11 @@ by never returning null. This is the concrete "don't break the game" gap.
 2. **Harden the existing name-based paths** against a null/unknown id (guard + neutral
    result) rather than rewriting them. This is a small, reviewable sweep; it is also
    what stops a future item import from turning a working feature into an NPE.
-3. **A validator that warns, never fails, on unknown ids.** `tools/qol/validate`:
+3. **A validator that warns, never fails, on unknown ids.** Built as `QolValidatorTest`,
+   which runs with the rest of the suite (a separate CLI was not worth a second entry
+   point; the tables are Java, so the test *is* the tool):
    - ids in our *new* content tables that resolve to the sentinel → **warn** ("item
-     15333 referenced by Overload; no definition yet — will be inert until defined");
+     `<id>` referenced by `<table>`; no definition yet — will be inert until defined");
    - ids that resolve to a *real* definition but look wrong (e.g. a log id that is not a
      log) → **warn**;
    - ids that collide with an id the legacy switch still handles → **fail** (that is a
@@ -144,20 +146,35 @@ by never returning null. This is the concrete "don't break the game" gap.
    - duplicate ids inside a registry → **fail** (already enforced at runtime).
 
 That distinction — warn for "not there yet", fail for "two handlers for one id" — is the
-whole safety model. It lets us write the overload row today with id `15333` and have the
+whole safety model. It lets us write a row for an item we do not own yet and have the
 build stay green, the server stay up, the feature stay inert, and the feature light up
 the day the item is defined.
 
-**Corroborating facts that make this tractable:**
+**Correction (found while building the validator).** This section used overload dose
+`15333` as the standing example of "an id we reference before we have it". That example
+is wrong: `item.cfg` **already defines** the whole potion chain — `15333` is
+`Overload_(3)`, the extremes and super prayer are all present, and overload appears twice
+under two naming styles. So the overload row is not a future import, it is an import we
+have already made, and using it as the exemplar would have let a broken validator pass by
+looking up a row that exists. The example is now an id past the end of the table's range
+(it runs to 20072), where "no definition" is actually true.
+
+Confirming facts, with the same correction applied:
 
 - Our `ItemList[]` is sized `Config.ITEM_LIMIT = 25000` and indexed by item id, with
   `newItemList` guarding `slot < 0 || slot >= length` and returning silently. Higher
   revision ids fit and cannot corrupt the table.
 - So "add the item id" is literally a row in `Data/cfg/item.cfg`; the loader already
   tolerates gaps, and gaps simply resolve to the sentinel.
-- N1's own overl.oad chain shows the scale of the future import: doses `15308–15335`,
-  `OVERLOAD(15335, 15334, 15333, 15332)` and `OVERLOAD = 5 extremes → 15333`. Writing
-  those rows today is exactly the pattern this section protects.
+- N1's own overload chain shows the scale of the future import: doses `15308–15335`,
+  `OVERLOAD(15335, 15334, 15333, 15332)` and `OVERLOAD = 5 extremes → 15333`. **All of it
+  is already in our `item.cfg`.** The whole potion chain is present — `Recover_special`
+  (15300–15303), `Super_antifire` (15304–15307), all four doses of all five extremes
+  (15308–15327), `Super_prayer` (15328–15331), and overload twice over: `Overload_(4..1)`
+  at 15332–15334 plus a second `Overload(4..1)` at 15335–15338. So there is nothing here
+  left to write, and the overload family cannot be the example of an id we reference
+  before we have it. A higher-revision id past the table's end (20072) is the real
+  example. Writing such a row is exactly the pattern this section protects.
 
 ---
 
