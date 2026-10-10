@@ -1,5 +1,19 @@
 # Update Log
 
+## 2026-10-10 - QOL Phase 1 (cont.): arrows, bolts and bolt tips onto the tick, and iron-through-rune bolts made craftable
+
+**What changed:**
+- **Iron, steel, mithril, adamant and runite bolts could not be made at all.** `forBolts` looked up recipes by `getItem2()`, which is `314` (feathers) on every row of the table. So it returned `BRONZEBOLT` whenever it was asked about feathers and `null` for every actual bolt. Together with `makeBolts` checking only its first argument, using bolts on feathers did nothing and using feathers on bolts always made bronze. The lookup now matches the bolt column and `makeBolts` looks in both arguments, so either order works and all six metals are reachable.
+- **Arrow making, bolt making, bolt tipping and bolt-tip crafting now run on the tick** through one shared helper, instead of a `System.currentTimeMillis()` gate in front of an instant action. A wall-clock throttle lets a fast clicker through on lag and lets a slow one do nothing; the tick paces them and the supply count is re-checked when the action actually executes.
+- **These stay single actions, deliberately.** Fifteen arrows or ten bolts per click is the OSRS batch size, so "one item per tick" does not apply to them and `Config.FLETCHING_ONE_BY_ONE_ENABLED` does not gate them — that flag governs the repeating actions (bows and shafts), where "make 28" is 28 actions. The flag's javadoc now says this rather than over-claiming.
+- **Removed four `System.out.println` debug lines** that printed supply counts to the console on every arrow and bolt attempt.
+
+**Files touched:** `server/content/skills/Fletching.java`, `server/Config.java` (flag javadoc only); extended `test/server/content/skills/FletchingTest.java`; updated `QOL_PLAN.md`, `UPDATE_LOG.md`.
+
+**Status:** done. **927 tests, 0 failures, 0 errors** (771 server + 156 workshop). The new tests drive the real `CycleEventHandler` loop rather than mocking it, so they pin the tick pacing (nothing consumed on tick 1, consumed on tick 2), the ten-per-click batch size, cancellation via `resetVariables` on the walk path, and the bolt lookup regression directly.
+
+**Follow-up found while working, not fixed here:** bow **stringing does not exist** in our server — item 1777 is only an impling reward and a Crafting menu label, and nothing consumes it. There is no stringing to make ticked; there is stringing to add. It needs its own table and level/xp data, so it is a Phase 3 (skilling completeness) item. Also unchanged: a gem still yields 10 bolt tips and bolt-tip cutting still grants no xp, both left as found because the correct values need looking up rather than inventing.
+
 ## 2026-10-10 - QOL Phase 1: fletching cuts one log per tick instead of a whole inventory at once
 
 **What changed:**

@@ -272,9 +272,8 @@ start a `CycleEventHandler` loop using the existing `c.doAmount` convention
    the ratio was already correct. The log now comes from the product, and the level check
    and animation that the bow path had are applied here too.)
 3. ~~`Stringing` + `ArrowMaking` as ticked actions from N1's `StringingData`/`ArrowData`.~~
-   **Still to do.** Phase 1 covered bows and shafts; `makeArrows`, `makeBolts`,
-   `handleBoltTipping` and `handleBoltTipCrafting` are still one-shot batches with their own
-   `System.currentTimeMillis()` throttles rather than ticked actions.
+   **Split.** Arrow/bolt making and tipping are done (see above). Stringing is not a port —
+   we have none at all, so it is new content and belongs with the Phase 3 skilling gaps.
 
 Note the N1 table shape worth keeping: `BowData(logID, unstrungBow, xp, levelReq, bowId)`
 where `unstrungBow` is 48/50/54… and `bowId` is the finished 839/841… — and **avoid** its
@@ -296,9 +295,27 @@ shaft path never checked a level, so enforcing that entry would have taken shaft
 everyone below 15 for the first time. Corrected to 1, which is the real requirement and
 matches what players could always do.
 
-**Not done:** `makeArrows`, `makeBolts`, `handleBoltTipping`, `handleBoltTipCrafting` are
-still batches on `System.currentTimeMillis()` throttles. Them plus stringing are the rest of
-this section.
+**Not done:** bow **stringing does not exist in our server at all** — item 1777 appears only as
+an impling reward and as the label on the Crafting "flax into bow strings" spinning option;
+nothing consumes it. So there is no stringing to make ticked, there is stringing to *add*.
+That is a Phase 3 item, not a Phase 1 tweak, because it needs its own log→unstrung→strung
+table and level/xp data rather than a rewrite of something existing.
+
+**Also landed with this phase (same session):** `makeArrows`, `makeBolts`, `handleBoltTipping`
+and `handleBoltTipCrafting` moved off their `System.currentTimeMillis()` throttles and onto the
+tick via one shared helper. These stay single actions — fifteen arrows or ten bolts per click is
+the OSRS batch size — so the flag does not gate them. Two real bugs were fixed on the way:
+
+- **`forBolts` matched the wrong column.** It tested `getItem2()`, which is `314` (feathers) for
+  every row, so it answered `BRONZEBOLT` whenever asked about feathers and `null` for every
+  actual bolt. Combined with `makeBolts` looking only in its first argument, (bolts, feathers)
+  did nothing and (feathers, bolts) always made bronze — **iron through runite bolts could not
+  be made at all**. It now matches the bolt column, and `makeBolts` looks in both arguments.
+- **Bolt tips and bolt tipping no longer use wall-clock throttles.** A `currentTimeMillis()` gate
+  in front of an instant action lets a fast clicker through on lag and lets a slow one do
+  nothing; the tick loop paces them instead.
+
+Also removed: four `System.out.println` debug lines that ran on every arrow and bolt attempt.
 
 ---
 

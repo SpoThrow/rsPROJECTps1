@@ -51,9 +51,17 @@ public class Fletching {
 		}
 	}
 	
+	/**
+	 * Finds a bolt recipe by its unfinished bolt id.
+	 *
+	 * <p>This used to match {@code getItem2()}, which is {@code 314} (feathers) for every entry in
+	 * the table. So it returned {@code BRONZEBOLT} whenever it was asked about feathers and
+	 * {@code null} for every actual bolt, which is why iron through runite bolts could not be
+	 * made. Matching the bolt column is what makes the lookup mean what its name says.
+	 */
 	public static Bolts forBolts(int id) {
 		for (Bolts bolts : Bolts.values()) {
-			if (bolts.getItem2() == id) {
+			if (bolts.getItem1() == id) {
 				return bolts;
 			}
 		}
@@ -115,52 +123,110 @@ public class Fletching {
 		return item1 == 52 || item1 == 53 ? item2 : item1;
 	}
 
+	/**
+	 * Makes arrows: fifteen at a time, from fifteen of each supply.
+	 *
+	 * <p>Fifteen is the OSRS batch size — a click makes fifteen arrows, not one and not a whole
+	 * inventory — so this stays one action per click. What changes is that the action now runs
+	 * on the game tick instead of completing inside the click, so it is interruptible and the
+	 * supply check is re-done when it actually executes.
+	 */
 	public static void makeArrows(Client c, int item1, int item2) {
 		Arrows arr = forArrow(getPrimary(item1, item2));
-		if (arr != null) {
-			if (c.skills.playerLevel[Player.playerFletching] >= arr.getLevelReq()) {
-				System.out.println(arr.getItem1()+", "+ c.getItems().getItemCount(arr.getItem1()));
-				System.out.println(arr.getItem2()+", "+ c.getItems().getItemCount(arr.getItem2()));
-				if (c.getItems().getItemCount(arr.getItem1()) >= 15 && c.getItems().getItemCount(arr.getItem2()) >= 15) {
-					c.getItems().deleteItem2(arr.getItem1(), 15); 
-					c.getItems().deleteItem2(arr.getItem2(), 15);
-					c.getItems().addItem(arr.getOutcome(), 15);
-					
-					c.getPA().addSkillXP(arr.getXp()*Config.FLETCHING_EXPERIENCE, Player.playerFletching);
-					
-				} else {
-					//System.out.println("1");
-					c.sendMessage("You must have at least 15 of each supply to make arrows!");
-				}
-			} else {
-				//System.out.println("2");
-				c.sendMessage("You need a fletching level of "+arr.getLevelReq()+" to fletch this.");
-			}
+		if (arr == null) {
+			return;
 		}
+		fletchBatch(c, arr.getOutcome(), ARROWS_PER_ACTION, arr.getXp(), arr.getLevelReq(),
+				arr.getItem1(), ARROWS_PER_ACTION, arr.getItem2(), ARROWS_PER_ACTION,
+				"arrows", null);
 	}
-	
+
+	/**
+	 * Makes bolts: ten at a time, from ten unfinished bolts and ten feathers.
+	 *
+	 * <p><b>The bolt is looked up in whichever argument holds it.</b> It used to be looked up in
+	 * the first argument only, and {@code forBolts} matched the feather column, so this method
+	 * had two failures at once: called as (bolts, feathers) the lookup found nothing and the
+	 * click silently did nothing, and called as (feathers, bolts) it always resolved to bronze,
+	 * so iron through runite bolts could not be made at all.
+	 */
 	public static void makeBolts(Client c, int item1, int item2) {
 		Bolts bolts = forBolts(item1);
-		if (bolts != null) {
-			if (c.skills.playerLevel[Player.playerFletching] >= bolts.getLevelReq()) {
-				System.out.println(bolts.getItem1()+", "+ c.getItems().getItemCount(bolts.getItem1()));
-				System.out.println(bolts.getItem2()+", "+ c.getItems().getItemCount(bolts.getItem2()));
-				if (c.getItems().getItemCount(bolts.getItem1()) >= 10 && c.getItems().getItemCount(bolts.getItem2()) >= 10) {
-					c.getItems().deleteItem2(bolts.getItem1(), 10); 
-					c.getItems().deleteItem2(bolts.getItem2(), 10);
-					c.getItems().addItem(bolts.getOutcome(), 10);
-					
-					c.getPA().addSkillXP(bolts.getXp()*Config.FLETCHING_EXPERIENCE, Player.playerFletching);
-					
-				} else {
-					//System.out.println("1");
-					c.sendMessage("You must have at least 10 of each supply to make bolts!");
-				}
-			} else {
-				//System.out.println("2");
-				c.sendMessage("You need a fletching level of "+bolts.getLevelReq()+" to fletch this.");
-			}
+		if (bolts == null) {
+			bolts = forBolts(item2);
 		}
+		if (bolts == null) {
+			return;
+		}
+		fletchBatch(c, bolts.getOutcome(), BOLTS_PER_ACTION, bolts.getXp(), bolts.getLevelReq(),
+				bolts.getItem1(), BOLTS_PER_ACTION, bolts.getItem2(), BOLTS_PER_ACTION,
+				"bolts", null);
+	}
+
+	/**
+	 * One ticked fletching action that consumes fixed quantities of two materials and produces a
+	 * fixed quantity of product.
+	 *
+	 * <p>Shared by arrow making, bolt making and bolt tipping, which differ only in their numbers
+	 * and their wording. It is one action, not a loop: all three are batch recipes in OSRS — a
+	 * click makes fifteen arrows or ten bolts and then stops — so what this buys is tick
+	 * pacing and a re-checked supply count, not repetition.
+	 *
+	 * @param successMessage sent on completion, or {@code null} to stay silent as arrow and bolt
+	 *                       making always have been
+	 */
+	private static void fletchBatch(final Client c, final int product, final int productCount,
+			final int xp, int levelReq, final int mat1, final int mat1Cost, final int mat2,
+			final int mat2Cost, final String what, final String successMessage) {
+		if (c.playerFletch) {
+			return;
+		}
+		if (c.skills.playerLevel[Player.playerFletching] < levelReq) {
+			c.sendMessage("You need a fletching level of at least " + levelReq + " to fletch this.");
+			return;
+		}
+		if (!hasSupplies(c, mat1, mat1Cost, mat2, mat2Cost)) {
+			c.sendMessage("You must have at least " + mat1Cost + " of each supply to make " + what + ".");
+			return;
+		}
+
+		c.playerFletch = true;
+		c.startAnimation(FLETCH_ANIMATION);
+
+		CycleEventHandler.addEvent(FLETCH_EVENT, c, new CycleEvent() {
+			@Override
+			public void execute(CycleEventContainer container) {
+				// Re-check rather than trust the click: two ticks have passed, and the player can
+				// have dropped or banked a supply in them.
+				if (!c.playerFletch || !hasSupplies(c, mat1, mat1Cost, mat2, mat2Cost)) {
+					container.stop();
+					return;
+				}
+				c.getItems().deleteItem2(mat1, mat1Cost);
+				if (mat2Cost > 0) {
+					c.getItems().deleteItem2(mat2, mat2Cost);
+				}
+				c.getItems().addItem(product, productCount);
+				if (xp > 0) {
+					c.getPA().addSkillXP(xp * Config.FLETCHING_EXPERIENCE, Player.playerFletching);
+				}
+				if (successMessage != null) {
+					c.sendMessage(successMessage);
+				}
+				container.stop();
+			}
+
+			@Override
+			public void stop() {
+				cancel(c);
+			}
+		}, 2);
+	}
+
+	/** True when the player holds the required quantity of every material in the recipe. */
+	private static boolean hasSupplies(Client c, int mat1, int mat1Cost, int mat2, int mat2Cost) {
+		return c.getItems().playerHasItem(mat1, mat1Cost)
+				&& (mat2Cost <= 0 || c.getItems().playerHasItem(mat2, mat2Cost));
 	}
 	
 	/**
@@ -626,8 +692,13 @@ public class Fletching {
 		c.playerIsFletching = true;
 	}
 	
-	private static final int AMOUNT = 10;
-	private static final int DELETE = 1;
+	/** Arrows are made fifteen at a time, bolts ten — the OSRS batch sizes. */
+	private static final int ARROWS_PER_ACTION = 15;
+	private static final int BOLTS_PER_ACTION = 10;
+	/** One gem yields this many bolt tips. */
+	private static final int BOLT_TIPS_PER_GEM = 10;
+	/** The chisel used to cut gems into bolt tips. */
+	private static final int CHISEL = 1755;
 
 	/**
 	 * Data for making bolt tips
@@ -669,84 +740,81 @@ public class Fletching {
 	 * @param useWith
 	 */
 
+	/**
+	 * Cuts a gem into bolt tips with a chisel.
+	 *
+	 * <p>Was a wall-clock throttle: a {@code System.currentTimeMillis()} gate in front of an
+	 * instant action, which lets a fast clicker through on lag and lets a slow one do nothing.
+	 * It is a ticked action now, with the same guard the other fletching actions use.
+	 *
+	 * <p>The per-gem animation is preserved — it is the one piece of data here that has always
+	 * been per-recipe, and the generic batch helper has no place for it.
+	 */
 	public static void handleBoltTipCrafting(Client c, int itemUsed, int useWith) {
 		for (int i = 0; i < boltTips.length; i++) {
-			if ((itemUsed == boltTips[i][0] || itemUsed == 1755)
-					&& (useWith == boltTips[i][0] || useWith == 1755)) {
-				if (System.currentTimeMillis() - c.timers.alchDelay > 1400) {
-					if (c.getItems().playerHasItem(boltTips[i][0], DELETE)) {
-						c.getItems().deleteItem(boltTips[i][0], DELETE);
-						c.getItems().addItem(boltTips[i][1], AMOUNT);
-						c.startAnimation(boltTips[i][2]);
-						c.sendMessage("You carefully craft the "
-								+ ItemAssistant.getItemName(boltTips[i][0])
-								+ " into bolt tips.");
-						c.timers.alchDelay = System.currentTimeMillis();
-					} else {
-						c.sendMessage("You need at least "
-								+ DELETE
-								+ " "
-								+ Misc.formatPlayerName(ItemAssistant
-										.getItemName(boltTips[i][0])) + " gem.");
-					}
-				}
+			if ((itemUsed == boltTips[i][0] || itemUsed == CHISEL)
+					&& (useWith == boltTips[i][0] || useWith == CHISEL)) {
+				craftBoltTips(c, boltTips[i][0], boltTips[i][1], boltTips[i][2]);
+				return;
 			}
 		}
 	}
 
-	/**
-	 * Method to craft bolts with bolt tips
-	 * 
-	 * @param c
-	 * @param itemUsed
-	 * @param useWith
-	 */
+	private static void craftBoltTips(final Client c, final int gem, final int product, final int animation) {
+		if (c.playerFletch) {
+			return;
+		}
+		if (!c.getItems().playerHasItem(CHISEL, 1)) {
+			c.sendMessage("You need a chisel to cut the gem into bolt tips.");
+			return;
+		}
+		if (!c.getItems().playerHasItem(gem, 1)) {
+			c.sendMessage("You need at least 1 "
+					+ Misc.formatPlayerName(ItemAssistant.getItemName(gem)) + " gem.");
+			return;
+		}
 
+		c.playerFletch = true;
+		c.startAnimation(animation);
+
+		CycleEventHandler.addEvent(FLETCH_EVENT, c, new CycleEvent() {
+			@Override
+			public void execute(CycleEventContainer container) {
+				if (!c.playerFletch || !c.getItems().playerHasItem(gem, 1)) {
+					container.stop();
+					return;
+				}
+				c.getItems().deleteItem2(gem, 1);
+				c.getItems().addItem(product, BOLT_TIPS_PER_GEM);
+				c.startAnimation(animation);
+				c.sendMessage("You carefully craft the " + ItemAssistant.getItemName(gem)
+						+ " into bolt tips.");
+				container.stop();
+			}
+
+			@Override
+			public void stop() {
+				cancel(c);
+			}
+		}, 2);
+	}
+
+	/**
+	 * Attaches gem bolt tips to unfinished bolts, ten at a time.
+	 *
+	 * <p>Same recipe numbers as before, on the tick instead of behind a wall-clock throttle. The
+	 * level check is unchanged, and the recipe is chosen by the pair of items used rather than by
+	 * argument order, so either order works.
+	 */
 	public static void handleBoltTipping(Client c, int itemUsed, int useWith) {
 		for (int i = 0; i < craftingVariables.length; i++) {
 			if ((itemUsed == craftingVariables[i][0] || itemUsed == craftingVariables[i][1])
 					&& (useWith == craftingVariables[i][0] || useWith == craftingVariables[i][1])) {
-				if (c.skills.playerLevel[Player.playerFletching] >= craftingVariables[i][3]) {
-					if (System.currentTimeMillis() - c.timers.alchDelay > 1200) {
-						if (c.getItems().playerHasItem(craftingVariables[i][0],
-								AMOUNT)
-								&& c.getItems().playerHasItem(
-										craftingVariables[i][1], AMOUNT)) {
-							c.getItems().deleteItem(
-									craftingVariables[i][0],
-									c.getItems().getItemSlot(
-											craftingVariables[i][0]), AMOUNT);
-							c.getItems().deleteItem(
-									craftingVariables[i][1],
-									c.getItems().getItemSlot(
-											craftingVariables[i][1]), AMOUNT);
-							c.getItems().addItem(craftingVariables[i][2],
-									AMOUNT);
-							
-							c.getPA().addSkillXP(
-									craftingVariables[i][4]
-											* Config.FLETCHING_EXPERIENCE,
-									Player.playerFletching);
-							
-							c.sendMessage("You carefully craft some gem tipped bolts.");
-							c.timers.alchDelay = System.currentTimeMillis();
-						} else {
-							c.sendMessage("You need at least "
-									+ AMOUNT
-									+ " "
-									+ Misc.formatPlayerName(ItemAssistant
-											.getItemName(craftingVariables[i][0]))
-									+ " & "
-									+ Misc.formatPlayerName(ItemAssistant
-											.getItemName(craftingVariables[i][1]))
-									+ ".");
-						}
-					}
-				} else {
-					c.sendMessage("You need at least "
-							+ craftingVariables[i][3]
-							+ " fletching to make this.");
-				}
+				fletchBatch(c, craftingVariables[i][2], BOLTS_PER_ACTION, craftingVariables[i][4],
+						craftingVariables[i][3], craftingVariables[i][0], BOLTS_PER_ACTION,
+						craftingVariables[i][1], BOLTS_PER_ACTION, "gem tipped bolts",
+						"You carefully craft some gem tipped bolts.");
+				return;
 			}
 		}
 	}

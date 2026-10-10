@@ -227,14 +227,18 @@ public class Config {
 	 * ======================================================================== */
 
 	/**
-	 * Fletching, arrow shafting, stringing and bolt tipping act one item per tick instead of
-	 * dumping a whole inventory in a single call.
+	 * Fletching actions run on the game tick instead of completing inside the click.
 	 *
-	 * <p>{@code true} (default) = the OSRS behaviour: one log per action, so a "make 28"
-	 * really is 28 ticks and can be walked away from. This is what was asked for, and it also
-	 * removes the {@code 15 * amount2} shaft bug, which only existed inside the batch loop.
+	 * <p>This flag governs the <b>repeating</b> actions — cutting bows and arrow shafts, where
+	 * the player picks an amount and the skill works through it. {@code true} (default) is the
+	 * OSRS behaviour: one log per action, so a "make 28" really is 28 actions and can be walked
+	 * away from. {@code false} restores the old instant behaviour, which did the whole amount in
+	 * a single call and closed the window.
 	 *
-	 * <p>{@code false} = the old instant whole-inventory behaviour, for comparison.
+	 * <p>Arrow making, bolt making and bolt tipping are <b>not</b> gated on this. They are batch
+	 * recipes in OSRS too — a click makes fifteen arrows or ten bolts and stops — so they were
+	 * never "one item per tick" and have nothing to revert to; they simply moved from wall-clock
+	 * throttles onto the tick.
 	 */
 	public static final boolean FLETCHING_ONE_BY_ONE_ENABLED = true;
 
