@@ -1,5 +1,17 @@
 # Update Log
 
+## 2026-10-10 - QOL Phase 0: item-use registries, and item lookups that cannot return null
+
+**What changed:**
+- **New `ItemUseRegistry` and `ItemOnObjectRegistry`** (`server.game.players.actions.items`), modelled on the existing `ObjectHandler`/`ButtonHandler`. `UseItem.ItemonItem` and `UseItem.ItemonObject` consult them after their predicate guards (poison, dwarf cannon) and before their inline checks/switch, so a recipe family moves out one at a time with the two paths never both running. Item-on-item pairs key order-independently, because the legacy checks are written `a && b || b && a`; item-on-object pairs key on the pair, so one item can migrate without dragging a whole object out of the switch. A duplicate registration throws.
+- **`ItemOnObjectRegistry` refuses the nine cooking object ids** (`12269, 2732, 114, 9374, 2728, 25465, 11404-11406`). `ItemOnObject.processPacket` runs its own cooking switch *after* calling `UseItem`, so claiming one would leave two handlers running for the same click. Enforced at registration and pinned by a test rather than left as a comment.
+- **New `ItemDefinitions` — the §2 safety contract.** `Item.getItemName(int)` returns `null` for an id with no definition, and this codebase decides a lot from item *names* (`ItemHandler.getRequirements` is a long chain of `itemName.contains("bronze")`), so an id we reference before we own its definition is an NPE waiting for the wrong caller, not a missing feature. `ItemDefinitions.name/get/value/exists` answer with an `"Unknown item"` sentinel instead — Necrotic's `ItemDefinition.forId` never-returns-null contract — so a future higher-revision id is inert, not fatal. The two legacy accessors are deliberately untouched (hundreds of call sites may rely on their present behaviour). O(1) array read with the linear-scan fallback the old accessors always did, and safe to call before `Server.itemHandler` exists.
+- **`Config` flag block for the programme:** fletching one-by-one on; random events on with bird nest and genie on and the intrusive classic events off; world events, fillables, pickables, guilds, bank PIN, teleport hub and sounds off until their phase — the defaults are the ask, so flipping one is never a code change.
+
+**Files touched:** added `server/game/players/actions/items/` (4 classes) and `server/game/items/ItemDefinitions.java`; edited `server/game/items/UseItem.java` (two hooks) and `server/Config.java`; added 3 test classes; updated `QOL_PLAN.md`, `UPDATE_LOG.md`.
+
+**Status:** done. **907 tests, 0 failures, 0 errors** (751 server + 156 workshop; 16 new). Next: the Phase 0 content validator (warn on an id with no definition, fail on a registry/legacy collision), then Phase 1 — fletching one-by-one with the `15 * amount2` shaft fix.
+
 ## 2026-10-10 - QOL_PLAN.md rewritten with Necrotic local: it is the primary source, and item ids get a safety contract
 
 **What changed:**

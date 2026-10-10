@@ -218,6 +218,86 @@ public class Config {
 	 */
 	public static final int BOT_STATUS_PORT = 8081;
 
+	/* ==========================================================================
+	 * QOL / skilling programme switches (QOL_PLAN.md).
+	 *
+	 * One flag per feature so each phase can ship and be reverted on its own. A flag
+	 * that gates nothing yet is still written down, because the value is the honest
+	 * default and the intent: flipping it must not become a code change.
+	 * ======================================================================== */
+
+	/**
+	 * Fletching, arrow shafting, stringing and bolt tipping act one item per tick instead of
+	 * dumping a whole inventory in a single call.
+	 *
+	 * <p>{@code true} (default) = the OSRS behaviour: one log per action, so a "make 28"
+	 * really is 28 ticks and can be walked away from. This is what was asked for, and it also
+	 * removes the {@code 15 * amount2} shaft bug, which only existed inside the batch loop.
+	 *
+	 * <p>{@code false} = the old instant whole-inventory behaviour, for comparison.
+	 */
+	public static final boolean FLETCHING_ONE_BY_ONE_ENABLED = true;
+
+	/**
+	 * Master switch for random events. {@code false} disables every event below regardless of
+	 * its own flag, which is what makes "no random events at all" a one-line change.
+	 */
+	public static final boolean RANDOM_EVENTS_ENABLED = true;
+
+	/**
+	 * Bird nests as a random event, with the fuller {@code 5070-5074} loot table.
+	 *
+	 * <p>On by default: it already exists as a plain woodcutting drop and is the least
+	 * intrusive of the events.
+	 */
+	public static final boolean RANDOM_EVENT_BIRD_NEST_ENABLED = true;
+
+	/**
+	 * The genie, offering a lamp for a random skill.
+	 *
+	 * <p>On by default. The reward reuses the existing {@code ExperienceLamp} item rather than
+	 * a lamp interface, so it needs no client change.
+	 */
+	public static final boolean RANDOM_EVENT_GENIE_ENABLED = true;
+
+	/**
+	 * The remaining classic events — the four we already spawn inline (Spirit Tree,
+	 * Rock Golem, River Troll, Zombie) plus Sandwich Lady, Evil Chicken, Freaky Forester,
+	 * Swarm, Frog, Shade and Tree Spirit.
+	 *
+	 * <p>Off by default, deliberately: these are the intrusive ones (they interrupt, teleport
+	 * or attack), and the ask was that bird nests and the genie be the only ones live until
+	 * they have been looked at.
+	 */
+	public static final boolean RANDOM_EVENT_CLASSIC_OTHERS_ENABLED = false;
+
+	/**
+	 * World events that spawn a shared object and are competed over — Evil Tree and Shooting
+	 * Star, taken in shape from Necrotic.
+	 *
+	 * <p>Off by default: each is a global object with a despawn timer, so they interact with
+	 * the whole world rather than one player and want a live pass before being left on.
+	 */
+	public static final boolean RANDOM_EVENT_WORLD_EVENTS_ENABLED = false;
+
+	/** Filling vials, buckets, jugs and bowls at sinks, wells, fountains and pumps. */
+	public static final boolean FILLABLES_ENABLED = false;
+
+	/** Cabbages, wheat, potatoes, onions and flax picked from scenery, with respawn cycles. */
+	public static final boolean PICKABLES_ENABLED = false;
+
+	/** Skill-guild entry requirements and the guild doormen that enforce them. */
+	public static final boolean GUILDS_ENABLED = false;
+
+	/** Bank PIN setting and entry, on the bank's existing "Set a Bank PIN" button. */
+	public static final boolean BANK_PIN_ENABLED = false;
+
+	/** The teleport hub's data-driven menus, generated from {@code Data/cfg/teleports.cfg}. */
+	public static final boolean TELEPORT_HUB_ENABLED = false;
+
+	/** Sound effects. Last in the programme, because the ids are cache-specific. */
+	public static final boolean SOUND_ENABLED = false;
+
 	public static final int[] UNDEAD_NPCS = {90,91,92,93,94,103,104,73,74,75,76,77};
 	
 	public static final int ATTACK = 0;

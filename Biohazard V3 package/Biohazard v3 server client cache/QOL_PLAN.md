@@ -1,9 +1,13 @@
 # QOL_PLAN.md — Skilling realism, world content and quality-of-life
 
-Status: **design only, no code written yet.**
+Status: **Phase 0 landed; Phases 1-8 still design only.**
 Scope: the whole QOL list, sequenced. Nothing here overrides an existing server
 function; §0 is the mechanism for that and §2 is the contract that makes
 "reference an item that does not exist yet" safe.
+
+Phase 0 (below) is implemented and green: `ItemUseRegistry`, `ItemOnObjectRegistry`,
+`ItemDefinitions` (the §2 never-null accessor) and the `Config` flag block. The content
+validator is the remaining Phase 0 piece.
 
 ## The two references, and how they rank
 
@@ -71,6 +75,19 @@ Remaining rules:
 Phase 0 deliverables: `ItemUseRegistry`, `ItemOnObjectRegistry`, the §2 safety accessor,
 a `tools/qol` validator, a `Config` flag block, and one `UPDATE_LOG` entry. No gameplay
 change.
+
+**Landed (2026-10-10).** `ItemUseRegistry` and `ItemOnObjectRegistry` in
+`server.game.players.actions.items`, both consulted by `UseItem` after its predicate
+guards and before its inline checks; `ItemOnObjectRegistry` refuses the nine cooking
+object ids that `ItemOnObject.processPacket` handles itself, so two handlers can never
+run for one click. `ItemDefinitions` in `server.game.items` provides the §2 never-null
+lookup. The `Config` flag block is in. 16 new tests; 907 total, 0 failures.
+
+**Still to do for Phase 0:** the `tools/qol` validator — warn for a referenced id with no
+definition (that is the legitimate "not imported yet" case), fail for a registration that
+collides with an id the legacy code still handles (that is a real conflict). Also open:
+whether to harden the existing name-based paths (`Item.getItemName` returning `null`) in
+this phase or as its own change; the safe accessor exists so new code never needs them.
 
 ---
 
@@ -561,7 +578,7 @@ reviewable, revertible file per batch.
 
 | # | Phase | Why here | Depends on |
 |---|---|---|---|
-| 0 | Registries + §2 safe accessor + validator | Everything after registers instead of editing switches, and may reference ids that do not exist yet | — |
+| 0 | Registries + §2 safe accessor + validator | Everything after registers instead of editing switches, and may reference ids that do not exist yet | — — **done**, except the validator |
 | 1 | Fletching realism (1-by-1, shaft fix, stringing) | Your headline; small; very visible; fixes a real bug | 0 (optional) |
 | 2 | Random events, flag-driven (nest + genie on) | Cheap, visible, exact flags you asked for | 0 |
 | 3 | Skilling completeness (N1 tables: potions, gems, glass, spinning, agility, rune/smith) | The "done to full completion" goal; §8.2 dose model | 0, 1 (pattern) |

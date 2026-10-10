@@ -17,6 +17,8 @@ import server.game.npcs.NPCHandler;
 import server.game.players.Client;
 import server.game.players.Player;
 import server.game.players.Poisonable;
+import server.game.players.actions.items.ItemOnObjectRegistry;
+import server.game.players.actions.items.ItemUseRegistry;
 import core.util.Misc;
 
 
@@ -30,6 +32,12 @@ public class UseItem {
 			return;
 		if (DwarfCannon.isCannonObject(objectID)) {
 			DwarfCannon.itemOnCannon(c, itemId, objectID, objectX, objectY);
+			return;
+		}
+		// Item-on-object families migrated out of the switch below. Consulted after the
+		// guards above — the cannon claims a set of objects by predicate, which an exact
+		// key cannot express — and before the switch, so the two never both run.
+		if (ItemOnObjectRegistry.dispatch(c, itemId, objectID, objectX, objectY)) {
 			return;
 		}
 		switch(objectID) {
@@ -86,6 +94,11 @@ public class UseItem {
 	public static void ItemonItem(Client c, int itemUsed, int useWith) {
         if(Poisonable.useItemonItem(c, useWith, itemUsed))
             return;
+		// Item recipes migrated out of the inline checks below. Consulted after the poison
+		// guard and before them, so the two never both run for the same pair.
+		if (ItemUseRegistry.dispatch(c, itemUsed, useWith)) {
+			return;
+		}
 		if (itemUsed == CrystalChest.toothHalf()
 				&& useWith == CrystalChest.loopHalf()
 				|| itemUsed == CrystalChest.loopHalf()
