@@ -215,6 +215,25 @@ tasks.register('workshopValidateScripts', JavaExec) {
     workingDir = projectDir
 }
 
+// ---- Bot Workshop script resolution (BOT_TOOLING.md T6b) ------------------------------
+//
+// Answers whether the kinds a script names exist — the question workshopValidateScripts (can the
+// server load it?) and workshopValidate (do the authored boxes contain their objects?) both leave
+// open. Reads Data/cfg, and Data/world only when a named kind has no place in the table, so the
+// common case stays instant; -PworkshopCensus forces the full count. -Xmx because counting the
+// world loads Region, which is what workshopExport needs the same heap for.
+tasks.register('workshopResolveScripts', JavaExec) {
+    description = 'Checks that the kinds the authored scripts name exist (T6b).'
+    group = 'bot workshop'
+    classpath = sourceSets.workshop.runtimeClasspath
+    mainClass = 'botworkshop.ResolveScripts'
+    workingDir = projectDir
+    jvmArgs = ['-Xmx2000m']
+    if (project.hasProperty('workshopCensus')) {
+        args = ['--world']
+    }
+}
+
 // ---- Bot Workshop editor model (BOT_TOOLING.md T5b) -----------------------------------
 //
 // The document model both the timeline and the graph render (`workshop/web/js/script-doc.js`). It is

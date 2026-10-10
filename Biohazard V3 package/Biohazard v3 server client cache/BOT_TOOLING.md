@@ -222,21 +222,30 @@ structure the runtime executes (roadmap Phase D):
 
 ```json
 {
-  "name": "gather_oak",
   "root": {
-    "type": "repeat", "count": -1,
+    "node": "repeat",
+    "count": -1,
     "child": {
-      "type": "sequence",
+      "node": "sequence",
       "children": [
-        { "type": "walkToNearest", "resource": "tree.oak", "range": 3 },
-        { "type": "gather", "resource": "tree.oak", "item": "logs", "until": "inventoryFull" },
-        { "type": "walkToNearest", "region": "bank.draynor" },
-        { "type": "bankAll", "item": "logs" }
+        { "node": "walk_to_nearest", "kind": "tree", "range": 3 },
+        { "node": "gather", "kind": "tree", "itemId": 1511 },
+        { "node": "walk_to_nearest", "kind": "bank", "range": 2 },
+        { "node": "bank_logs", "logItemId": 1511 }
       ]
     }
   }
 }
 ```
+
+Two things in that block are worth reading carefully, because the sketch this section used
+to carry got both wrong and an author following it would write a file the loader refuses.
+A node is named by `node` and identified by its `@BotNode` id (`walk_to_nearest`, not
+`walkToNearest`) — §7.1 is the schema. And it asks for a **kind** (`tree`, `bank`), not a
+resource name or a region name: a locator turns a kind into a place, which is what lets one
+script work wherever the bot is standing (§5 of `BOT_ROADMAP.md`, and `BOT_LOCATIONS.md`
+for the table). The kinds a script names are what `workshopResolveScripts` checks (§6), so
+getting them from a typo'd example is not a harmless mistake.
 
 Timeline and graph are two views of one document; switching never loses data. The timeline
 is built first (decision); the graph landed once `Selector`/`Parallel` existed in the
@@ -307,6 +316,24 @@ path and current state node on the map. A possessed bot is just a player in the 
 so the tool can show which account is currently script-driven and which is idle — the
 same account a human could log into and play. This is the strongest debugging feature,
 but it is an add-on, not a foundation.
+
+**Three questions, and the tool answers all of them offline.**
+
+| Question | Command |
+| --- | --- |
+| Can the server load this document? | `workshopValidateScripts` — the directory through `ScriptDocument` |
+| Do the authored boxes contain the objects they claim? | `workshopValidate` — every `locations.cfg` row scanned against the world |
+| Do the kinds the scripts name exist at all? | `workshopResolveScripts` — the kinds read off the schema, against `Data/cfg` and, when needed, a census of `Data/world` |
+
+The third is the one that would otherwise be a **manual check** — spawn the bot and watch.
+The schema cannot answer it (a node knows a kind, not the world) and the location table
+cannot either, because the interesting failure is a kind an author asked for and never
+authored a row for. It reads `Data/cfg` alone when every kind named has a place there, and
+counts the whole world only when one does not, so the common case stays instant; `--world`
+forces the count. A kind the table lacks is not an error when the world has objects of it —
+`Locations` falls through to a scan, which is why `locations.cfg` has no rock rows. It exits
+non-zero only when a kind resolves **nowhere**, which is the case with no reading under which
+the bot does anything.
 
 ---
 
@@ -396,6 +423,15 @@ name that would shadow a built-in, and it validates before it touches the disk, 
 leaves the previous file exactly as it was. `gradlew workshopValidateScripts` re-loads the directory
 through the same loader, so a bad script fails in a command rather than as a skipped line at boot.
 
+**What loads is not the same as what works.** A document can pass every check above and still be a bot
+that clicks nothing, because what it names is a *kind* — `tree`, `bank`, `rock` — and no schema knows
+whether the world has one. `gradlew workshopResolveScripts` reads the kinds off the schema, compares them
+against the places `Data/cfg` yields, and counts the world when that is not enough to decide. A kind the
+table lacks (`rock`, `fishing`) resolves by scan and is reported as such; a kind neither has — `cooking`,
+because no object in this cache carries a Cook action — is `NOT FOUND` and fails the command. That is
+the check that used to be "spawn it and watch", and it is the reason the committed example's
+`tree`/`bank` are checked rather than assumed (§6).
+
 **Round-trip.** Reopening a saved script reconstructs its steps. A document this editor did not write —
 one with a nested composite or a decorator around a step — opens in the **graph**
 (§4, Layer 3b) rather than being
@@ -472,6 +508,7 @@ internals.
 | **T5** ✅ | Step timeline editor → `BotScript` JSON (`BOT_WORKSHOP_UX.md` §5). Palette and parameter forms generated from `bot-nodes.json` (§7.2); the server validates the document with its own loader and writes the canonical bytes; reopening reconstructs the timeline |
 | **T5b** ✅ | Graph view over the same document. `workshop/web/js/graph.js` renders the document as an editable outline — structurally nested, so edges are the nesting and there is no layout state to go stale. Composite nodes hold children, decorators and leaves hold parameters, and an author adds either from a menu built from the palette. `script-doc.js` is the shared model both views render, so a document the timeline cannot hold is read-only *there* rather than everywhere, and switching views is byte-identical. `gradlew workshopJsTest` checks that model directly |
 | **T6** ✅ | Round-trip validation: compile a timeline, load it via the runtime, run the slice-1 loop test. `Data/cfg/bots/chop_and_bank.json` is loaded by `AuthoredScriptRunTest` and driven through the real tick loop and skill dispatch until logs are banked; `workshopValidateScripts` re-loads the directory through `ScriptDocument`; `ScriptDocsTest` pins the committed file as canonical |
+| **T6b** ✅ | Offline resolution: does what a script *names* exist? The kinds are read off the schema (`ResolveScripts.wanted`, so no node id is written down), compared against the places `Data/cfg` yields, and — only when a kind has none — against a census of every region on disk (`WorldCensus`, classified by the runtime's `ResourceKinds`). Loads `Data/world` only when an answer depends on it; `--world` forces the count. Fails only on a kind that resolves nowhere |
 | **T7** *(optional)* | Live channel: spawn/step + running-bot trace overlay |
 | (Later) | Generalise to other content (see §12) |
 
@@ -546,5 +583,16 @@ first target is bots, and a bot-only tool that ships beats a general editor that
   through `ScriptDocument`, and ticks it until logs are banked — the real click path and skill dispatch,
   with the world injected exactly as `ScriptLoopTest` injects it. The file the editor wrote is the only
   thing that says what the bot does. Note what this does *not* cover: resolution against the live
-  `Data/world`, which needs a running server (`::bot reload`) and is a manual check.
+  `Data/world`, which needs a running server (`::bot reload`) and is a manual check. **T6b** closes
+  part of that — what the script *names* is checked offline — but the part that remains is a fact about
+  the bot's home rather than about the script, so it stays manual.
+- **T6b:** what a script names can be checked without running the server. ✅ `workshopResolveScripts`
+  reads the kinds off the schema and answers each one: a place in `Data/cfg` resolves it, otherwise the
+  world's own objects do, otherwise it is `NOT FOUND` and the command exits non-zero. Verified against
+  this checkout — `tree` 12,951 and `bank` 176 objects (the latter the same count `ResourceKinds`
+  documents for the bank rule, from a different route), `rock` and `fishing` resolving by scan with no
+  authored row, and `cooking` reported as resolving nowhere. What it does **not** cover: whether the
+  authored box a script will be sent to actually contains the objects it claims, which is
+  `workshopValidate`'s `EMPTY` check, and whether a *scan* finds anything from where the bot starts —
+  that is a fact about the bot's home, not about the script.
 - **Throughout:** deleting the tool and its outputs leaves the server fully functional.

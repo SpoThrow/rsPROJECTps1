@@ -1,5 +1,20 @@
 # Update Log
 
+## 2026-10-10 - T6b: checking what a script names, without starting a server
+
+**What changed:**
+- **The gap T6 recorded as "a manual check" is now a command.** `workshopValidateScripts` proves the server can *load* a document and `workshopValidate` proves the authored boxes contain what they claim, but neither answers "can `gather(rock)` find a rock?" — the schema knows a kind, not the world, and the location table says nothing about a kind an author asked for and never authored a row for. `gradlew workshopResolveScripts` answers it offline.
+- **Two oracles, and the cheap one first.** A kind resolves if `LocationsData` yields a place of it (which needs only `Data/cfg`), or if the world contains an object of it (which needs the whole world counted). The world is loaded *only when an answer depends on it* — a kind with no place in the table — so a script naming `tree` and `bank` stays instant and a script naming `rock` pays for the census. `-PworkshopCensus` forces it.
+- **The census is whole-world and classified by the runtime.** `WorldCensus` walks every region `map_index` names, accumulating `objectId → count` in one pass and classifying the distinct ids afterwards — classifying inline would re-parse a definition for each of the world's ~1.9 million objects, because `ObjectDef` caches twenty. It classifies with `ResourceKinds`, the same table `ScannedLocator` and `ResourceScan` use, so "the world has 412 trees" means 412 objects a `gather(tree)` leaf would accept.
+- **The kinds come off the schema.** `ResolveScripts.wanted` walks the document through `BotNodeRegistry` and reads every `KIND` parameter — the T4 anti-drift rule applied to the check, so a node that gains a kind parameter is covered the day it is annotated. No node id or field name is written down.
+- **Only a definite failure fails.** `SCAN_ONLY` (no row, but the world has objects) is reported with the reason rather than as an error, because `Locations` falls through to a scan and `locations.cfg` says as much about rocks and fishing spots. `NOT FOUND` — the table and the world both lack it — exits non-zero.
+- **A bug the first real run found, and the rule it forced.** The first version reported `tree` as `NOT FOUND` even though six authored rows name trees: the rule read a census of zero as "the world has none of this" when it only meant "the world was not counted". Fixed by making a table row win outright — and now the rule and the load condition agree exactly, since only a kind with no row ever consults the count. Whether an authored box is *worth* walking to stays `workshopValidate`'s `EMPTY` check; answering it here too would make the two commands disagree.
+- **A doc example that would have misled.** BOT_TOOLING §4's graph sketch still used the roadmap-D-era shape (`"type"`, `walkToNearest`, `resource: "tree.oak"`, `region: "bank.draynor"`) — none of which the loader accepts. Corrected to the real format, with a note on why `kind` is the vocabulary, since a typo'd example is how a script comes to name a kind that resolves nowhere.
+
+**Files touched:** new `workshop/src/botworkshop/{ResolveScripts,WorldCensus}.java`, `workshop/test/botworkshop/ResolveScriptsTest.java`. Modified `build.gradle` (`workshopResolveScripts`), `BOT_TOOLING.md` (§4 example, §6 the three questions, §7.2, T6b, acceptance).
+
+**Status:** done. **868 tests, 0 failures** (855 → 868, the 13 new ones in `workshopTest`); `workshopJsTest` 18/18. Verified on this checkout: `tree` 12,951 objects and `bank` 176 (the same count `ResourceKinds` documents for the bank rule, reached by a different route), `rock` 1,724 and `fishing` 39 resolving by scan with no authored row, `cooking` reported as resolving nowhere and exiting 1. Remaining in the track: **T7** (optional live channel).
+
 ## 2026-10-10 - T5b: the graph view — one document, two projections, no view holding state the other can lose
 
 **What changed:**
