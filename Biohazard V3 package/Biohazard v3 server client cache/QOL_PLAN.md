@@ -222,8 +222,8 @@ lookups and task-leak idiom; R's `Smithing.java` (897 lines of
 |---|---|---|---|
 | **Fletching** | `Fletching.java` — **instant whole inventory**; the shafts path also skipped the level check and the animation, and took its log from the table rather than from the product, so it could consume a log other than the one the interface was opened with. `handleFletchingClick` closes the window instead of looping. | **N1** (ticked, correct 1:15) | Full port of the tick loop and the `BowData`/`ArrowData`/`BoltData`/`StringingData` tables. §5. |
 | **Herblore / potions** | `Herblore.java` 8.4 KB; `Potions.java` 73 `case`s; `PotionMixing.mixPotion2` already wired (`UseItem.java:107`). | **N1** (much fuller) | `CombiningDoses`, `FinishedPotions`, `UnfinishedPotions`, `SpecialPotion` (extremes/overload), `Crushing`, `Decanting`. §6.2. |
-| **Runecrafting** | `craftRunes` crafts the **whole inventory in one `while`** (`:65-70`). | N1 | Tick per essence; rune/multiplier table. |
-| **Smithing / Smelting** | Instant `while (maketimes > 0)`; 26.9 KB interface. | R numbers, N1 shape | Keep our interface; tick the loop; port product/XP/level as a table. N1's `SmithingData` is 55 KB. |
+| **Runecrafting** | **Off the instant batch since 2026-10-10**: `craftRunes` used to bind the whole inventory in one `while`, and its multiplier ladder was one rung short of the top. See §4g. | N1 | The rune/multiplier table is ours and is now pinned by a test; little left to take. |
+| **Smithing / Smelting** | Smelting was already ticked (`Smelting` + `SmeltingSession`); the **anvil came off the instant `while (maketimes > 0)` on 2026-10-10** (§4g). The 26.9 KB `Check*` chain and its static fields are still open. | R numbers, N1 shape | Keep our interface; port product/XP/level as a table. N1's `SmithingData` is 55 KB. |
 | **Jewellery / Tanning / Leather** | Instant batches. | N1 | `Gems`, `Jewelry`, `Tanning`/`tanningData`, `LeatherMaking`/`leatherData` tables; make ticked. |
 | **Crafting** | Has `CraftingData`, `GemCutting`, `JewelryMaking`, `LeatherMaking`, `Tanning`. **Missing Pottery, Glassblowing, Spinning, Soft clay** — yet our guide advertises them (`SkillInterfaces.java:1379-1451`). | **N1** | N1's `crafting/` package (Gems, Jewelry, Flax, leather, tanning). Close the guide/behaviour mismatch. |
 | **Agility** | One 14.3 KB `Agility.java`. | **N1** — `ObstacleData.java` is 25.7 KB | Take the obstacle table; biggest single content win. |
@@ -480,6 +480,82 @@ cleaning only the clicked herb, the experience each family awards (and the two t
 the pestle surviving grinding, both mixing steps ticked and re-checked, cancellation on a walk,
 registry coverage of every pair and the duplicate-registration guard, and **the two-player
 cross-wiring bug** as a named regression.
+
+**Correction, same day — the menu was right and the second bullet above was wrong.** OSRS *does*
+ask "how many would you like to make?" when a herb goes on a vial of water, and it does keep making
+them while you stand there: the chatbox is interface `4429` with the four buttons
+`10239`/`10238`/`6212`/`6211` (make 1/5/10/28), which is where the ids the pre-rewrite menu read
+came from. What was wrong with our old one was the state behind it — four static fields holding the
+recipe *and the amount*, so one player's menu answered another player's click, and "make 5" was a
+server-wide instruction. So the mixing steps read it again, per player this time:
+
+- `Herblore.mix` (both tables) opens `4429` through `SkillHandler.send1Item` with the product's own
+  model and name, remembers the combined pair on the player (`herbloreDialogue` plus
+  `herbloreItem1`/`herbloreItem2`) and **consumes nothing**. The pair is stored as the two ids that
+  were combined rather than as a resolved recipe, so the tables stay the only thing that knows what
+  a pair makes.
+- Those four buttons are routed in `ClickingButtons` while the flag is set and start a two-cycle
+  batch: one potion per action until the amount asked for is made, the materials run out, or the
+  player walks. The amount lives in the event closure, not in `c.doAmount`.
+- Nothing is consumed until the first potion is actually made, so the menu is safe to ignore, and a
+  walk both closes it and stops the batch.
+- **Grinding keeps one-per-click**, and that is a decision: the pestle is a tool rather than an
+  ingredient, so there is no stack of second materials for an amount to be an amount *of*. Sharing
+  `Herblore.start`'s amount parameter with it would be one line if that ever changes.
+
+The button ids are this interface's own — deliberately not the leather menu's, which puts ten on
+`10238` and twenty-eight on `6212` on interface 1743. Two rows are only interchangeable within
+their own interface.
+
+Tests: 32 in `HerbloreTest` now, the ten added ones pinning the button table, the open-consumes-
+nothing step, the remembered pair, 1/5/all stopping exactly where they should, the two-cycle
+pacing, and the amount not crossing between two players.
+
+---
+
+## 4g. Runecrafting and the anvil — off the instant batch
+
+**Landed (2026-10-10).** These were the last two "whole batch in one tick" loops §4 names:
+`Runecrafting.craftRunes` bound every essence in the pack in a single `while`, and
+`Smithing.doaction` hammered `maketimes` items in `while (maketimes > 0)`. Both are now one item per
+action on the fletching cadence (two cycles), with every value travelling in the event closure rather
+than through a class, and both cancel when the player walks — `PlayerAssistant.resetVariables` calls
+`Runecrafting.cancel` and `Smithing.cancel` beside the herblore and fletching ones.
+
+**Runecrafting.** One essence every two cycles, animation `791` and gfx `186` re-armed each time.
+Three silent defects went with the rewrite:
+
+- **The multiplier ladder had an off-by-one.** The old loop walked the ladder from index 1, so it
+  could return at most `length - 1`: an air essence at level 99 made **nine** air runes instead of
+  ten, and every rune above air was one short of its own top rung. `getMultiplierForLevel` now counts
+  the rungs a level has passed, with the level requirement itself as the first rung.
+- **The altar list was duplicated** in `ClickObject` as a hand-written `int[] altarID`, and the copy
+  stopped at blood — `30625`, the soul altar, was in the table and unreachable by clicking it. The
+  list now lives with the table (`Runecrafting.isAltar`).
+- **An altar clicked with no essence said nothing at all**, which reads as a broken altar. It says so
+  now.
+
+**Experience is deliberately unchanged**, and it is the one place this skill and OSRS disagree: the
+award is `(int) xp * Config.RUNECRAFTING_EXPERIENCE` (15× here) per essence, *not* multiplied by the
+rune ladder, where the real game does multiply it. Multiplying an already-fifteen-fold rate by a
+further ten is a balance change rather than a realism one, so it is left alone and recorded as an
+open question in §14.
+
+**Smithing.** One item every two cycles, bars re-checked each cycle. The per-bar batch sizes (darts
+10, nails and arrowheads 15, knives 5, cannon parts 4, everything else 1) are the real game's yields,
+and extracting them into `batchSize` fixed a live bug: the old comparisons were case-sensitive against
+a name the item table capitalises, so `contains("knife")` and `contains("cannon")` could never match
+"Knife" or "Cannon_base" — **knives and cannon parts were made one per bar**.
+
+The `item`/`xp`/`remove`/`removeamount`/`maketimes` **static** fields are still there and still how
+the `Check*` chains hand their result to `doaction`, which is why the action takes every one of them
+as a parameter and reads none of them: a ticked action outlives the click that started it, so a
+second player's click would otherwise re-point a running batch at another product. That property is
+driven through the real `readInput` entry point by a test. **Still open:** collapsing the 26.9 KB
+`Check*` chain into a metal/product table, which is what would let the statics go.
+
+Tests: 17 in `RunecraftingTest`, 11 in `SmithingTest`. **1148 tests, 0 failures** (992 server + 156
+workshop).
 
 ---
 
@@ -987,7 +1063,7 @@ reviewable, revertible file per batch.
 | 0 | Registries + §2 safe accessor + validator | Everything after registers instead of editing switches, and may reference ids that do not exist yet | — — **done** |
 | 1 | Fletching realism (1-by-1, shaft fix, stringing) | Your headline; small; very visible | 0 (optional) — **done**: bows, shafts, arrows, bolts, tipping and stringing |
 | 2 | Random events, flag-driven (nest + genie on) | Cheap, visible, exact flags you asked for | 0 — **done**; further classics need their dialogue written first |
-| 3 | Skilling completeness (N1 tables: potions, gems, glass, spinning, agility, rune/smith) | The "done to full completion" goal; §8.2 dose model | 0, 1 (pattern) — **spinning + pottery + weaving + soft clay + darts/arrows/bolts + herblore done**, glass is UI-blocked (§4e), agility **parked** (see the log entry for 2026-10-10) |
+| 3 | Skilling completeness (N1 tables: potions, gems, glass, spinning, agility, rune/smith) | The "done to full completion" goal; §8.2 dose model | 0, 1 (pattern) — **spinning + pottery + weaving + soft clay + darts/arrows/bolts + herblore + runecrafting + anvil smithing done**, glass is UI-blocked (§4e), agility **parked** (see the log entry for 2026-10-10), the `Check*` smithing table still open (§4g) |
 | 4 | World interactivity: fillables (R), pickables (R), searchable/climbable scenery, doors/gates | The "feels finished" layer; mostly data + registrations | 0 |
 | 5 | Shops, potions breadth, guilds, glider verify | Pure breadth, additive data; safest wins | 0 |
 | 6 | Bank PIN | One genuine client/UI decision first | 0 |
@@ -1034,12 +1110,22 @@ custom keypad (client work). Also decide the **bot interaction**: bots occupy re
    not a usable reference either.
 5. **Ticked-skilling default** — make every production skill OSRS-slow, or only fletching
    with the rest behind a flag defaulted to today's fast behaviour? This is a gameplay
-   feel decision and it is yours.
+   feel decision and it is yours. **What has actually happened since:** every slice has been
+   ticked without a flag — fletching, herblore, spinning, weaving, pottery, runecrafting and the
+   anvil — so the answer in practice is trending towards "ticked by default", at two cycles an
+   action. If you want a global fast/slow switch, say so before the next skill lands.
 6. **Definition import file** — happy with a separate `Data/cfg/item-extra.cfg` for
    imported higher-revision items, leaving `item.cfg` untouched?
 7. **Creation menus in the chatbox** — do you want the "choose what to make" menus moved from
    the sidebar into the chatbox, as in the screenshots? Recorded as a request in §15; the
-   screenshots still need to be looked at before there is anything concrete to decide.
+   screenshots still need to be looked at before there is anything concrete to decide. **Partly
+   answered by doing:** herblore's two mixing steps now use the chatbox (`4429`, make 1/5/10/28) as
+   of 2026-10-10 — that is the shape, reached with an interface this client already has. The
+   families that pick a *product* (bows, jewellery, gem cutting) are still sidebar menus.
+8. **Runecrafting experience** — should the award scale with the rune multiplier, as it does in
+   OSRS (so an air essence at 99 is 5 × 10 × the rate rather than 5 × the rate)? It is currently
+   flat per essence, matching the pre-existing behaviour, because `Config.RUNECRAFTING_EXPERIENCE`
+   is already 15× and compounding it with a further ×10 is a balance decision. §4g.
 
 ---
 
@@ -1067,5 +1153,11 @@ What already matters for planning:
   material has several products (logs → bows and shafts, gems → jewellery, herbs → potions).
 - Whether the chatbox menu in the screenshots exists in this client or has to be authored is the
   same wall §4e hit for glassblowing; its three options apply here unchanged.
+- **Partly landed, 2026-10-10:** herblore's two mixing steps now open interface `4429` — the
+  chatbox "How many would you like to make?" with 1/5/10/28 — and brew the amount while you stand
+  there (§4f). That is the shape this request describes, and it needed no new UI: the interface was
+  already in the client and this server's pre-QOL code had been using it. It is the **amount**
+  prompt, though, not the pick-a-*product* prompt the screenshots are about; a pair is one recipe,
+  so there is nothing to choose.
 - Nothing has been checked beyond the above. This entry is a request, not a design, and nothing in
   it is scheduled in §12.

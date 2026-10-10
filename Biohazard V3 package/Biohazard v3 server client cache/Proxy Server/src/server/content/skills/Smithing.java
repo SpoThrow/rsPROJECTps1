@@ -1,13 +1,31 @@
 package server.content.skills;
 
 import server.Config;
+import server.event.CycleEvent;
+import server.event.CycleEventContainer;
+import server.event.CycleEventHandler;
 import server.game.items.ItemAssistant;
 import server.game.players.Client;
 import server.game.players.Player;
 
 /**
- **/
- 
+ * Smithing: smelting bars (see {@code Smelting}) and working them at an anvil.
+ *
+ * <p><b>The anvil used to be instant and that is the whole of this note.</b> {@code doaction} ran
+ * {@code while (maketimes > 0)}, so a "make 5" produced all five in the game cycle of the click, with
+ * one animation and five experience awards stacked on top of each other. A hammered item is now one
+ * item every {@link #ACTION_CYCLES} cycles — the same shape as fletching, herblore and pottery —
+ * and walking away from the anvil ends it, which the batch could not do because nothing was running
+ * to interrupt.
+ *
+ * <p><b>The {@code item}/{@code xp}/{@code remove}/{@code removeamount}/{@code maketimes} fields are
+ * a hazard this rewrite had to step around.</b> They are static, and the per-metal {@code Check*}
+ * chains below fill them in immediately before calling {@link #doaction}. That is safe in the
+ * instant path because the values are read back in the same call, but a ticked action reads its
+ * state cycles later — so the action takes every one of those values as a parameter and never
+ * touches the statics. Converting that chain into a table (so the statics can go) is still open; it
+ * is recorded in {@code QOL_PLAN.md}.
+ */
 public class Smithing {
 	
 	private final static int[] SMELT_BARS = {2349,2351,2355,2353,2357,2359,2361,2363};
@@ -15,6 +33,19 @@ public class Smithing {
 	private final static int[] ORE_1 = {438,440,-1,440,444,447,449,451};
 	private final static int[] ORE_2 = {436,-1,-1,-1,-1,-1,-1,-1};
 	private final static int[] SMELT_EXP = {6,13,-1,18,23,30,38,50};
+
+	/** Hammering at the anvil, re-armed once per item. */
+	static final int SMITH_ANIMATION = 898;
+
+	/**
+	 * Event id for the ticked anvil action, non-zero for the same reason fletching's is: it is what
+	 * lets {@link #cancel} stop this action and nothing else the player is running.
+	 */
+	private static final int SMITHING_EVENT = 4621;
+
+	/** Two cycles per item, matching fletching and herblore. */
+	private static final int ACTION_CYCLES = 2;
+
 	public static int item;
 	public static int xp;
 	public static int remove;
@@ -1172,76 +1203,116 @@ remove = 2361;
 		doaction(c, item, remove, removeamount, maketimes, -1, -1, xp);
 		
 	}
-	public static boolean doaction(Client c, int toadd, int toremove, int toremove2, int timestomake, int NOTUSED, int NOTUSED2, int xp) {
-		int maketimes = timestomake;
+	/**
+	 * One anvil action: {@code timestomake} items, one every {@link #ACTION_CYCLES} cycles, until the
+	 * amount is made, the bars run out, or the player walks away.
+	 *
+	 * <p>Every value this needs arrives as a parameter, because the {@code Check*} chains hand them
+	 * over through static fields (see the class comment) and an action that runs for several cycles
+	 * cannot read a field another player's click may have overwritten in the meantime.
+	 *
+	 * <p>A second click replaces a running action rather than starting a second loop over the same
+	 * bars — the old instant batch would simply have consumed twice.
+	 */
+	public static boolean doaction(Client c, final int toadd, final int toremove, final int toremove2,
+			int timestomake, int NOTUSED, int NOTUSED2, final int xp) {
 		c.getPA().closeAllWindows();
-		if (c.getItems().playerHasItem(toremove, toremove2))
+		if (!c.getItems().playerHasItem(toremove, toremove2))
 		{
-			c.startAnimation(898);
-		if (maketimes > 1 && c.getItems().playerHasItem(toremove, toremove2 * 2))
+			c.sendMessage("You don't have enough bars to make this item!");
+			return false;
+		}
+		CycleEventHandler.stopEvents(c, SMITHING_EVENT);
+		c.playerSkilling[Player.playerSmithing] = true;
+		c.startAnimation(SMITH_ANIMATION);
+		if (timestomake > 1 && c.getItems().playerHasItem(toremove, toremove2 * 2))
 		{
-		c.getItems();
-		c.sendMessage("You make some " + ItemAssistant.getItemName(toadd) +"s.");
+			c.getItems();
+			c.sendMessage("You make some " + ItemAssistant.getItemName(toadd) +"s.");
 		}
 		else
 		{
 			c.getItems();
 			c.sendMessage("You make a " + ItemAssistant.getItemName(toadd)+ ".");
 		}
-		while (maketimes > 0)
-		{
-			if (c.getItems().playerHasItem(toremove, toremove2))
-			{
-		c.getItems().deleteItem2(toremove, toremove2);
-		c.getItems();
-		if (ItemAssistant.getItemName(toadd).contains("dart"))
-		{
-			c.getItems().addItem(toadd, 10);
-		} else {
-			c.getItems();
-			if (ItemAssistant.getItemName(toadd).contains("nail"))
-			{
-				c.getItems().addItem(toadd, 15);
-			} else {
-				c.getItems();
-				if (ItemAssistant.getItemName(toadd).contains("arrow"))
-				{
-					c.getItems().addItem(toadd, 15);
-				} else {
-					c.getItems();
-					if (ItemAssistant.getItemName(toadd).contains("knife"))
-					{
-						c.getItems().addItem(toadd, 5);
-					} else {
-						c.getItems();
-						if (ItemAssistant.getItemName(toadd).contains("cannon"))
-								{
-							c.getItems().addItem(toadd, 4);
-								}
-						else
-						{
-						c.getItems().addItem(toadd, 1);
-						}
-					}
+
+		final int[] remaining = { timestomake };
+		CycleEventHandler.addEvent(SMITHING_EVENT, c, new CycleEvent() {
+			@Override
+			public void execute(CycleEventContainer container) {
+				if (!c.playerSkilling[Player.playerSmithing] || remaining[0] <= 0
+						|| !c.getItems().playerHasItem(toremove, toremove2)) {
+					container.stop();
+					return;
 				}
+				c.getItems().deleteItem2(toremove, toremove2);
+				c.getItems().addItem(toadd, batchSize(toadd));
+				c.getPA().addSkillXP(xp * Config.SMITHING_EXPERIENCE, Player.playerSmithing);
+				// Re-armed each cycle, as herblore and pottery do: one hammer swing lasts about one
+				// item, and a batch would otherwise be silent and still after the first.
+				c.startAnimation(SMITH_ANIMATION);
+				remaining[0]--;
 			}
-		}
-		c.getPA().addSkillXP(xp * Config.SMITHING_EXPERIENCE, 13);
-		c.getPA().refreshSkill(13);
-		maketimes--;
+
+			@Override
+			public void stop() {
+				cancel(c);
 			}
-			else
-			{
-				break;
-			}
-		}
-		}
-		else
-		{
-			c.sendMessage("You don't have enough bars to make this item!");
-			c.getPA().closeAllWindows();
-			return false;
-		}
+		}, ACTION_CYCLES);
 		return true;
+	}
+
+	/**
+	 * How many items one bar yields, read from the product's name: dart tips come in tens, nails and
+	 * arrowheads in fifteens, knives in fives, cannonballs in fours, and everything else one at a
+	 * time. Those are the per-bar yields the real game has, which is why the old loop carried these
+	 * numbers.
+	 *
+	 * <p>Extracted from the body of the old loop, with one fix. The old comparisons were
+	 * case-sensitive against a name the item table capitalises, so {@code contains("knife")} and
+	 * {@code contains("cannon")} could never match "Knife" or "Cannon_base" — <b>knives and cannon
+	 * parts were made one per bar</b> while darts, nails and arrowheads (whose names carry the word in
+	 * lower case, as in "Bronze_dart_tip") worked. The name is lower-cased once here, so all five
+	 * branches are live.
+	 */
+	static int batchSize(int product) {
+		String name = ItemAssistant.getItemName(product).toLowerCase();
+		if (name.contains("dart"))
+		{
+			return 10;
+		}
+		if (name.contains("nail"))
+		{
+			return 15;
+		}
+		if (name.contains("arrow"))
+		{
+			return 15;
+		}
+		if (name.contains("knife"))
+		{
+			return 5;
+		}
+		if (name.contains("cannon"))
+		{
+			return 4;
+		}
+		return 1;
+	}
+
+	/**
+	 * Stops a running anvil action, if one is running.
+	 *
+	 * <p>Keyed on its own event id rather than on the player: {@code stopEvents(c)} would stop every
+	 * event the player owns, and they own other skills' events too. Called from
+	 * {@code PlayerAssistant.resetVariables}, which every walk reaches, so stepping away from the
+	 * anvil ends the action the way it ends fletching and herblore.
+	 */
+	public static void cancel(Client c) {
+		if (c.playerSkilling[Player.playerSmithing]) {
+			c.playerSkilling[Player.playerSmithing] = false;
+			CycleEventHandler.stopEvents(c, SMITHING_EVENT);
+			c.startAnimation(65535);
+		}
 	}
 }

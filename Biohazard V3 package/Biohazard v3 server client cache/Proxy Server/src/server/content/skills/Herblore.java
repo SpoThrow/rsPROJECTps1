@@ -11,19 +11,20 @@ import server.game.players.Player;
 /**
  * Herblore: cleaning herbs, grinding, unfinished potions and finished potions.
  *
- * <p><b>Everything here is one action per click, and it used to be a batch.</b> The four families
- * were driven by four static fields ({@code itemToDelete}, {@code itemToAdd}, {@code potExp} and
- * friends) that the click filled in and a tick loop read back out, with the amounts chosen through
- * a make-X menu. Two things were wrong with that, and only one of them is about realism:
+ * <p><b>Mixing is a chatbox and a batch. The batch is the older half; the chatbox is the newer
+ * one, and the state behind both used to be the bug.</b> The four families were driven by four
+ * static fields ({@code itemToDelete}, {@code itemToAdd}, {@code potExp} and friends) that the
+ * click filled in and a tick loop read back out, with the amount taken from a make-X menu. The
+ * menu itself was right — OSRS does ask "how many would you like to make?" when a herb goes on a
+ * vial of water, and it does keep making them while the player stands there — but everything
+ * holding it together was wrong:
  *
  * <ul>
  * <li>A static field is shared by every player on the server. Two people mixing at once — one an
  * attack potion, one a super strength — wrote to the same four fields, so the tick loop could
- * deliver one player's product to the other, or consume the wrong materials.
- * <li>The menus are not how herblore works in OSRS. A herb on a vial of water is one potion per
- * click, and so is an ingredient on an unfinished potion: there is no "how many would you like"
- * for either. Fletching's fifteen-at-a-time and ten-at-a-time batches exist because OSRS makes
- * arrows and bolts in batches; herblore does not.
+ * deliver one player's product to the other, or consume the wrong materials. The recipe now
+ * travels with the click (on the player) and then with the event (in its closure).
+ * <li>The amount lived in those same fields, so "make 5" was a server-wide instruction.
  * </ul>
  *
  * <p>So the tables below are read directly by the action instead of being flattened into shared
@@ -31,12 +32,20 @@ import server.game.players.Player;
  * {@link server.game.players.actions.items.ItemUseRegistry} — see {@code HerbloreItemUses}. Every
  * recipe is a pair of item ids, so the registry owns the whole family rather than only part of it.
  *
+ * <p><b>How the mix works, in three steps.</b> Combining the pair opens interface 4429 with the
+ * potion's own model and name and stores the pair on the player ({@link #mix}); the four buttons
+ * on that chatbox pick 1, 5, 10 or all ({@link #select}); and the tick loop then produces one
+ * potion every two cycles until the amount asked for is made, the materials run out, or the player
+ * walks ({@link #start}). Nothing is consumed until the first potion is actually made, so the
+ * chatbox is free to be ignored.
+ *
  * <p><b>Cleaning is not ticked, and that is a decision.</b> A grimy herb is one item in the pack
  * with no second item and no world object, so there is nothing for a tick to pace against and
  * nothing a walk can interrupt — the same reasoning as {@code SoftClay}. OSRS has no cleaning
  * animation, so there is none here; the message and the experience are the whole of the feedback.
  * Mixing and grinding are ticked at two cycles, the fletching cadence, because they are the actions
- * a player repeats.
+ * a player repeats. Grinding keeps its one-per-click: the pestle is a tool rather than an
+ * ingredient, and a grind is not a potion.
  *
  * <p><b>Levels are this revision's own guide except where the guide is demonstrably wrong.</b> The
  * Herblore guide prints a level beside every potion and every herb, and those printed levels are
@@ -70,6 +79,22 @@ public class Herblore {
 
 	/** Two cycles per action, matching fletching rather than the old one-cycle loop. */
 	private static final int ACTION_CYCLES = 2;
+
+	/**
+	 * The four "make" buttons on the mixing chatbox, with the number each one asks for.
+	 *
+	 * <p>They are the ids interface 4429's own buttons send, and they are the ones this server's
+	 * pre-rewrite herblore menu read, so they are known to work in this client rather than inferred.
+	 * Note they are <em>not</em> the same ids as the leather menu's: interface 1743 rows send
+	 * {@code 10238} for ten and {@code 6212} for twenty-eight, where 4429 sends five and ten. A row
+	 * is only interchangeable with another row of its own interface.
+	 */
+	private static final int[][] AMOUNT_BUTTONS = {
+			{ 10239, 1 },
+			{ 10238, 5 },
+			{ 6212, 10 },
+			{ 6211, 28 },
+	};
 
 	/** Sentinel for "this recipe has only one material". */
 	private static final int NO_SECOND_MATERIAL = 0;
@@ -410,6 +435,9 @@ public class Herblore {
 	 * <p>Registered in {@code ItemUseRegistry} for every row, so it is reached through
 	 * {@link server.game.players.actions.items.ItemUseRegistry#dispatch} and no longer through the
 	 * make-X menu the old grinding path opened.
+	 *
+	 * <p>One grind per click, no chatbox: the pestle is the tool and the item is the ingredient, so
+	 * there is no second material for an amount to be an amount <em>of</em>.
 	 */
 	public static void grind(Client c, int itemUsed, int useWith) {
 		Grinding grindable = forGrindable(itemUsed);
@@ -423,49 +451,141 @@ public class Herblore {
 			return;
 		}
 		start(c, grindable.input, NO_SECOND_MATERIAL, grindable.product, 0, 0, GRIND_ANIMATION,
-				"You grind down the " + grindable.name + ".");
+				"You grind down the " + grindable.name + ".", 1);
 	}
 
 	/**
-	 * Herb on a base, or a secondary on an unfinished potion.
+	 * Herb on a base, or a secondary on an unfinished potion: opens the "how many would you like to
+	 * make?" chatbox for the recipe the pair belongs to.
 	 *
 	 * <p>One entry point for both because the two families are the same action with different
 	 * numbers, and because the registry hands over whichever id the client sent first. Unfinished is
 	 * tried first only so that the two tables cannot be confused for one another; their pairs are
 	 * disjoint, which a test pins.
+	 *
+	 * <p><b>Nothing is consumed here.</b> The pair is remembered on the player and the interface is
+	 * opened; the materials only leave the pack once a button has been clicked and the first potion
+	 * is actually made, which is what makes the chatbox safe to ignore or walk away from.
 	 */
 	public static void mix(Client c, int item1, int item2) {
 		Unfinished unfinished = forUnfinished(item1, item2);
 		if (unfinished != null) {
-			start(c, unfinished.base, unfinished.herb, unfinished.potion, 0, unfinished.levelReq,
-					MIX_ANIMATION, null);
+			openChatbox(c, item1, item2, unfinished.potion, unfinished.levelReq);
 			return;
 		}
 		Finished finished = forFinished(item1, item2);
 		if (finished != null) {
-			start(c, finished.unfinished, finished.secondary, finished.potion, finished.xp,
-					finished.levelReq, MIX_ANIMATION,
-					"You make a " + ItemAssistant.getItemName(finished.potion).toLowerCase() + ".");
+			openChatbox(c, item1, item2, finished.potion, finished.levelReq);
 		}
 	}
 
 	/**
-	 * One ticked herblore action: consume the materials, deliver the product, award the experience.
+	 * Opens the mixing chatbox for a pair: the recipe's model and name into interface 4429, and the
+	 * pair into the player.
 	 *
-	 * <p><b>Per player, with no shared state.</b> The recipe travels with the event closure rather
-	 * than through static fields, which is what the old path could not do and why it cross-wired two
-	 * players mixing at the same time.
+	 * <p>The level is checked here rather than at the button, because the client's menu would
+	 * otherwise offer to make something the player cannot make. The materials are checked for the
+	 * same reason: a menu that opens with nothing to mix can only be answered with a message.
 	 *
-	 * <p>The materials are re-checked on the tick rather than trusted from the click, two cycles
-	 * later, exactly as the fletching actions do: the player can have dropped or banked one in
-	 * between.
+	 * <p>No {@code sendFrame126} for the "how many would you like to make?" line: that text is part
+	 * of the interface in the cache, and only the model frame and the name beside it change.
+	 */
+	static void openChatbox(Client c, int item1, int item2, int product, int levelReq) {
+		// A running batch is already using the pair this click would overwrite.
+		if (c.playerSkilling[Player.playerHerblore]) {
+			return;
+		}
+		if (c.skills.playerLevel[Player.playerHerblore] < levelReq) {
+			c.sendMessage("You need an Herblore level of at least " + levelReq
+					+ " to mix this potion.");
+			return;
+		}
+		if (!has(c, item1) || !has(c, item2)) {
+			return;
+		}
+		SkillHandler.send1Item(c, product, SkillHandler.view190);
+		c.herbloreItem1 = item1;
+		c.herbloreItem2 = item2;
+		c.herbloreDialogue = true;
+	}
+
+	/**
+	 * A "make" button on the mixing chatbox. Called from {@code ClickingButtons} while
+	 * {@code herbloreDialogue} is set.
+	 *
+	 * <p>The pair is re-read from the player and re-resolved into a recipe here rather than being
+	 * carried in a field of its own, so the ids stored on the player are the only pending state and
+	 * the tables stay the single source of truth for what those ids make. An unknown button, an
+	 * unknown pair or an empty player all fall through and do nothing.
+	 */
+	public static void select(Client c, int buttonId) {
+		int amount = amountFor(buttonId);
+		if (amount <= 0) {
+			return;
+		}
+		Unfinished unfinished = forUnfinished(c.herbloreItem1, c.herbloreItem2);
+		if (unfinished != null) {
+			closeChatbox(c);
+			c.getPA().removeAllWindows();
+			start(c, unfinished.base, unfinished.herb, unfinished.potion, 0,
+					unfinished.levelReq, MIX_ANIMATION, null, amount);
+			return;
+		}
+		Finished finished = forFinished(c.herbloreItem1, c.herbloreItem2);
+		if (finished != null) {
+			closeChatbox(c);
+			c.getPA().removeAllWindows();
+			start(c, finished.unfinished, finished.secondary, finished.potion, finished.xp,
+					finished.levelReq, MIX_ANIMATION,
+					"You make a " + ItemAssistant.getItemName(finished.potion).toLowerCase() + ".",
+					amount);
+		}
+	}
+
+	/** The number one of the chatbox's buttons asks for, or {@code 0} when it is not one of them. */
+	public static int amountFor(int button) {
+		for (int[] pair : AMOUNT_BUTTONS) {
+			if (pair[0] == button) {
+				return pair[1];
+			}
+		}
+		return 0;
+	}
+
+	/**
+	 * Forgets the pair the chatbox was open for, so a later click cannot make the old recipe.
+	 *
+	 * <p>Sends nothing: the caller decides whether the interface also has to be closed. A walk
+	 * closes it on its own, a button press has to close it explicitly.
+	 */
+	public static void closeChatbox(Client c) {
+		c.herbloreDialogue = false;
+		c.herbloreItem1 = -1;
+		c.herbloreItem2 = -1;
+	}
+
+	/**
+	 * One herblore action, ticked, repeated until {@code amount} is reached.
+	 *
+	 * <p><b>Per player, with no shared state.</b> The recipe and the amount travel with the event
+	 * closure rather than through static fields, which is what the old path could not do and why it
+	 * cross-wired two players mixing at the same time.
+	 *
+	 * <p>The materials are re-checked on every tick rather than trusted from the click, exactly as
+	 * the fletching actions do: the player can have dropped or banked one in between, and a batch
+	 * runs for long enough that it will happen. A depleted stack ends the action rather than a
+	 * half-made potion, and "make all" is simply the amount the client asked for (28), so it ends
+	 * the same way.
 	 *
 	 * @param mat2        {@link #NO_SECOND_MATERIAL} when the recipe consumes only one item, which is
 	 *                    grinding
-	 * @param message     sent on completion, or {@code null} to stay silent as unfinished potions do
+	 * @param message     sent on each completion, or {@code null} to stay silent as unfinished
+	 *                    potions do
+	 * @param amount      how many to make, or how many the player asked for — whichever runs out
+	 *                    first wins
 	 */
 	private static void start(final Client c, final int mat1, final int mat2, final int product,
-			final int xp, int levelReq, int animation, final String message) {
+			final int xp, int levelReq, final int animation, final String message, int amount) {
 		if (c.playerSkilling[Player.playerHerblore]) {
 			return;
 		}
@@ -480,11 +600,12 @@ public class Herblore {
 
 		c.playerSkilling[Player.playerHerblore] = true;
 		c.startAnimation(animation);
+		final int[] remaining = { amount };
 
 		CycleEventHandler.addEvent(HERBLORE_EVENT, c, new CycleEvent() {
 			@Override
 			public void execute(CycleEventContainer container) {
-				if (!c.playerSkilling[Player.playerHerblore] || !has(c, mat1)
+				if (!c.playerSkilling[Player.playerHerblore] || remaining[0] <= 0 || !has(c, mat1)
 						|| (mat2 != NO_SECOND_MATERIAL && !has(c, mat2))) {
 					container.stop();
 					return;
@@ -500,7 +621,10 @@ public class Herblore {
 				if (message != null) {
 					c.sendMessage(message);
 				}
-				container.stop();
+				// Re-armed each cycle, as pottery does: one animation lasts about one action, and a
+				// batch of twenty-eight would otherwise be silent and still after the first.
+				c.startAnimation(animation);
+				remaining[0]--;
 			}
 
 			@Override
@@ -516,14 +640,19 @@ public class Herblore {
 	}
 
 	/**
-	 * Stops a running herblore action, if one is running.
+	 * Stops a running herblore action, if one is running, and drops any open chatbox.
 	 *
 	 * <p>Keyed on its own event id rather than on the player: {@code stopEvents(c)} would stop every
 	 * event the player owns, and they own other skills' events too. Called from
 	 * {@code PlayerAssistant.resetVariables}, which every walk reaches, so walking away ends the
 	 * action the way it ends fletching and cooking.
+	 *
+	 * <p>The event stop is guarded by the flag because only a running action owns an event here —
+	 * unlike the crafting family, herblore's cancel is not the only thing that can be running.
+	 * {@code closeChatbox} is unconditional, because the chatbox can be open with no action at all.
 	 */
 	public static void cancel(Client c) {
+		closeChatbox(c);
 		if (c.playerSkilling[Player.playerHerblore]) {
 			c.playerSkilling[Player.playerHerblore] = false;
 			CycleEventHandler.stopEvents(c, HERBLORE_EVENT);

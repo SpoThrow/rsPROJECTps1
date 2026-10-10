@@ -27,14 +27,16 @@ import server.game.players.Player;
 import server.game.players.actions.items.ItemUseRegistry;
 
 /**
- * Pins herblore's four tables and the two facts the rewrite depends on: a recipe travels with its
- * own action, and one click is one potion.
+ * Pins herblore's four tables and the three facts the mixing rewrite depends on: a recipe travels
+ * with its own action, a combination opens the make-X chatbox and consumes nothing, and the batch
+ * behind a button runs on the player rather than on the server.
  *
  * <p>The tables are the part that fails quietly — a wrong clean-herb id is a herb that cannot be
  * cleaned rather than an error, and a potion whose level disagrees with the guide is a promise
  * broken in a menu nobody diffs. The behaviour half is here too, because it is what the old
  * implementation could not do: the recipes used to live in static fields shared by every player on
- * the server, and {@link #twoPlayersMixingAtOnceDoNotCrossWire} is that bug.
+ * the server, and {@link #twoPlayersMixingAtOnceDoNotCrossWire} is that bug — now with the amount
+ * in those same fields, so "make 5" was a server-wide instruction too.
  */
 class HerbloreTest {
 
@@ -302,96 +304,281 @@ class HerbloreTest {
 	}
 
 	// ---------------------------------------------------------------------------------------
-	// Mixing: one potion per click, ticked, and per player.
+	// Mixing: a chatbox, a batch of 1/5/10/28, and per player.
 	// ---------------------------------------------------------------------------------------
 
+	/**
+	 * The four buttons on interface 4429, in the order the chatbox shows them, with the number each
+	 * asks for. These are the ids the pre-rewrite herblore menu read and the ones this client's
+	 * 4429 sends; they are deliberately not the leather menu's (interface 1743 puts ten on 10238 and
+	 * twenty-eight on 6212, where this one puts five and ten).
+	 */
+	private static final int[][] MAKE_BUTTONS = {
+			{ 10239, 1 }, { 10238, 5 }, { 6212, 10 }, { 6211, 28 },
+	};
+
 	@Test
-	void aVialOfWaterAndAGuamMakeAGuamPotionUnfinished() {
+	void theMakeButtonsAreTheChatboxRowAndNothingElseIsOne() {
+		for (int[] pair : MAKE_BUTTONS) {
+			assertEquals(pair[1], Herblore.amountFor(pair[0]), "button " + pair[0]);
+		}
+		assertEquals(0, Herblore.amountFor(0), "an unknown button is not an amount");
+		assertEquals(0, Herblore.amountFor(33190), "that is a row of interface 1741, not this one");
+	}
+
+	@Test
+	void aVialOfWaterAndAGuamOpenTheChatboxAndConsumeNothing() {
 		Client c = withItems(227, 1, 249, 1);
 		c.skills.playerLevel[Player.playerHerblore] = 3;
 
 		assertTrue(ItemUseRegistry.dispatch(c, 227, 249), "the pair belongs to the registry");
+
+		assertTrue(c.herbloreDialogue, "the pair opens the make-X chatbox");
+		assertEquals(227, c.herbloreItem1, "and the chatbox remembers the pair it was opened for");
+		assertEquals(249, c.herbloreItem2);
+		assertEquals(1, count(c, 227), "nothing is consumed before a button is clicked");
+		assertEquals(1, count(c, 249));
+		assertEquals(0, count(c, 91), "not even the product");
+
+		passTwoTicks();
+		assertEquals(1, count(c, 227), "and an ignored chatbox does not start itself");
+	}
+
+	@Test
+	void theChatboxRemembersTheFinishingsPairToo() {
+		Client c = withItems(91, 1, 221, 1);
+		c.skills.playerLevel[Player.playerHerblore] = 3;
+
+		Herblore.mix(c, 221, 91); // either order, as the registry can hand it over
+
+		assertTrue(c.herbloreDialogue, "an unfinished potion and its secondary open it as well");
+		assertEquals(221, c.herbloreItem1);
+		assertEquals(91, c.herbloreItem2);
+	}
+
+	@Test
+	void makeOneMakesExactlyOnePotion() {
+		Client c = withItems(91, 3, 221, 3);
+		c.skills.playerLevel[Player.playerHerblore] = 3;
+
+		Herblore.mix(c, 91, 221);
+		Herblore.select(c, 10239);
 		passTwoTicks();
 
-		assertEquals(1, count(c, 91), "a vial of water and a guam make guam potion (unf)");
-		assertEquals(0, count(c, 227), "the vial is consumed");
-		assertEquals(0, count(c, 249), "and so is the herb");
+		assertEquals(1, count(c, 121), "one button, one potion");
+		assertEquals(2, count(c, 91), "from one of each material");
+		assertEquals(2, count(c, 221));
+		assertEquals(25 * Config.HERBLORE_EXPERIENCE, c.skills.playerXP[Player.playerHerblore],
+				"an attack potion is 25 xp, once");
+	}
+
+	@Test
+	void makeFiveStopsAtFiveWithMaterialsLeft() {
+		Client c = withItems(91, 10, 221, 10);
+		c.skills.playerLevel[Player.playerHerblore] = 99;
+
+		Herblore.mix(c, 91, 221);
+		Herblore.select(c, 10238);
+		for (int i = 0; i < 12; i++) {
+			passTwoTicks();
+		}
+
+		assertEquals(5, count(c, 121), "the button means five");
+		assertEquals(5, count(c, 91), "and the rest of the stack is untouched");
+		assertFalse(c.playerSkilling[Player.playerHerblore], "the action has finished");
+	}
+
+	@Test
+	void makeAllBrewsUntilTheMaterialsRunOut() {
+		Client c = withItems(91, 3, 221, 3);
+		c.skills.playerLevel[Player.playerHerblore] = 99;
+
+		Herblore.mix(c, 91, 221);
+		Herblore.select(c, 6211);
+		for (int i = 0; i < 12; i++) {
+			passTwoTicks();
+		}
+
+		assertEquals(3, count(c, 121), "all of them, and no more");
+		assertEquals(0, count(c, 91), "both stacks are spent");
+		assertEquals(0, count(c, 221));
+		assertFalse(c.playerSkilling[Player.playerHerblore], "and the loop has stopped");
+	}
+
+	@Test
+	void anUnfinishedBatchAwardsNothingButStillBatches() {
+		Client c = withItems(227, 5, 249, 5);
+		c.skills.playerLevel[Player.playerHerblore] = 3;
+
+		Herblore.mix(c, 227, 249);
+		Herblore.select(c, 6211);
+		for (int i = 0; i < 12; i++) {
+			passTwoTicks();
+		}
+
+		assertEquals(5, count(c, 91), "five guam potions (unf)");
+		assertEquals(0, count(c, 227), "from five vials and five herbs");
+		assertEquals(0, count(c, 249));
 		assertEquals(0, c.skills.playerXP[Player.playerHerblore],
 				"the unfinished step awards nothing; the experience comes with the potion");
 	}
 
 	@Test
-	void anUnfinishedPotionAndItsSecondaryMakeThePotion() {
-		Client c = withItems(91, 1, 221, 1);
-		c.skills.playerLevel[Player.playerHerblore] = 3;
+	void brewingIsOnePotionEveryTwoCycles() {
+		Client c = withItems(91, 4, 221, 4);
+		c.skills.playerLevel[Player.playerHerblore] = 99;
 
 		Herblore.mix(c, 91, 221);
-		passTwoTicks();
+		Herblore.select(c, 6211);
 
-		assertEquals(1, count(c, 121), "guam potion (unf) and eye of newt make an attack potion");
-		assertEquals(0, count(c, 91), "the unfinished potion is consumed");
-		assertEquals(0, count(c, 221), "and so is the secondary");
-		assertEquals(25 * Config.HERBLORE_EXPERIENCE, c.skills.playerXP[Player.playerHerblore],
-				"an attack potion is 25 xp");
+		CycleEventHandler.process();
+		assertEquals(4, count(c, 91), "one tick in, nothing has been made");
+
+		CycleEventHandler.process();
+		assertEquals(1, count(c, 121), "the second tick is when the first potion lands");
+
+		CycleEventHandler.process();
+		CycleEventHandler.process();
+		assertEquals(2, count(c, 121), "and it keeps going, two cycles at a time");
+		assertEquals(2, count(c, 91), "consuming one pair per potion");
 	}
 
 	@Test
-	void aLevelBelowTheRequirementMakesNoPotion() {
-		Client c = withItems(91, 1, 221, 1);
-		c.skills.playerLevel[Player.playerHerblore] = 2; // an attack potion needs 3
-
-		Herblore.mix(c, 91, 221);
-		passTwoTicks();
-
-		assertEquals(0, count(c, 121), "no level, no potion");
-		assertEquals(1, count(c, 91), "and nothing consumed");
-	}
-
-	@Test
-	void mixingIsTickedAndRechecksTheMaterials() {
+	void theButtonClickClosesTheChatboxAndForgetsThePair() {
 		Client c = withItems(91, 2, 221, 2);
 		c.skills.playerLevel[Player.playerHerblore] = 99;
 
 		Herblore.mix(c, 91, 221);
-		CycleEventHandler.process();
-		assertEquals(2, count(c, 91), "one tick in, the materials are still there");
+		Herblore.select(c, 10238);
 
-		CycleEventHandler.process();
-		assertEquals(1, count(c, 121), "the second tick delivers exactly one potion");
-		assertEquals(1, count(c, 91), "from exactly one of each material — not a batch");
+		assertFalse(c.herbloreDialogue, "the menu is gone once the choice is made");
+		assertEquals(-1, c.herbloreItem1, "and the pair with it, so a second click has nothing");
+		assertEquals(-1, c.herbloreItem2);
 	}
 
 	@Test
-	void walkingAwayCancelsMixing() {
-		Client c = withItems(91, 1, 221, 1);
+	void walkingAwayStopsTheBatchAndConsumesNothingMore() {
+		Client c = withItems(91, 10, 221, 10);
 		c.skills.playerLevel[Player.playerHerblore] = 99;
 
 		Herblore.mix(c, 91, 221);
+		Herblore.select(c, 6211);
+		passTwoTicks();
+		assertEquals(1, count(c, 121), "the batch is running");
+
 		c.getPA().resetVariables(); // what every walk step reaches
+		for (int i = 0; i < 6; i++) {
+			passTwoTicks();
+		}
+
+		assertEquals(1, count(c, 121), "a cancelled batch must not deliver a second potion");
+		assertEquals(9, count(c, 91), "and must not consume the materials for one");
+		assertFalse(c.playerSkilling[Player.playerHerblore]);
+	}
+
+	@Test
+	void walkingAwayWithTheChatboxOpenStillEndsTheRecipe() {
+		Client c = withItems(91, 10, 221, 10);
+		c.skills.playerLevel[Player.playerHerblore] = 99;
+
+		Herblore.mix(c, 91, 221);
+		c.getPA().resetVariables();
+
+		assertFalse(c.herbloreDialogue, "the walk closes the menu");
+		Herblore.select(c, 6211);
+		passTwoTicks();
+		assertEquals(0, count(c, 121), "so the button it never showed cannot brew");
+	}
+
+	@Test
+	void aLevelBelowTheRequirementOpensNoChatboxAndMakesNoPotion() {
+		Client c = withItems(91, 1, 221, 1);
+		c.skills.playerLevel[Player.playerHerblore] = 2; // an attack potion needs 3
+
+		Herblore.mix(c, 91, 221);
+
+		assertFalse(c.herbloreDialogue, "no level, no menu");
 		passTwoTicks();
 
-		assertEquals(1, count(c, 91), "a cancelled action must not consume anything");
-		assertEquals(0, count(c, 121), "and must not deliver the potion");
+		assertEquals(0, count(c, 121), "and no potion");
+		assertEquals(1, count(c, 91), "and nothing consumed");
+	}
+
+	@Test
+	void aPairThePlayerDoesNotHoldOpensNoChatbox() {
+		Client c = withItems(91, 1); // no eye of newt
+		c.skills.playerLevel[Player.playerHerblore] = 99;
+
+		Herblore.mix(c, 91, 221);
+
+		assertFalse(c.herbloreDialogue, "a menu with nothing to mix is no menu");
+	}
+
+	@Test
+	void aBusyPlayerCannotOpenASecondChatbox() {
+		// The pair is the chatbox's whole memory, so a second open while a batch is running would
+		// overwrite the recipe the running event was started from.
+		Client c = withItems(91, 5, 221, 5, 95, 5, 225, 5);
+		c.skills.playerLevel[Player.playerHerblore] = 99;
+
+		Herblore.mix(c, 91, 221);
+		Herblore.select(c, 6211);
+		passTwoTicks();
+
+		Herblore.mix(c, 95, 225);
+
+		assertFalse(c.herbloreDialogue, "the running batch keeps the menu shut");
+		for (int i = 0; i < 8; i++) {
+			passTwoTicks();
+		}
+		assertEquals(5, count(c, 121), "and the attack potions finish before anything else");
+		assertEquals(5, count(c, 95), "the strength materials were never touched");
+		assertEquals(5, count(c, 225));
+		assertEquals(0, count(c, 115), "and no strength potion was made from them");
 	}
 
 	@Test
 	void twoPlayersMixingAtOnceDoNotCrossWire() {
 		// The bug the rewrite exists for. The old implementation put the recipe in four static
-		// fields, so two players mixing different things at the same time overwrote each other's
-		// materials and product. The recipe now travels with its own event.
+		// fields — and the amount with them — so two players mixing different things at the same
+		// time overwrote each other's materials, product and count. Both now travel with the click
+		// and then with the event.
 		Client attack = withItems(91, 1, 221, 1);
 		Client strength = withItems(95, 1, 225, 1);
 		attack.skills.playerLevel[Player.playerHerblore] = 99;
 		strength.skills.playerLevel[Player.playerHerblore] = 99;
 
 		Herblore.mix(attack, 91, 221);
+		Herblore.select(attack, 10239);
 		Herblore.mix(strength, 95, 225);
+		Herblore.select(strength, 10239);
 		passTwoTicks();
 
 		assertEquals(1, count(attack, 121), "the attack potion belongs to the attack mixer");
 		assertEquals(0, count(attack, 115), "and not the strength potion");
 		assertEquals(1, count(strength, 115), "the strength potion belongs to the other");
 		assertEquals(0, count(strength, 121), "and not the attack potion");
+	}
+
+	@Test
+	void twoPlayersAmountsDoNotCrossWireEither() {
+		// The half of the old bug that the amount field added: one player's "make 5" could become
+		// the other's, because doAmount was the single server-wide count.
+		Client one = withItems(91, 5, 221, 5);
+		Client five = withItems(91, 5, 221, 5);
+		one.skills.playerLevel[Player.playerHerblore] = 99;
+		five.skills.playerLevel[Player.playerHerblore] = 99;
+
+		Herblore.mix(one, 91, 221);
+		Herblore.select(one, 10239);
+		Herblore.mix(five, 91, 221);
+		Herblore.select(five, 10238);
+		for (int i = 0; i < 8; i++) {
+			passTwoTicks();
+		}
+
+		assertEquals(1, count(one, 121), "one asked for one");
+		assertEquals(5, count(five, 121), "and five asked for five");
 	}
 
 	// ---------------------------------------------------------------------------------------

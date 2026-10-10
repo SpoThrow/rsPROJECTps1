@@ -140,6 +140,18 @@ public abstract class Player {
 	 * click handled twice, making snakeskin into leather and clay into pots at the same time.
 	 */
 	public boolean potteryDialogue;
+	/**
+	 * The mixing chatbox (interface 4429) is open, and the pair the next "make" click would mix is
+	 * in {@code herbloreItem1} and {@code herbloreItem2}.
+	 *
+	 * <p>It lives on the player for the usual reason: the recipe used to be four static fields, so
+	 * one player's menu answered the other player's click. The pair is stored as the two ids that
+	 * were combined rather than as the resolved recipe, so the herblore tables stay the only place
+	 * that knows what a pair makes.
+	 */
+	public boolean herbloreDialogue;
+	/** The pending pair for {@link #herbloreDialogue}, or -1 when no chatbox is open. */
+	public int herbloreItem1 = -1, herbloreItem2 = -1;
 	public long lastTeleport;
 	public int[] woodcuttingProp = new int[10];
 	public int[] pouch = {

@@ -16,7 +16,9 @@ import server.content.skills.Fletching;
 import server.content.skills.Herblore;
 import server.content.skills.Magic;
 import server.content.skills.Mining;
+import server.content.skills.Runecrafting;
 import server.content.skills.Smelting;
+import server.content.skills.Smithing;
 import server.event.CycleEvent;
 import server.event.CycleEventContainer;
 import server.event.CycleEventHandler;
@@ -3364,6 +3366,10 @@ public void underWaterTele() {
 			Fletching.resetFletching(c);
 		if(c.playerSkilling[Player.playerHerblore])
 			Herblore.cancel(c);
+		if(c.playerSkilling[Player.playerRunecrafting])
+			Runecrafting.cancel(c);
+		if(c.playerSkilling[Player.playerSmithing])
+			Smithing.cancel(c);
 		if(c.playerSkilling[14])
 			Mining.resetMining(c);
 		if(c.playerSkilling[7])
@@ -3395,6 +3401,9 @@ public void underWaterTele() {
 			c.craftDialogue = false;
 		if(c.potteryDialogue)
 			c.potteryDialogue = false;
+		// Unconditional, unlike the two above: the mixing chatbox can be open with no action
+		// running, so playerSkilling is not the thing that says whether there is one to close.
+		Herblore.closeChatbox(c);
 	}
 	
 	public void sendStatement(String s) { // 1 line click here to continue chat box interface

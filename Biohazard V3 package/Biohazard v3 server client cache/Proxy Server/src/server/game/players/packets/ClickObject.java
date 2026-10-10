@@ -53,13 +53,10 @@ public class ClickObject implements PacketType {
 			}
 			//if(CastleWarObjects.handleObject(c, c.objectId, c.objectX, c.objectY))
 				//return;
-			int[] altarID= {2478, 2479, 2480, 2481, 2482, 2483, 2484, 2485, 2486,
-							2487, 2488, 30624};
-			for (int i = 0; i < altarID.length; i++) {
-				if (c.objectId == altarID[i]) {
-					Runecrafting.craftRunes(c, c.objectId);
-				}
-			}
+			// The altar list lives with the table now. This used to be a copy of it written out
+			// here, and the copy was missing the soul altar (30625), so that one could not be
+			// used; craftRunes resolves the object id itself and is a no-op for anything else.
+			Runecrafting.craftRunes(c, c.objectId);
 			switch(c.objectId) {
 			case 6:
 			case 7:

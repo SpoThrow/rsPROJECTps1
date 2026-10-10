@@ -1,5 +1,32 @@
 # Update Log
 
+## 2026-10-10 - QOL Phase 3 (eighth slice): runecrafting and the anvil come off the instant batch
+
+**What changed:**
+- **Both skills were a single `while` over the whole stack, and now are one item every two cycles.** `Runecrafting.craftRunes` bound every essence in the pack in the game cycle of the click; `Smithing.doaction` hammered `maketimes` items in `while (maketimes > 0)`. Each is now a ticked action on the fletching cadence (animation and gfx re-armed per item), with all of its state in the event closure rather than on a class, and both cancel when the player walks (`PlayerAssistant.resetVariables`).
+- **Runecrafting: the multiplier ladder was one rung short.** The old loop walked it from index 1, so it could return at most `length - 1` — an air essence at level 99 made **nine** air runes instead of ten, and every rune above air was one short of its top rung. `getMultiplierForLevel` now counts the rungs a level has passed, with the level requirement as the first rung. **This is a deliberate buff** at the top of every ladder.
+- **Runecrafting: the altar list lived in two places, and the copy was wrong.** `ClickObject` carried a hand-written `int[] altarID` that stopped at blood, so the soul altar (`30625`) could not be used by clicking it. The list lives with the table now, behind `Runecrafting.isAltar`. An altar clicked with **no essence** also used to say nothing at all; it says so now.
+- **Smithing: knives and cannon parts were made one per bar.** The per-bar batch sizes were read with case-sensitive `contains("knife")`/`contains("cannon")` against a capitalised item name, so those two branches could never match while darts, nails and arrowheads (whose names carry the word in lower case) worked. `batchSize` now lower-cases the name once, so all five yields are live: darts 10, nails and arrowheads 15, knives 5, cannon parts 4.
+- **Smithing: the action reads no static fields.** The `Check*` chains hand `item`/`xp`/`remove`/`removeamount`/`maketimes` over through static fields, which was safe while the values were read back in the same call but not for an action that runs for cycles. Every value is a parameter now, and a test drives it through the real `readInput` entry point with two players so the property is pinned. Collapsing that chain into a table is left open (§4g).
+- **Runecrafting experience is deliberately unchanged** — flat per essence (`(int) xp * Config.RUNECRAFTING_EXPERIENCE`, 15×), not scaled by the rune multiplier as OSRS does. Recorded as an open question (§14.8) rather than changed, because that is a balance decision.
+
+**Files touched:** `server/content/skills/Runecrafting.java` (rewritten), `server/content/skills/Smithing.java` (`doaction`, new `batchSize`/`cancel`), `PlayerAssistant.java` (both cancels), `packets/ClickObject.java` (altar list removed); new `test/.../RunecraftingTest.java` (17) and `test/.../SmithingTest.java` (11); `QOL_PLAN.md` (new §4g, §4 table, §12, §14).
+
+**Status:** done. **1148 tests, 0 failures, 0 errors** (992 server + 156 workshop; 28 new). Next in Phase 3 is a skill pick — gems/jewellery or the `Check*` smithing table; glass stays UI-blocked (§4e) and agility stays parked.
+
+## 2026-10-10 - QOL Phase 3 (seventh slice): herblore's mixing gets its chatbox back — and the AFK batch behind it
+
+**What changed:**
+- **Combining ingredients now opens the OSRS "How many would you like to make?" chatbox.** A herb on a vial of water, or a secondary on an unfinished potion, sends interface `4429` with the product's own model and name and remembers the pair on the player. **Nothing is consumed until a button is clicked**, so the menu is safe to ignore.
+- **Make 1/5/10/All works, and it is AFK.** Buttons `10239`/`10238`/`6212`/`6211` start a two-cycle batch (the fletching cadence, ~1.2 s a potion) that keeps making them until the amount asked for is reached, the materials run out, or the player walks. Walking both closes the menu and stops the loop.
+- **This reverses last slice's "herblore does not batch" call, and that call was wrong.** OSRS does ask how many, and the chatbox is how it asks; what was wrong with the old menu was the state behind it, not the menu. The recipe used to sit in four static fields **together with the amount**, so one player's menu answered another player's click and "make 5" was a server-wide instruction. The pair now lives on the player and the amount in the event closure; two tests pin both halves (materials and amounts) as the old bug.
+- **Grinding is unchanged: one per click, no menu.** The pestle is a tool rather than an ingredient, so there is no stack of second materials for an amount to be an amount *of*. The shared `Herblore.start` takes an amount now, so it is a one-line change if you ever want it.
+- The button ids are interface `4429`'s own — the ones the pre-QOL herblore menu read — and are deliberately **not** the leather menu's, which puts ten on `10238` and twenty-eight on `6212` on interface 1743. Tests pin the table so the two cannot be swapped.
+
+**Files touched:** `server/content/skills/Herblore.java` (mixing half: `mix`, new `openChatbox`/`select`/`amountFor`/`closeChatbox`, batched `start`), `Player.java` (`herbloreDialogue` + pending pair), `PlayerAssistant.java` (reset), `ClickingButtons.java` (routing), `test/.../HerbloreTest.java`; `QOL_PLAN.md` (§4f correction, §14.7, §15).
+
+**Status:** done. **1120 tests, 0 failures, 0 errors** (964 server + 156 workshop; 10 new, all in `HerbloreTest`, updated from 22 to 32). Next in Phase 3 is still a skill pick — gems/jewellery, runecrafting or smithing completion; glass stays UI-blocked (§4e) and agility stays parked.
+
 ## 2026-10-10 - QOL Phase 3 (sixth slice): herblore — the tables were right, the implementation was not
 
 **What changed:**

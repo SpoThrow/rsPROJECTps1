@@ -6,6 +6,7 @@ import server.content.music.MusicTab;
 import server.content.skills.Cooking;
 import server.content.skills.CraftingData.tanningData;
 import server.content.skills.Fletching;
+import server.content.skills.Herblore;
 import server.content.skills.LeatherMaking;
 import server.content.skills.Pottery;
 import server.content.skills.SkillMasters;
@@ -57,6 +58,9 @@ public class ClickingButtons implements PacketType {
 		if(c.potteryDialogue) {
 			Pottery.select(c, actionButtonId);
 		}
+		if(c.herbloreDialogue) {
+			Herblore.select(c, actionButtonId);
+		}
 		for (tanningData t : tanningData.values()) {
 			if (actionButtonId == t.getButtonId(actionButtonId)) {
 				Tanning.tanHide(c, actionButtonId);
@@ -73,8 +77,9 @@ public class ClickingButtons implements PacketType {
 		}
 		GnomeGlider.flightButtons(c, actionButtonId);
 		MusicTab.handleClick(c, actionButtonId);
-		//Herblore's make-X menu is gone: cleaning, grinding and both mixing steps are one action per
-		//click now, so buttons 10238/10239/6212/6211 have nothing of hers to route.
+		//Herblore's make-X menu is back, but on its own flag: the two mixing steps open interface
+		//4429 with buttons 10239/10238/6212/6211 (make 1/5/10/all) and are routed above while
+		//herbloreDialogue is set.
 		PestControlRewards.handlePestButtons(c, actionButtonId);
 		
 		// Debug for POS buttons
