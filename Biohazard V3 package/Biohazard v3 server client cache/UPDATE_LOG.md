@@ -1,5 +1,18 @@
 # Update Log
 
+## 2026-10-10 - QOL Phase 3: agility recon — the table to port is not on this machine, but the courses are in the world
+
+**What changed (docs only, no code):**
+- **The plan's premise for agility does not hold.** §3 says "take the obstacle table" from Necrotic's `ObstacleData.java` (25.7 KB). No reference checkout exists anywhere on this machine any more — searched `Desktop`, `Downloads`, `Documents`, the drive root, this repo's git history, and the user tree: neither `2006Redone`, `Necrotic-Server-1.1.1`, nor any `ObstacleData.java`. So the table has to be **built**, not ported, and every obstacle's landing tile has to come from somewhere else.
+- **Where it can come from: the world itself.** Scanned the placed objects through the server's own loaders (`MapIndex` + `Region`, the path the workshop exporter uses) for every object id whose `objectSize.cfg` name is an agility obstacle name (85 ids, 241 placements). The guide's Courses tab (`skillInterfaces.java:1131-1149`) advertises ten courses and only the Gnome course is implemented — but **two more are physically placed in the world and unimplemented**:
+  - **Barbarian Outpost, level 35, guide row 6** at (2532-2552, 3544-3560): rope swing `2282` (2551,3550) with supports `2279/2280` and water `2306` beneath it, log balance `2291/2292/2293/2294` in a row along y=3546 from x=2542 to 2550, obstacle net `2284` (2538,3545) with its upper half `686/767/768` on plane 1, balancing ledge `1844/1865/2302` on plane 1 (2531-2537,3544-3548), crumbling wall `1948` at (2536/2539/2542, 3553).
+  - **Wilderness, level 52, guide row 9** at (3000-3006, 3938-3960): log balance `2297` (3001,3945), `2288` (3004,3938 and 3004,3948), stepping stone `2311` (3001,3960), rope swing `2283` (3005,3952). Its entrance (object `2309` at 2998,3916) is already wired.
+- Also found other placed clusters (monkey bars at 2598/9489 and 3120/9964, skull slope 3532/9909, stepping stones 3538-3540/9875-9881) whose course names are not yet established.
+
+**Files touched:** none — this is reconnaissance. The scan tool was a temporary test in `workshop/test` and has been deleted; the exported map JSON is under the gitignored `Data/workshop/`.
+
+**Status:** blocked on a decision. Object ids, placements and levels are now verified; what a course still needs is each obstacle's **landing tile and plane transition**, and no source on this machine supplies them. Options recorded in the next entry once chosen: derive the crossing from the player's approach direction (the shape `AgilityObjects` already uses for its push obstacles), or port a table if the reference zips can be provided.
+
 ## 2026-10-10 - QOL Phase 3 (fourth slice): soft clay, and the answer to the glass question
 
 **What changed:**
