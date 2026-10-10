@@ -1,5 +1,16 @@
 # Update Log
 
+## 2026-10-10 - Parked: BOT_PARKED.md, so the bot work can be put down and picked up
+
+**What changed:**
+- **New `BOT_PARKED.md` at the root.** The bot system works end to end (roadmap A–H plus provisioning; tooling T1–T7a) and nothing else in the server depends on finishing it, so the remaining work is now written down as a ranked resume point rather than held in a session's head: the commands to bring it back up and the startup lines that say it did, what is actually finished, the four open items in priority order (mixed-species banking first, then T7b, the `NpcAgent` skill path, roadmap I), and the gotchas that otherwise cost an hour.
+- **Nothing was removed or changed in behaviour.** The two sample bots and both servers are left as they were; `BOT_PARKED.md` says so, including that the game server on 43594 and the workshop on 8080 may still be running as ordinary processes.
+- **The gotchas are recorded because they read as bugs.** The bots look stuck and are not (`Woodcutting.getTimer` is ~3 ticks per plain log, 19–39 for an oak, so a full load is minutes of one unchanging state path); `bob.txt` is rewritten on every boot; `server_run.log`/`workshop_run.log`/`bot_poll.log` are not git-ignored; `jdt-bin/` is tracked in three places with `.bak` churn; a bot occupies a real `PlayerHandler.players[]` slot and counts towards the "Currently online" figure, sharing `MAX_PLAYERS = 50` with up to `MAX_BOTS = 10`; and autosave is on a 5-minute sweep, not on every change.
+
+**Files touched:** new `BOT_PARKED.md`. Modified `UPDATE_LOG.md`.
+
+**Status:** done. Documentation only — no code, config or test change, so the last verified figures stand: 889 tests / 0 failures, `workshopJsTest` 49/49 at `2e5a2eeb`.
+
 ## 2026-10-10 - An axe and no level is still a dead bot, and the two sample bots are on
 
 **What changed:**
