@@ -272,10 +272,13 @@ public class CraftingData extends SkillHandler {
 	}
 	
 	public static void resetCrafting(Client c) {
-		// Before the flag is cleared, because cancel() reads it. Clearing the flag alone would
-		// leave the spinning event queued until its next tick, which is long enough for a walk
-		// followed by a fresh spin to leave two loops running over one stack of flax.
+		// Both before the flag is cleared, and both by their own event id rather than by
+		// stopEvents(c). Clearing the flag alone would leave a queued loop to wake up on its next
+		// tick, find the flag re-set by a fresh action, and run alongside it -- two loops over one
+		// stack, at double speed. The flag is shared with gem cutting and leather, which still
+		// rely on it alone; see QOL_PLAN.md section 4b.
 		Spinning.cancel(c);
+		Pottery.cancel(c);
 		//CycleEventHandler.getSingleton().stopEvents(c, 3);
 		//CycleEventHandler.getSingleton().stopEvents(c, 7);
 		c.playerIsCrafting = false;

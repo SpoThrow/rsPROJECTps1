@@ -17,6 +17,9 @@ public class LeatherMaking extends CraftingData {
 					c.getPA().showInterface(2311);
 					c.leatherType = leather;
 					c.craftDialogue = true;
+					// Interface 8938 and its four buttons per row are shared with the potter's
+					// wheel, so the two dialogue flags are mutually exclusive.
+					c.potteryDialogue = false;
 					return;
 				}
 				String[] name = {
@@ -34,6 +37,9 @@ public class LeatherMaking extends CraftingData {
 					}
 					c.leatherType = leather;
 					c.craftDialogue = true;
+					// Interface 8938 and its four buttons per row are shared with the potter's
+					// wheel, so the two dialogue flags are mutually exclusive.
+					c.potteryDialogue = false;
 					return;
 				}
 			}
@@ -53,6 +59,9 @@ public class LeatherMaking extends CraftingData {
 				}
 				c.leatherType = leather;
 				c.craftDialogue = true;
+				// Interface 8938 and its four buttons per row are shared with the potter's
+				// wheel, so the two dialogue flags are mutually exclusive.
+				c.potteryDialogue = false;
 				return;
 			}
 		}

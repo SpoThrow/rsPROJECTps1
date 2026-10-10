@@ -3393,6 +3393,8 @@ public void underWaterTele() {
 			c.teleAction = -1;
 		if(c.craftDialogue)
 			c.craftDialogue = false;
+		if(c.potteryDialogue)
+			c.potteryDialogue = false;
 	}
 	
 	public void sendStatement(String s) { // 1 line click here to continue chat box interface

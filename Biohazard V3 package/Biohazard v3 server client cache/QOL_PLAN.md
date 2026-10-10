@@ -269,12 +269,51 @@ double speed. It now stops the spinning event before clearing the flag. `GemCutt
 `LeatherMaking` still rely on the flag alone, so the same shape is still reachable there; worth
 auditing when either is next touched.
 
+---
+
+## 4c. Crafting gaps — pottery landed
+
+**Landed (2026-10-10), pottery, both stages.** The Pottery tab has always listed five items
+(1 Pot, 7 Pie Dish, 8 Bowl, 19 Plant Pot, 25 Pot Lid) and all ten ids involved resolve in
+`item.cfg`, but nothing read the five *unfired* ids at all — the tab was a menu with no action
+behind it. The two fixtures were already named in `Data/objectSize.cfg` ("Potter's Wheel",
+"Pottery Oven"), so the world has had them the whole time.
+
+- `Pottery` holds the five rows with **two xp columns**, because clay is two actions: soft clay
+  `1761` into unfired clay on the wheel, then unfired clay into the finished item in the oven.
+  Shaping is 6.3/15/18/20/20; firing is 6.3/10/15/17.5/20. Levels are the guide's own 1/7/8/19/25,
+  which are also the OSRS wheel levels. Redone's `Pottery` agrees on the three rows it implements
+  and on the shaping column; its firing half is unreachable (written, but nothing ever calls
+  `showFire`), so the second stage is built from the OSRS table, not ported.
+- **Firing has no level requirement** — only shaping does. OSRS says so explicitly, and the check
+  lives at the wheel. A level-1 player holding an unfired plant pot can finish it.
+- Three ways in, all through the Phase-0 registries: a first click on the wheel (2642, 4310), soft
+  clay on the wheel, and an unfired item on an oven (2643, 4308, 11601). Both stages are ticked and
+  repeating at two cycles, one item at a time, on `playerIsCrafting`.
+- **The oven is only reachable by using an item on it.** A plain click is not claimed: the oven
+  cannot know which of the five you meant, and 2643 is the object this server hangs
+  `JewelryMaking.mouldInterface` on, so taking its click would kill jewellery-making. The pair-keyed
+  registry is what makes the stage possible at all — gold bar on 2643 still falls through to the
+  switch, and there is a test that says so.
+- **The wheel reuses interface 8938**, the five-option chatbox snakeskin leather already uses, and
+  therefore the same four buttons per row. That is why `Player.potteryDialogue` exists next to the
+  existing `craftDialogue`, and why the two are cleared against each other on open: with one flag,
+  a click with both menus having been open would make leather *and* pots. The two tables are pinned
+  equal row-for-row by a test, because rows 4 and 5 of Redone's button map do not exist and were
+  taken from this server's own snakeskin rows for boots and vambraces.
+
+**Not modelled: cracking.** The oven has a small chance to break a piece, falling to zero by level
+14. Redone does not model it and no source gives the formula, so this is a fixed 100% success
+rather than an invented curve. If it is ever wanted, the wiki gives the level cap (14) but not the
+curve, so it would have to come from a datamined source.
+
 **Still open on this row:** Weaving (the guide's Cloth `3224` at 10 and Vegetable Sack `5418` at
-21, i.e. the looms 787/8717), Pottery (the guide's Pot, Pie Dish, Bowl, Plant Pot, Pot Lid; ovens
-2643/4308/11601), Glassblowing (the guide's eight glass items; needs the glassblowing pipe `1785`
-and molten glass), soft clay, and the guide's Weaponry tab (the four battlestaves). Pottery and
-glass are the next two by size, and both are the same shape as spinning: a table, one object, one
-ticked loop.
+21 — the OSRS loom table makes Cloth from 4 balls of wool for 12 xp and the empty sack from 4 jute
+fibres for 38; looms are 787/8717), Glassblowing (the guide's eight glass items; needs the pipe
+`1785`, molten glass `1775`, and the sand + soda ash furnace step), soft clay from water and clay,
+and the guide's Weaponry tab (battlestaves). Glass is the next by size and is the same shape as
+pottery: a table plus a ticked loop; the one open question is whether this client has interface
+11462, which Redone uses for the pipe menu.
 
 ---
 
@@ -738,7 +777,7 @@ reviewable, revertible file per batch.
 | 0 | Registries + §2 safe accessor + validator | Everything after registers instead of editing switches, and may reference ids that do not exist yet | — — **done** |
 | 1 | Fletching realism (1-by-1, shaft fix, stringing) | Your headline; small; very visible | 0 (optional) — **done**: bows, shafts, arrows, bolts, tipping and stringing |
 | 2 | Random events, flag-driven (nest + genie on) | Cheap, visible, exact flags you asked for | 0 — **done**; further classics need their dialogue written first |
-| 3 | Skilling completeness (N1 tables: potions, gems, glass, spinning, agility, rune/smith) | The "done to full completion" goal; §8.2 dose model | 0, 1 (pattern) — **spinning done**, pottery/glass/weaving/agility open |
+| 3 | Skilling completeness (N1 tables: potions, gems, glass, spinning, agility, rune/smith) | The "done to full completion" goal; §8.2 dose model | 0, 1 (pattern) — **spinning + pottery done**, weaving/glass/agility open |
 | 4 | World interactivity: fillables (R), pickables (R), searchable/climbable scenery, doors/gates | The "feels finished" layer; mostly data + registrations | 0 |
 | 5 | Shops, potions breadth, guilds, glider verify | Pure breadth, additive data; safest wins | 0 |
 | 6 | Bank PIN | One genuine client/UI decision first | 0 |

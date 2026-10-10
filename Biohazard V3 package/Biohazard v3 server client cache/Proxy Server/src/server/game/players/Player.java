@@ -133,6 +133,13 @@ public abstract class Player {
 	public int overloadcounter = 0;
 	public int timer = 0;
 	public boolean craftDialogue;
+	/**
+	 * The potter's wheel's chatbox is open. Separate from {@code craftDialogue} even though both
+	 * menus use interface 8938 and the same four buttons per row, because a button fires whichever
+	 * flag is set: with one flag, a player who opened one menu and then the other would have their
+	 * click handled twice, making snakeskin into leather and clay into pots at the same time.
+	 */
+	public boolean potteryDialogue;
 	public boolean isPotionMaking = false, isGrinding = false;
 	public long lastTeleport;
 	public int[] woodcuttingProp = new int[10];

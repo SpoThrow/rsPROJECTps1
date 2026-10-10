@@ -172,12 +172,17 @@ public class Spinning extends CraftingData {
 	 * <p>Its own event id rather than {@code stopEvents(c)}, for the same reason as the fletching
 	 * cancel: the player owns other skills' events and stopping all of them would put a fire out
 	 * or end a smelt.
+	 *
+	 * <p>The event stop is unconditional and the flag is not. {@code playerIsCrafting} now means
+	 * "some crafting action is running", not "this one is" — pottery shares it and
+	 * {@code resetCrafting} calls both cancels in turn, so whichever runs second would otherwise
+	 * find the flag already cleared and leave its own event queued.
 	 */
 	public static void cancel(Client c) {
 		if (c.playerIsCrafting) {
 			c.playerIsCrafting = false;
-			CycleEventHandler.stopEvents(c, SPIN_EVENT);
 			c.startAnimation(65535);
 		}
+		CycleEventHandler.stopEvents(c, SPIN_EVENT);
 	}
 }

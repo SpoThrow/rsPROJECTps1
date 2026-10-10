@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 
 import server.Config;
 import server.content.skills.Fletching;
+import server.content.skills.Pottery;
 import server.content.skills.Spinning;
 import server.game.items.ItemDefinitions;
 
@@ -129,6 +130,16 @@ class QolValidatorTest {
 			spinning.add(m.getProduct());
 		}
 		tables.add(new Table("Spinning.Material", toKeys(spinningKeys), toArray(spinning)));
+
+		List<Integer> pottery = new ArrayList<>();
+		List<Long> potteryKeys = new ArrayList<>();
+		for (Pottery.Shape s : Pottery.Shape.values()) {
+			// forUnfired matches the unfired id, so that is the key.
+			potteryKeys.add((long) s.getUnfired());
+			pottery.add(s.getUnfired());
+			pottery.add(s.getFired());
+		}
+		tables.add(new Table("Pottery.Shape", toKeys(potteryKeys), toArray(pottery)));
 
 		List<Integer> tips = new ArrayList<>();
 		List<Long> tipKeys = new ArrayList<>();

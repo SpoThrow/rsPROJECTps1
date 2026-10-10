@@ -8,6 +8,7 @@ import server.content.skills.CraftingData.tanningData;
 import server.content.skills.Fletching;
 import server.content.skills.Herblore;
 import server.content.skills.LeatherMaking;
+import server.content.skills.Pottery;
 import server.content.skills.SkillMasters;
 import server.content.skills.Tanning;
 import server.event.CycleEvent;
@@ -53,6 +54,9 @@ public class ClickingButtons implements PacketType {
 		}
 		if(c.craftDialogue) {
 			LeatherMaking.craftLeather(c, actionButtonId);
+		}
+		if(c.potteryDialogue) {
+			Pottery.select(c, actionButtonId);
 		}
 		for (tanningData t : tanningData.values()) {
 			if (actionButtonId == t.getButtonId(actionButtonId)) {

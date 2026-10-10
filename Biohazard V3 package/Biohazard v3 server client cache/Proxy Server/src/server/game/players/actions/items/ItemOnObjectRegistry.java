@@ -38,6 +38,7 @@ public final class ItemOnObjectRegistry {
 
 	static {
 		SpinningItemUses.register();
+		PotteryItemUses.register();
 	}
 
 	private ItemOnObjectRegistry() {
