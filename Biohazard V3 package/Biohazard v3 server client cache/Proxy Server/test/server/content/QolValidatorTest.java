@@ -67,9 +67,11 @@ class QolValidatorTest {
 	 * Every authored table that names item ids.
 	 *
 	 * <p>The registries ({@code ItemUseRegistry}, {@code ItemOnObjectRegistry}) are not here yet:
-	 * they hold no rows at this point and cannot be enumerated. When Phase 4 starts registering
-	 * fillables and pickables they become the most important tables to check, and this list should
-	 * grow an entry for them at the same time as they grow an accessor.
+	 * they cannot be enumerated without an accessor, and a duplicate registration throws at
+	 * class-load rather than being a row this could find. Bow stringing is the first item recipe
+	 * to live in one, so its ids are listed here directly from {@code Fletching.Stringing} and its
+	 * registration is covered by {@code ItemUseRegistryTest} and {@code FletchingTest}, which
+	 * enumerate the registry through {@code isRegistered}.
 	 */
 	private static List<Table> tables() {
 		List<Table> tables = new ArrayList<>();
@@ -104,6 +106,18 @@ class QolValidatorTest {
 			bows.add(f.getBowID());
 		}
 		tables.add(new Table("Fletching.Fletch", toKeys(bowKeys), toArray(bows)));
+
+		List<Integer> stringing = new ArrayList<>();
+		List<Long> stringingKeys = new ArrayList<>();
+		for (Fletching.Stringing s : Fletching.Stringing.values()) {
+			// forStringing is looked up by the pair (unstrung, bow string), so that is the key.
+			// Every row shares 1777, which is a repeated *reference* and not a conflict.
+			stringingKeys.add(key(s.getUnstrung(), Fletching.BOW_STRING));
+			stringing.add(s.getUnstrung());
+			stringing.add(s.getStrung());
+			stringing.add(Fletching.BOW_STRING);
+		}
+		tables.add(new Table("Fletching.Stringing", toKeys(stringingKeys), toArray(stringing)));
 
 		List<Integer> tips = new ArrayList<>();
 		List<Long> tipKeys = new ArrayList<>();

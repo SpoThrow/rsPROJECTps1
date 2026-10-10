@@ -318,6 +318,34 @@ nothing consumes it. So there is no stringing to make ticked, there is stringing
 That is a Phase 3 item, not a Phase 1 tweak, because it needs its own log→unstrung→strung
 table and level/xp data rather than a rewrite of something existing.
 
+**Landed (2026-10-10), bow stringing.** Written as new content, as the note above said it had to
+be. `Fletching.Stringing` is a thirteen-row table — Necrotic's `StringingData` verbatim for the
+twelve bows it has, plus Redone's composite-bow row (`4825 + 1777 -> 4827`, 30, 45 xp), which
+Necrotic lacks. Every unstrung id, strung id, level and xp was checked against both sources and
+against `item.cfg`; all twenty-seven ids resolve.
+
+- **Lookup is on the pair, and order-blind.** `forStringing(item1, item2)` requires the bowstring
+  to be one side of it, so an unstrung bow on a chisel is not stringing. Matching the unstrung id
+  alone would have claimed those pairs.
+- **`stringBow` is ticked and repeating**, on the same `playerFletch` flag and the same
+  `FLETCH_EVENT` id as `fletchBow`, so `cancel` and `resetVariables` end it with no new hook and
+  only one of the two can run at a time.
+- **Registered in `ItemUseRegistry`, not inline.** This is the first item recipe to move into the
+  registry, via `FletchingItemUses.register()` called from the registry's static block — the same
+  bootstrap shape as `ObjectHandler`. `UseItem.ItemonItem` returns on a claimed pair, so the
+  registry and the inline checks never both run.
+- **Animations are Necrotic's per-bow set** (6678-6689, one per bow). Redone strings all thirteen
+  with no animation; the sourced set beats inventing ids. The composite bow borrows the longbow's,
+  and that borrow is documented at the row because it is the one number without a source.
+- **The magic longbow is 85 here, 87 in `Fletch`.** Left alone: it is the sourced value, it is a
+  balance number, and it is unreachable anyway because the unstrung bow needs 87. Flagged rather
+  than silently reconciled.
+
+Tests: eleven new cases in `FletchingTest` (both orders, every level/xp/animation, xp parity with
+the cutting table, no duplicate or self-referential rows, null for non-pairs, registration
+enumeration, a click through the registry, repeat-until-empty, the level gate, no bowstrings, and
+cancellation on a walk), plus a `Fletching.Stringing` row in `QolValidatorTest`.
+
 **Also landed with this phase (same session):** `makeArrows`, `makeBolts`, `handleBoltTipping`
 and `handleBoltTipCrafting` moved off their `System.currentTimeMillis()` throttles and onto the
 tick via one shared helper. These stay single actions — fifteen arrows or ten bolts per click is
@@ -671,7 +699,7 @@ reviewable, revertible file per batch.
 | # | Phase | Why here | Depends on |
 |---|---|---|---|
 | 0 | Registries + §2 safe accessor + validator | Everything after registers instead of editing switches, and may reference ids that do not exist yet | — — **done** |
-| 1 | Fletching realism (1-by-1, shaft fix, stringing) | Your headline; small; very visible | 0 (optional) — **bows and shafts done**, stringing/arrows/bolts still open |
+| 1 | Fletching realism (1-by-1, shaft fix, stringing) | Your headline; small; very visible | 0 (optional) — **done**: bows, shafts, arrows, bolts, tipping and stringing |
 | 2 | Random events, flag-driven (nest + genie on) | Cheap, visible, exact flags you asked for | 0 — **done**; further classics need their dialogue written first |
 | 3 | Skilling completeness (N1 tables: potions, gems, glass, spinning, agility, rune/smith) | The "done to full completion" goal; §8.2 dose model | 0, 1 (pattern) |
 | 4 | World interactivity: fillables (R), pickables (R), searchable/climbable scenery, doors/gates | The "feels finished" layer; mostly data + registrations | 0 |

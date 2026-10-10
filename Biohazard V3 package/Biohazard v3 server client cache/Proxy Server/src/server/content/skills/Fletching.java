@@ -289,10 +289,101 @@ public class Fletching {
 		}
 	}
 
+	/**
+	 * Bow stringing: a bowstring on an unstrung bow. Which bow is decided by the unstrung id, so
+	 * the pair is looked up order-independently like every other "use A on B".
+	 *
+	 * <p><b>This did not exist.</b> Item {@code 1777} was an impling reward and a Crafting menu
+	 * label and nothing consumed it, so the twelve unstrung bows in {@code item.cfg} had no way to
+	 * become bows. The table is Necrotic's {@code StringingData} with Redone's extra composite bow
+	 * row.
+	 *
+	 * <p>The xp column is copied from {@link Fletch} row for row, so stringing a bow is worth
+	 * exactly what cutting it was worth. The levels match too, with one exception: the magic
+	 * longbow is {@code 85} here where {@link Fletch} asks for {@code 87}. That is the value
+	 * Necrotic uses and the quoted OSRS level, and the difference is unreachable in normal play
+	 * because the unstrung bow cannot be made until {@code 87}. It is left as-is and noted in
+	 * {@code QOL_PLAN.md} rather than quietly changed, since it is a balance number.
+	 *
+	 * <p>The animations are Necrotic's one-per-bow set. Redone strings all thirteen with no
+	 * animation at all, and this server had no stringing animation to copy, so the sourced set
+	 * wins over inventing one. The composite bow has no Necrotic row and therefore no sourced
+	 * animation; it borrows the longbow's, which is the nearest thing to it and is at least
+	 * obviously a stringing pose rather than the knife animation {@link #FLETCH_ANIMATION}.
+	 */
+	public enum Stringing {
+
+		SHORTBOW(50, 841, 5, 5, 6678),
+		LONGBOW(48, 839, 10, 10, 6684),
+		OAK_SHORTBOW(54, 843, 20, 17, 6679),
+		OAK_LONGBOW(56, 845, 25, 25, 6685),
+		COMPOSITE_BOW(4825, 4827, 30, 45, 6684),
+		WILLOW_SHORTBOW(60, 849, 35, 34, 6680),
+		WILLOW_LONGBOW(58, 847, 40, 42, 6686),
+		MAPLE_SHORTBOW(64, 853, 50, 50, 6681),
+		MAPLE_LONGBOW(62, 851, 55, 59, 6687),
+		YEW_SHORTBOW(68, 857, 65, 68, 6682),
+		YEW_LONGBOW(66, 855, 70, 75, 6688),
+		MAGIC_SHORTBOW(72, 861, 80, 84, 6683),
+		MAGIC_LONGBOW(70, 859, 85, 92, 6689);
+
+		private final int unstrung;
+		private final int strung;
+		private final int levelReq;
+		private final int xp;
+		private final int animation;
+
+		Stringing(int unstrung, int strung, int levelReq, int xp, int animation) {
+			this.unstrung = unstrung;
+			this.strung = strung;
+			this.levelReq = levelReq;
+			this.xp = xp;
+			this.animation = animation;
+		}
+
+		public int getUnstrung() {
+			return unstrung;
+		}
+
+		public int getStrung() {
+			return strung;
+		}
+
+		public int getLevelReq() {
+			return levelReq;
+		}
+
+		public int getXp() {
+			return xp;
+		}
+
+		public int getAnimation() {
+			return animation;
+		}
+	}
+
+	/** The item both sides of a stringing pair share. */
+	public static final int BOW_STRING = 1777;
+
 	static Fletch forBow(int id) {
 		for (Fletch fl : Fletch.values()) {
 			if (fl.getBowID() == id) {
 				return fl;
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * @return the row for this pair, in either order, or null if it is not a stringing pair. The
+	 *         bowstring has to be one side of it: matching the unstrung id alone would claim
+	 *         obviously wrong pairs such as an unstrung bow on a chisel.
+	 */
+	public static Stringing forStringing(int item1, int item2) {
+		for (Stringing s : Stringing.values()) {
+			if (s.getUnstrung() == item1 && item2 == BOW_STRING
+					|| s.getUnstrung() == item2 && item1 == BOW_STRING) {
+				return s;
 			}
 		}
 		return null;
@@ -604,6 +695,62 @@ public class Fletching {
 				if (c.doAmount <= 0) {
 					container.stop();
 				}
+			}
+
+			@Override
+			public void stop() {
+				cancel(c);
+			}
+		}, 2);
+	}
+
+	/**
+	 * Strings a bow: one bowstring and one unstrung bow per action, on the tick.
+	 *
+	 * <p>Repeating rather than single, which matches this server's arrow and bolt actions: the
+	 * action runs until one of the two stacks runs out, so stringing a bank's worth is one click
+	 * rather than one click per bow.
+	 *
+	 * <p>It runs on the same {@code playerFletch} flag and the same {@link #FLETCH_EVENT} id as
+	 * {@link #fletchBow}, so {@link #cancel} stops stringing as well and
+	 * {@code PlayerAssistant.resetVariables} ends it on a walk without needing a second hook. Only
+	 * one of the two can be running at a time, which is right: they are the same action slot.
+	 */
+	public static void stringBow(Client c, int itemUsed, int useWith) {
+		Stringing data = forStringing(itemUsed, useWith);
+		if (data == null || c.playerFletch) {
+			return;
+		}
+		if (c.skills.playerLevel[Player.playerFletching] < data.getLevelReq()) {
+			c.sendMessage("You need a fletching level of at least " + data.getLevelReq()
+					+ " to string this bow.");
+			return;
+		}
+		final int unstrung = data.getUnstrung();
+		final int product = data.getStrung();
+		if (c.getItems().getItemAmount(BOW_STRING) < 1 || c.getItems().getItemAmount(unstrung) < 1) {
+			return;
+		}
+
+		// Once, at the start, rather than once per bow: the message is about the action, and a
+		// full inventory would otherwise produce twenty-eight identical lines.
+		c.sendMessage("You add a string to the bow.");
+		c.startAnimation(data.getAnimation());
+
+		c.playerFletch = true;
+		CycleEventHandler.addEvent(FLETCH_EVENT, c, new CycleEvent() {
+			@Override
+			public void execute(CycleEventContainer container) {
+				if (!c.playerFletch
+						|| !c.getItems().playerHasItem(BOW_STRING)
+						|| !c.getItems().playerHasItem(unstrung)) {
+					container.stop();
+					return;
+				}
+				c.getItems().deleteItem2(BOW_STRING, 1);
+				c.getItems().deleteItem2(unstrung, 1);
+				c.getItems().addItem(product, 1);
+				c.getPA().addSkillXP(data.getXp() * Config.FLETCHING_EXPERIENCE, Player.playerFletching);
 			}
 
 			@Override

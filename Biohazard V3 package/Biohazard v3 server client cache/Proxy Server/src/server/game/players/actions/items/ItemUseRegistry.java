@@ -25,6 +25,10 @@ public final class ItemUseRegistry {
 
 	private static final Map<Long, ItemUseAction> actions = new ConcurrentHashMap<>();
 
+	static {
+		FletchingItemUses.register();
+	}
+
 	private ItemUseRegistry() {
 	}
 

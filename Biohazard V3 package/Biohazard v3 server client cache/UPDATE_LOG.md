@@ -1,5 +1,19 @@
 # Update Log
 
+## 2026-10-10 - QOL Phase 1 (finished): bow stringing exists now, and it went into the registry
+
+**What changed:**
+- **Bow stringing did not exist at all, and now does.** Item `1777` was an impling reward and a Crafting menu label; nothing in the server consumed it, so the twelve unstrung bows in `item.cfg` (48, 50, 54, 56, 58, 60, 62, 64, 66, 68, 70, 72) could never become bows. `Fletching.Stringing` is a thirteen-row table — Necrotic's `StringingData` verbatim, plus Redone's composite-bow row (`4825 + 1777 -> 4827`, level 30, 45 xp) which Necrotic does not have. All twenty-seven ids (unstrung, strung and the string) resolve in `item.cfg`; `QolValidatorTest` now reports "none: every referenced id resolves".
+- **The lookup is on the pair, and it is order-blind.** `forStringing(a, b)` requires the bowstring to be one side, so an unstrung bow on a chisel is *not* stringing. Matching the unstrung id alone — which is what the raw tables do — would have claimed those pairs.
+- **`stringBow` is a ticked, repeating action** on the same `playerFletch` flag and the same `FLETCH_EVENT` id as `fletchBow`, so the existing `cancel` and `PlayerAssistant.resetVariables` end it on a walk with no second hook, and only one of the two can run at a time. One bowstring and one unstrung bow per 2-tick cycle, until either stack empties.
+- **Registered in `ItemUseRegistry`, not written inline.** This is the first item recipe to move into the registry: `FletchingItemUses.register()` is called from the registry's static block, the same bootstrap shape as `ObjectHandler` calling its object families. `UseItem.ItemonItem` returns on a claimed pair, so the registry and the four hundred lines of inline checks never both run.
+- **Animations are Necrotic's per-bow set** (6678–6689, one per bow). Redone strings all thirteen with no animation and this server had no stringing animation to copy, so the sourced set wins over inventing ids. The composite bow is the one row with no source for an animation and borrows the longbow's; that borrow is documented at the row.
+- **The magic longbow is level 85 here and 87 in `Fletch`.** Left as sourced rather than silently reconciled — it is a balance number, and it is unreachable in normal play because the unstrung bow needs 87 in the first place. Flagged in `QOL_PLAN.md` §5.
+
+**Files touched:** `server/content/skills/Fletching.java` (`Stringing` enum, `BOW_STRING`, `forStringing`, `stringBow`); added `server/game/players/actions/items/FletchingItemUses.java`; edited `ItemUseRegistry.java` (static bootstrap); added 13 cases to `test/.../FletchingTest.java` and a `Fletching.Stringing` table to `test/.../QolValidatorTest.java`; updated `QOL_PLAN.md`.
+
+**Status:** done. **964 tests, 0 failures, 0 errors** (808 server + 156 workshop; 13 new, all in `FletchingTest`). Phase 1 is now complete — bows, shafts, arrows, bolts, tipping and stringing. Next: Phase 3, skilling completeness, starting with the tables the guide already advertises but the server does not implement: pottery, glassblowing, spinning, gem cutting breadth, then agility and the runecrafting/smithing loops, using Necrotic's tables.
+
 ## 2026-10-10 - QOL Phase 2: random events get a manager, and the flags start doing something
 
 **What changed:**

@@ -21,6 +21,7 @@ import server.content.skills.Fletching.Fletch;
 import server.event.CycleEventHandler;
 import server.game.players.Client;
 import server.game.players.Player;
+import server.game.players.actions.items.ItemUseRegistry;
 
 /**
  * Pins the fletching table and the two facts the ticked rewrite depends on: a product is what
@@ -368,5 +369,193 @@ class FletchingTest {
 		passTwoTicks();
 
 		assertEquals(1, count(c, 841), "one action, not two racing each other");
+	}
+
+	// ---------------------------------------------------------------------------------------
+	// Bow stringing.
+	//
+	// The pair is (unstrung bow, bow string), written as {unstrung, strung, level, xp, anim}
+	// exactly as the enum is. The composite bow is the only row not in Necrotic's StringingData:
+	// it comes from Redone's Stringing, which is why it has no sourced animation of its own.
+	// ---------------------------------------------------------------------------------------
+
+	private static final int[][] STRINGING = {
+			{ 50, 841, 5, 5, 6678 },
+			{ 48, 839, 10, 10, 6684 },
+			{ 54, 843, 20, 17, 6679 },
+			{ 56, 845, 25, 25, 6685 },
+			{ 4825, 4827, 30, 45, 6684 },
+			{ 60, 849, 35, 34, 6680 },
+			{ 58, 847, 40, 42, 6686 },
+			{ 64, 853, 50, 50, 6681 },
+			{ 62, 851, 55, 59, 6687 },
+			{ 68, 857, 65, 68, 6682 },
+			{ 66, 855, 70, 75, 6688 },
+			{ 72, 861, 80, 84, 6683 },
+			{ 70, 859, 85, 92, 6689 },
+	};
+
+	@Test
+	void everyStringingRowIsLookedUpInEitherOrder() {
+		// The lookup has to be order-blind: the client can send the bowstring as either side of
+		// the pair, and a one-sided match would handle half of the clicks.
+		for (int[] row : STRINGING) {
+			assertEquals(row[0], Fletching.forStringing(row[0], Fletching.BOW_STRING).getUnstrung(),
+					"unstrung " + row[0] + " with the string");
+			assertEquals(row[0], Fletching.forStringing(Fletching.BOW_STRING, row[0]).getUnstrung(),
+					"the string with unstrung " + row[0]);
+		}
+	}
+
+	@Test
+	void everyStringingLevelXpAndAnimationMatchesTheTable() {
+		for (int[] row : STRINGING) {
+			Fletching.Stringing s = Fletching.forStringing(row[0], Fletching.BOW_STRING);
+			assertNotNull(s, "no stringing row for unstrung " + row[0]);
+			assertEquals(row[1], s.getStrung(), "strung bow for " + row[0]);
+			assertEquals(row[2], s.getLevelReq(), "level for " + row[0]);
+			assertEquals(row[3], s.getXp(), "xp for " + row[0]);
+			assertEquals(row[4], s.getAnimation(), "animation for " + row[0]);
+		}
+	}
+
+	@Test
+	void stringingXpMatchesCuttingTheSameBow() {
+		// Stringing is worth what cutting was worth, per the table copied from Necrotic. If the
+		// two ever drift, one of them was edited and the other was not.
+		for (int[] row : STRINGING) {
+			Fletch cut = Fletching.forBow(row[1]);
+			if (cut == null) {
+				continue; // the composite bow is not in the cutting table
+			}
+			assertEquals(cut.getXp(), row[3], "stringing xp for bow " + row[1]);
+		}
+	}
+
+	@Test
+	void everyStringingAnimationIsFromTheSourcedSet() {
+		// 6678-6689 is Necrotic's per-bow set. Pinned because the composite bow borrows one of
+		// them rather than having its own, and a stray id outside the set would be the shape of
+		// an invented number.
+		for (Fletching.Stringing s : Fletching.Stringing.values()) {
+			assertTrue(s.getAnimation() >= 6678 && s.getAnimation() <= 6689,
+					s + " uses animation " + s.getAnimation() + ", which is outside the sourced set");
+		}
+	}
+
+	@Test
+	void noTwoStringingRowsShareAnUnstrungOrStrungBow() {
+		// forStringing returns the first match, so a duplicate unstrung id would make the second
+		// row unreachable and its bow silently unstringable.
+		Set<Integer> unstrung = new HashSet<>();
+		Set<Integer> strung = new HashSet<>();
+		for (Fletching.Stringing s : Fletching.Stringing.values()) {
+			assertTrue(unstrung.add(s.getUnstrung()), "duplicate unstrung id " + s.getUnstrung());
+			assertTrue(strung.add(s.getStrung()), "duplicate strung id " + s.getStrung());
+		}
+	}
+
+	@Test
+	void anUnstrungBowIsNotAStrungBow() {
+		// A row whose two ids matched would delete the product it was about to add. It would also
+		// mean forStringing could match a bow on itself and never consume the string.
+		for (Fletching.Stringing s : Fletching.Stringing.values()) {
+			assertFalse(s.getUnstrung() == s.getStrung(),
+					s + " names the same item on both sides");
+		}
+	}
+
+	@Test
+	void forStringingAnswersNullForPairsThatAreNotABowAndString() {
+		// Matching on the unstrung id alone would claim any pair containing an unstrung bow, such
+		// as a bow on a chisel. The bowstring has to be the other side.
+		assertNull(Fletching.forStringing(70, 1755), "an unstrung bow on a chisel is not stringing");
+		assertNull(Fletching.forStringing(1777, 1755), "a bowstring on a chisel is not stringing");
+		assertNull(Fletching.forStringing(1777, 1777), "a bowstring on itself is not stringing");
+		assertNull(Fletching.forStringing(1511, 1777), "a log and a bowstring is not stringing");
+		assertNull(Fletching.forStringing(841, 1777), "an already-strung bow is not stringing");
+	}
+
+	@Test
+	void everyStringingPairIsRegisteredSoTheLegacyChecksDoNotAlsoRun() {
+		// The wiring, not the table: UseItem.ItemonItem returns as soon as dispatch reports the
+		// pair claimed. If a row is missing here, the click reaches the legacy body and does
+		// nothing, which looks exactly like the feature never having been written.
+		for (Fletching.Stringing s : Fletching.Stringing.values()) {
+			assertTrue(ItemUseRegistry.isRegistered(s.getUnstrung(), Fletching.BOW_STRING),
+					"unstrung " + s.getUnstrung() + " is not registered");
+			assertTrue(ItemUseRegistry.isRegistered(Fletching.BOW_STRING, s.getUnstrung()),
+					"the reversed order must be the same registration");
+		}
+	}
+
+	@Test
+	void aStringingClickStringifiesThroughTheRegisteredPair() {
+		// End to end through the registry, in the reversed order the client may send.
+		Client c = withItems(1777, 3, 70, 3);
+		c.skills.playerLevel[Player.playerFletching] = 85;
+
+		assertTrue(ItemUseRegistry.dispatch(c, Fletching.BOW_STRING, 70), "the pair must be claimed");
+		passTwoTicks();
+
+		assertEquals(1, count(c, 859), "one magic longbow");
+		assertEquals(2, count(c, 70), "one unstrung bow consumed");
+		assertEquals(2, count(c, 1777), "one bowstring consumed");
+	}
+
+	@Test
+	void stringingRepeatsUntilTheBowstringsRunOut() {
+		// Same shape as fletchBow: one per action, and the action ends when either stack is gone
+		// rather than truncating the batch.
+		Client c = withItems(1777, 3, 50, 10);
+		c.skills.playerLevel[Player.playerFletching] = 5;
+
+		Fletching.stringBow(c, 50, 1777);
+		for (int i = 0; i < 8; i++) {
+			passTwoTicks();
+		}
+
+		assertEquals(3, count(c, 841), "three shortbows, one per action");
+		assertEquals(0, count(c, 1777), "the bowstrings are all used");
+		assertEquals(7, count(c, 50), "and the unstrung stack stops where the strings did");
+	}
+
+	@Test
+	void aStringingClickBelowTheLevelConsumesNothing() {
+		Client c = withItems(1777, 5, 70, 5);
+		c.skills.playerLevel[Player.playerFletching] = 84; // the magic longbow asks for 85
+
+		Fletching.stringBow(c, 70, 1777);
+		passTwoTicks();
+
+		assertEquals(0, count(c, 859), "no level, no bow");
+		assertEquals(5, count(c, 1777), "and no bowstring is consumed");
+		assertEquals(5, count(c, 70));
+	}
+
+	@Test
+	void stringingWithNoBowstringsDoesNothing() {
+		Client c = withItems(50, 5);
+		c.skills.playerLevel[Player.playerFletching] = 99;
+
+		Fletching.stringBow(c, 50, 1777);
+		passTwoTicks();
+
+		assertEquals(0, count(c, 841));
+		assertEquals(5, count(c, 50), "the unstrung bows stay where they are");
+	}
+
+	@Test
+	void walkingAwayEndsStringingBeforeItDelivers() {
+		Client c = withItems(1777, 10, 50, 10);
+		c.skills.playerLevel[Player.playerFletching] = 5;
+
+		Fletching.stringBow(c, 50, 1777);
+		c.getPA().resetVariables();
+		passTwoTicks();
+
+		assertEquals(0, count(c, 841), "a cancelled action must not deliver");
+		assertEquals(10, count(c, 1777), "and must not consume");
+		assertEquals(10, count(c, 50));
 	}
 }
