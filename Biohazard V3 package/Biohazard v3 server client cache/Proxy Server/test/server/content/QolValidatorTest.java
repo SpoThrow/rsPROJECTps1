@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 
 import server.Config;
 import server.content.skills.Fletching;
+import server.content.skills.Herblore;
 import server.content.skills.Pottery;
 import server.content.skills.SoftClay;
 import server.content.skills.Spinning;
@@ -101,6 +102,46 @@ class QolValidatorTest {
 			darts.add(d.getOutcome());
 		}
 		tables.add(new Table("Fletching.Darts", toKeys(dartKeys), toArray(darts)));
+
+		List<Integer> cleaning = new ArrayList<>();
+		List<Long> cleaningKeys = new ArrayList<>();
+		for (Herblore.Cleaning herb : Herblore.Cleaning.values()) {
+			// forGrimyHerb matches the grimy id, so that is the key.
+			cleaningKeys.add((long) herb.getGrimy());
+			cleaning.add(herb.getGrimy());
+			cleaning.add(herb.getClean());
+		}
+		tables.add(new Table("Herblore.Cleaning", toKeys(cleaningKeys), toArray(cleaning)));
+
+		List<Integer> grinding = new ArrayList<>();
+		List<Long> grindingKeys = new ArrayList<>();
+		for (Herblore.Grinding grindable : Herblore.Grinding.values()) {
+			// Keyed on the pair (input, pestle), because that is what the registry is asked for.
+			grindingKeys.add(key(grindable.getInput(), Herblore.PESTLE_AND_MORTAR));
+			grinding.add(grindable.getInput());
+			grinding.add(grindable.getProduct());
+		}
+		tables.add(new Table("Herblore.Grinding", toKeys(grindingKeys), toArray(grinding)));
+
+		List<Integer> unfinished = new ArrayList<>();
+		List<Long> unfinishedKeys = new ArrayList<>();
+		for (Herblore.Unfinished row : Herblore.Unfinished.values()) {
+			unfinishedKeys.add(key(row.getBase(), row.getHerb()));
+			unfinished.add(row.getBase());
+			unfinished.add(row.getHerb());
+			unfinished.add(row.getPotion());
+		}
+		tables.add(new Table("Herblore.Unfinished", toKeys(unfinishedKeys), toArray(unfinished)));
+
+		List<Integer> finished = new ArrayList<>();
+		List<Long> finishedKeys = new ArrayList<>();
+		for (Herblore.Finished row : Herblore.Finished.values()) {
+			finishedKeys.add(key(row.getUnfinished(), row.getSecondary()));
+			finished.add(row.getUnfinished());
+			finished.add(row.getSecondary());
+			finished.add(row.getPotion());
+		}
+		tables.add(new Table("Herblore.Finished", toKeys(finishedKeys), toArray(finished)));
 
 		List<Integer> arrows = new ArrayList<>();
 		List<Long> arrowKeys = new ArrayList<>();

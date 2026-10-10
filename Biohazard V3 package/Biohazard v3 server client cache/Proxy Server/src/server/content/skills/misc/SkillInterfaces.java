@@ -1247,8 +1247,12 @@ public class SkillInterfaces {
 			menuLine("63", "Super restore potion", 3026, 14);
 			menuLine("66", "Super Defence potion", 163, 15);
 			menuLine("68", "Antidote+", 5945, 16);
-			menuLine("69", "Ranging potion", 169, 17);
-			menuLine("72", "Antifire potion", 2454, 18);
+			// Antifire and ranging were printed the wrong way round: 2454 is the antifire potion,
+			// which is 69 in OSRS, and 169 the ranging potion, which is 72 — and the experience this
+			// server already awarded for them (158 and 163) is the pair for 69 and 72. The rows were
+			// swapped rather than the table.
+			menuLine("69", "Antifire potion", 2454, 17);
+			menuLine("72", "Ranging potion", 169, 18);
 			menuLine("73", "Weapon poison+", 5937, 19);
 			menuLine("76", "Magic potion", 3042, 20);
 			menuLine("78", "Zamorak brew", 189, 21);
@@ -1267,14 +1271,18 @@ public class SkillInterfaces {
 			menuLine("20", "Harralander", 255, 3);
 			menuLine("25", "Ranarr", 257, 4);
 			menuLine("30", "Toadflax", 2998, 5);
-			menuLine("40", "Irit Leaf", 259, 6);
-			menuLine("48", "Avantoe", 261, 7);
-			menuLine("54", "Kwuarm", 263, 8);
-			menuLine("59", "Snapdragon", 3000, 9);
-			menuLine("65", "Cadantine", 265, 10);
-			menuLine("67", "Lantadyme", 2481, 11);
-			menuLine("70", "Dwarf Weed", 267, 12);
-			menuLine("75", "Torstol", 269, 13);
+			// Wergali and spirit weed are cleanable in this revision and the tab did not say so.
+			// Both levels are the ones Herblore.Cleaning uses, so the print and the table agree.
+			menuLine("30", "Wergali", 14854, 6);
+			menuLine("35", "Spirit weed", 12172, 7);
+			menuLine("40", "Irit Leaf", 259, 8);
+			menuLine("48", "Avantoe", 261, 9);
+			menuLine("54", "Kwuarm", 263, 10);
+			menuLine("59", "Snapdragon", 3000, 11);
+			menuLine("65", "Cadantine", 265, 12);
+			menuLine("67", "Lantadyme", 2481, 13);
+			menuLine("70", "Dwarf Weed", 267, 14);
+			menuLine("75", "Torstol", 269, 15);
 			optionTab("Herblore", "Herbs", "Potions", "Herbs", "Milestones",
 					"", "", "", "", "", "", "", "", "", "");
 		}

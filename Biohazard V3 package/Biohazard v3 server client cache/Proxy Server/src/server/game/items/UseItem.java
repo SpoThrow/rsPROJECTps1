@@ -109,12 +109,8 @@ public class UseItem {
 		if (Firemaking.playerLogs(c, itemUsed, useWith)) {
 			Firemaking.grabData(c,itemUsed, useWith);
 		}
-		//Herblore
-		if(Herblore.isIngredient(itemUsed) || Herblore.isIngredient(useWith)) {
-			Herblore.setupPotion(c, itemUsed, useWith);
-		} else if(Herblore.isGrindable(itemUsed) || Herblore.isGrindable(useWith)) {
-			Herblore.setupGrinding(c, itemUsed, useWith);
-		}
+		//Herblore is registered in ItemUseRegistry and dispatched above: every one of its recipes is
+		//a pair, so the block that used to sit here is gone rather than left as a second path.
 		//potionMixing
 		if (ItemAssistant.getItemName(itemUsed).contains("(") && ItemAssistant.getItemName(useWith).contains("(")) {
 			c.getPotMixing().mixPotion2(itemUsed, useWith);

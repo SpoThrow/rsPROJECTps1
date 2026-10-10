@@ -1,5 +1,20 @@
 # Update Log
 
+## 2026-10-10 - QOL Phase 3 (sixth slice): herblore — the tables were right, the implementation was not
+
+**What changed:**
+- **The recipes lived in static fields.** `itemToDelete`, `itemToDelete2`, `itemToAdd` and `potExp` were written by the click and read back by a tick loop, so **two players mixing at the same time cross-wired** — one could receive the other's potion and lose their materials. Every recipe now travels with its own action; a test named for the bug pins it.
+- **`cleanHerb` cleaned everything.** It looped the whole table without breaking and acted on every herb in the pack, deleting each from the *first* matched herb's slot. Clicking one grimy herb with two kinds in the pack cleaned both. It now cleans exactly the herb that was clicked.
+- **The make-X menu is gone, because herblore does not batch.** In OSRS a herb on a vial of water is one potion per click and an ingredient on an unfinished potion is one per click. Mixing and grinding are now ticked at two cycles (the fletching cadence), one product per action; cleaning is instant, because a single item in the pack has no walk to interrupt.
+- **Four enums replace the five arrays**: `Cleaning` (16), `Grinding` (8), `Unfinished` (16), `Finished` (27). **Every pair is registered in `ItemUseRegistry`** via a new `HerbloreItemUses`, which is only possible now that the recipe is not shared state; cleaning stays in `ClickItem` because a grimy herb is clicked rather than combined.
+- **Five potions the guide has printed all along could not be made at all**: energy (26), agility (34), super energy (52), antidote+ (68) and antidote++ (79). They are in the table now, using the secondaries this revision carries (chocolate dust, toad's legs, mort myre fungi, yew roots, magic roots) at the guide's levels and OSRS experience.
+- **Two data errors fixed**: cleaning guam was level 1 where the guide and the attack potion both say 3, and the guide printed ranging at 69 and antifire at 72 where OSRS — and this table's own 163 and 158 xp — say 72 and 69, so the guide's two rows were swapped. The Herb tab also now prints wergali (30) and spirit weed (35), which the table cleaned and the tab did not list.
+- **The legacy path was deleted, not left behind**: `setupPotion`, `makePotion`, `grindItem`, `setupGrinding`, `handleHerbloreButtons`, `resetHerblore`, the three `isX` helpers, the static fields, `Player.isPotionMaking`/`isGrinding`, and the `UseItem`/`ClickingButtons`/`PlayerAssistant` hooks they lived on. Spirit weed and wergali unfinished potions are the deliberate omission — this revision has the unfinished ids and no finished potion for either.
+
+**Files touched:** rewrote `server/content/skills/Herblore.java`; added `actions/items/HerbloreItemUses.java`; edited `ItemUseRegistry.java`, `UseItem.java`, `ClickingButtons.java`, `PlayerAssistant.java`, `Player.java`, `misc/SkillInterfaces.java`; added 22 tests in `test/.../HerbloreTest.java` and four rows to `QolValidatorTest.java`; updated `QOL_PLAN.md` (new §4f, §12).
+
+**Status:** done. **1110 tests, 0 failures, 0 errors** (22 new, all in `HerbloreTest`), and `QolValidatorTest` reports no undefined ids and no duplicate keys. Next in Phase 3 is a skill pick — gems/jewellery, runecrafting or smithing completion; glass stays UI-blocked (§4e) and agility stays parked.
+
 ## 2026-10-10 - QOL Phase 3 (fifth slice): darts, dragon arrows, and the bolt table's inputs — agility parked
 
 **What changed:**

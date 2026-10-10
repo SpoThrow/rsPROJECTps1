@@ -3362,8 +3362,8 @@ public void underWaterTele() {
 			CraftingData.resetCrafting(c);
 		if(c.playerIsFletching)
 			Fletching.resetFletching(c);
-		if(c.playerSkilling[Player.playerHerblore] || c.isGrinding || c.isPotionMaking)
-			Herblore.resetHerblore(c);
+		if(c.playerSkilling[Player.playerHerblore])
+			Herblore.cancel(c);
 		if(c.playerSkilling[14])
 			Mining.resetMining(c);
 		if(c.playerSkilling[7])

@@ -27,6 +27,7 @@ public final class ItemUseRegistry {
 
 	static {
 		FletchingItemUses.register();
+		HerbloreItemUses.register();
 		SoftClayItemUses.register();
 	}
 

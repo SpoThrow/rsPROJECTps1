@@ -418,6 +418,71 @@ consume items no player can obtain yet.
 
 ---
 
+## 4f. Herblore — the tables were right, the implementation was not
+
+**Ours** was four static fields (`itemToDelete`, `itemToDelete2`, `itemToAdd`, `potExp`) that a
+click filled in and a tick loop read back out, with the amounts chosen through a make-X menu
+(buttons `10238`/`10239`/`6212`/`6211`), and five tables around them: cleaning, grinding, unfinished
+potions, finished potions and the three `isX` helpers.
+
+**The data was nearly perfect and the code around it was not.** Checked row by row against the
+guide's own Herbs and Potions tabs and against OSRS, the mixing table's levels and experience are
+right in 21 of 22 rows, the cleaning table's in 15 of 16, and the herbs, grimy ids, unfinished ids
+and secondaries all resolve in `item.cfg`. What was wrong:
+
+- **Static state, shared by every player.** Two people mixing at once — one an attack potion, one a
+  super strength — wrote the same four fields, so the tick loop could deliver one player's product
+  to the other and consume the wrong materials. This is the bug worth the rewrite on its own.
+- **`cleanHerb` cleaned everything it found.** It looped the whole table without breaking and acted
+  on every row present in the pack, deleting each one from the slot belonging to the *first* herb it
+  matched. A player carrying two kinds of herb and clicking one cleaned both, from the wrong slot.
+- **The make-X menu is not how herblore works.** In OSRS a herb on a vial of water is one potion per
+  click and an ingredient on an unfinished potion is one potion per click; there is no "how many"
+  for either. Fletching's fifteen-at-a-time batches exist because OSRS batches arrows; herblore
+  does not batch anything.
+- **Five of the guide's own promises could not be made at all** — energy (26), agility (34), super
+  energy (52), antidote+ (68) and antidote++ (79) were printed on the Potions tab with nothing in
+  the class able to produce them.
+- **Two scattered data errors**: cleaning guam was level 1 (guide and OSRS say 3, which is also the
+  attack potion's level, so attack potions were gated one tier low end-to-end), and the guide prints
+  ranging at 69 and antifire at 72 where OSRS and this table's own experience values (163, 158) say
+  72 and 69 — the guide's two rows were swapped.
+
+**Proposal, implemented as one slice:** four enums (`Cleaning` 16 rows, `Grinding` 8, `Unfinished`
+16, `Finished` 27) read directly by the action instead of flattened into shared state; **every pair
+registered in `ItemUseRegistry`** through a new `HerbloreItemUses`, which is possible precisely
+because the recipe now travels with the click; cleaning left in `ClickItem` because a grimy herb is
+clicked rather than combined; mixing and grinding ticked at two cycles (the fletching cadence), one
+product per action; cleaning instant, because one item in the pack has no walk to interrupt — the
+`SoftClay` reasoning. The legacy path was **deleted**, not left behind: `setupPotion`, `makePotion`,
+`grindItem`, `setupGrinding`, `handleHerbloreButtons`, `resetHerblore`, the three `isX` helpers, the
+four static fields, the `isPotionMaking`/`isGrinding` flags on `Player`, and the `UseItem` and
+`ClickingButtons` hooks they lived on.
+
+The five missing rows use the recipes their secondaries in this revision imply — chocolate dust
+(`1975`) for energy, toad's legs (`2152`) for agility, mort myre fungi (`2970`) for super energy,
+yew roots (`6049`) for antidote+, magic roots (`6051`) for antidote++ — at the levels the guide
+prints, with the OSRS experience. Every one of those ten ids resolves in `item.cfg`.
+
+**Deliberate omissions.** Spirit weed and wergali clean (levels 35 and 30, both in the table) but
+their unfinished potions lead nowhere: this revision has `Spirit_weed_potion_(unf)` and
+`Wergali_potion_(unf)` and no finished product for either, so the pair would be a potion with no
+recipe. They are listed in `QOL_PLAN.md` and named in the class comment rather than registered.
+Blurite bolts stay out for the reason in §5.
+
+**Guide corrections carried with the change:** the herbalism Herb tab now prints wergali (30) and
+spirit weed (35), which the table could clean but the tab did not list, and the ranging/antifire
+rows were swapped back. Combat and hunter stay off the tab — the tab is a summary, and a table may
+know more than it prints.
+
+Tests: 22 in `HerbloreTest` — all four tables pinned row by row, cleaning at the level boundary,
+cleaning only the clicked herb, the experience each family awards (and the two that award none),
+the pestle surviving grinding, both mixing steps ticked and re-checked, cancellation on a walk,
+registry coverage of every pair and the duplicate-registration guard, and **the two-player
+cross-wiring bug** as a named regression.
+
+---
+
 ## 5. Fletching realism — the headline change
 
 **Ours**: `fletchBow(c, id, amount)` deletes `amount2` logs and adds `amount2` bows in
@@ -922,7 +987,7 @@ reviewable, revertible file per batch.
 | 0 | Registries + §2 safe accessor + validator | Everything after registers instead of editing switches, and may reference ids that do not exist yet | — — **done** |
 | 1 | Fletching realism (1-by-1, shaft fix, stringing) | Your headline; small; very visible | 0 (optional) — **done**: bows, shafts, arrows, bolts, tipping and stringing |
 | 2 | Random events, flag-driven (nest + genie on) | Cheap, visible, exact flags you asked for | 0 — **done**; further classics need their dialogue written first |
-| 3 | Skilling completeness (N1 tables: potions, gems, glass, spinning, agility, rune/smith) | The "done to full completion" goal; §8.2 dose model | 0, 1 (pattern) — **spinning + pottery + weaving + soft clay + darts/arrows/bolts done**, glass is UI-blocked (§4e), agility **parked** (see the log entry for 2026-10-10) |
+| 3 | Skilling completeness (N1 tables: potions, gems, glass, spinning, agility, rune/smith) | The "done to full completion" goal; §8.2 dose model | 0, 1 (pattern) — **spinning + pottery + weaving + soft clay + darts/arrows/bolts + herblore done**, glass is UI-blocked (§4e), agility **parked** (see the log entry for 2026-10-10) |
 | 4 | World interactivity: fillables (R), pickables (R), searchable/climbable scenery, doors/gates | The "feels finished" layer; mostly data + registrations | 0 |
 | 5 | Shops, potions breadth, guilds, glider verify | Pure breadth, additive data; safest wins | 0 |
 | 6 | Bank PIN | One genuine client/UI decision first | 0 |

@@ -140,7 +140,6 @@ public abstract class Player {
 	 * click handled twice, making snakeskin into leather and clay into pots at the same time.
 	 */
 	public boolean potteryDialogue;
-	public boolean isPotionMaking = false, isGrinding = false;
 	public long lastTeleport;
 	public int[] woodcuttingProp = new int[10];
 	public int[] pouch = {
