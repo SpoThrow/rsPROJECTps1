@@ -1,5 +1,19 @@
 # Update Log
 
+## 2026-10-10 - QOL Phase 3 (third slice): weaving, the one neither reference server has either
+
+**What changed:**
+- **Weaving did not exist, and now does.** The Crafting guide's Weaving tab has printed "10 Cloth" and "21 Vegetable Sack" since before this work, and this server's own item examine texts already pointed at the loom ("I can weave this to make sacks." on jute fibre `5931`), but nothing read `5931` anywhere and nothing handled an object called "Loom" — `Data/objectSize.cfg` names two of them (787, 8717). Unlike the last two slices there was nothing to port: **2006Redone advertises the same tab with the same absence of implementation**, and Necrotic has only flax and gems. The numbers therefore come from the OSRS loom table.
+- **`Weaving.Weave` is two rows**: four balls of wool `1759` into cloth `3224` at level 10 for 12 xp, and four jute fibres `5931` into an empty sack `5418` at level 21 for 38 xp. Both levels and both products are the guide's own lines, so the tab stops promising something the server will not do.
+- **Four materials per action, not one.** Cloth and sacks are batches, which is the one shape this row has that spinning and pottery do not: the ticked loop consumes the whole batch per action and stops when a full batch is no longer held, rather than when the material hits zero. A test works the boundary — seven wool is one cloth and three left over.
+- **Two ways in, through the same Phase-0 registries.** A first click on a loom (`WeavingLoomObjects`) and wool or jute used on one (`WeavingItemUses`). The click weaves whichever single material you are carrying and, as with the spinning wheel, refuses to guess when both are held. Ticked and repeating at two cycles, on `playerIsCrafting`.
+- **The animation is borrowed, and said so.** No source implements a loom, so no source has a loom animation; it uses the spinning wheel's 896 — the closest action in the same skill — and a test pins it to `Spinning.SPIN_ANIMATION` so the borrow stays visible rather than being mistaken for a found id.
+- One small honesty guard: `clickLoom`'s refusal message spells "four" out in words, which makes it a second copy of the amount column, so a test pins both amounts to 4.
+
+**Files touched:** added `server/content/skills/Weaving.java`, `server/game/players/actions/objects/WeavingLoomObjects.java`, `server/game/players/actions/items/WeavingItemUses.java`; edited `CraftingData.java` (`resetCrafting` cancels weaving too), `ObjectHandler.java` and `ItemOnObjectRegistry.java` (static bootstrap); added 30 tests in `test/.../WeavingTest.java` and a `Weaving.Weave` table to `QolValidatorTest.java`; updated `QOL_PLAN.md` (§4d, §3 sequencing).
+
+**Status:** done. **1057 tests, 0 failures, 0 errors** (901 server + 156 workshop; 30 new, all in `WeavingTest`), and `QolValidatorTest` reports no undefined ids. Deliberately not added: the other five OSRS loom recipes, which this guide tab does not advertise and three of which need intermediate yarns nothing here makes — listed in §4d as the next five rows if the tab is ever widened. Next in this phase: glassblowing, where the open question is whether this client has interface 11462.
+
 ## 2026-10-10 - QOL Phase 3 (second slice): pottery, both stages, at the wheel and the oven
 
 **What changed:**

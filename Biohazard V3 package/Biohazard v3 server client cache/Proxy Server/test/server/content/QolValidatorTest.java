@@ -13,6 +13,7 @@ import server.Config;
 import server.content.skills.Fletching;
 import server.content.skills.Pottery;
 import server.content.skills.Spinning;
+import server.content.skills.Weaving;
 import server.game.items.ItemDefinitions;
 
 /**
@@ -140,6 +141,16 @@ class QolValidatorTest {
 			pottery.add(s.getFired());
 		}
 		tables.add(new Table("Pottery.Shape", toKeys(potteryKeys), toArray(pottery)));
+
+		List<Integer> weaving = new ArrayList<>();
+		List<Long> weavingKeys = new ArrayList<>();
+		for (Weaving.Weave w : Weaving.Weave.values()) {
+			// forMaterial matches the material, so that is the key.
+			weavingKeys.add((long) w.getMaterial());
+			weaving.add(w.getMaterial());
+			weaving.add(w.getProduct());
+		}
+		tables.add(new Table("Weaving.Weave", toKeys(weavingKeys), toArray(weaving)));
 
 		List<Integer> tips = new ArrayList<>();
 		List<Long> tipKeys = new ArrayList<>();

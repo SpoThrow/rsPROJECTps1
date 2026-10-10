@@ -40,6 +40,7 @@ public final class ObjectHandler {
 		DoorObjects.register();
 		SpinningWheelObjects.register();
 		PotteryWheelObjects.register();
+		WeavingLoomObjects.register();
 	}
 
 	private ObjectHandler() {

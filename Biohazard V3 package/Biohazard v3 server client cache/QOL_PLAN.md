@@ -307,13 +307,48 @@ behind it. The two fixtures were already named in `Data/objectSize.cfg` ("Potter
 rather than an invented curve. If it is ever wanted, the wiki gives the level cap (14) but not the
 curve, so it would have to come from a datamined source.
 
-**Still open on this row:** Weaving (the guide's Cloth `3224` at 10 and Vegetable Sack `5418` at
-21 — the OSRS loom table makes Cloth from 4 balls of wool for 12 xp and the empty sack from 4 jute
-fibres for 38; looms are 787/8717), Glassblowing (the guide's eight glass items; needs the pipe
-`1785`, molten glass `1775`, and the sand + soda ash furnace step), soft clay from water and clay,
-and the guide's Weaponry tab (battlestaves). Glass is the next by size and is the same shape as
-pottery: a table plus a ticked loop; the one open question is whether this client has interface
-11462, which Redone uses for the pipe menu.
+**Still open on this row:** Glassblowing (the guide's eight glass items; needs the pipe `1785`,
+molten glass `1775`, and the sand + soda ash furnace step), soft clay from water and clay, and the
+guide's Weaponry tab (battlestaves). Glass is the next by size and is the same shape as pottery: a
+table plus a ticked loop. The one open question is whether this client has interface 11462, which
+Redone uses for the pipe menu — if it does not, glass needs the same kind of decision the oven's
+input did.
+
+---
+
+## 4d. Crafting gaps — weaving landed
+
+**Landed (2026-10-10), weaving, both guide lines.** The Weaving tab has printed "10 Cloth" and
+"21 Vegetable Sack" since before this work, and this server's own item examine texts already
+pointed at the loom ("I can weave this to make sacks." on jute fibre `5931`), but nothing read
+`5931` anywhere and nothing handled an object called "Loom" — `Data/objectSize.cfg` names two of
+them (787, 8717). **Neither reference server implements it either**: 2006Redone advertises the same
+tab with the same absence, and its `SkillInterfaces` is the only place the word "weave" appears. So
+unlike spinning and pottery there was nothing to port, and the numbers come from the OSRS loom
+table.
+
+- `Weaving.Weave` is two rows — four balls of wool `1759` into cloth `3224` at level 10 for 12 xp,
+  four jute fibres `5931` into an empty sack `5418` at level 21 for 38 xp. Both levels and both
+  products are the guide's own lines, so the tab stops being a promise it does not keep.
+- **Four materials per action, not one.** Cloth and sacks are batches, which is the one shape this
+  row has that spinning and pottery do not: the loop consumes the whole batch per action and stops
+  when a full batch is no longer held, rather than when the material hits zero.
+- Two ways in, through the same Phase-0 registries as the rest: a first click on a loom (787, 8717)
+  and wool or jute used on one. The click weaves whichever single material you are carrying and, as
+  with the spinning wheel, refuses to guess when you are carrying both.
+- **The animation is borrowed from the spinning wheel.** No source implements a loom, so no source
+  has a loom animation; 896 is the closest action in the same skill and is documented as a borrow
+  rather than passed off as a found id. A test pins it to `Spinning.SPIN_ANIMATION` so the borrow
+  stays visible.
+- The refusal message in `clickLoom` spells "four" out in words, which makes it a second copy of the
+  amount column — so a test pins both amounts to 4.
+
+**Still open on this row:** the other five OSRS loom recipes the guide does not list — linen yarn
+into a bolt of linen (12), jute into a drift net (26), willow branches into a basket (36), hemp
+yarn into a bolt of canvas (39) and cotton yarn into a bolt of cotton (73). They are deliberately
+not added: this guide tab does not advertise them, three of them need item ids for intermediate
+yarns that nothing in this server makes, and adding them would be scope rather than a closed
+mismatch. If the tab is ever widened, they are the next five rows.
 
 ---
 
@@ -777,7 +812,7 @@ reviewable, revertible file per batch.
 | 0 | Registries + §2 safe accessor + validator | Everything after registers instead of editing switches, and may reference ids that do not exist yet | — — **done** |
 | 1 | Fletching realism (1-by-1, shaft fix, stringing) | Your headline; small; very visible | 0 (optional) — **done**: bows, shafts, arrows, bolts, tipping and stringing |
 | 2 | Random events, flag-driven (nest + genie on) | Cheap, visible, exact flags you asked for | 0 — **done**; further classics need their dialogue written first |
-| 3 | Skilling completeness (N1 tables: potions, gems, glass, spinning, agility, rune/smith) | The "done to full completion" goal; §8.2 dose model | 0, 1 (pattern) — **spinning + pottery done**, weaving/glass/agility open |
+| 3 | Skilling completeness (N1 tables: potions, gems, glass, spinning, agility, rune/smith) | The "done to full completion" goal; §8.2 dose model | 0, 1 (pattern) — **spinning + pottery + weaving done**, glass/agility open |
 | 4 | World interactivity: fillables (R), pickables (R), searchable/climbable scenery, doors/gates | The "feels finished" layer; mostly data + registrations | 0 |
 | 5 | Shops, potions breadth, guilds, glider verify | Pure breadth, additive data; safest wins | 0 |
 | 6 | Bank PIN | One genuine client/UI decision first | 0 |

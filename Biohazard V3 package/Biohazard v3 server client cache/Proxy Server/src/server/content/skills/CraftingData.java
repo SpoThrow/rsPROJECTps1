@@ -279,6 +279,7 @@ public class CraftingData extends SkillHandler {
 		// rely on it alone; see QOL_PLAN.md section 4b.
 		Spinning.cancel(c);
 		Pottery.cancel(c);
+		Weaving.cancel(c);
 		//CycleEventHandler.getSingleton().stopEvents(c, 3);
 		//CycleEventHandler.getSingleton().stopEvents(c, 7);
 		c.playerIsCrafting = false;
