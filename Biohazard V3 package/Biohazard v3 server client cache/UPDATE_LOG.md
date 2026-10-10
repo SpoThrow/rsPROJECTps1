@@ -1,5 +1,19 @@
 # Update Log
 
+## 2026-10-10 - QOL Phase 3 (fourth slice): soft clay, and the answer to the glass question
+
+**What changed:**
+- **Soft clay did not exist either, and pottery needed it.** The last slice shipped the wheel and the oven reading item `1761`; nothing in this server produced it — `1761` resolved in `item.cfg` and appeared only as a baby- and young-imping reward, so the Pottery tab was reachable in name only. Water on clay is the whole of the gap.
+- **`SoftClay.WaterContainer` is seven rows**, each a full container and what it leaves behind: bucket of water `1929 -> 1925`, jug `1937 -> 1935`, vial `227 -> 229`, and the waterskin as a four-step ladder `1823 -> 1825 -> 1827 -> 1829 -> 1831`. No level, no experience, no animation, one clay per click. Registered in `ItemUseRegistry` through `SoftClayItemUses`, which iterates the enum, so both click orders are the same action.
+- **Deliberately shorter than the wiki's list:** a bowl of water (`4454`) has no definition in this revision's `item.cfg` at all, and a watering can (`5331`) is an uncharged tool whose doses live in the farming layer, so neither is claimed rather than registered against a full form this server cannot back.
+- **The four item operations are ordered delete/add/delete/add**, so each delete frees the slot its add then fills — a full pack can still soften clay. A test fills all 28 slots and checks the swap lands instead of quietly eating the clay.
+- **The zero experience is the real number.** OSRS awards none, so a figure would be invented; a test pins `SoftClay.XP` and asserts crafting `playerXP` is untouched, so it reads as a decision rather than a forgotten `addSkillXP`. Not ticked either, on purpose: both items are in the pack, so there is no walk to stop, and a repeat would have to pick a container.
+- **The open question from §4c is answered: this client has no glassblowing interface at all.** `11462` appears nowhere in the client source, and neither does the word "glassblow" or any of the eight product names; the only interface files are `ui/RSInterface.java` and `ui/Interfaces.java`, the 317-style hardcoded set. The guide's own Glass tab has no button behind it either — `menuLine` writes a `sendFrame126` label and an icon into stock interface 8714, so those rows are text, not slots a handler can hear. `QOL_PLAN.md` §4e lays out the three honest options (bend an existing chatbox menu, author the interface with `RSPSInterfaceMaker`, or build the sand + soda ash prerequisite that needs no menu).
+
+**Files touched:** added `server/content/skills/SoftClay.java`, `server/game/players/actions/items/SoftClayItemUses.java`; edited `ItemUseRegistry.java` (static bootstrap); added 21 tests in `test/.../SoftClayTest.java` and a `SoftClay.WaterContainer` table to `QolValidatorTest.java`; updated `QOL_PLAN.md` (§4e, §3 sequencing).
+
+**Status:** done. **1078 tests, 0 failures, 0 errors** (922 server + 156 workshop; 21 new, all in `SoftClayTest`), and `QolValidatorTest` reports no undefined ids. One test is the reachability claim rather than a tidiness check: it asserts `Pottery.SOFT_CLAY == SoftClay.SOFT_CLAY` and that soft clay is registered on both wheels, because the wheel reading an item nothing made is exactly the defect this slice closes. **Next in this phase is glass, which is blocked on a UI decision, not on a table** — §4e has the options; the guide's Weaponry battlestaves and the orb chain sit downstream of the same blocked menu.
+
 ## 2026-10-10 - QOL Phase 3 (third slice): weaving, the one neither reference server has either
 
 **What changed:**

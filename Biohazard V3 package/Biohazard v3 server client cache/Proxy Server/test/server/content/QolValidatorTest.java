@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import server.Config;
 import server.content.skills.Fletching;
 import server.content.skills.Pottery;
+import server.content.skills.SoftClay;
 import server.content.skills.Spinning;
 import server.content.skills.Weaving;
 import server.game.items.ItemDefinitions;
@@ -151,6 +152,20 @@ class QolValidatorTest {
 			weaving.add(w.getProduct());
 		}
 		tables.add(new Table("Weaving.Weave", toKeys(weavingKeys), toArray(weaving)));
+
+		List<Integer> softClay = new ArrayList<>();
+		List<Long> softClayKeys = new ArrayList<>();
+		for (SoftClay.WaterContainer container : SoftClay.WaterContainer.values()) {
+			// forWater matches the full container, so that is the key. The empty form is a
+			// reference only — and for the waterskin it is also the next dose's full form, which is
+			// a repeated reference and not a duplicate key.
+			softClayKeys.add((long) container.getFull());
+			softClay.add(container.getFull());
+			softClay.add(container.getEmpty());
+		}
+		softClay.add(SoftClay.CLAY);
+		softClay.add(SoftClay.SOFT_CLAY);
+		tables.add(new Table("SoftClay.WaterContainer", toKeys(softClayKeys), toArray(softClay)));
 
 		List<Integer> tips = new ArrayList<>();
 		List<Long> tipKeys = new ArrayList<>();

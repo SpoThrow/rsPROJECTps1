@@ -352,6 +352,72 @@ mismatch. If the tab is ever widened, they are the next five rows.
 
 ---
 
+## 4e. Crafting gaps — soft clay landed, and what the guide's Glass tab is actually waiting for
+
+**Landed (2026-10-10), soft clay.** §4c shipped the wheel and the oven reading item `1761`, and
+nothing in this server produced it: `1761` resolved in `item.cfg` and appeared only in the baby-
+and young-imping tables, so pottery was reachable in name only. Water on clay is the whole of the
+gap, and `SoftClay.WaterContainer` is the whole of the table — seven rows, no level, no
+experience, no animation, one clay per click.
+
+- **The container is the row, and it is consumed.** Bucket of water `1929 -> 1925`, jug
+  `1937 -> 1935`, vial `227 -> 229`, and the waterskin as a four-step ladder
+  `1823 -> 1825 -> 1827 -> 1829 -> 1831`. The plain three were checked against `item.cfg` by name;
+  the ladder is written out rather than derived because a dose mistake would hide in a loop. A
+  test walks all four steps and then checks that the empty skin, held with clay to spare, does
+  nothing.
+- **Deliberately shorter than the wiki's list.** A bowl of water (`4454`) has **no definition in
+  this revision's `item.cfg` at all**, and a watering can (`5331`) is modelled as an uncharged tool
+  whose doses live in the farming layer. Neither is claimed, rather than registered against a full
+  form this server cannot back.
+- **One pair per container, registered in `ItemUseRegistry`** via `SoftClayItemUses`, which iterates
+  the enum so a new row is reachable without a second edit. The registry sorts the pair, so water
+  used on clay and clay used on water are the same click.
+- **The four item operations are ordered delete, add, delete, add.** Each delete frees the slot its
+  add then fills, so a full pack can still soften clay; a test fills all 28 slots and checks the
+  swap lands rather than quietly eating the clay.
+- **The zero experience is the real number, not a placeholder.** OSRS awards none for soft clay, so
+  any figure would be invented; a test pins `SoftClay.XP` and asserts `playerXP[Crafting]` is
+  untouched, so the decision reads as one rather than as a forgotten `addSkillXP`.
+- **Not ticked, on purpose.** Both items are already in the pack, so there is no walk to stop and no
+  world object to pace against — and a repeat would have to pick a container, which a player
+  carrying a jug and a waterskin would watch it do.
+
+**The open question from §4c is answered, and the answer is no.** §4c asked whether this client has
+interface `11462`, the pipe menu Redone uses. It does not: `11462` appears nowhere in the entire
+client source, and neither does any glassblowing interface at all — searching the client for
+"Fishbowl", "Unpowered orb", "Lantern lens", "Beer glass" and "glassblow" returns nothing, and the
+only interface files are `ui/RSInterface.java` and `ui/Interfaces.java`, the 317-style hardcoded
+set. **The guide's Glass tab (screen 5, `skillInterfaces.java:1440-1453`) has no button behind it
+either**: `menuLine` writes a `sendFrame126` label and an icon into the stock guide interface 8714,
+so those eight rows are text, not slots any server-side handler can hear.
+
+So glass cannot be built the way pottery and weaving were, and the decision is not a table's shape
+but a UI one, with three honest options:
+
+1. **Reuse a chatbox menu that exists.** 8938 is the five-row "What would you like to make?"
+   (snakeskin and pottery both use it) and 8880 is the three-row one (bows). Eight products do not
+   fit either, so this means either dropping three rows or splitting the tab across two menus with
+   a pagination trigger that has no natural home on the pipe.
+2. **Author the interface.** `RSPSInterfaceMaker` exists in this repo for exactly this, and a
+   seven-slot glass menu would make the whole chain work without bending an unrelated chatbox.
+3. **Build the prerequisite first and leave the pipe for later.** `1775` has no source either, and
+   the sand + soda ash furnace step needs no interface at all: bucket of sand `1783` on a furnace
+   with soda ash `1781` is a pair-keyed item-on-object registration, the same shape as the oven.
+   Note the chain is longer than it looks — seaweed `401` burned on a fire makes soda ash, the
+   unpowered orb `567` is itself a glass product, so the orbs `569/571/573/575` and the guide's
+   Weaponry tab (screen 7: water 54, earth 58, fire 62, air 66) sit downstream of the same blocked
+   menu.
+
+**Also still open on this row:** the guide's Weaponry tab, four battlestaves — water `1395`, earth
+`1399`, fire `1393`, air `1397` at 54/58/62/66, orb on battlestaff, 100 xp. **Nothing in this
+server consumes an orb.** All four orbs resolve in `item.cfg` but only `569` has any source at all
+(gnome and hero thieving), and `1391` battlestaff is an eclectic-imping reward and nothing else. The
+mismatch is real and worth closing, but it is downstream of glass: it would make three rows that
+consume items no player can obtain yet.
+
+---
+
 ## 5. Fletching realism — the headline change
 
 **Ours**: `fletchBow(c, id, amount)` deletes `amount2` logs and adds `amount2` bows in
@@ -812,7 +878,7 @@ reviewable, revertible file per batch.
 | 0 | Registries + §2 safe accessor + validator | Everything after registers instead of editing switches, and may reference ids that do not exist yet | — — **done** |
 | 1 | Fletching realism (1-by-1, shaft fix, stringing) | Your headline; small; very visible | 0 (optional) — **done**: bows, shafts, arrows, bolts, tipping and stringing |
 | 2 | Random events, flag-driven (nest + genie on) | Cheap, visible, exact flags you asked for | 0 — **done**; further classics need their dialogue written first |
-| 3 | Skilling completeness (N1 tables: potions, gems, glass, spinning, agility, rune/smith) | The "done to full completion" goal; §8.2 dose model | 0, 1 (pattern) — **spinning + pottery + weaving done**, glass/agility open |
+| 3 | Skilling completeness (N1 tables: potions, gems, glass, spinning, agility, rune/smith) | The "done to full completion" goal; §8.2 dose model | 0, 1 (pattern) — **spinning + pottery + weaving + soft clay done**, glass is UI-blocked (§4e), agility open |
 | 4 | World interactivity: fillables (R), pickables (R), searchable/climbable scenery, doors/gates | The "feels finished" layer; mostly data + registrations | 0 |
 | 5 | Shops, potions breadth, guilds, glider verify | Pure breadth, additive data; safest wins | 0 |
 | 6 | Bank PIN | One genuine client/UI decision first | 0 |
