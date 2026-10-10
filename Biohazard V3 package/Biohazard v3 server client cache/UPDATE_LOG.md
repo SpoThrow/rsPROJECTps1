@@ -1,5 +1,19 @@
 # Update Log
 
+## 2026-10-10 - QOL Phase 3 (fifth slice): darts, dragon arrows, and the bolt table's inputs — agility parked
+
+**What changed:**
+- **Darts now exist, and could not have before.** `Fletching.Bolts` was reading the **dart tips** (`819`-`824`) as its inputs, so a bolt cost a dart tip and a dart tip could never become a dart. Darts and bolts share the input pair (tip + feather `314`), so the bolt rows moved onto the six unfinished bolts this revision has always carried and nothing has ever used — `9375`, `9377`-`9381`. **Behaviour change: bolts now cost an unfinished bolt.** Blurite is left out on purpose (its pair is ready, `9376` → `9139`, but no level for it is printed anywhere in this revision).
+- **`Fletching.Darts`, seven rows, ten per action**: bronze through rune (`819`-`824` → `806`-`811`) plus dragon (`11232` → `11230`, whose tip comes from implings and nothing else). A black dart (`3093`) exists with no black dart tip, so it is the one dart deliberately absent. Levels are the Fletching guide's own Darts tab (1/22/37/52/67/81, dragon 90); the guide prints no xp, so xp is the OSRS per-dart value for a batch of ten.
+- **Dragon arrows**: `Arrows.DRAGON`, `11237` + `53` → `11212`, level 90, 245 xp, fifteen per action like every other arrow. Both new recipes were also added to the Fletching guide's Arrows and Darts tabs, so they are findable where the rest are.
+- **Darts are registry-owned** (`FletchingItemUses`), the second family `ItemUseRegistry` owns outright; a test proves one click can no longer be a dart and a bolt at once. Also fixed while in the family: feathers on headless arrows used to spend fifteen feathers to rebuild the same fifteen headless arrows.
+- **Agility: parked, per your call.** The recon stands (there is nothing on this machine to port; Barbarian and Wilderness courses are placed in the world and unimplemented) and the blocker is unchanged — no source here supplies each obstacle's landing tile and plane transition.
+- **Noted separately, not designed: creation menus in the chatbox.** The wish that making things offers its options in the chatbox rather than in a sidebar menu is recorded in `QOL_PLAN.md` §15 with the screenshot folder as its reference, and listed in §14 as an open question. The screenshots were listed but **could not be read back**, so that entry is the request in words only and says so.
+
+**Files touched:** `Fletching.java` (bolt rows, `Arrows.DRAGON`, new `Darts` enum with `forDart`/`makeDarts`, headless guard), `FletchingItemUses.java`, `UseItem.java` (arrowtip `11237` added, bolt ids changed), `SkillInterfaces.java` (two guide rows), `FletchingTest.java`, `QolValidatorTest.java`, `QOL_PLAN.md` (§5, §12, §14, new §15).
+
+**Status:** done. **1088 tests, 0 failures, 0 errors** (10 new, all in `FletchingTest`; 6 existing bolt cases retargeted onto the unfinished bolts), and `QolValidatorTest` reports no undefined ids. Next in Phase 3 is a skill pick — gems/jewellery, runecrafting, smithing completion or herblore/potions; glass stays UI-blocked (§4e) and agility stays parked.
+
 ## 2026-10-10 - QOL Phase 3: agility recon — the table to port is not on this machine, but the courses are in the world
 
 **What changed (docs only, no code):**

@@ -139,7 +139,7 @@ public class UseItem {
 		}
 		//Fletching BOLTS & ARROWS & TIPPING
 		int[] arrows1 = {53, 52};
-		int[] arrows2 = {39, 40, 41, 42, 43, 44, 314};
+		int[] arrows2 = {39, 40, 41, 42, 43, 44, 314, 11237};
 		for (int i = 0; i < arrows1.length; i++) {
 		for (int j = 0; j < arrows2.length; j++) {
 			if(itemUsed == arrows1[i] && useWith == arrows2[j] || useWith == arrows1[i] && itemUsed == arrows2[j]){
@@ -147,7 +147,9 @@ public class UseItem {
 			}
 		}
 		}
-		int[] bolts = {819, 820, 821, 822, 823, 824};
+		//Dart tips and finished bolts. These were the dart tips (819..824) until darts were
+		//added, which is why dart tips used to make bolts and could never make darts.
+		int[] bolts = {9375, 9377, 9378, 9379, 9380, 9381};
 		for (int i = 0; i < bolts.length; i++) {
 			if(itemUsed == bolts[i] && useWith == 314 || useWith == bolts[i] && itemUsed == 314){
 				Fletching.makeBolts(c, itemUsed, useWith); //bolt making

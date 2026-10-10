@@ -14,13 +14,29 @@ public class Fletching {
 
 	public static boolean fletching;
 	
+	/**
+	 * Bolt making: an unfinished bolt and a feather, ten at a time.
+	 *
+	 * <p><b>The inputs used to be the dart tips.</b> The rows read {@code 819}..{@code 824} and
+	 * feathers, which is the dart recipe's input list: {@code item.cfg} names those ids
+	 * {@code Bronze_dart_tip} .. {@code Rune_dart_tip}, Smithing makes them ("Dart Tips - 1 Bar
+	 * makes 10"), and the Fletching shop sells them. So the only way to make a bolt was to spend a
+	 * dart tip on it, and a dart tip could never become a dart. Darts are a real family now
+	 * ({@link Darts}) and the two recipes cannot share a pair, so this table moved onto the six
+	 * unfinished bolts {@code item.cfg} has always carried — {@code 9375}, {@code 9377}
+	 * .. {@code 9381} — which nothing in the server used until now.
+	 *
+	 * <p>Blurite is left out on purpose: its pair is ready ({@code 9376} + feather → {@code 9139}
+	 * {@code Blurite_bolts}) but no level for it is printed anywhere in this revision, and the
+	 * neighbourhood it would sit in (iron 39, steel 46) does not pin one down.
+	 */
 	public enum Bolts {
-		BRONZEBOLT(819, 314, 877, 5, 9),
-		IRONBOLT(820, 314, 9140, 15, 39),
-		STEELBOLT(821, 314, 9141, 35, 46),
-		MITHRILBOLT(822, 314, 9142, 50, 54),
-		ADAMANTBOLT(823, 314, 9143, 70, 61),
-		RUNITEBOLT(824, 314, 9144, 100, 69);
+		BRONZEBOLT(9375, 314, 877, 5, 9),
+		IRONBOLT(9377, 314, 9140, 15, 39),
+		STEELBOLT(9378, 314, 9141, 35, 46),
+		MITHRILBOLT(9379, 314, 9142, 50, 54),
+		ADAMANTBOLT(9380, 314, 9143, 70, 61),
+		RUNITEBOLT(9381, 314, 9144, 100, 69);
 		
 		public int item1, item2, outcome, xp, levelReq;
 		private Bolts(int item1, int item2, int outcome, int xp, int levelReq) {
@@ -68,6 +84,19 @@ public class Fletching {
 		return null;
 	}
 
+	/**
+	 * Arrow making: a headless arrow and an arrowhead, fifteen at a time.
+	 *
+	 * <p>{@code item2} is the arrowhead, or the feather for {@link #HEADLESS}, which is why
+	 * {@link #forArrow} matches on it — see {@link #makeArrows} for the one pair that collides
+	 * with that choice.
+	 *
+	 * <p>Dragon is the seventh row and the guide does not print it. Its level, 90, is the OSRS
+	 * tier for dragon arrows and matches the dragon arrowtips' own tier in this revision's
+	 * {@code item.cfg} ({@code Dragon_arrowtips} {@code 11237} -> {@code Dragon_arrow}
+	 * {@code 11212}). Its xp, 245, keeps the table's own step: rune is 207 and the five rows before
+	 * it climb by 37, 37, 38, 37.
+	 */
 	public enum Arrows {
 		HEADLESS(52, 314, 53, 15, 1),
 		BRONZE(53, 39, 882, 40, 1),
@@ -75,7 +104,8 @@ public class Fletching {
 		STEEL(53, 41, 886, 95, 30),
 		MITHRIL(53, 42, 888, 132, 45),
 		ADAMANT(53, 43, 890, 170, 60),
-		RUNE(53, 44, 892, 207, 75);
+		RUNE(53, 44, 892, 207, 75),
+		DRAGON(53, 11237, 11212, 245, 90);
 
 		public int item1;
 		public int item2;
@@ -119,6 +149,79 @@ public class Fletching {
 		return null;
 	}
 
+	/**
+	 * Dart making: a dart tip and a feather, ten at a time.
+	 *
+	 * <p>One tip and one feather make one dart, so ten of each make ten darts. That is the same
+	 * batch size as bolts, and the reason darts use {@code DARTS_PER_ACTION} rather than the fifteen
+	 * arrows use.
+	 *
+	 * <p>Every dart in this revision that has a tip is here. Bronze through rune come from the tips
+	 * Smithing makes at 4, 19, 34, 54, 74 and 89, and dragon from {@code 11232}, which implings drop
+	 * and no other table in the server produces. A black dart exists ({@code 3093}) but no black
+	 * dart tip does, so it is the one dart that cannot be fletched and is deliberately absent.
+	 *
+	 * <p><b>Levels are this revision's own.</b> The Fletching guide prints them on its Darts tab,
+	 * which is what a player sees when they look the recipe up: 1, 22, 37, 52, 67, 81. The guide
+	 * stops at rune, so dragon takes 90, the tier the dragon arrow row uses. <b>Xp is not in the
+	 * guide</b>, so it is the OSRS per-dart value for a batch of ten: 1.8, 3.8, 7.5, 11.2, 15, 18.8
+	 * and 25 become 18, 38, 75, 112, 150, 188 and 250.
+	 */
+	public enum Darts {
+		BRONZE(819, 314, 806, 18, 1),
+		IRON(820, 314, 807, 38, 22),
+		STEEL(821, 314, 808, 75, 37),
+		MITHRIL(822, 314, 809, 112, 52),
+		ADAMANT(823, 314, 810, 150, 67),
+		RUNE(824, 314, 811, 188, 81),
+		DRAGON(11232, 314, 11230, 250, 90);
+
+		public int item1, item2, outcome, xp, levelReq;
+		private Darts(int item1, int item2, int outcome, int xp, int levelReq) {
+			this.item1 = item1;
+			this.item2 = item2;
+			this.outcome = outcome;
+			this.xp = xp;
+			this.levelReq = levelReq;
+		}
+		public int getItem1() {
+			return item1;
+		}
+
+		public int getItem2() {
+			return item2;
+		}
+
+		public int getOutcome() {
+			return outcome;
+		}
+
+		public int getXp() {
+			return xp;
+		}
+
+		public int getLevelReq() {
+			return levelReq;
+		}
+	}
+
+	/**
+	 * Finds a dart recipe by its dart tip id.
+	 *
+	 * <p>Matching the tip column, not the feather column, is the whole point: every row shares
+	 * feathers, so a lookup on those would answer {@code BRONZE} for the question "which dart is
+	 * this?". {@link #forBolts} was written the other way round once and could not find iron through
+	 * runite at all.
+	 */
+	public static Darts forDart(int id) {
+		for (Darts darts : Darts.values()) {
+			if (darts.getItem1() == id) {
+				return darts;
+			}
+		}
+		return null;
+	}
+
 	public static int getPrimary(int item1, int item2) {
 		return item1 == 52 || item1 == 53 ? item2 : item1;
 	}
@@ -134,6 +237,12 @@ public class Fletching {
 	public static void makeArrows(Client c, int item1, int item2) {
 		Arrows arr = forArrow(getPrimary(item1, item2));
 		if (arr == null) {
+			return;
+		}
+		// Headless arrows are looked up by their feather column (see forArrow), so (headless
+		// arrow, feather) resolves to that row as well. Allowing it would spend fifteen feathers
+		// to rebuild the fifteen headless arrows it started with; only a shaft feeds that row.
+		if (arr == Arrows.HEADLESS && item1 != 52 && item2 != 52) {
 			return;
 		}
 		fletchBatch(c, arr.getOutcome(), ARROWS_PER_ACTION, arr.getXp(), arr.getLevelReq(),
@@ -161,6 +270,26 @@ public class Fletching {
 		fletchBatch(c, bolts.getOutcome(), BOLTS_PER_ACTION, bolts.getXp(), bolts.getLevelReq(),
 				bolts.getItem1(), BOLTS_PER_ACTION, bolts.getItem2(), BOLTS_PER_ACTION,
 				"bolts", null);
+	}
+
+	/**
+	 * Makes darts: ten at a time, from ten dart tips and ten feathers.
+	 *
+	 * <p>Like {@link #makeBolts}, the tip is looked up in whichever argument holds it: item-on-item
+	 * use does not promise an order, and half the pairs the registry sees arrive the other way
+	 * round.
+	 */
+	public static void makeDarts(Client c, int item1, int item2) {
+		Darts darts = forDart(item1);
+		if (darts == null) {
+			darts = forDart(item2);
+		}
+		if (darts == null) {
+			return;
+		}
+		fletchBatch(c, darts.getOutcome(), DARTS_PER_ACTION, darts.getXp(), darts.getLevelReq(),
+				darts.getItem1(), DARTS_PER_ACTION, darts.getItem2(), DARTS_PER_ACTION,
+				"darts", null);
 	}
 
 	/**
@@ -840,9 +969,10 @@ public class Fletching {
 		c.playerIsFletching = true;
 	}
 	
-	/** Arrows are made fifteen at a time, bolts ten — the OSRS batch sizes. */
+	/** Arrows are made fifteen at a time, bolts and darts ten — the OSRS batch sizes. */
 	private static final int ARROWS_PER_ACTION = 15;
 	private static final int BOLTS_PER_ACTION = 10;
+	private static final int DARTS_PER_ACTION = 10;
 	/** One gem yields this many bolt tips. */
 	private static final int BOLT_TIPS_PER_GEM = 10;
 	/** The chisel used to cut gems into bolt tips. */

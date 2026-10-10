@@ -539,6 +539,50 @@ the OSRS batch size — so the flag does not gate them. Two real bugs were fixed
 
 Also removed: four `System.out.println` debug lines that ran on every arrow and bolt attempt.
 
+**Landed (2026-10-10), darts, dragon arrows, and the bolt table's inputs.** Two additions you
+asked for, plus the one change they forced.
+
+- **Darts did not exist and could not have: the dart tips were being spent on bolts.** `Bolts`
+  named `819`..`824` as its inputs, and those ids are the dart tips — `item.cfg` calls them
+  `Bronze_dart_tip` .. `Rune_dart_tip`, Smithing makes them at 4/19/34/54/74/89 under the guide's
+  own heading "Dart Tips - 1 Bar makes 10", and the Fletching shop sells `819`. So a bolt cost a
+  dart tip and a dart tip could never become a dart. Darts and bolts share their input pair (tip +
+  feather `314`), so the bolt rows **moved onto the six unfinished bolts this revision has always
+  carried and nothing has ever used** — `9375`, `9377`-`9381`, `Bronze_bolts_(unf)` and friends —
+  freeing the tips for darts. Blurite is the deliberate omission: its pair is ready (`9376` +
+  feather → `9139`) but this revision prints no level for it anywhere.
+- **`Fletching.Darts` is seven rows**, a dart tip and a feather, ten at a time — the bolt batch
+  size. Every dart in this revision that has a tip is covered: bronze through rune, plus dragon
+  (`11232` → `11230`), whose tip comes from implings and from nothing else. A black dart (`3093`)
+  exists with no black dart tip, so it is the one dart left out, and the table says so by name
+  rather than by silence.
+- **The levels are this revision's own, the xp is not, and the split is recorded at the table.**
+  The Fletching guide's Darts tab prints 1, 22, 37, 52, 67 and 81 — what a player sees when they
+  look the recipe up — so those are the levels. The guide stops at rune, so dragon takes 90, the
+  tier the dragon arrow row uses. It prints no xp at all, so xp is the OSRS per-dart value for a
+  batch of ten: 18, 38, 75, 112, 150, 188, 250.
+- **Dragon arrows are an eighth `Arrows` row**: `11237` + `53` → `11212`, fifteen at a time like
+  every other arrow. The guide does not print this one either; 90 is the OSRS dragon tier, and 245
+  xp keeps the table's own step (rune is 207, and the rows before it climb by 37/37/38/37).
+- **Darts went into `ItemUseRegistry`, not into `UseItem`.** They are the second family the registry
+  owns outright, and they could not have gone inline even if that were preferred: the bolt block
+  claimed their exact pairs for as long as darts did not exist. A test asserts that every
+  tip+feather pair is registry-owned, that the reverse order is the same key, and that `9375` +
+  feather is *not* registered — one click can no longer be a dart and a bolt at once.
+- **One adjacent bug fixed while in the family.** `forArrow` matches `getItem2()`, which for
+  `HEADLESS` is the feather, so (headless arrow `53`, feather) also resolved to the headless row and
+  spent fifteen feathers to hand back the fifteen headless arrows it started with. `makeArrows` now
+  requires a shaft for that row.
+- **The guide lists both**: "90 Dragon arrow" on the Fletching Arrows tab and "90 Dragon Dart" on
+  the Darts tab, so the new recipes are findable where every other one is.
+
+Tests: eight new cases in `FletchingTest` (every dart row looked up by its tip, dragon arrow by its
+arrowtips, both level gates, ten-per-action through the registry, no bolts from a dart tip, the
+headless guard, and a sweep asserting the tip and unfinished-bolt columns are disjoint), six
+existing bolt cases retargeted onto the unfinished bolts, and a `Fletching.Darts` row in
+`QolValidatorTest`. **Deliberate behaviour change:** bolts now cost an unfinished bolt, not a dart
+tip. The Fletching shop still sells `819`, which is now simply a dart tip.
+
 ---
 
 ## 6. Random events, flag-driven
@@ -878,7 +922,7 @@ reviewable, revertible file per batch.
 | 0 | Registries + §2 safe accessor + validator | Everything after registers instead of editing switches, and may reference ids that do not exist yet | — — **done** |
 | 1 | Fletching realism (1-by-1, shaft fix, stringing) | Your headline; small; very visible | 0 (optional) — **done**: bows, shafts, arrows, bolts, tipping and stringing |
 | 2 | Random events, flag-driven (nest + genie on) | Cheap, visible, exact flags you asked for | 0 — **done**; further classics need their dialogue written first |
-| 3 | Skilling completeness (N1 tables: potions, gems, glass, spinning, agility, rune/smith) | The "done to full completion" goal; §8.2 dose model | 0, 1 (pattern) — **spinning + pottery + weaving + soft clay done**, glass is UI-blocked (§4e), agility open |
+| 3 | Skilling completeness (N1 tables: potions, gems, glass, spinning, agility, rune/smith) | The "done to full completion" goal; §8.2 dose model | 0, 1 (pattern) — **spinning + pottery + weaving + soft clay + darts/arrows/bolts done**, glass is UI-blocked (§4e), agility **parked** (see the log entry for 2026-10-10) |
 | 4 | World interactivity: fillables (R), pickables (R), searchable/climbable scenery, doors/gates | The "feels finished" layer; mostly data + registrations | 0 |
 | 5 | Shops, potions breadth, guilds, glider verify | Pure breadth, additive data; safest wins | 0 |
 | 6 | Bank PIN | One genuine client/UI decision first | 0 |
@@ -928,3 +972,35 @@ custom keypad (client work). Also decide the **bot interaction**: bots occupy re
    feel decision and it is yours.
 6. **Definition import file** — happy with a separate `Data/cfg/item-extra.cfg` for
    imported higher-revision items, leaving `item.cfg` untouched?
+7. **Creation menus in the chatbox** — do you want the "choose what to make" menus moved from
+   the sidebar into the chatbox, as in the screenshots? Recorded as a request in §15; the
+   screenshots still need to be looked at before there is anything concrete to decide.
+
+---
+
+## 15. Wanted later — creation menus in the chatbox (requested, not designed)
+
+**Recorded on request, 2026-10-10.** The wish: when you are making things, the choices should come
+up **in the chatbox** rather than only in a sidebar interface — the pick-what-then-pick-how-many
+prompt as a chatbox menu, the shape interacting with things has. It is about item creation
+generally (fletching, crafting, smithing, herblore, and whatever else grows a recipe table), not
+about one skill.
+
+Reference for the exact look: nine screenshots in
+`C:\Users\llrbi\Desktop\inspiration on chatbox ui when making interacting with things`
+(`Screenshot 2026-10-10 1432*.jpg` through `1445*.jpg`). **They were listed but could not be read
+back in the session that recorded this**, so the paragraph above is the request as it was worded,
+not a reading of the images. Check it against them before anything is designed from it.
+
+What already matters for planning:
+
+- The bow and arrow line already opens an OSRS-style menu — but at `8880`, a **sidebar** interface,
+  not the chatbox. So for the families that have a menu at all this is a relocation and redesign
+  question, not a from-scratch one.
+- It is **not needed for darts, arrows or bolts**: those are item-on-item recipes with no menu to
+  move — one pair is one recipe, so there is nothing to choose. A menu earns its place where one
+  material has several products (logs → bows and shafts, gems → jewellery, herbs → potions).
+- Whether the chatbox menu in the screenshots exists in this client or has to be authored is the
+  same wall §4e hit for glassblowing; its three options apply here unchanged.
+- Nothing has been checked beyond the above. This entry is a request, not a design, and nothing in
+  it is scheduled in §12.

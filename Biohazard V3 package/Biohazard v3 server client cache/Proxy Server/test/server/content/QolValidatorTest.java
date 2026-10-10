@@ -90,6 +90,18 @@ class QolValidatorTest {
 		}
 		tables.add(new Table("Fletching.Bolts", toKeys(boltKeys), toArray(bolts)));
 
+		List<Integer> darts = new ArrayList<>();
+		List<Long> dartKeys = new ArrayList<>();
+		for (Fletching.Darts d : Fletching.Darts.values()) {
+			// forDart matches the tip, so that is the key. Every row shares 314, which is a repeated
+			// *reference* and not a conflict.
+			dartKeys.add((long) d.getItem1());
+			darts.add(d.getItem1());
+			darts.add(d.getItem2());
+			darts.add(d.getOutcome());
+		}
+		tables.add(new Table("Fletching.Darts", toKeys(dartKeys), toArray(darts)));
+
 		List<Integer> arrows = new ArrayList<>();
 		List<Long> arrowKeys = new ArrayList<>();
 		for (Fletching.Arrows a : Fletching.Arrows.values()) {

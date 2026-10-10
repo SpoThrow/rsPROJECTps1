@@ -16,7 +16,9 @@ import org.junit.jupiter.api.Test;
 
 import core.util.ISAACRandomGen;
 import server.Config;
+import server.content.skills.Fletching.Arrows;
 import server.content.skills.Fletching.Bolts;
+import server.content.skills.Fletching.Darts;
 import server.content.skills.Fletching.Fletch;
 import server.event.CycleEventHandler;
 import server.game.players.Client;
@@ -209,9 +211,13 @@ class FletchingTest {
 	void forBoltsFindsEveryBoltRecipeByItsUnfinishedBoltId() {
 		// The lookup used to match the feather column, so every one of these returned null and
 		// only bronze (found via feathers) could be made.
+		//
+		// The ids are the unfinished bolts, not the dart tips they used to be: 9375 and 9377-9381
+		// are the six rows of item.cfg that read "Bronze_bolts_(unf)" and friends. Until darts
+		// existed this table named 819-824, so a bolt cost a dart tip.
 		int[][] expected = {
-				{ 819, 877 }, { 820, 9140 }, { 821, 9141 },
-				{ 822, 9142 }, { 823, 9143 }, { 824, 9144 },
+				{ 9375, 877 }, { 9377, 9140 }, { 9378, 9141 },
+				{ 9379, 9142 }, { 9380, 9143 }, { 9381, 9144 },
 		};
 		for (int[] row : expected) {
 			Bolts b = Fletching.forBolts(row[0]);
@@ -230,10 +236,26 @@ class FletchingTest {
 	}
 
 	@Test
+	void noDartTipIsAlsoABoltRecipe() {
+		// The collision that moved this table. A dart tip and a feather is the dart recipe, and it
+		// used to be the bolt recipe as well, so one click could satisfy both blocks: dart tips
+		// could not become darts, and making a bolt spent a tip. Every tip must now be unknown to
+		// the bolt table, and every unfinished bolt unknown to the dart table.
+		for (Fletching.Darts darts : Fletching.Darts.values()) {
+			assertNull(Fletching.forBolts(darts.getItem1()),
+					"dart tip " + darts.getItem1() + " must not be a bolt recipe input");
+		}
+		for (Bolts bolts : Bolts.values()) {
+			assertNull(Fletching.forDart(bolts.getItem1()),
+					"unfinished bolt " + bolts.getItem1() + " must not be a dart recipe input");
+		}
+	}
+
+	@Test
 	void boltsAreMadeWhicheverWayRoundTheItemsAreUsed() {
 		// Argument order used to decide the outcome: (feathers, bolts) always made bronze and
 		// (bolts, feathers) did nothing at all.
-		for (int[] order : new int[][] { { 820, 314 }, { 314, 820 } }) {
+		for (int[] order : new int[][] { { 9377, 314 }, { 314, 9377 } }) {
 			Client c = withItems(order[0], 10, order[1], 10);
 			c.skills.playerLevel[Player.playerFletching] = 39;
 
@@ -241,7 +263,7 @@ class FletchingTest {
 			passTwoTicks();
 
 			assertEquals(10, count(c, 9140), "iron bolts from use order " + order[0] + " then " + order[1]);
-			assertEquals(0, count(c, 820), "the unfinished bolts are consumed");
+			assertEquals(0, count(c, 9377), "the unfinished bolts are consumed");
 			assertEquals(0, count(c, 314), "the feathers are consumed");
 		}
 	}
@@ -249,54 +271,54 @@ class FletchingTest {
 	@Test
 	void aWholeStackIsNotConsumedInOneCall() {
 		// The point of the phase: a click makes ten bolts, not the whole stack.
-		Client c = withItems(819, 40, 314, 40);
+		Client c = withItems(9375, 40, 314, 40);
 		c.skills.playerLevel[Player.playerFletching] = 9;
 
-		Fletching.makeBolts(c, 819, 314);
+		Fletching.makeBolts(c, 9375, 314);
 		passTwoTicks();
 
 		assertEquals(10, count(c, 877), "one action makes exactly ten bolts");
-		assertEquals(30, count(c, 819), "and leaves the rest of the stack alone");
+		assertEquals(30, count(c, 9375), "and leaves the rest of the stack alone");
 	}
 
 	@Test
 	void nothingIsConsumedForTwoTicks() {
 		// The action is paced by the tick loop, so the materials are still there on the tick it
 		// is scheduled on. That is what makes it interruptible at all.
-		Client c = withItems(819, 10, 314, 10);
+		Client c = withItems(9375, 10, 314, 10);
 		c.skills.playerLevel[Player.playerFletching] = 9;
 
-		Fletching.makeBolts(c, 819, 314);
+		Fletching.makeBolts(c, 9375, 314);
 		CycleEventHandler.process();
 
-		assertEquals(10, count(c, 819), "one tick in, the action has not run yet");
+		assertEquals(10, count(c, 9375), "one tick in, the action has not run yet");
 
 		CycleEventHandler.process();
-		assertEquals(0, count(c, 819), "the second tick is when it runs");
+		assertEquals(0, count(c, 9375), "the second tick is when it runs");
 	}
 
 	@Test
 	void walkingAwayEndsTheActionBeforeItDelivers() {
-		Client c = withItems(819, 10, 314, 10);
+		Client c = withItems(9375, 10, 314, 10);
 		c.skills.playerLevel[Player.playerFletching] = 9;
 
-		Fletching.makeBolts(c, 819, 314);
+		Fletching.makeBolts(c, 9375, 314);
 		c.getPA().resetVariables(); // what every walk step reaches
 		passTwoTicks();
 
-		assertEquals(10, count(c, 819), "a cancelled action must not consume anything");
+		assertEquals(10, count(c, 9375), "a cancelled action must not consume anything");
 		assertEquals(0, count(c, 877), "and must not deliver the product");
 	}
 
 	@Test
 	void aLevelBelowTheRequirementMakesNothing() {
-		Client c = withItems(819, 10, 314, 10);
+		Client c = withItems(9375, 10, 314, 10);
 		c.skills.playerLevel[Player.playerFletching] = 8; // bronze bolts need 9
 
-		Fletching.makeBolts(c, 819, 314);
+		Fletching.makeBolts(c, 9375, 314);
 		passTwoTicks();
 
-		assertEquals(10, count(c, 819), "no level, no bolt");
+		assertEquals(10, count(c, 9375), "no level, no bolt");
 		assertEquals(0, count(c, 877));
 	}
 
@@ -311,6 +333,132 @@ class FletchingTest {
 		assertEquals(15, count(c, 53), "shafts and feathers make fifteen headless arrows");
 		assertEquals(5, count(c, 52), "fifteen shafts are consumed");
 		assertEquals(5, count(c, 314), "fifteen feathers are consumed");
+	}
+
+	@Test
+	void forArrowFindsDragonArrowByItsArrowtips() {
+		// Dragon is the row the guide does not print, so this pins the ids and the level that were
+		// chosen for it rather than only that the lookup works.
+		Arrows dragon = Fletching.forArrow(11237);
+		assertNotNull(dragon, "dragon arrowtips are an arrow recipe input");
+		assertEquals(11212, dragon.getOutcome(), "dragon arrowtips make dragon arrows");
+		assertEquals(53, dragon.getItem1(), "and they go on headless arrows");
+		assertEquals(90, dragon.getLevelReq(), "the level is the OSRS dragon tier");
+	}
+
+	@Test
+	void dragonArrowsAreFifteenAtATimeLikeEveryOtherArrow() {
+		Client c = withItems(53, 20, 11237, 20);
+		c.skills.playerLevel[Player.playerFletching] = 90;
+
+		Fletching.makeArrows(c, 53, 11237);
+		passTwoTicks();
+
+		assertEquals(15, count(c, 11212), "twenty supplies make fifteen dragon arrows");
+		assertEquals(5, count(c, 53), "fifteen headless arrows are consumed");
+		assertEquals(5, count(c, 11237), "fifteen dragon arrowtips are consumed");
+	}
+
+	@Test
+	void aLevelBelowTheRequirementMakesNoDragonArrows() {
+		Client c = withItems(53, 20, 11237, 20);
+		c.skills.playerLevel[Player.playerFletching] = 89; // dragon arrows need 90
+
+		Fletching.makeArrows(c, 53, 11237);
+		passTwoTicks();
+
+		assertEquals(0, count(c, 11212), "no level, no arrow");
+		assertEquals(20, count(c, 11237), "and the tips are left alone");
+	}
+
+	@Test
+	void feathersOnHeadlessArrowsDoNothing() {
+		// Headless arrows are found by their feather column, so (headless arrow, feather) resolved
+		// to the headless row too and spent fifteen feathers to hand back the fifteen headless
+		// arrows it started with. Only a shaft may feed that row.
+		Client c = withItems(53, 20, 314, 20);
+		c.skills.playerLevel[Player.playerFletching] = 99;
+
+		Fletching.makeArrows(c, 53, 314);
+		passTwoTicks();
+
+		assertEquals(20, count(c, 53), "the headless arrows are untouched");
+		assertEquals(20, count(c, 314), "and so are the feathers");
+	}
+
+	@Test
+	void forDartFindsEveryDartRecipeByItsTip() {
+		// Every dart in this revision that has a tip. The black dart (3093) is the exception and has
+		// no tip item at all, which is why it is absent rather than listed with a null recipe.
+		int[][] expected = {
+				{ 819, 806 }, { 820, 807 }, { 821, 808 }, { 822, 809 },
+				{ 823, 810 }, { 824, 811 }, { 11232, 11230 },
+		};
+		for (int[] row : expected) {
+			Darts d = Fletching.forDart(row[0]);
+			assertNotNull(d, "no recipe for dart tip " + row[0]);
+			assertEquals(row[1], d.getOutcome(), "outcome for " + row[0]);
+			assertEquals(314, d.getItem2(), "every dart recipe is feathered");
+		}
+		assertNull(Fletching.forDart(314), "feathers are not a dart tip");
+		assertNull(Fletching.forDart(806), "a finished dart is not a recipe input");
+	}
+
+	@Test
+	void dartPairsAreClaimedByTheRegistrySoTheLegacyPathCannotAlsoFire() {
+		// Darts are a new family, so they had no inline block to migrate and the registry owns them
+		// outright. That is what keeps ItemonItem from spending one tip on a dart and a bolt at once.
+		for (Darts darts : Darts.values()) {
+			assertTrue(ItemUseRegistry.isRegistered(darts.getItem1(), 314),
+					"dart tip " + darts.getItem1() + " plus a feather is a registry pair");
+			assertTrue(ItemUseRegistry.isRegistered(314, darts.getItem1()),
+					"and the registry is order-independent");
+		}
+		assertFalse(ItemUseRegistry.isRegistered(9375, 314),
+				"bolts stay in the legacy path, so they must not also be registry pairs");
+	}
+
+	@Test
+	void aDartTipAndAFeatherMakeTenDartsAndNoBolts() {
+		Client c = withItems(819, 20, 314, 20);
+		c.skills.playerLevel[Player.playerFletching] = 99;
+
+		assertTrue(ItemUseRegistry.dispatch(c, 819, 314), "the pair belongs to the registry");
+		passTwoTicks();
+
+		assertEquals(10, count(c, 806), "one action makes exactly ten darts");
+		assertEquals(10, count(c, 819), "from ten tips");
+		assertEquals(10, count(c, 314), "and ten feathers");
+		assertEquals(0, count(c, 877), "and no bolts: the two recipes no longer overlap");
+	}
+
+	@Test
+	void ironDartsNeedLevelTwentyTwo() {
+		Client c = withItems(820, 10, 314, 10);
+		c.skills.playerLevel[Player.playerFletching] = 21;
+
+		Fletching.makeDarts(c, 820, 314);
+		passTwoTicks();
+
+		assertEquals(0, count(c, 807), "iron darts need 22");
+		assertEquals(10, count(c, 820), "no level, nothing consumed");
+	}
+
+	@Test
+	void dragonDartsNeedLevelNinety() {
+		Client c = withItems(11232, 10, 314, 10);
+		c.skills.playerLevel[Player.playerFletching] = 89;
+
+		Fletching.makeDarts(c, 11232, 314);
+		passTwoTicks();
+		assertEquals(0, count(c, 11230), "dragon darts need 90");
+
+		c.skills.playerLevel[Player.playerFletching] = 90;
+		Fletching.makeDarts(c, 314, 11232); // and the other argument order works
+		passTwoTicks();
+
+		assertEquals(10, count(c, 11230), "dragon darts come from dragon dart tips");
+		assertEquals(0, count(c, 11232), "which are consumed");
 	}
 
 	@Test
