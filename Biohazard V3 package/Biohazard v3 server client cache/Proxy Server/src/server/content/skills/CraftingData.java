@@ -272,6 +272,10 @@ public class CraftingData extends SkillHandler {
 	}
 	
 	public static void resetCrafting(Client c) {
+		// Before the flag is cleared, because cancel() reads it. Clearing the flag alone would
+		// leave the spinning event queued until its next tick, which is long enough for a walk
+		// followed by a fresh spin to leave two loops running over one stack of flax.
+		Spinning.cancel(c);
 		//CycleEventHandler.getSingleton().stopEvents(c, 3);
 		//CycleEventHandler.getSingleton().stopEvents(c, 7);
 		c.playerIsCrafting = false;

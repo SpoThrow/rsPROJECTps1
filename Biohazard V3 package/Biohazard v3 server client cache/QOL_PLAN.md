@@ -241,6 +241,43 @@ by a test.
 
 ---
 
+## 4b. Crafting gaps — spinning landed
+
+**Landed (2026-10-10), spinning.** The Spinning tab of the Crafting guide has always printed
+"1 Wool" and "10 Flax into Bow Strings", and the flax's own examine text tells the player to take
+it to a wheel ("I should use this with a spinning wheel."), but there was no wheel handler
+anywhere — `Flax.java` only picked the flax, and both products were impling-only. That mattered
+more once bow stringing landed, because the only source of a bow string was an impling.
+
+- `Spinning` holds a two-row `Material` table — wool `1737 -> 1759` at level 1, flax `1779 -> 1777`
+  at level 10 — which is exactly the pair the guide advertises and exactly OSRS's. XP is Redone's
+  and Necrotic's (wool 3, flax 15), paid through `Config.CRAFTING_EXPERIENCE` like every other
+  crafting table here.
+- Two ways in, registered in the two Phase-0 registries rather than in a switch: a first click on
+  the wheel (`ObjectHandler`, ids from `Data/objectSize.cfg` — 2644, 4309, 8748) and using wool or
+  flax on the wheel (`ItemOnObjectRegistry`).
+- The click spins the single material you are carrying. Carrying **both** it refuses and says so;
+  you pick with the item instead. Wool and flax become different items, and a click that silently
+  turned a stack of flax into bow strings would be a worse trade than one extra click.
+- The action is ticked and repeating — one item per 2-tick cycle until the material runs out —
+  on `playerIsCrafting`, the same flag gem cutting and leather use.
+
+**One bug fixed on the way, in shared code.** `CraftingData.resetCrafting` cleared
+`playerIsCrafting` but left the looping event queued. The old event then woke up on its next tick,
+found the flag set again by a fresh action, and ran alongside it — two loops over one stack, at
+double speed. It now stops the spinning event before clearing the flag. `GemCutting` and
+`LeatherMaking` still rely on the flag alone, so the same shape is still reachable there; worth
+auditing when either is next touched.
+
+**Still open on this row:** Weaving (the guide's Cloth `3224` at 10 and Vegetable Sack `5418` at
+21, i.e. the looms 787/8717), Pottery (the guide's Pot, Pie Dish, Bowl, Plant Pot, Pot Lid; ovens
+2643/4308/11601), Glassblowing (the guide's eight glass items; needs the glassblowing pipe `1785`
+and molten glass), soft clay, and the guide's Weaponry tab (the four battlestaves). Pottery and
+glass are the next two by size, and both are the same shape as spinning: a table, one object, one
+ticked loop.
+
+---
+
 ## 5. Fletching realism — the headline change
 
 **Ours**: `fletchBow(c, id, amount)` deletes `amount2` logs and adds `amount2` bows in
@@ -701,7 +738,7 @@ reviewable, revertible file per batch.
 | 0 | Registries + §2 safe accessor + validator | Everything after registers instead of editing switches, and may reference ids that do not exist yet | — — **done** |
 | 1 | Fletching realism (1-by-1, shaft fix, stringing) | Your headline; small; very visible | 0 (optional) — **done**: bows, shafts, arrows, bolts, tipping and stringing |
 | 2 | Random events, flag-driven (nest + genie on) | Cheap, visible, exact flags you asked for | 0 — **done**; further classics need their dialogue written first |
-| 3 | Skilling completeness (N1 tables: potions, gems, glass, spinning, agility, rune/smith) | The "done to full completion" goal; §8.2 dose model | 0, 1 (pattern) |
+| 3 | Skilling completeness (N1 tables: potions, gems, glass, spinning, agility, rune/smith) | The "done to full completion" goal; §8.2 dose model | 0, 1 (pattern) — **spinning done**, pottery/glass/weaving/agility open |
 | 4 | World interactivity: fillables (R), pickables (R), searchable/climbable scenery, doors/gates | The "feels finished" layer; mostly data + registrations | 0 |
 | 5 | Shops, potions breadth, guilds, glider verify | Pure breadth, additive data; safest wins | 0 |
 | 6 | Bank PIN | One genuine client/UI decision first | 0 |

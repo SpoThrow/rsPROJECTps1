@@ -38,6 +38,7 @@ public final class ObjectHandler {
 		CastleWarsDoorObjects.register();
 		CastleWarsObjectClicks.register();
 		DoorObjects.register();
+		SpinningWheelObjects.register();
 	}
 
 	private ObjectHandler() {

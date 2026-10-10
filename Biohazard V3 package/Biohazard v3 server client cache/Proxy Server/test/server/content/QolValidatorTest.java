@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 
 import server.Config;
 import server.content.skills.Fletching;
+import server.content.skills.Spinning;
 import server.game.items.ItemDefinitions;
 
 /**
@@ -118,6 +119,16 @@ class QolValidatorTest {
 			stringing.add(Fletching.BOW_STRING);
 		}
 		tables.add(new Table("Fletching.Stringing", toKeys(stringingKeys), toArray(stringing)));
+
+		List<Integer> spinning = new ArrayList<>();
+		List<Long> spinningKeys = new ArrayList<>();
+		for (Spinning.Material m : Spinning.Material.values()) {
+			// forId matches the material, so that is the key.
+			spinningKeys.add((long) m.getMaterial());
+			spinning.add(m.getMaterial());
+			spinning.add(m.getProduct());
+		}
+		tables.add(new Table("Spinning.Material", toKeys(spinningKeys), toArray(spinning)));
 
 		List<Integer> tips = new ArrayList<>();
 		List<Long> tipKeys = new ArrayList<>();

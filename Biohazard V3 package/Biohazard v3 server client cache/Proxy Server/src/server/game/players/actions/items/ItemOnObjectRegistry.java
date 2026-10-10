@@ -36,6 +36,10 @@ public final class ItemOnObjectRegistry {
 
 	private static final Map<Long, ItemOnObjectAction> actions = new ConcurrentHashMap<>();
 
+	static {
+		SpinningItemUses.register();
+	}
+
 	private ItemOnObjectRegistry() {
 	}
 

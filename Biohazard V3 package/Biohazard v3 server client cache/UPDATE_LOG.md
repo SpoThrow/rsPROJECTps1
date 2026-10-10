@@ -1,5 +1,18 @@
 # Update Log
 
+## 2026-10-10 - QOL Phase 3 (first slice): spinning works, and the wheel was never there
+
+**What changed:**
+- **Spinning did not exist, and now does.** The Crafting guide has always printed a Spinning tab ("1 Wool", "10 Flax into Bow Strings") and the flax's own examine text says "I should use this with a spinning wheel", but there was no wheel handler anywhere — `Flax.java` only picked the flax, so both products were impling-only. That became load-bearing once bow stringing landed: the only bow string in the game was an impling drop. `Spinning` is a two-row `Material` table — wool `1737 -> 1759` at 1 (3 xp), flax `1779 -> 1777` at 10 (15 xp) — which is both the guide's pair and OSRS's, and the xp is Necrotic's and Redone's. Both ids resolve in `item.cfg`; `QolValidatorTest` reports no undefined ids.
+- **Two ways in, both through the Phase-0 registries rather than a switch.** A first click on the wheel goes through `ObjectHandler` (new `SpinningWheelObjects`, ids 2644/4309/8748 taken from `Data/objectSize.cfg`), and using wool or flax on the wheel goes through `ItemOnObjectRegistry` (new `SpinningItemUses`). Both read the same `WHEEL_OBJECTS`, so the two cannot disagree about which objects are wheels.
+- **A click spins the one material you carry; carrying both it refuses and says so.** Wool and flax become different items, and a click that silently turned a stack of flax into bow strings would be the wrong answer half the time — the player picks with the item instead. This is a deliberate extra click, documented at the method.
+- **The action is ticked and repeating**, one item per 2-tick cycle until the material runs out or you walk, on the shared `playerIsCrafting` flag, exactly like gem cutting and leather. Animation 896 either way (Necrotic's and Redone's).
+- **A real bug in shared code, fixed on the way.** `CraftingData.resetCrafting` cleared `playerIsCrafting` but left the looping event queued; the old event then woke on its next tick, found the flag re-set by a fresh action, and ran *alongside* it — two loops, double speed, over one stack. It now stops the spinning event before clearing the flag. The same shape is still reachable in `GemCutting` and `LeatherMaking`, which rely on the flag alone; flagged for whenever either is next touched. `QOL_PLAN.md` §4b carries it.
+
+**Files touched:** added `server/content/skills/Spinning.java`, `server/game/players/actions/objects/SpinningWheelObjects.java`, `server/game/players/actions/items/SpinningItemUses.java`; edited `CraftingData.java` (`resetCrafting` stops the spin), `ObjectHandler.java` and `ItemOnObjectRegistry.java` (static bootstrap); added 24 tests in `test/.../SpinningTest.java` and a `Spinning.Material` table to `QolValidatorTest.java`; updated `QOL_PLAN.md` (§4b, §3 sequencing).
+
+**Status:** done. **988 tests, 0 failures, 0 errors** (832 server + 156 workshop; 24 new, all in `SpinningTest`). Phase 3 first slice complete. Next in this phase: Pottery (ovens 2643/4308/11601), Glassblowing (pipe `1785`), Weaving (looms 787/8717), then gem-cutting breadth, agility and the runecrafting/smithing loops — pottery and glass are the same shape as spinning: a table, one object, one ticked loop.
+
 ## 2026-10-10 - QOL Phase 1 (finished): bow stringing exists now, and it went into the registry
 
 **What changed:**
