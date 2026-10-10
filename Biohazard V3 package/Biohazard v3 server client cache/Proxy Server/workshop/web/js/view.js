@@ -52,6 +52,9 @@ const TILES_OFF_FILL = '#1c222c';
 const SELECT_COLOUR = '#6ea8fe';
 const HOVER_COLOUR = '#ffffff';
 
+/** A live bot (T7). Deliberately not one of the location colours: it is a different kind of thing. */
+const LIVE_COLOUR = '#7ee787';
+
 /** Cases: a region that has data but has not been fetched yet, and one that has none. */
 const MISSING_LOADING = 'rgba(110, 168, 254, 0.07)';
 const MISSING_NO_DATA = 'rgba(120, 132, 150, 0.13)';
@@ -112,6 +115,7 @@ export class MapView {
       layers: { tiles: true, clipping: true, icons: true, footprints: false, grid: false },
       locations: [],
       draft: null,
+      live: [],
       iconFor: () => null,
       isVisible: () => true,
     };
@@ -455,6 +459,7 @@ export class MapView {
 
     this.drawBorders(entries);
     this.drawLocations();
+    this.drawLive();
     this.drawDraft();
     this.drawMarker(this.hover, HOVER_COLOUR, 1.5);
     this.drawMarker(this.selected, SELECT_COLOUR, 2);
@@ -796,6 +801,60 @@ export class MapView {
         ctx.textAlign = 'left';
         ctx.textBaseline = 'bottom';
         ctx.fillText(`${place.name} (${place.kind})`, left + 2, top - 2);
+      }
+    }
+    ctx.restore();
+  }
+
+  /**
+   * The live bots, on the plane being looked at (T7). One marker per bot, named.
+   *
+   * Only the current plane is drawn, for the same reason the authored places are: a marker on a tile
+   * that is not the one under the camera would be a lie about where the bot is. A bot on another plane
+   * is named as such in the panel instead, which is where "which plane is it on" can actually be said.
+   *
+   * The marker is drawn as a ring plus a dot rather than as the tile outline `drawMarker` uses: a bot is
+   * standing *in* a tile, not *on* it, and a ring reads as a point in a way a square does not. The tile
+   * is still outlined underneath so the position is exact when zoomed in.
+   */
+  drawLive() {
+    const bots = this.scene.live;
+    if (!bots || bots.length === 0) {
+      return;
+    }
+    const ctx = this.ctx;
+    const plane = this.scene.plane;
+    const s = this.scale;
+    ctx.save();
+    for (const bot of bots) {
+      if (bot.plane !== plane) {
+        continue;
+      }
+      const left = this.worldToScreenX(bot.x);
+      const top = this.worldToScreenY(bot.y + 1);
+      if (left > this.w || top > this.h || left + s < 0 || top + s < 0) {
+        continue;
+      }
+      ctx.strokeStyle = LIVE_COLOUR;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(left + 0.5, top + 0.5, s, s);
+      const cx = left + s / 2;
+      const cy = top + s / 2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, Math.max(s * 0.28, 3), 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(126,231,135,0.35)';
+      ctx.fill();
+      ctx.stroke();
+      if (s > 3) {
+        ctx.font = '11px "Segoe UI", system-ui, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'bottom';
+        // A dark halo behind the text, because a bot standing on a tree draws a label over a glyph.
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = 'rgba(13,17,23,0.85)';
+        ctx.strokeText(bot.name, left + 2, top - 2);
+        ctx.fillStyle = LIVE_COLOUR;
+        ctx.fillText(bot.name, left + 2, top - 2);
       }
     }
     ctx.restore();

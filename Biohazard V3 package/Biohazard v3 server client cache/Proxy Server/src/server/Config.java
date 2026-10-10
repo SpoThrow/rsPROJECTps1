@@ -191,6 +191,27 @@ public class Config {
 	 */
 	public static final int BOT_TICK_BUDGET_MS = 40;
 
+	/**
+	 * The loopback port the bot status endpoint listens on, or {@code 0} (default) for no endpoint.
+	 *
+	 * <p><b>Off by default, and that is the point.</b> The Bot Workshop is a tool that must stay
+	 * deletable ({@code BOT_TOOLING.md} §11): a server that opened a socket for it would make the tool
+	 * a thing the server depends on rather than a thing that reads the server's files. With this at
+	 * {@code 0} the boot path is exactly what it was, so nothing here is load-bearing.
+	 *
+	 * <p><b>Read-only, and loopback-only.</b> It answers {@code GET /live/bots} with what the live bots
+	 * are doing — position, current state path, last failure ({@code BOT_ROADMAP.md} Phase F) — and
+	 * nothing else: no possess, no despawn, no step. It binds to {@code 127.0.0.1} only, so even with it
+	 * on, nothing off the machine can reach it, which is what makes a debugging endpoint acceptable to
+	 * leave enabled in a live world.
+	 *
+	 * <p><b>What it deliberately does not do yet.</b> {@code BOT_TOOLING.md} Stage T7 also sketches
+	 * possess/release and pause/step. Those are writes, they change a real character, and a runaway one
+	 * would be a way to drive bots without the {@code ::bot} command's gating — so they are not built
+	 * until the read-only half has been used enough to say what they should do.
+	 */
+	public static final int BOT_STATUS_PORT = 0;
+
 	public static final int[] UNDEAD_NPCS = {90,91,92,93,94,103,104,73,74,75,76,77};
 	
 	public static final int ATTACK = 0;

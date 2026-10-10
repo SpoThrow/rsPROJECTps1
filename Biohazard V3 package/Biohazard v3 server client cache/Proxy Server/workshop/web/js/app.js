@@ -23,6 +23,7 @@ import { collidedSize, loadRegion, loadIndex, loadBanks, bankSummary } from './r
 import { MapView, OVERVIEW_MAX_SCALE } from './view.js';
 import { loadWorld, loadLocations, draftLocations, loadNodes } from './world.js';
 import { TimelineEditor } from './timeline.js';
+import { LiveMonitor, botsOnPlane, currentState, describeBot, placeOf } from './live.js';
 import { isWalkable, describe, describeFlags, PROJECTILE_BIT, WALK_MASK } from './clip.js';
 
 /** Icons for the exporter's kinds. The curated set of `BOT_WORKSHOP_UX.md` §3, not sprites yet. */
@@ -42,6 +43,7 @@ const LAYERS = [
   { key: 'clipping', label: 'clipping' },
   { key: 'footprints', label: 'footprints' },
   { key: 'places', label: 'authored places' },
+  { key: 'live', label: 'live bots' },
   { key: 'grid', label: 'tile grid' },
 ];
 
@@ -68,7 +70,7 @@ const state = {
   /** Loaded regions by id, so panning back is instant. */
   regions: new Map(),
   plane: 0,
-  layers: { tiles: true, icons: true, clipping: true, footprints: false, places: true, grid: false },
+  layers: { tiles: true, icons: true, clipping: true, footprints: false, places: true, live: true, grid: false },
   /** When set, only this kind is drawn — the resource filter of BOT_WORKSHOP_UX.md §4. */
   selectedKind: null,
   classes: { resource: true, service: true },
@@ -112,6 +114,11 @@ const dom = {
   worldSummary: document.getElementById('world-summary'),
   timeline: document.getElementById('timeline'),
   timelineToggle: document.getElementById('timeline-toggle'),
+  liveWatch: document.getElementById('live-watch'),
+  liveRefresh: document.getElementById('live-refresh'),
+  liveList: document.getElementById('live-list'),
+  liveCount: document.getElementById('live-count'),
+  liveHint: document.getElementById('live-hint'),
 };
 
 const view = new MapView(dom.canvas, {
@@ -146,6 +153,21 @@ const timeline = new TimelineEditor(dom.timeline, {
   onStatus: (message, bad) => setStatus(message, bad),
 });
 
+/**
+ * The live bot view (T7). It owns the polling and nothing else — the panel below and the marker layer
+ * both read whatever it last received, so the two can never disagree about where a bot is.
+ */
+const live = new LiveMonitor({
+  onUpdate: () => {
+    renderLive();
+    pushScene();
+  },
+  onError: (message) => setStatus(message, true),
+});
+
+/** The panel's opening hint, captured before anything can overwrite it (see `renderLive`). */
+const LIVE_HINT_INTRO = dom.liveHint.textContent;
+
 // ---- scene ---------------------------------------------------------------------------------
 
 function isVisible(object) {
@@ -171,6 +193,7 @@ function pushScene() {
     layers: state.layers,
     locations: state.layers.places ? state.places : [],
     draft: state.draft,
+    live: state.layers.live ? botsOnPlane(live.report, state.plane) : [],
     iconFor: (kind) => ICONS[kind] || null,
     isVisible,
   });
@@ -240,6 +263,7 @@ async function boot() {
   buildAuthorKindSelect();
   bindKeys();
   renderPlaces();
+  renderLive();
   dom.worldSummary.textContent = `${state.world.count} regions, ${state.world.exported} exported`;
   // Push the scene before moving the camera: the first `viewChanged` reads the scene to describe
   // where the camera is, and a scene without the world in it would report "no region here" for a
@@ -888,6 +912,77 @@ async function appendDraft() {
   }
 }
 
+// ---- live bots (BOT_TOOLING.md T7) ---------------------------------------------------------
+
+/**
+ * The live panel: one row per bot the game server reports.
+ *
+ * A row is drawn for every bot, including the ones on another plane, because "where did my bot go" is
+ * answered by knowing it is on plane 1 rather than by the row vanishing. The ones off the current plane
+ * get a dimmer dot and no marker on the map, and clicking one switches plane so the marker appears.
+ */
+function renderLive() {
+  const bots = live.bots;
+  const report = live.report;
+  dom.liveCount.textContent = report ? String(bots.length) : '';
+  dom.liveList.replaceChildren();
+
+  if (!report) {
+    // The intro is restored rather than re-worded, so the one place the address and the config flag are
+    // explained stays the markup's — a second copy here would drift from it.
+    dom.liveHint.textContent = live.state.error
+      ? `${live.state.error}. Bot status is off by default: set Config.BOT_STATUS_PORT on the game `
+        + 'server, then start it.'
+      : LIVE_HINT_INTRO;
+    return;
+  }
+
+  const tick = report.count === undefined ? '' : `  ·  ${report.count} of ${report.cap} live`;
+  const stats = report.stats ? `  ·  last tick: ${report.stats}` : '';
+  dom.liveHint.textContent = `${bots.length} bot(s)${tick}${stats}. Click a row to go to the bot.`;
+  if (bots.length === 0) {
+    dom.liveList.append(el('p', 'hint', 'The game server is running and has no bot possessed.'));
+    return;
+  }
+
+  for (const bot of bots) {
+    const row = el('div', 'live-row');
+    if (bot.plane !== state.plane) {
+      row.classList.add('elsewhere');
+    }
+    const head = el('div', 'head');
+    head.append(
+      el('span', 'dot'),
+      el('span', 'name', bot.name),
+      el('span', 'meta', placeOf(bot)),
+    );
+    row.append(head, el('div', 'state', describeBot(bot)));
+    if (bot.lastFailure) {
+      row.append(el('div', 'failure', `last failure: ${bot.lastFailure}`));
+    }
+    // The whole path is the title, because the one-line summary is the leaf and the reason a leaf is
+    // running is usually the step above it.
+    row.title = [
+      `${bot.name} — script ${bot.script}, tree ${bot.tree}`,
+      `now: ${bot.path || '(nothing running)'}`,
+      `t=${bot.tick}`,
+      ...(bot.history || []),
+    ].join('\n');
+    row.addEventListener('click', () => goToBot(bot));
+    dom.liveList.append(row);
+  }
+}
+
+/** Centre the map on a bot, switching plane when the marker would otherwise be somewhere else. */
+function goToBot(bot) {
+  if (bot.plane !== state.plane) {
+    setPlane(bot.plane);
+  }
+  view.centreOn(bot.x, bot.y);
+  pumpRegions();
+  setStatus(`${bot.name} is at ${placeOf(bot)}, ${currentState(bot)}`);
+}
+
 // ---- misc chrome ---------------------------------------------------------------------------
 
 function jump() {
@@ -978,10 +1073,11 @@ function updateStatus() {
   const overview = view.scale < OVERVIEW_MAX_SCALE ? '  ·  overview' : '';
   const nodes = state.nodeCount ? `  ·  ${state.nodeCount} bot nodes` : '';
   const bankNote = state.banks.length ? '' : '  ·  no bank index';
+  const liveNote = live.report ? `  ·  ${live.bots.length} bot(s) live` : '';
   setStatus(`${view.scale.toFixed(2)} px/tile  ·  centre ${Math.round(view.cx)},${Math.round(view.cy)}`
     + (entry ? `  ·  region ${entry.regionId}` : '  ·  no region here')
     + `  ·  plane ${state.plane}${overview}  ·  ${state.regions.size} region(s) loaded`
-    + ` of ${state.world.exported} exported${bankNote}${nodes}`);
+    + ` of ${state.world.exported} exported${bankNote}${nodes}${liveNote}`);
 }
 
 function setStatus(message, bad = false) {
@@ -1097,7 +1193,17 @@ function toggleTimeline() {
 }
 dom.timelineToggle.addEventListener('click', toggleTimeline);
 
+dom.liveWatch.addEventListener('change', () => {
+  live.setWatching(dom.liveWatch.checked);
+  renderLive();
+});
+dom.liveRefresh.addEventListener('click', () => {
+  // One request, without starting the poll. Worth having even while watching, because it makes "is this
+  // panel stale or is the bot stuck" answerable with one click rather than by waiting a tick.
+  live.refresh().then(renderLive);
+});
+
 boot();
 
 // Referenced so the values stay discoverable from the console while the viewer is running.
-window.workshop = { state, view, timeline, WALK_MASK, PROJECTILE_BIT, OVERVIEW_MAX_SCALE };
+window.workshop = { state, view, timeline, live, WALK_MASK, PROJECTILE_BIT, OVERVIEW_MAX_SCALE };

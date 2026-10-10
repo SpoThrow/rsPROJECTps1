@@ -309,13 +309,15 @@ graph never has to cover 100% of cases.
 `Data/cfg/*`. Text, stable-ordered, git-diffable, reviewable. The server loads at startup
 or on a `::bot reload` command. No runtime coupling.
 
-**Live later (optional, Stage T7).** A small read-mostly control channel:
-**possess/release** (a bot is a real character — `BOT_PLAN.md` §5.4), pause/step, and read
-the per-bot trace ring buffer from `BOT_ROADMAP.md` Phase F to draw a *running* bot's
-path and current state node on the map. A possessed bot is just a player in the world,
-so the tool can show which account is currently script-driven and which is idle — the
-same account a human could log into and play. This is the strongest debugging feature,
-but it is an add-on, not a foundation.
+**Live later (Stage T7).** A small control channel over the same boundary. The **read-only half has
+landed** (T7a): the game server opens `GET /live/bots` on loopback when `Config.BOT_STATUS_PORT` is
+set, and `workshopServe` proxies it so the viewer can draw the running bots and read their state
+paths — the per-bot trace ring buffer from `BOT_ROADMAP.md` Phase F, which is the strongest debugging
+feature the tool has. It answers, and does not write: **possess/release** and pause/step are the
+deferred half (T7b), because a bot is a real character (`BOT_PLAN.md` §5.4) and a write path that can
+start one is a second way to run a bot that bypasses `::bot`'s gating. The endpoint stays verifiably
+an add-on: the port defaults to `0`, so a server that does not ask for it opens nothing, and the whole
+feature deletes with the rest of the bot package.
 
 **Three questions, and the tool answers all of them offline.**
 
@@ -334,6 +336,11 @@ forces the count. A kind the table lacks is not an error when the world has obje
 `Locations` falls through to a scan, which is why `locations.cfg` has no rock rows. It exits
 non-zero only when a kind resolves **nowhere**, which is the case with no reading under which
 the bot does anything.
+
+**And one question that needs the server running**, which is why it is the one live route:
+*what is my bot doing right now?* Set `Config.BOT_STATUS_PORT` (say `8081`), start the server, and open
+the viewer's **Live bots** panel with "watch" on. `workshopServe` proxies the endpoint, so the viewer
+needs no configuration beyond `-PbotStatusPort=` if the port is not the default.
 
 ---
 
@@ -441,9 +448,11 @@ switching between them is byte-identical and neither can be the stale one.
 
 **The document model is checked without a browser.** `gradlew workshopJsTest` runs
 `workshop/web/test/script-doc.test.mjs` — what the timeline can and cannot hold, what it compiles to, and
-how a node is addressed and replaced — against the real `bot-nodes.json` rather than a fixture, because the
-parameter names are read off the schema and a fixture could agree with a bug. (Needs a `node` on the PATH;
-the viewer itself does not.)
+how a node is addressed and replaced — and `workshop/web/test/live.test.mjs`, which is the same check for
+the live view's decisions (what an envelope means, which plane a bot belongs to, and that a slow answer
+cannot stack requests up behind it). Both run against the real `bot-nodes.json` rather than a fixture,
+because the parameter names are read off the schema and a fixture could agree with a bug. (Needs a `node`
+on the PATH; the viewer itself does not.)
 
 **How it is proven.** Two tests close the loop, and one of them runs the committed file:
 
@@ -509,7 +518,8 @@ internals.
 | **T5b** ✅ | Graph view over the same document. `workshop/web/js/graph.js` renders the document as an editable outline — structurally nested, so edges are the nesting and there is no layout state to go stale. Composite nodes hold children, decorators and leaves hold parameters, and an author adds either from a menu built from the palette. `script-doc.js` is the shared model both views render, so a document the timeline cannot hold is read-only *there* rather than everywhere, and switching views is byte-identical. `gradlew workshopJsTest` checks that model directly |
 | **T6** ✅ | Round-trip validation: compile a timeline, load it via the runtime, run the slice-1 loop test. `Data/cfg/bots/chop_and_bank.json` is loaded by `AuthoredScriptRunTest` and driven through the real tick loop and skill dispatch until logs are banked; `workshopValidateScripts` re-loads the directory through `ScriptDocument`; `ScriptDocsTest` pins the committed file as canonical |
 | **T6b** ✅ | Offline resolution: does what a script *names* exist? The kinds are read off the schema (`ResolveScripts.wanted`, so no node id is written down), compared against the places `Data/cfg` yields, and — only when a kind has none — against a census of every region on disk (`WorldCensus`, classified by the runtime's `ResourceKinds`). Loads `Data/world` only when an answer depends on it; `--world` forces the count. Fails only on a kind that resolves nowhere |
-| **T7** *(optional)* | Live channel: spawn/step + running-bot trace overlay |
+| **T7a** ✅ | The read-only half of the live channel: `Config.BOT_STATUS_PORT` (off by default) starts a loopback-only endpoint in the game server that answers `GET /live/bots` with every live bot's position, tree, current state path, last failure and history — the `::botinfo` facts, from a browser. `workshopServe` proxies it at `/live/bots` and wraps it in a `{live, status, error}` envelope, so "the game server is not running" is an answer rather than a network error. The viewer lists the bots and draws them on the map, on their own plane, and jumps to one on click. Read-only: no possess, no step |
+| **T7b** *(optional)* | The writing half: possess/release and pause/step. Deferred until the read-only half has been used enough to say what they should do — a runaway write path is a way to drive bots that bypasses `::bot`'s gating |
 | (Later) | Generalise to other content (see §12) |
 
 **Sequencing is a hard dependency.** T4–T6 consume `Locations` (roadmap C) and
@@ -525,6 +535,11 @@ T4–T6 → T7.
 
 - **Never a hard dependency.** The server must run standalone; the tool only produces
   files it already understands.
+- **A live endpoint is a socket, and a socket is a surface.** T7a's is deliberately the smallest
+  useful one: `GET`, one path, no parameters, loopback only, off unless `Config.BOT_STATUS_PORT` asks
+  for it, and it cannot be made to do anything — the worst case is that it describes where the bots
+  are standing, which is exactly what it is for. Any further route has to clear that bar, which is why
+  the writing half is deferred rather than merely unbuilt.
 - **Schema discipline is the whole game.** One schema shared by exporter, runtime and
   editor, with a parity test. Drift is the failure mode.
 - **Scope creep is the other failure mode.** Bots only until the map view and one full
@@ -595,4 +610,11 @@ first target is bots, and a bot-only tool that ships beats a general editor that
   authored box a script will be sent to actually contains the objects it claims, which is
   `workshopValidate`'s `EMPTY` check, and whether a *scan* finds anything from where the bot starts —
   that is a fact about the bot's home, not about the script.
+- **T7a:** with `Config.BOT_STATUS_PORT` set, the game server answers `GET /live/bots` on loopback with
+  every live bot's position and current state, and the viewer draws them and jumps to one on click. ✅
+  Verified in the browser against a live report: the panel listed three bots with their state leaves and
+  last failure, the map drew only the two on the plane being looked at, and clicking the third switched
+  the plane to 1 and centred on it. Unchanged elsewhere: with the port at its default of `0` nothing
+  listens, and the endpoint answers nothing but `GET` on that one path (`LiveBotsTest` fetches it over a
+  real socket, at both a live endpoint and a dead port).
 - **Throughout:** deleting the tool and its outputs leaves the server fully functional.

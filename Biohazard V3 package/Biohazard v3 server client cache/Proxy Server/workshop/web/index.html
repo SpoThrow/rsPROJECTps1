@@ -83,9 +83,23 @@
     </div>
   </section>
 
+  <!-- The live bot view (BOT_TOOLING.md T7). Everything here comes from the game server through the
+       workshop server; nothing is read off disk, so this panel is the only one that can say "the game
+       server is not running" rather than showing an old answer. -->
+  <section class="live">
+    <h2>Live bots <span id="live-count" class="count"></span></h2>
+    <div class="live-actions">
+      <label class="toggle"><input type="checkbox" id="live-watch"> watch</label>
+      <button id="live-refresh" type="button">Refresh once</button>
+    </div>
+    <div id="live-list" class="live-list"></div>
+    <p class="hint" id="live-hint">Not watching. Turn "watch" on to poll the game server's own report of
+      what its bots are doing; set <code>Config.BOT_STATUS_PORT</code> on the server (or
+      <code>-PbotStatusPort=</code> here) if it listens somewhere other than 127.0.0.1:8081.</p>
+  </section>
+
   <section class="authoring">
-    <h2>Author a place</h2>
-    <p class="hint">Drag a box on the map, name it, and append it. The row is sent to the workshop
+    <h2>Author a place</h2>    <p class="hint">Drag a box on the map, name it, and append it. The row is sent to the workshop
       server, parsed with the server's own reader, and only the row it accepts is written to
       <code>locations.cfg</code> — the browser never decides what the file says.</p>
     <div class="author-fields">

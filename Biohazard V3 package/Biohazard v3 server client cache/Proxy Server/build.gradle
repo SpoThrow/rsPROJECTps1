@@ -241,11 +241,26 @@ tasks.register('workshopResolveScripts', JavaExec) {
 // quietly misreads — so it is checked directly rather than only through the browser. Requires a `node`
 // on the PATH (the workshop's viewer itself does not); deliberately not wired into `check`, so a
 // Java-only build is unaffected.
-tasks.register('workshopJsTest', Exec) {
+tasks.register('workshopJsTestScriptDoc', Exec) {
     description = 'Runs the workshop editor model checks under Node (T5b).'
     group = 'bot workshop'
     workingDir = projectDir
     commandLine 'node', 'workshop/web/test/script-doc.test.mjs'
+}
+
+tasks.register('workshopJsTestLive', Exec) {
+    description = 'Runs the live-view checks under Node (T7).'
+    group = 'bot workshop'
+    workingDir = projectDir
+    commandLine 'node', 'workshop/web/test/live.test.mjs'
+}
+
+// One name for the browser-free checks, so a change that breaks either one is caught by the command the
+// docs name rather than by the one that happens to be remembered.
+tasks.register('workshopJsTest') {
+    description = 'Runs every browser-free workshop check under Node.'
+    group = 'bot workshop'
+    dependsOn 'workshopJsTestScriptDoc', 'workshopJsTestLive'
 }
 
 // ---- Bot Workshop viewer (BOT_TOOLING.md T2) -----------------------------------------
@@ -262,4 +277,9 @@ tasks.register('workshopServe', JavaExec) {
     if (project.hasProperty('workshopPort')) {
         args = ['--port', project.property('workshopPort').toString()]
     }
+    // The game server's live-view port (T7). Passed as a property rather than an argument because it
+    // is a fact about the other process, not about this one, and it has a default: most sessions open
+    // the map with no game server running at all.
+    systemProperty 'botStatusPort',
+            project.hasProperty('botStatusPort') ? project.property('botStatusPort').toString() : '8081'
 }

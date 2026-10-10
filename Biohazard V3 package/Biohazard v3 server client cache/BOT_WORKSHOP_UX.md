@@ -44,7 +44,10 @@ One window, four regions, one mode:
 - **Left** — layer toggles and the **resource filter** (§4).
 - **Centre** — the **map** (§2, §3).
 - **Right** — the **inspector**: parameters of the current selection (typed from
-  `bot-nodes.json`), plus inline validation and a JSON preview toggle.
+  `bot-nodes.json`), plus inline validation and a JSON preview toggle. Below it, the **live bots**
+  panel (`BOT_TOOLING.md` T7a): the game server's own report of which bots are running and what each
+  is doing, drawn on the map as markers. It is the only panel that reads a running server, and the
+  only one that can be empty because there is no server rather than because there is nothing to show.
 - **Bottom** — the **timeline** (§5), shown while a bot is open.
 
 **Modes** keep it simple and prevent mistakes:
@@ -281,6 +284,11 @@ Mouse: drag = pan (Explore) or draw box (Region/Author); right-click object = ac
   step flags *"plane change — needs a travel leg"* (`BOT_LOCATIONS.md` A.6).
 - **Stale map data** — a saved region pointing at a tile that no longer holds its object is
   flagged by the validator (`BOT_TOOLING.md` §9).
+- **No game server** — the live panel says which address it asked and that nothing answered, and shows
+  no bots rather than the last list it saw. An empty list and an absent server are different states and
+  must not render the same way; that is the whole reason the proxy wraps the report in an envelope.
+- **A bot on another plane** — listed, with its plane and a dimmed dot, and not drawn on the map. A
+  marker on a plane that is not being looked at would be a marker at a tile the bot is not on.
 
 ---
 

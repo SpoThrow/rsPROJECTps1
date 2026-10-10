@@ -21,6 +21,7 @@ import com.sun.net.httpserver.HttpServer;
 
 import botworkshop.export.Json;
 import botworkshop.export.ScriptDocs;
+import server.game.bots.LiveBotsServer;
 import server.game.bots.world.Location;
 import server.game.bots.world.LocationsConfig;
 
@@ -33,7 +34,7 @@ import server.game.bots.world.LocationsConfig;
  * the JDK's own HTTP server, so the tool adds no dependency, no node_modules and no build step to a
  * Java-only repository.
  *
- * <p><b>What it serves.</b> Reads are three routes, and it will not serve anything outside them:
+ * <p><b>What it serves.</b> The reads, and it will not serve anything outside them:
  *
  * <ul>
  * <li>{@code /} — the viewer itself, from {@code workshop/web}.
@@ -41,6 +42,8 @@ import server.game.bots.world.LocationsConfig;
  * <li>{@code /nodes.json} — what {@code workshopExportNodes} wrote, the {@code @BotNode} palette.
  * <li>{@code /palette.json} — {@link FloorPalette}, generated per request so an edit to the override
  *     file shows up on reload.
+ * <li>{@code /live/bots} — the game server's live bot report, proxied ({@link LiveProxy}, T7). The one
+ *     read that does not come from a file, and the only one that can answer "the server is not running".
  * </ul>
  *
  * <p><b>And two writes, which are the only writes a browser can make to this repository.</b>
@@ -66,12 +69,18 @@ public final class WorkshopServer {
 
 	private static final String WEB_ROOT = "workshop/web";
 	private static final String MAP_ROOT = "Data/workshop/map";
-
 	/** The node palette {@code workshopExportNodes} writes; served at {@code /nodes.json}. */
 	private static final String NODES_FILE = "Data/workshop/bot-nodes.json";
 
 	/** One authoring request is a handful of rows; this bounds a malformed or hostile one. */
 	private static final int MAX_BODY_BYTES = 64 * 1024;
+
+	/**
+	 * The system property naming the game server's live-view port. Read rather than compiled in because
+	 * the two processes' ports are deployment, not source ({@code BOT_TOOLING.md} T7) — and defaulted, so
+	 * the ordinary case of "the game server is not running" needs no configuration at all.
+	 */
+	private static final String LIVE_PORT_PROPERTY = "botStatusPort";
 
 	/** Bound to loopback: this exposes the whole of the map export, so it stays off the network. */
 	private static final String HOST = "127.0.0.1";
@@ -89,6 +98,7 @@ public final class WorkshopServer {
 		Path paletteOverride = root.resolve(PALETTE_OVERRIDE);
 		Path locationsFile = root.resolve(LocationsConfig.DEFAULT_PATH);
 		Path scriptsDir = root.resolve(ScriptDocs.DIR);
+		int livePort = livePort();
 
 		if (!Files.isDirectory(webRoot)) {
 			throw new IllegalStateException("the viewer is missing: " + webRoot
@@ -106,7 +116,7 @@ public final class WorkshopServer {
 		HttpServer server = HttpServer.create(new InetSocketAddress(HOST, port), 0);
 		server.createContext("/", exchange -> {
 			try {
-				route(exchange, webRoot, mapRoot, palette, nodesFile, locationsFile, scriptsDir);
+				route(exchange, webRoot, mapRoot, palette, nodesFile, locationsFile, scriptsDir, livePort);
 			} catch (Exception e) {
 				// A handler that throws leaves the browser hanging with no clue why. Say what broke.
 				System.out.println("[workshop] " + exchange.getRequestURI() + " failed: " + e);
@@ -127,6 +137,8 @@ public final class WorkshopServer {
 				: overrides.size() + " override(s) from " + PALETTE_OVERRIDE));
 		System.out.println("[workshop]   regions " + mapIndex + " (the navigator reads this)");
 		System.out.println("[workshop]   scripts " + scriptsDir);
+		System.out.println("[workshop]   live    " + LiveBotsServer.HOST + ":" + livePort
+				+ " (the game server's bot report; set -PbotStatusPort= to move it)");
 		System.out.println("[workshop] Ctrl+C to stop");
 
 		Runtime.getRuntime().addShutdownHook(new Thread(() -> {
@@ -137,7 +149,7 @@ public final class WorkshopServer {
 	}
 
 	private static void route(HttpExchange exchange, Path webRoot, Path mapRoot, String palette,
-			Path nodesFile, Path locationsFile, Path scriptsDir) throws IOException {
+			Path nodesFile, Path locationsFile, Path scriptsDir, int livePort) throws IOException {
 		String path = exchange.getRequestURI().getPath();
 		String method = exchange.getRequestMethod();
 		boolean read = "GET".equals(method) || "HEAD".equals(method);
@@ -171,6 +183,13 @@ public final class WorkshopServer {
 
 		if (path.equals("/palette.json")) {
 			send(exchange, 200, "application/json; charset=utf-8", palette.getBytes(StandardCharsets.UTF_8));
+			return;
+		}
+		// The live bot report, proxied from the game server (T7). A read, but the answer is not a file —
+		// it is whatever the game server says right now, including "I am not running".
+		if (path.equals("/live/bots")) {
+			String report = LiveProxy.fetch(LiveBotsServer.HOST, livePort);
+			send(exchange, 200, "application/json; charset=utf-8", report.getBytes(StandardCharsets.UTF_8));
 			return;
 		}
 		if (path.equals("/scripts.json")) {
@@ -496,5 +515,27 @@ public final class WorkshopServer {
 			}
 		}
 		return DEFAULT_PORT;
+	}
+
+	/**
+	 * The game server's live-view port, from the system property {@code botStatusPort}.
+	 *
+	 * <p>A property rather than an argument because {@code gradlew workshopServe} already passes port
+	 * choices that way, and a bad value is a message with the default rather than a crash: this is a tool
+	 * for looking at a server, and refusing to open the map because a number was mistyped would be the
+	 * wrong failure.
+	 */
+	private static int livePort() {
+		String value = System.getProperty(LIVE_PORT_PROPERTY);
+		if (value == null || value.isBlank()) {
+			return LiveProxy.DEFAULT_PORT;
+		}
+		try {
+			return Integer.parseInt(value.trim());
+		} catch (NumberFormatException e) {
+			System.out.println("[workshop] ignoring " + LIVE_PORT_PROPERTY + "=" + value
+					+ " (not a number); using " + LiveProxy.DEFAULT_PORT);
+			return LiveProxy.DEFAULT_PORT;
+		}
 	}
 }

@@ -194,6 +194,10 @@ public class Server {
 		// The one startup call the bot subsystem gets (roadmap Phase E). With no Data/cfg/bots.cfg
 		// this does nothing, so deleting the whole bot package leaves the boot path untouched.
 		server.game.bots.BotManager.start();
+		// No-op unless Config.BOT_STATUS_PORT is set (BOT_TOOLING.md Stage T7): the workshop's live
+		// view reads this endpoint, and it is loopback-only and read-only because a tool that could not
+		// change anything is a tool that cannot go wrong.
+		server.game.bots.LiveBotsServer.startIfEnabled();
 		
 		/**
 		 * Server Successfully Loaded 
