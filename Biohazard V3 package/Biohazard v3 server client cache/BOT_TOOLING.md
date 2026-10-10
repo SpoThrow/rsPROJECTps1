@@ -238,9 +238,18 @@ structure the runtime executes (roadmap Phase D):
 }
 ```
 
-Timeline and graph are two views of one document; switching never loses data. The
-timeline is built first (decision); the graph lands once `Selector`/`Parallel` exist in
-the runtime (roadmap Phase B, which is now implemented).
+Timeline and graph are two views of one document; switching never loses data. The timeline
+is built first (decision); the graph landed once `Selector`/`Parallel` existed in the
+runtime (roadmap Phase B).
+
+**As built (T5b).** The graph is an *outline*, not a canvas: nesting is the edge, so there
+is no node position to store, lay out or let go stale — which is what lets the view be
+rebuilt from the document alone. A composite shows its children with add/remove/reorder and
+a palette-driven "add child" menu; a decorator or leaf shows its parameters. The document
+lives in `workshop/web/js/script-doc.js` as pure functions, and each view is a projection of
+it, so a document the timeline cannot flatten (a nested composite, a decorator around a step)
+is read-only in the Timeline tab only — the Graph tab still edits it, and the JSON on the wire
+is identical either way.
 
 ---
 
@@ -388,8 +397,17 @@ leaves the previous file exactly as it was. `gradlew workshopValidateScripts` re
 through the same loader, so a bad script fails in a command rather than as a skipped line at boot.
 
 **Round-trip.** Reopening a saved script reconstructs its steps. A document this editor did not write —
-one with a nested composite or a decorator around a step — opens read-only with the reason shown, rather
-than being flattened into a list that would drop the parts a timeline cannot hold.
+one with a nested composite or a decorator around a step — opens in the **graph**
+(§4, Layer 3b) rather than being
+flattened into a list that would drop the parts a timeline cannot hold, and the Timeline tab says why it
+cannot show it. Both views are projections of the one document in `workshop/web/js/script-doc.js`, so
+switching between them is byte-identical and neither can be the stale one.
+
+**The document model is checked without a browser.** `gradlew workshopJsTest` runs
+`workshop/web/test/script-doc.test.mjs` — what the timeline can and cannot hold, what it compiles to, and
+how a node is addressed and replaced — against the real `bot-nodes.json` rather than a fixture, because the
+parameter names are read off the schema and a fixture could agree with a bug. (Needs a `node` on the PATH;
+the viewer itself does not.)
 
 **How it is proven.** Two tests close the loop, and one of them runs the committed file:
 
@@ -452,7 +470,7 @@ internals.
 | **T4** ✅ | `@BotNode` registry + `bot-nodes.json` export + parity test |
 | **T4b** ✅ | Server-side document loader: `Data/cfg/bots/*.json` → `BotScript`, via the T4 schema (§7.1). The half a timeline editor needs to compile *to* |
 | **T5** ✅ | Step timeline editor → `BotScript` JSON (`BOT_WORKSHOP_UX.md` §5). Palette and parameter forms generated from `bot-nodes.json` (§7.2); the server validates the document with its own loader and writes the canonical bytes; reopening reconstructs the timeline |
-| **T5b** | Graph view over the same document (roadmap B is done, so the nodes exist) |
+| **T5b** ✅ | Graph view over the same document. `workshop/web/js/graph.js` renders the document as an editable outline — structurally nested, so edges are the nesting and there is no layout state to go stale. Composite nodes hold children, decorators and leaves hold parameters, and an author adds either from a menu built from the palette. `script-doc.js` is the shared model both views render, so a document the timeline cannot hold is read-only *there* rather than everywhere, and switching views is byte-identical. `gradlew workshopJsTest` checks that model directly |
 | **T6** ✅ | Round-trip validation: compile a timeline, load it via the runtime, run the slice-1 loop test. `Data/cfg/bots/chop_and_bank.json` is loaded by `AuthoredScriptRunTest` and driven through the real tick loop and skill dispatch until logs are banked; `workshopValidateScripts` re-loads the directory through `ScriptDocument`; `ScriptDocsTest` pins the committed file as canonical |
 | **T7** *(optional)* | Live channel: spawn/step + running-bot trace overlay |
 | (Later) | Generalise to other content (see §12) |
@@ -515,6 +533,14 @@ first target is bots, and a bot-only tool that ships beats a general editor that
   document to the server, which accepts it through `ScriptDocument` and writes the canonical file, and a
   document the loader refuses is reported on the step and writes nothing. Opening a saved script
   reconstructs its steps; a graph the linear timeline cannot hold opens read-only rather than losing it.
+- **T5b:** a document that needs `Selector`/`Parallel` is authorable, and switching views loses nothing.
+  ✅ `graph.js` renders the document as an editable outline — a composite holds children, a decorator or a
+  leaf holds parameters, and either can be added from a menu built from the palette. Both views are
+  projections of the one document in `script-doc.js`, so an opened graph is read-only *in the timeline*
+  rather than everywhere, and switching views is byte-identical (verified in the browser: a branch built
+  in the graph reopens in the graph, and Graph→Timeline→Graph produced the same bytes). Nothing new to
+  validate: the graph's output goes through the same `POST /scripts/check`, which is how a branch missing a
+  required parameter is reported — with its path.
 - **T6:** the exported timeline runs the slice-1 chop→bank loop end to end with no
   hand-written bot code. ✅ `AuthoredScriptRunTest` reads `Data/cfg/bots/chop_and_bank.json`, loads it
   through `ScriptDocument`, and ticks it until logs are banked — the real click path and skill dispatch,

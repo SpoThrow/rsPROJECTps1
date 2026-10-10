@@ -133,9 +133,18 @@
     <span class="spacer"></span>
     <span id="timeline-status" class="status" role="status"></span>
   </header>
+  <div class="view-tabs" role="tablist" aria-label="View">
+    <button id="view-timeline" class="view-tab" type="button" role="tab" aria-selected="true">Timeline</button>
+    <button id="view-graph" class="view-tab" type="button" role="tab" aria-selected="false">Graph</button>
+  </div>
   <div class="timeline-body">
-    <aside class="timeline-palette" id="timeline-palette"></aside>
-    <div class="timeline-steps" id="timeline-steps"></div>
+    <div class="timeline-view" id="timeline-view" role="tabpanel" aria-label="Step timeline">
+      <aside class="timeline-palette" id="timeline-palette"></aside>
+      <div class="timeline-steps" id="timeline-steps"></div>
+    </div>
+    <!-- The same document as nodes (BOT_TOOLING.md §3b): the view for branching the timeline cannot
+         hold. Both are rendered from one document, so switching never loses anything. -->
+    <div class="graph-view" id="graph-view" role="tabpanel" aria-label="Behaviour graph" hidden></div>
     <div class="timeline-preview">
       <div class="preview-head">Data/cfg/bots/<span id="timeline-file">untitled.json</span></div>
       <pre id="timeline-json"></pre>

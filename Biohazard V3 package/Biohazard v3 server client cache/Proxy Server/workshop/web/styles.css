@@ -323,9 +323,102 @@ button:active { background: #333e4d; }
 .timeline-body {
   flex: 1;
   display: grid;
-  grid-template-columns: 150px 1fr 360px;
+  grid-template-columns: 1fr 360px;
   min-height: 0;
 }
+
+/* One document, two views (BOT_WORKSHOP_UX.md §7): the tabs swap these, the preview stays. */
+.view-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 0 14px;
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--line);
+  flex: none;
+}
+
+.view-tab {
+  padding: 4px 12px;
+  border: 1px solid var(--line);
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  margin-bottom: -1px;
+}
+
+.view-tab[aria-selected="true"] {
+  background: var(--panel);
+  color: var(--text);
+  border-bottom: 1px solid var(--panel);
+}
+
+.view-tab.warn { color: var(--warn); }
+
+.timeline-view {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  min-height: 0;
+  min-width: 0;
+}
+
+.timeline-view[hidden] { display: none; }
+
+.graph-view {
+  overflow: auto;
+  padding: 8px 10px;
+  min-width: 0;
+}
+
+.graph-view[hidden] { display: none; }
+
+/* The graph as an outline: edges are nesting, so there is no layout state to go stale. */
+.graph-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.graph-bar .hint { margin: 0; }
+
+.graph-root-label,
+.graph-param {
+  font-family: Consolas, "Cascadia Mono", monospace;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.graph-root-label { text-transform: uppercase; letter-spacing: .7px; }
+
+.graph-node {
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--panel-2);
+}
+
+.graph-head { display: flex; gap: 8px; align-items: baseline; }
+.graph-id { font-weight: 600; font-family: Consolas, "Cascadia Mono", monospace; }
+.graph-head .step-actions { margin-left: auto; }
+
+.graph-children {
+  margin-top: 6px;
+  padding-left: 8px;
+  border-left: 2px solid var(--line);
+}
+
+.graph-children-head { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.graph-add, .graph-root-select { padding: 2px 5px; }
+
+.graph-child { display: flex; gap: 6px; align-items: flex-start; }
+.graph-child + .graph-child { margin-top: 4px; }
+.graph-child > .graph-node { flex: 1; min-width: 0; }
+.graph-child-bar { display: flex; flex-direction: column; gap: 2px; padding-top: 4px; }
+
+.graph-empty { color: var(--text-dim); font-size: 11px; padding: 3px 0; }
+.graph-empty.bad { color: var(--bad); }
 
 .timeline-palette {
   overflow-y: auto;

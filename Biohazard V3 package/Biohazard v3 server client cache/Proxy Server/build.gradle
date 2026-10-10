@@ -215,6 +215,20 @@ tasks.register('workshopValidateScripts', JavaExec) {
     workingDir = projectDir
 }
 
+// ---- Bot Workshop editor model (BOT_TOOLING.md T5b) -----------------------------------
+//
+// The document model both the timeline and the graph render (`workshop/web/js/script-doc.js`). It is
+// the one thing that decides what a document means, and a wrong answer there is a script the editor
+// quietly misreads — so it is checked directly rather than only through the browser. Requires a `node`
+// on the PATH (the workshop's viewer itself does not); deliberately not wired into `check`, so a
+// Java-only build is unaffected.
+tasks.register('workshopJsTest', Exec) {
+    description = 'Runs the workshop editor model checks under Node (T5b).'
+    group = 'bot workshop'
+    workingDir = projectDir
+    commandLine 'node', 'workshop/web/test/script-doc.test.mjs'
+}
+
 // ---- Bot Workshop viewer (BOT_TOOLING.md T2) -----------------------------------------
 //
 // Serves the map viewer and the exported JSON over loopback. Deliberately does not depend on

@@ -138,8 +138,9 @@ const view = new MapView(dom.canvas, {
 view.setTooltipElement(dom.tooltip);
 
 /**
- * The step timeline (T5). It owns its own document and talks to the workshop server for validate/save;
- * this file only shows and hides it, and hands it the node palette once that export has loaded.
+ * The script editor (T5/T5b). It owns its own document — one document, a timeline and a graph view of it —
+ * and talks to the workshop server for validate/save; this file only shows and hides it, and hands it the
+ * node palette once that export has loaded.
  */
 const timeline = new TimelineEditor(dom.timeline, {
   onStatus: (message, bad) => setStatus(message, bad),
@@ -1090,7 +1091,7 @@ function toggleTimeline() {
   dom.timeline.hidden = !open;
   document.body.classList.toggle('timeline-open', open);
   dom.timelineToggle.setAttribute('aria-pressed', String(open));
-  if (open && timeline.steps.length === 0 && !timeline.name && !timeline.readOnly) {
+  if (open && !timeline.document && !timeline.name) {
     timeline.newScript();
   }
 }

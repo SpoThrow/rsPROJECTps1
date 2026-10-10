@@ -1,5 +1,17 @@
 # Update Log
 
+## 2026-10-10 - T5b: the graph view — one document, two projections, no view holding state the other can lose
+
+**What changed:**
+- **Both views are now projections of one document.** The model moved out of `timeline.js` into `workshop/web/js/script-doc.js` as pure functions (`timelineShape`, `buildTimeline`, `nodeAt`, `removeAt`, `moveAt`, `addChild`, `convertNode`), and the new `graph.js` renders the same document as an editable outline. Nothing is cloned and nothing is synchronised: switching tabs re-derives the view, so "lossless two-way parity" is structural rather than a promise two editors keep about each other. Verified byte-identically in the browser (a branch built in the graph, Graph→Timeline→Graph, same JSON).
+- **The graph is an outline, not a canvas** — nesting *is* the edge, so there is no node position to store, lay out, or let go stale, which is what lets it be rebuilt from the document alone. A composite shows its children with add/remove/reorder and an "add child" menu built from the palette; a decorator or leaf shows its parameters through the same generated forms (§7.2), which is why `fields.js` was split out.
+- **The timeline's one limitation is now local to the timeline.** A document the timeline cannot flatten (a nested composite, a decorator around a step) is read-only *in that tab* with the reason shown, and fully editable in the graph — instead of the whole document opening read-only, which would have made T5's rule "no document the editor can't hold" cost authors the ability to edit valid scripts. `convertNode` only copies parameters the target node's schema declares, so converting a leaf into a composite cannot smuggle `count` into a `sequence` and produce JSON the server would refuse.
+- **The model is checked without a browser.** `workshop/web/test/script-doc.test.mjs` (18 checks) runs under `gradlew workshopJsTest` — what the timeline can and cannot hold, what it compiles to, and how a path is addressed, moved and replaced — against the real `bot-nodes.json` rather than a fixture, because the parameter names come off the schema and a fixture would agree with a bug. Deliberately not wired into `check`, so a Java-only build is unaffected.
+
+**Files touched:** new `workshop/web/js/{script-doc,graph,fields}.js`, `workshop/web/test/script-doc.test.mjs`, `workshop/web/package.json`. Modified `workshop/web/js/{timeline,app}.js`, `workshop/web/{index.html,styles.css}`, `build.gradle` (`workshopJsTest`), `BOT_TOOLING.md` (T5b ✅, §4 Layer 3b "As built", §7.2 round-trip, acceptance).
+
+**Status:** done. **855 tests, 0 failures**; `workshopJsTest` 18/18. Verified in the browser end to end: tab switching preserving bytes, building a nested selector + delay in the graph, the server refusing an incomplete branch (with its path) through the same `POST /scripts/check`, saving a valid branch as `graph_branch_demo.json`, `workshopValidateScripts` accepting it, reopening it into the graph, and the demo file removed after. Remaining in the track: **T7** (optional live channel).
+
 ## 2026-10-10 - T6: the file the editor writes is the thing that runs
 
 **What changed:**
