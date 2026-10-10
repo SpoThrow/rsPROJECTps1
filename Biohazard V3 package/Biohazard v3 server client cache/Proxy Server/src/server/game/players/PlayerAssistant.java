@@ -3369,6 +3369,10 @@ public void underWaterTele() {
 		if(c.playerSkilling[7])
 			Cooking.resetCooking(c);
 		Fishing.resetFishing(c);
+		// Unconditional, unlike resetFletching above: playerIsFletching tracks only whether the
+		// make-X interface is open, so it is already false by the time an action is running.
+		// This is what stops the ticked action when the player walks away.
+		Fletching.cancel(c);
 			Smelting.resetSmelting(c);
 		if(c.isBanking)
 			c.isBanking = false;

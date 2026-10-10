@@ -1,5 +1,20 @@
 # Update Log
 
+## 2026-10-10 - QOL Phase 1: fletching cuts one log per tick instead of a whole inventory at once
+
+**What changed:**
+- **`Fletching.fletchBow` is now a ticked action.** It was instantaneous: one call deleted the whole amount and added the whole product, so "make 28" finished before the animation started and could not be walked away from. It now runs on `CycleEventHandler` at 2 cycles, consuming one log and producing one item per tick with animation 1248 — the OSRS behaviour, and the same shape our Cooking and Mining already use.
+- **The log now comes from the product** (`forBow(product)`) rather than from `c.log`. `c.log` is only the log that opened the make-X interface, and the two disagree on a reachable path: the arrow-shaft buttons stay live whatever log opened the interface, so with an oak log held, pressing one fell into the shaft table's own log id and consumed normal logs instead.
+- **The shaft path gained the guards the bow path already had.** It previously skipped the level check and the animation, and had no knife check of its own. All three now apply.
+- **`cancel` stops only fletching.** The action runs on its own event id, so cancelling it cannot take other skills' events with it — `stopEvents(player)` would have put out a fire started while fletching next to it. `PlayerAssistant.resetVariables` (reached on every walk step) now calls `Fletching.cancel`, so walking away ends the action.
+- **The old batch body is kept verbatim** as `fletchBowInstant` behind `Config.FLETCHING_ONE_BY_ONE_ENABLED`, so this reverts by flipping the flag rather than by reverting the commit.
+- **One data correction:** the table gave arrow shafts `levelReq = 15`, but the old shaft path never checked a level, so the rewrite would have enforced that entry for the first time and taken shafts away from everyone below 15. Corrected to 1, which is the real requirement and matches what players could always make.
+- **Corrected a wrong claim in `QOL_PLAN.md`.** I had written up a "shaft multiplication bug" (`15 * amount2` adding 15 shafts per matching log in the `logArray` loop). That was wrong on inspection: the loop returns at the end of the first matching log, and 1 log → 15 shafts is the correct ratio. The real defects were the batch behaviour, the wrong log source and the missing guards. Recording it because the bad rationale would have justified a bad fix.
+
+**Files touched:** `server/content/skills/Fletching.java` (ticked action, `cancel`, table visibility, one level correction), `server/game/players/PlayerAssistant.java` (one line in `resetVariables`); added `test/server/content/skills/FletchingTest.java`; updated `QOL_PLAN.md`, `UPDATE_LOG.md`.
+
+**Status:** done for bows and shafts. **915 tests, 0 failures, 0 errors** (759 server + 156 workshop; 8 new). Not done in this phase: `makeArrows`, `makeBolts`, `handleBoltTipping`, `handleBoltTipCrafting` and bow stringing are still one-shot batches with their own `System.currentTimeMillis()` throttles — next, unless Phase 2 (random events) is wanted first. Also open: the magic longbow is level 87 here where OSRS is 85; left alone as it is existing gameplay data, noted in `QOL_PLAN.md`.
+
 ## 2026-10-10 - QOL Phase 0: item-use registries, and item lookups that cannot return null
 
 **What changed:**

@@ -203,7 +203,7 @@ lookups and task-leak idiom; R's `Smithing.java` (897 lines of
 
 | Skill | Ours today | Best source | Worth taking |
 |---|---|---|---|
-| **Fletching** | `Fletching.java` — **instant whole inventory**, plus a real bug: `addItem(fle.getBowID(), 15*amount2)` inside the `logArray` loop (`:430-442`) so one log yields 15 shafts and mixed logs multiply; closes windows instead of looping. | **N1** (ticked, correct 1:15) | Full port of the tick loop and the `BowData`/`ArrowData`/`BoltData`/`StringingData` tables. §5. |
+| **Fletching** | `Fletching.java` — **instant whole inventory**; the shafts path also skipped the level check and the animation, and took its log from the table rather than from the product, so it could consume a log other than the one the interface was opened with. `handleFletchingClick` closes the window instead of looping. | **N1** (ticked, correct 1:15) | Full port of the tick loop and the `BowData`/`ArrowData`/`BoltData`/`StringingData` tables. §5. |
 | **Herblore / potions** | `Herblore.java` 8.4 KB; `Potions.java` 73 `case`s; `PotionMixing.mixPotion2` already wired (`UseItem.java:107`). | **N1** (much fuller) | `CombiningDoses`, `FinishedPotions`, `UnfinishedPotions`, `SpecialPotion` (extremes/overload), `Crushing`, `Decanting`. §6.2. |
 | **Runecrafting** | `craftRunes` crafts the **whole inventory in one `while`** (`:65-70`). | N1 | Tick per essence; rune/multiplier table. |
 | **Smithing / Smelting** | Instant `while (maketimes > 0)`; 26.9 KB interface. | R numbers, N1 shape | Keep our interface; tick the loop; port product/XP/level as a table. N1's `SmithingData` is 55 KB. |
@@ -227,9 +227,18 @@ by a test.
 ## 5. Fletching realism — the headline change
 
 **Ours**: `fletchBow(c, id, amount)` deletes `amount2` logs and adds `amount2` bows in
-one call then `closeAllWindows()`; shafts are `15 * amount2` inside a loop over
-`logArray`. Interface is the OSRS "What would you like to make?" at `8880`, buttons
-`34182-34193`.
+one call then `closeAllWindows()`. Interface is the OSRS "What would you like to make?"
+at `8880`, buttons `34182-34193`.
+
+**Correction to an earlier draft of this section.** It claimed a shaft multiplication bug —
+`15 * amount2` adding fifteen shafts per matching log inside the loop over `logArray`. That
+was wrong, and worth recording because the wrong rationale would have justified a wrong fix.
+The ratio was already right (1 log → 15 shafts) and the loop `return`s at the end of the
+first matching log, so only one log was ever processed. The real defects in that path are
+different and smaller: it was a **batch** rather than ticked; it took its log from the table's
+own `logID` (1511) rather than from the product, so with an oak log held the shaft buttons
+consumed normal logs instead; and it skipped both the level check and the animation that the
+bow path had. The corrected picture is what Phase 1 implements.
 
 **N1** is exactly the behaviour you described — one log per action, ticked:
 
@@ -259,9 +268,13 @@ start a `CycleEventHandler` loop using the existing `c.doAmount` convention
 (`SkillHandler.deleteTime` already decrements it). Three commits:
 
 1. Bows/staves 1-by-1, honouring the existing 1/5/10/28 buttons.
-2. **Arrow shafts: 1 log → 15 shafts per action**, one action per log — fixing the
-   `logArray` multiplication bug rather than porting it.
-3. `Stringing` + `ArrowMaking` as ticked actions from N1's `StringingData`/`ArrowData`.
+2. **Arrow shafts: 1 log → 15 shafts per action**, one action per log. (Not a ratio fix —
+   the ratio was already correct. The log now comes from the product, and the level check
+   and animation that the bow path had are applied here too.)
+3. ~~`Stringing` + `ArrowMaking` as ticked actions from N1's `StringingData`/`ArrowData`.~~
+   **Still to do.** Phase 1 covered bows and shafts; `makeArrows`, `makeBolts`,
+   `handleBoltTipping` and `handleBoltTipCrafting` are still one-shot batches with their own
+   `System.currentTimeMillis()` throttles rather than ticked actions.
 
 Note the N1 table shape worth keeping: `BowData(logID, unstrungBow, xp, levelReq, bowId)`
 where `unstrungBow` is 48/50/54… and `bowId` is the finished 839/841… — and **avoid** its
@@ -269,6 +282,23 @@ where `unstrungBow` is 48/50/54… and `bowId` is the finished 839/841… — an
 enum an explicit `boolean shortbow` column instead.
 
 Tests: level requirements, bow ids, the 1:15 ratio, and one-log-per-tick consumption.
+
+**Landed (2026-10-10), partly.** `fletchBow` is now a ticked `CycleEventHandler` action:
+one log per 2-tick cycle, the log derived from the product rather than from `c.log`, with the
+knife/level/material guards brought onto the shaft path too. It runs on its own event id
+(`FLETCH_EVENT`) so `cancel` can stop it without touching other skills' events; `resetVariables`
+now calls `Fletching.cancel` unconditionally, so walking away ends it. The old batch body is
+kept verbatim as `fletchBowInstant` behind `Config.FLETCHING_ONE_BY_ONE_ENABLED`, so the change
+reverts without a revert.
+
+One data correction was needed: the table gave arrow shafts `levelReq = 15`, but the old
+shaft path never checked a level, so enforcing that entry would have taken shafts away from
+everyone below 15 for the first time. Corrected to 1, which is the real requirement and
+matches what players could always do.
+
+**Not done:** `makeArrows`, `makeBolts`, `handleBoltTipping`, `handleBoltTipCrafting` are
+still batches on `System.currentTimeMillis()` throttles. Them plus stringing are the rest of
+this section.
 
 ---
 
@@ -579,7 +609,7 @@ reviewable, revertible file per batch.
 | # | Phase | Why here | Depends on |
 |---|---|---|---|
 | 0 | Registries + §2 safe accessor + validator | Everything after registers instead of editing switches, and may reference ids that do not exist yet | — — **done**, except the validator |
-| 1 | Fletching realism (1-by-1, shaft fix, stringing) | Your headline; small; very visible; fixes a real bug | 0 (optional) |
+| 1 | Fletching realism (1-by-1, shaft fix, stringing) | Your headline; small; very visible | 0 (optional) — **bows and shafts done**, stringing/arrows/bolts still open |
 | 2 | Random events, flag-driven (nest + genie on) | Cheap, visible, exact flags you asked for | 0 |
 | 3 | Skilling completeness (N1 tables: potions, gems, glass, spinning, agility, rune/smith) | The "done to full completion" goal; §8.2 dose model | 0, 1 (pattern) |
 | 4 | World interactivity: fillables (R), pickables (R), searchable/climbable scenery, doors/gates | The "feels finished" layer; mostly data + registrations | 0 |

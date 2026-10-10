@@ -1,6 +1,9 @@
 package server.content.skills;
 
 import server.Config;
+import server.event.CycleEvent;
+import server.event.CycleEventContainer;
+import server.event.CycleEventHandler;
 import server.game.items.ItemAssistant;
 import server.game.players.Client;
 import server.game.players.Player;
@@ -160,9 +163,20 @@ public class Fletching {
 		}
 	}
 	
-	private enum Fletch {
+	/**
+	 * The fletching table: which log makes which product, for how much xp and at what level.
+	 *
+	 * <p>Package-private rather than private so {@code FletchingTest} can pin it — the table is
+	 * the data the skill is built from, and a wrong product id here is a bow that silently does
+	 * not exist rather than a compile error.
+	 */
+	enum Fletch {
 
-		ARROWSHAFTS(1511, 52, 5, 15),
+		// Arrow shafts are level 1 in OSRS, and the old batch code never checked their level at
+		// all because the shafts branch had no guard. The 15 here would have been enforced for
+		// the first time by the ticked rewrite and would have taken shafts away from anyone
+		// below 15, so it is corrected to the real requirement rather than kept.
+		ARROWSHAFTS(1511, 52, 5, 1),
 
 		SHORTBOW(1511, 841, 5, 5),
 		LONGBOW(1511, 839, 10, 10),
@@ -208,7 +222,7 @@ public class Fletching {
 		}
 	}
 
-	private static Fletch forBow(int id) {
+	static Fletch forBow(int id) {
 		for (Fletch fl : Fletch.values()) {
 			if (fl.getBowID() == id) {
 				return fl;
@@ -223,6 +237,26 @@ public class Fletching {
 	public static void resetFletching(Client c) {
 		c.playerIsFletching = false;
 		c.log = -1;
+		cancel(c);
+	}
+
+	/**
+	 * Stops a running fletching action, if one is running.
+	 *
+	 * <p>Keyed on its own event id rather than on the player: {@code stopEvents(c)} would stop
+	 * <em>every</em> event the player owns, and they own other skills' events too — a walk
+	 * while fletching next to a fire would put the fire out.
+	 *
+	 * <p>Called from {@link #resetFletching}, which {@code PlayerAssistant.resetVariables}
+	 * reaches on every walk, so walking away ends the action the way it ends cooking and
+	 * mining.
+	 */
+	public static void cancel(Client c) {
+		if (c.playerFletch) {
+			c.playerFletch = false;
+			CycleEventHandler.stopEvents(c, FLETCH_EVENT);
+			c.startAnimation(65535);
+		}
 	}
 
 	public static void handleFletchingClick(Client c, int abutton) {
@@ -418,7 +452,109 @@ public class Fletching {
 		}
 	}
 
+	/** Cutting animation, shared by every fletching action. */
+	static final int FLETCH_ANIMATION = 1248;
+	/** One log makes this many arrow shafts. */
+	static final int ARROW_SHAFTS_PER_LOG = 15;
+	/**
+	 * Event id for the ticked fletching action.
+	 *
+	 * <p>Non-zero on purpose: the plain {@code addEvent} overload leaves the id at 0, so a
+	 * dedicated id is what lets {@link #cancel} stop this action and nothing else the player
+	 * happens to be running.
+	 */
+	private static final int FLETCH_EVENT = 4614;
+
+	/**
+	 * Fletches bows or arrow shafts, one log per game tick.
+	 *
+	 * <p><b>The log comes from the product</b> ({@code forBow(product)}) and not from
+	 * {@code c.log}. {@code c.log} is only what the make-X interface was opened with, and the
+	 * two can disagree on a reachable path: the arrow-shaft buttons stay live in the interface
+	 * whatever log opened it, so with an oak log held, pressing one used to fall into the shaft
+	 * table's own log id and consume normal logs instead. Deriving from the product removes the
+	 * question.
+	 *
+	 * <p>Set {@code Config.FLETCHING_ONE_BY_ONE_ENABLED} to {@code false} for the previous
+	 * behaviour, which did the whole amount in one call — see {@link #fletchBowInstant}.
+	 */
 	public static void fletchBow(Client c, int id, int amount) {
+		if (!Config.FLETCHING_ONE_BY_ONE_ENABLED) {
+			fletchBowInstant(c, id, amount);
+			return;
+		}
+		Fletch fle = forBow(id);
+		if (fle == null || c.playerFletch) {
+			return;
+		}
+		final int log = fle.getLogID();
+		final boolean shafts = id == 52; // the shaft product id; forBow matched it above
+
+		if (!c.getItems().playerHasItem(946)) {
+			c.sendMessage("You need a knife to fletch this log.");
+			c.getPA().removeAllWindows();
+			resetFletching(c);
+			return;
+		}
+		if (c.skills.playerLevel[Player.playerFletching] < fle.getLevelReq()) {
+			c.sendMessage("You need a fletching level of at least " + fle.getLevelReq() + " to cut this log.");
+			c.getPA().removeAllWindows();
+			resetFletching(c);
+			return;
+		}
+		int held = c.getItems().getItemAmount(log);
+		if (held < 1) {
+			c.sendMessage("You have no " + ItemAssistant.getItemName(log).toLowerCase() + " to fletch.");
+			c.getPA().removeAllWindows();
+			resetFletching(c);
+			return;
+		}
+		if (amount > held) {
+			amount = held;
+		}
+
+		// Close the make-X interface before the action starts: removeAllWindows does not call
+		// resetVariables (closeAllWindows does), so the interface state is cleared explicitly.
+		c.getPA().removeAllWindows();
+		resetFletching(c);
+
+		c.playerFletch = true;
+		c.doAmount = amount;
+		c.startAnimation(FLETCH_ANIMATION);
+
+		CycleEventHandler.addEvent(FLETCH_EVENT, c, new CycleEvent() {
+			@Override
+			public void execute(CycleEventContainer container) {
+				if (!c.playerFletch || c.doAmount <= 0 || !c.getItems().playerHasItem(log)) {
+					container.stop();
+					return;
+				}
+				c.getItems().deleteItem2(log, 1);
+				c.getItems().addItem(fle.getBowID(), shafts ? ARROW_SHAFTS_PER_LOG : 1);
+				c.getPA().addSkillXP(fle.getXp() * Config.FLETCHING_EXPERIENCE, Player.playerFletching);
+				c.startAnimation(FLETCH_ANIMATION);
+				c.doAmount--;
+				if (c.doAmount <= 0) {
+					container.stop();
+				}
+			}
+
+			@Override
+			public void stop() {
+				cancel(c);
+			}
+		}, 2);
+	}
+
+	/**
+	 * The pre-Phase-1 behaviour: deletes the whole amount and adds the whole product in one
+	 * call, with arrow shafts multiplied by fifteen.
+	 *
+	 * <p>Kept verbatim behind {@code Config.FLETCHING_ONE_BY_ONE_ENABLED} so the change can be
+	 * turned off without a revert. It is the instant path the flag's javadoc refers to, and it
+	 * is not used while the flag is on.
+	 */
+	private static void fletchBowInstant(Client c, int id, int amount) {
 		Fletch fle = forBow(id);
 		if (fle != null) {
 			int amount2 = c.getItems().getItemAmount(fle.getLogID());
@@ -431,9 +567,9 @@ public class Fletching {
 					if (c.getItems().playerHasItem(logArray[i])) {
 						c.getItems().deleteItem2(logArray[i], amount2);
 						c.getItems().addItem(fle.getBowID(), 15*amount2);
-						
+
 						c.getPA().addSkillXP(fle.getXp()*amount2*Config.FLETCHING_EXPERIENCE, Player.playerFletching);
-						
+
 						c.getPA().closeAllWindows();
 						return;
 					}
@@ -442,16 +578,16 @@ public class Fletching {
 					if (c.skills.playerLevel[Player.playerFletching] >= fle.getLevelReq()) {
 						c.getItems().deleteItem2(fle.getLogID(), amount2);
 						c.getItems().addItem(fle.getBowID(), amount2);
-						
+
 						c.getPA().addSkillXP(fle.getXp()*amount2*Config.FLETCHING_EXPERIENCE, Player.playerFletching);
-						
+
 						c.startAnimation(1248);
 						c.getPA().closeAllWindows();
 					} else {
 						c.sendMessage("You need a fletching level of at least" +fle.getLevelReq()+" to cut this log.");
 						c.getPA().closeAllWindows();
 					}
-				} 
+				}
 			}
 			resetFletching(c);
 			c.getPA().removeAllWindows();
