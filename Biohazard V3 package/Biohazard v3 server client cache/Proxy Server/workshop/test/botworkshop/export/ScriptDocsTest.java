@@ -235,4 +235,21 @@ class ScriptDocsTest {
 		assertTrue(text != null && text.contains("\"sequence\""), String.valueOf(text));
 		assertNull(ScriptDocs.read(dir, "not_there"));
 	}
+
+	@Test
+	void theCommittedExampleIsCanonicalSoReSavingItIsNotADiff() throws IOException {
+		// Pins the artifact the repo ships (BOT_TOOLING.md T6): the committed script must be exactly the
+		// bytes the editor would write, so re-saving it after an unrelated edit produces no diff. If this
+		// fails, the file was hand-edited or the canonical form changed — re-save it from the editor.
+		String dataRoot = System.getProperty("workshopDataRoot");
+		assertTrue(dataRoot != null && !dataRoot.isBlank(),
+				"the workshopTest task must set workshopDataRoot to Data/; see build.gradle");
+
+		Path file = Path.of(dataRoot, "cfg", "bots", "chop_and_bank.json");
+		assertTrue(Files.isRegularFile(file), "missing " + file + " — the committed example");
+
+		String onDisk = new String(Files.readAllBytes(file), StandardCharsets.UTF_8);
+		assertEquals(onDisk, ScriptDocs.canonicalize("chop_and_bank", onDisk) + "\n",
+				"re-saving chop_and_bank in the editor should be a no-op");
+	}
 }

@@ -391,6 +391,18 @@ through the same loader, so a bad script fails in a command rather than as a ski
 one with a nested composite or a decorator around a step — opens read-only with the reason shown, rather
 than being flattened into a list that would drop the parts a timeline cannot hold.
 
+**How it is proven.** Two tests close the loop, and one of them runs the committed file:
+
+- `Data/cfg/bots/chop_and_bank.json` — the slice-1 chop→bank loop, authored in the editor — is loaded by
+  `AuthoredScriptRunTest` through `ScriptDocument` and driven through the *real* tick loop, click path and
+  skill dispatch until logs are banked. That is the T6 criterion, and it is the file that runs: the test
+  wraps it in nothing and builds no behaviour of its own. The world the leaves see is injected — the same
+  arrangement `ScriptLoopTest` uses — because `WalkToNearest` and `Gather` resolve theirs lazily on first
+  tick, which is what lets a script authored against a live server run in a JVM with no `Data/world` and no
+  loaded regions.
+- `ScriptDocsTest` asserts the committed file is already canonical, so re-saving it after an unrelated edit
+  produces no diff.
+
 ---
 
 ## 8. Stack decision
@@ -441,7 +453,7 @@ internals.
 | **T4b** ✅ | Server-side document loader: `Data/cfg/bots/*.json` → `BotScript`, via the T4 schema (§7.1). The half a timeline editor needs to compile *to* |
 | **T5** ✅ | Step timeline editor → `BotScript` JSON (`BOT_WORKSHOP_UX.md` §5). Palette and parameter forms generated from `bot-nodes.json` (§7.2); the server validates the document with its own loader and writes the canonical bytes; reopening reconstructs the timeline |
 | **T5b** | Graph view over the same document (roadmap B is done, so the nodes exist) |
-| **T6** | Round-trip validation: compile a timeline, load it via the runtime, run the slice-1 loop test. Partly met: `workshopValidateScripts` re-loads the authored directory through `ScriptDocument`, and `Data/cfg/bots/chop_and_bank.json` — authored in the editor — assembles as `Repeat(forever)`; the timed in-world run is what remains |
+| **T6** ✅ | Round-trip validation: compile a timeline, load it via the runtime, run the slice-1 loop test. `Data/cfg/bots/chop_and_bank.json` is loaded by `AuthoredScriptRunTest` and driven through the real tick loop and skill dispatch until logs are banked; `workshopValidateScripts` re-loads the directory through `ScriptDocument`; `ScriptDocsTest` pins the committed file as canonical |
 | **T7** *(optional)* | Live channel: spawn/step + running-bot trace overlay |
 | (Later) | Generalise to other content (see §12) |
 
@@ -504,7 +516,9 @@ first target is bots, and a bot-only tool that ships beats a general editor that
   document the loader refuses is reported on the step and writes nothing. Opening a saved script
   reconstructs its steps; a graph the linear timeline cannot hold opens read-only rather than losing it.
 - **T6:** the exported timeline runs the slice-1 chop→bank loop end to end with no
-  hand-written bot code. ◐ `Data/cfg/bots/chop_and_bank.json` was authored in the editor and
-  `workshopValidateScripts` loads it through the server's loader as `Repeat(forever)`; the
-  in-world timed run (§4's slice-1 loop) is the remaining half.
+  hand-written bot code. ✅ `AuthoredScriptRunTest` reads `Data/cfg/bots/chop_and_bank.json`, loads it
+  through `ScriptDocument`, and ticks it until logs are banked — the real click path and skill dispatch,
+  with the world injected exactly as `ScriptLoopTest` injects it. The file the editor wrote is the only
+  thing that says what the bot does. Note what this does *not* cover: resolution against the live
+  `Data/world`, which needs a running server (`::bot reload`) and is a manual check.
 - **Throughout:** deleting the tool and its outputs leaves the server fully functional.

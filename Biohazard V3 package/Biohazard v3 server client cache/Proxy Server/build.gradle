@@ -109,6 +109,11 @@ def testWorkDir = layout.buildDirectory.dir('testwork').get().asFile
 tasks.named('test', Test) {
     useJUnitPlatform()
     workingDir = testWorkDir
+    // The authored scripts are read by AuthoredScriptRunTest, and they are content rather than
+    // fixtures: editing one changes what the test should do. Declared as an input so an edit re-runs
+    // the test instead of leaving a stale pass behind. Optional, because a checkout with no authored
+    // script is the ordinary state and must not fail the build.
+    inputs.dir(file('Data/cfg/bots')).withPropertyName('authoredScripts').optional()
     // RealCharacterFilesTest reads (never writes) the live character files to prove the
     // pre-refactor saves still load. Points at the repo copy, which the test task never
     // runs against directly.

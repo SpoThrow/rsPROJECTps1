@@ -1,5 +1,18 @@
 # Update Log
 
+## 2026-10-10 - T6: the file the editor writes is the thing that runs
+
+**What changed:**
+- **The authored script now runs for real.** `AuthoredScriptRunTest` reads `Data/cfg/bots/chop_and_bank.json`, loads it through `ScriptDocument` — the server's own loader — and ticks it until logs are banked: the real click path, the real skill dispatch, the real `BotManager` tick boundary. Nothing between the file and the bank tells the bot what to do, which is `BOT_TOOLING.md` T6's criterion. Two tests, one running the loop and one guarding the artifact on disk.
+- **The last claim about T6 was wrong, and this corrects it.** The previous entry said the authored loop "cannot be driven with an injected world" because the loader builds nodes with the live `Locations`/`ResourceScan` constructors. True but not binding: those two leaves resolve their world *lazily on first tick*, so injecting the world through the live seams works even though there is no constructor to pass it to. `Locations.install`/`uninstall` and `ResourceScan.install`/`uninstall` are that seam — small, off by default, and the same seam the editor's world-less preview (`BOT_WORKSHOP_UX.md` §5.4) needs, so they are not test-only scaffolding.
+- **The test has teeth, and checking that is how a papercut was found.** Rewriting the committed file's `"kind": "tree"` to `"rock"` makes it fail after 20,000 ticks with nothing banked — so the file drives the outcome rather than the test passing vacuously. The check also exposed that Gradle treated `:test` as up-to-date across a script edit; `build.gradle` now declares `Data/cfg/bots` as a test input, so editing a script re-runs the test instead of leaving a stale pass.
+- **The committed example is pinned as canonical.** `ScriptDocsTest` asserts `chop_and_bank.json` is already the bytes the editor would emit, so re-saving it after an unrelated edit is not a diff, and a hand-edit is caught.
+
+**Files touched:** new `test/server/game/bots/AuthoredScriptRunTest.java`. Modified `src/server/game/bots/world/{Locations,ResourceScan}.java` (install/uninstall seam), `workshop/test/botworkshop/export/ScriptDocsTest.java`, `build.gradle` (test input), `BOT_TOOLING.md` (T6 ✅, acceptance, §7.2).
+
+**Status:** done. **855 tests, 0 failures** (852 → 855). What T6 does *not* cover: resolution against the live `Data/world`, which needs a running server — `::bot reload` then the loop in game remains a manual check. Remaining in the track: **T5b** (graph view over the same document) and **T7** (optional live channel).
+
+
 ## 2026-10-10 - The timeline editor: author a bot by hand, saved as the file the server runs
 
 **What changed:**

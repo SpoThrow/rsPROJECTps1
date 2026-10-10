@@ -31,6 +31,17 @@ public final class Locations {
 
 	private static Locations instance;
 
+	/**
+	 * A table to answer from instead of the loaded one.
+	 *
+	 * <p><b>Two callers, both outside ordinary gameplay.</b> A test, so a script that names a place can be
+	 * run without {@code Data/cfg} or a loaded map — the same reason {@link #curated} exists. And the
+	 * editor's dry-run preview ({@code BOT_WORKSHOP_UX.md} §5.4), which walks an authored script over the
+	 * table the tool already holds rather than starting a server. Production never installs one, so
+	 * {@link #live()} is the loaded table.
+	 */
+	private static Locations override;
+
 	private final List<Location> all;
 	private final List<String> problems;
 	private final RegionScanCache cache;
@@ -50,12 +61,32 @@ public final class Locations {
 	 * remember the failure forever.
 	 */
 	public static synchronized Locations live() {
+		if (override != null) {
+			return override;
+		}
 		if (instance == null) {
 			LocationsData.Result result = LocationsData.load();
 			instance = new Locations(result.locations(), result.problems(),
 					ScannedLocator.liveCache(ScannedLocator.DEFAULT_TTL_MILLIS));
 		}
 		return instance;
+	}
+
+	/**
+	 * Answers every later {@link #live()} from {@code table} instead of the loaded one, until
+	 * {@link #uninstall()}. For a test, and for the editor's world-less preview.
+	 *
+	 * <p>Process-wide on purpose: the callers are the ones that own the process (a test, or a preview
+	 * run), and a per-call parameter would have to thread through every node's constructor — which is
+	 * exactly what {@code ScriptDocument} builds from annotations and cannot do.
+	 */
+	public static synchronized void install(Locations table) {
+		override = table;
+	}
+
+	/** Drops any installed table, so {@link #live()} loads the world again. */
+	public static synchronized void uninstall() {
+		override = null;
 	}
 
 	/** A table with no scanning arm — for curated-only families and for tests. */

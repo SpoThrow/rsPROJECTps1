@@ -40,9 +40,31 @@ public final class ResourceScan {
 		this.kinds = kinds;
 	}
 
+	/** A world to search instead of the live one, until {@link #uninstall()}. See {@code Locations}. */
+	private static ResourceScan override;
+
 	/** The live wiring: regions and classifications from the running server. */
 	public static ResourceScan live() {
+		if (override != null) {
+			return override;
+		}
 		return new ResourceScan(ScannedLocator.regionSource(), ScannedLocator.kindSource());
+	}
+
+	/**
+	 * Searches {@code scan} instead of the live world, until {@link #uninstall()}.
+	 *
+	 * <p>The companion to {@code Locations.install} and there for the same two callers: a test, and the
+	 * editor's world-less preview. A {@code Gather} leaf builds its scan lazily on first use, so a scan
+	 * installed before the run is the one every leaf in an authored script picks up.
+	 */
+	public static void install(ResourceScan scan) {
+		override = scan;
+	}
+
+	/** Drops any installed scan, so {@link #live()} reads the world again. */
+	public static void uninstall() {
+		override = null;
 	}
 
 	/** An injected world, so the search is testable without loading 1226 regions. */
