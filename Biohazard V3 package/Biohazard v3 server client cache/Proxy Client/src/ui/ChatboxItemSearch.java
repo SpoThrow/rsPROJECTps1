@@ -242,15 +242,22 @@ public final class ChatboxItemSearch {
 			return;
 		}
 		TextDrawingArea small = c.aTextDrawingArea_1271;
-		c.newBoldFont.drawCenteredString("What would you like to spawn?", 259, 14, 0, -1);
-		c.newBoldFont.drawCenteredString(query + "*", 259, 30, 0x800000, -1);
+		// In resizable mode with a transparent chat there is no panel behind any of this, so the
+		// inks that were chosen for one go white and gain the same one-pixel shadow the chat uses.
+		boolean white = !client.isFixed() && client.resizableChatTransparent;
+		int headInk = white ? 0xffffff : 0;
+		int inputInk = white ? 0xffffff : 0x800000;
+		int hintInk = white ? 0xffffff : 0xA0A0A0;
+		int shadow = white ? 0 : -1;
+		c.newBoldFont.drawCenteredString("What would you like to spawn?", 259, 14, headInk, shadow);
+		c.newBoldFont.drawCenteredString(query + "*", 259, 30, inputInk, shadow);
 		if (query.length() == 0) {
-			small.method389(true, 12, 0xA0A0A0, "Start typing an item name...", 52);
-			small.method389(true, 12, 0xA0A0A0, "Press Esc to cancel.", 66);
+			small.method389(true, 12, hintInk, "Start typing an item name...", 52);
+			small.method389(true, 12, hintInk, "Press Esc to cancel.", 66);
 			return;
 		}
 		if (resultCount == 0) {
-			small.method389(true, 12, 0x800000, "No items match \"" + query + "\".", 52);
+			small.method389(true, 12, inputInk, "No items match \"" + query + "\".", 52);
 			return;
 		}
 

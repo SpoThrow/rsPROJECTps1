@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import server.Config;
+import server.content.skills.CreationMenu;
 import server.game.items.Item;
 import server.game.items.ItemAssistant;
 import server.game.minigames.barrows.BarrowsData;
@@ -141,6 +142,17 @@ public abstract class Player {
 	 */
 	public boolean potteryDialogue;
 	/**
+	 * Which chatbox creation menu (interface 8938) is open, or null when none is, together with the
+	 * product each of its five rows would make.
+	 *
+	 * <p>One field for every family rather than a flag each: the five rows send the same four button
+	 * ids whichever family opened the menu, so the button cannot say who should answer it — only
+	 * what is open can. {@code creationRows} is parallel to the rows, {@code -1} where the menu left
+	 * a row blank, so a click on an empty row is swallowed instead of repeating the row above it.
+	 */
+	public CreationMenu.Kind creationMenu;
+	public int[] creationRows = new int[CreationMenu.ROWS];
+	/**
 	 * The mixing chatbox (interface 4429) is open, and the pair the next "make" click would mix is
 	 * in {@code herbloreItem1} and {@code herbloreItem2}.
 	 *
@@ -157,10 +169,30 @@ public abstract class Player {
 	public int[] pouch = {
 			0, 0, 0, 0
 		};
+
+	/**
+	 * The essence each pouch is holding — {@code 1436} rune, {@code 7936} pure, or {@code 0} for
+	 * empty — parallel to {@link #pouch}, and the reason a pouch hands back what went into it
+	 * rather than whichever essence the code names. Persisted as {@code pouch-essence}.
+	 *
+	 * <p>Separate from {@link #pouch} rather than folded into it because {@code pouch} has been
+	 * saved as four plain counts since before this was a question, and a save file must keep
+	 * meaning what it meant.
+	 */
+	public int[] pouchEssence = new int[4];
 	public boolean	
 	playerFletch, playerIsFletching, fletchLevelReq, playerIsMining, 
 	playerIsFiremaking, playerIsFishing, playerIsCooking, playerIsWoodcutting,
 	playerIsCrafting,
+	/**
+	 * Whether the altar is currently offering the player's bones.
+	 *
+	 * <p>The altar's own flag rather than {@code playerIsCrafting}: offering bones is not a crafting
+	 * action, and the two must be able to run without cancelling each other. It exists so a second
+	 * click on the altar while bones are already being offered cannot add an offering on top of the
+	 * loop's — the loop owns the pace once it starts.
+	 */
+	playerIsPraying,
 	isUsingSpecial,
 	stopPlayerSkill,
 	isfishing = false,
@@ -306,7 +338,6 @@ public abstract class Player {
 	public String clanName, properName;
 	public int[] voidStatus = new int[5];
 	public int[] itemKeptId = new int [4]; 
-	public int[] pouches = new int[4];
 	public int[][] playerSkillProp = new int[20][15];
 	public boolean[] playerSkilling = new boolean[23];
 	public int[] cookingProp = new int[7];
@@ -314,7 +345,6 @@ public abstract class Player {
 	public int[] miningProp = new int[6];
 	public int[] fletchingProp = new int[10];
 	public long lastFire;
-	public final int[] POUCH_SIZE = {3,6,9,12};
 	public boolean[] invSlot = new boolean[28], equipSlot = new boolean[14];
 	public long friends[] = new long[200];
 	/** This player's special-attack state: the charge, the accuracy/damage multipliers, the bar and the two flags. */

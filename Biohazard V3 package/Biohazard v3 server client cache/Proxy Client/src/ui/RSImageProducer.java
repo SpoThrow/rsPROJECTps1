@@ -55,6 +55,21 @@ public final class RSImageProducer
 		GlPresent.blit(g, anImage320, k, i);
 	}
 
+	/**
+	 * The AWT view of this buffer, for {@link Renderer#blitRegion}.
+	 *
+	 * <p>Only meaningful as a <em>source</em>: it shares {@link #anIntArray315}, so it is always
+	 * current, but {@code DrawingArea} is what writes to this buffer. Handed out package-private
+	 * so the present seam stays the only public way out of here.
+	 */
+	Image sourceImage()
+	{
+		if (!(anImage320 instanceof BufferedImage)) {
+			method239();
+		}
+		return anImage320;
+	}
+
 	public synchronized void addConsumer(ImageConsumer imageconsumer)
 	{
 		anImageConsumer319 = imageconsumer;

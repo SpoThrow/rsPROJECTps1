@@ -355,7 +355,7 @@ public final class TabArea {
 		}
 		if (owner.menuOpen && owner.menuScreenArea == 1 && isFixed())
 			owner.drawMenu();
-		if (isFixed()) {
+		if (isFixed() && !owner.fixedFramePresentedByLayer()) {
 			Renderer.blit(owner.aRSImageProducer_1163, owner.graphics, owner.tabDrawX(), owner.tabDrawY());
 		}
 		owner.aRSImageProducer_1165.initDrawingArea();

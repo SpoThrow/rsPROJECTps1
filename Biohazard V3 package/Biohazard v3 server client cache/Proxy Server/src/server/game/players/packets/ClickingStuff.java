@@ -18,8 +18,11 @@ public class ClickingStuff implements PacketType {
 				c.getTradeAndDuel().declineTrade();
 			}
 		}
-		if (c.isBanking)
+		if (c.isBanking) {
+			// The search is part of the bank window, so it goes when the window does.
+			c.getBank().clearSearch();
 			c.isBanking = false;
+		}
 		if(c.isShopping)
 			c.isShopping = false;
 		if(c.openDuel && c.duelStatus >= 1 && c.duelStatus <= 4) {

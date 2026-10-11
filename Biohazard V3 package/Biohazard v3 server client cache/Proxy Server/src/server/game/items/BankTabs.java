@@ -190,31 +190,72 @@ public class BankTabs {
 			c.getOutStream().createFrame(187);
 			c.flushOutStream();
 		}
-		c.sendMessage("Enter an item name to search. Click Search again to cancel.");
+		c.sendMessage("Type to search the bank. Click Search again to cancel.");
 	}
 
+	/**
+	 * Applies a search term, or drops the filter when the player has backspaced the box empty.
+	 *
+	 * <p><b>Called per keystroke, not once.</b> The box filters the bank as the player types, so
+	 * every letter arrives here; the box is only closed by Enter. That is also why the announcement
+	 * below is once per search rather than once per call - a line per letter is the spam the old
+	 * send-on-Enter flow did not have and this change would have introduced.
+	 *
+	 * <p>The box stays open across an emptied term ({@link #clearFilter}), because the next letter
+	 * typed is the next search term: routing it as ordinary input would have the bank treat "r" as
+	 * a clan name. {@code awaitingBankSearch} is what remembers the box is open, so only a
+	 * deliberate close or a bank close clears it.
+	 */
 	public void applySearch(String term) {
-		c.awaitingBankSearch = false;
 		if (term == null) {
 			term = "";
 		}
 		term = term.trim();
 		if (term.length() == 0) {
-			clearSearch();
+			clearFilter();
 			return;
 		}
+		boolean announce = !c.bankSearching;
 		c.bankSearching = true;
 		c.bankSearch = term;
 		c.bankingTab = 0;
 		refresh();
-		c.sendMessage("Showing bank items matching '" + term + "'.");
+		if (announce) {
+			c.sendMessage("Showing bank items matching '" + term + "'.");
+		}
 	}
 
+	/** Drops the filter but leaves the search box open, which is what an emptied term means. */
+	private void clearFilter() {
+		if (!c.bankSearching && (c.bankSearch == null || c.bankSearch.length() == 0)) {
+			return;
+		}
+		c.bankSearching = false;
+		c.bankSearch = "";
+		if (c.isBanking) {
+			refresh();
+		}
+	}
+
+	/**
+	 * Ends the search and closes the search box: what leaving the bank does, and what cancelling
+	 * the search does.
+	 *
+	 * <p>Early-returns when there is nothing to end, because {@code resetVariables} calls it on
+	 * every walk and a refresh sends the whole bank's item list - a per-step burst of frames for a
+	 * player who never opened the search box at all.
+	 */
 	public void clearSearch() {
+		if (!c.bankSearching && !c.awaitingBankSearch
+				&& (c.bankSearch == null || c.bankSearch.length() == 0)) {
+			return;
+		}
 		c.bankSearching = false;
 		c.awaitingBankSearch = false;
 		c.bankSearch = "";
-		refresh();
+		if (c.isBanking) {
+			refresh();
+		}
 	}
 
 	public int firstEmptyTab() {

@@ -41,6 +41,7 @@ public class Interfaces extends RSInterface {
 		ShopInterface(textDrawingAreas);
 		itemSpawnSearch(textDrawingAreas);
 		bank(textDrawingAreas);
+		MakeX.build(textDrawingAreas);
 	}
 	
 	public static void Construction(TextDrawingArea[] TDA) {
@@ -1132,6 +1133,11 @@ public static int boxIds[] = { 4041, 4077, 4113, 4047, 4083, 4119, 4053, 4089, 4
 		addHoverText(24234, "FPS cap: 50", "Unlock the 50 FPS draw cap", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24434, "Zoom sensitivity: 100% (default)", "Mouse-wheel zoom speed. Click to change (25-300, default 100)", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24435, "Reset camera zoom", "Restore camera zoom to the default closeness", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24440, "Plugin overlay opacity: 60%", "Background opacity of every plugin infobox. Click to change (0-100)", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24441, "Plugin overlay colour: Black", "Background colour of every plugin infobox", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24460, "Stretched mode: Off", "Play the fixed layout in a larger, resizable window", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24461, "Keep aspect ratio: On", "Scale both axes equally so nothing is distorted", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24462, "Scale: 100%", "How much of the window the frame fills (50-200%)", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24236, "Shift-click drop: On", "Shift-left-click drops inventory items", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24237, "Middle-click wear: On", "Middle-click wears or wields inventory items", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24238, "Special attack orb: On", "Show a spec orb next to HP/prayer/run", tda, 1, 0xff981f, false, true, 300);
@@ -1170,6 +1176,7 @@ public static int boxIds[] = { 4041, 4077, 4113, 4047, 4083, 4119, 4053, 4089, 4
 		addHoverText(24279, "Highlight others: Off", "Highlight non-friend players", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24280, "Highlight self: Off", "Highlight your own player", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24263, "Ammo overlay: On", "Show equipped arrows/bolts", tda, 1, 0xff981f, false, true, 300);
+		addHoverText(24450, "Ammo overlay icon: On", "Show the equipped ammo sprite with the count over it, instead of a text line", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24275, "Item stats: On", "Food and potion info while hovering", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24269, "Mouse tooltips: Off", "Show the left-click action at the cursor", tda, 1, 0xff981f, false, true, 300);
 		addHoverText(24267, "Attack style warn: Off", "Turn the attack-style box red for a skill", tda, 1, 0xff981f, false, true, 300);
@@ -1205,7 +1212,8 @@ public static int boxIds[] = { 4041, 4077, 4113, 4047, 4083, 4119, 4053, 4089, 4
 		list.height = 186;
 		list.scrollMax = 260;
 		int[] ids = {
-			24210, 24248, 24245, 24431, 24432, 24211, 24212, 24213, 24215, 24216, 24217, 24233, 24234, 24434, 24435, 24231, 24232
+			24210, 24248, 24245, 24431, 24432, 24211, 24212, 24213, 24215, 24216, 24217, 24233, 24234, 24434, 24435,
+			24440, 24441, 24460, 24461, 24462, 24231, 24232
 		};
 		setChildren(ids.length, list);
 		for (int i = 0; i < ids.length; i++) {

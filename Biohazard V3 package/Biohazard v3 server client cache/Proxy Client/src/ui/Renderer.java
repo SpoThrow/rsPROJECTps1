@@ -1,6 +1,10 @@
 package ui;
 
 import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.Image;
+import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
 
 /**
  * The present seam (Phase 4.1a).
@@ -40,6 +44,43 @@ public final class Renderer {
 	 */
 	public static void blit(RSImageProducer producer, Graphics hostGraphics, int destX, int destY) {
 		producer.drawGraphics(destY, hostGraphics, destX);
+	}
+
+	/**
+	 * Software blit of one <em>rectangle</em> of a buffer to ({@code destX}, {@code destY}).
+	 *
+	 * <p>Added for fixed mode's HUD layer, which is a whole frame tall and wide but is only allowed
+	 * to reach the screen where it carries an overlay: the rest of it is a copy of the frame as the
+	 * direct blits built it, and copying that back would be at best redundant and at worst a
+	 * disagreement with whatever presented the frame. A region blit is therefore how that layer is
+	 * presented, and it is a present like any other, so it belongs on this seam rather than in the
+	 * caller.
+	 *
+	 * <p>Falls back to nothing at all if the host graphics cannot take a sub-image draw, because a
+	 * rectangle drawn from the wrong place is worse than a rectangle not drawn.
+	 */
+	public static void blitRegion(RSImageProducer producer, Graphics hostGraphics, int srcX, int srcY, int w,
+			int h, int destX, int destY) {
+		if (producer == null || hostGraphics == null || w <= 0 || h <= 0) {
+			return;
+		}
+		Image image = producer.sourceImage();
+		if (!(image instanceof BufferedImage)) {
+			return;
+		}
+		if (hostGraphics instanceof Graphics2D) {
+			Graphics2D g2 = (Graphics2D) hostGraphics;
+			// The same interpolation the full-buffer present uses: a region copy at 1:1 must land on
+			// the same pixels the direct blits did, and interpolation is what would make a retraced
+			// panel visibly softer than the frame around it. The anti-aliasing hints are deliberately
+			// left alone - nothing here draws an edge, and they are text hints to the rest of the
+			// frame's drawing, which this call runs in the middle of.
+			g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+			g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_SPEED);
+			g2.drawImage(image, destX, destY, destX + w, destY + h, srcX, srcY, srcX + w, srcY + h, null);
+			return;
+		}
+		hostGraphics.drawImage(image, destX, destY, destX + w, destY + h, srcX, srcY, srcX + w, srcY + h, null);
 	}
 
 	/**

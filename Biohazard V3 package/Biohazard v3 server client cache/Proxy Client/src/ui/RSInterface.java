@@ -1657,11 +1657,23 @@ RSInterface rsi = interfaceCache[id] = new RSInterface();
 		return tab;
 	}
 
+	/**
+	 * Whether {@link #imageLoader} can still be used.
+	 *
+	 * <p>{@code unpack} builds the loader for the duration of the interface load and nulls it on the
+	 * way out, so everything that loads interface art does so at unpack time. Anything that runs
+	 * later - a lazily rescaled sprite, say - has to ask first or it throws.
+	 */
+	public static boolean mediaCacheAvailable() {
+		return aMRUNodes_238 != null;
+	}
+
 	protected static Sprite imageLoader(int i, String s) {
 		long l = (TextClass.method585(s) << 8) + (long) i;
 		Sprite sprite = (Sprite) aMRUNodes_238.insertFromCache(l);
 		if (sprite != null)
 			return sprite;
+
 		try {
 			sprite = new Sprite(s + " " + i);
 			aMRUNodes_238.removeFromCache(sprite, l);

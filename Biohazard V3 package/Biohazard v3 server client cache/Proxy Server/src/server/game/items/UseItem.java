@@ -123,7 +123,15 @@ public class UseItem {
 			JewelryMaking.stringAmulet(c, itemUsed, useWith);
 		}
 		if (itemUsed == 1755 || useWith == 1755) {
-			GemCutting.cutGem(c, itemUsed, useWith);
+			int other = itemUsed == 1755 ? useWith : itemUsed;
+			if (Fletching.boltTipRecipe(other) != null) {
+				// Chisel on an already-cut gem: the chatbox of the bolt tips that gem makes, rather
+				// than the single gem this used to convert on the spot with no say in which gem or
+				// how many. Gem cutting is for uncut gems, and they keep their own menu.
+				Fletching.openBoltTips(c);
+			} else {
+				GemCutting.cutGem(c, itemUsed, useWith);
+			}
 		}
 		//Fletching - BOWS
 		for (int i = 0; i < Fletching.ifItems.length; i++) {
@@ -156,11 +164,8 @@ public class UseItem {
 				Fletching.handleBoltTipping(c, itemUsed, useWith);
 			}
 		}
-		for (int i = 0; i < Fletching.boltTips.length; i++) { //tip crafting
-			if ((itemUsed == Fletching.boltTips[i][0] || itemUsed == 1755) && (useWith == Fletching.boltTips[i][0] || useWith == 1755)) {
-				Fletching.handleBoltTipCrafting(c, itemUsed, useWith);
-			}
-		}
+		//Tip crafting from cut gems is answered by the chisel branch above; the loop that used to
+		//sit here matched the same chisel/gem pair and would be a second path to the same menu.
 		//DFS making
 		if ((itemUsed == 1540 && useWith == 11286) || (itemUsed == 11286 && useWith == 1540)) {
 			if (c.skills.playerLevel[Player.playerSmithing] >= 90) {

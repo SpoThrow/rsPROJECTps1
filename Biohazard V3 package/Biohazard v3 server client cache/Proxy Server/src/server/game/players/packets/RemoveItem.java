@@ -28,7 +28,10 @@ public class RemoveItem implements PacketType {
 		case 4233:
 		case 4239:
 		case 4245:
-			JewelryMaking.mouldItem(c, removeId, 1);
+			// The mould interface's left click ("Make"). It opens the chatbox rather than making
+			// one, because the interface has no make-all option and the chatbox is the only way to
+			// reach one -- see JewelryMaking.
+			JewelryMaking.openAmountPrompt(c, removeId);
 			break;
 			
 			case 1688:

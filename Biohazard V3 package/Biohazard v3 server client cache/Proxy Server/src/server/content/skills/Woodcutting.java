@@ -106,8 +106,9 @@ public class Woodcutting {
 				}
 				// One call for everything a chop can roll: the bird nest at its own rate, and the
 				// interrupting events on their countdown. A nest is announced and the chop carries
-				// on; an NPC appearing stops it.
-				if (RandomEventManager.onSkillAction(c)) {
+				// on; an NPC appearing stops it. Woodcutting is the only skill that rolls the nest -
+				// every other skill uses the plain onSkillAction, which skips it.
+				if (RandomEventManager.onWoodcuttingAction(c)) {
 					container.stop();
 					return;
 				}

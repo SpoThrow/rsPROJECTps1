@@ -11,19 +11,20 @@ import java.util.List;
 import java.util.Set;
 
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import core.util.ISAACRandomGen;
 import server.Config;
 import server.content.skills.Runecrafting.RunecraftingData;
 import server.event.CycleEventHandler;
+import server.game.items.Item;
 import server.game.players.Client;
 import server.game.players.Player;
 
 /**
- * Pins the runecrafting table and the three facts the tick rewrite depends on: binding is paced one
- * essence at a time, the multiplier ladder pays its top rung, and the action belongs to the player
- * rather than to the server.
+ * Pins the runecrafting table and the shape of the action: one click binds the whole pack, in the
+ * tick of the click, and rune essence and pure essence are the same input.
  *
  * <p>The table is the part that fails quietly — a wrong altar id is an altar that does nothing, and
  * a wrong rune id is an altar that hands out the wrong rune — so it is pinned row by row. The
@@ -31,10 +32,12 @@ import server.game.players.Player;
  * never reach {@code 10}: an air essence at level 99 made nine air runes, and
  * {@link #anEssenceAtTheTopRungMakesTenAirRunes} is that bug, named.
  *
- * <p>The pacing half is here because the old implementation had none: {@code craftRunes} was a
- * single {@code while} over the whole pack, so a batch was one game cycle and nothing could
- * interrupt it. {@link #theWholeInventoryIsNotOneTick} and {@link #walkingAwayEndsTheBatch} are what
- * changed.
+ * <p>The action half is here because it has been wrong in both directions. It was originally a
+ * {@code while} over the pack that consumed only rune essence; a later revision made it a paced
+ * once-every-two-cycles loop, which turned the altar into an AFK action that kept paying while the
+ * player walked away. {@link #theWholePackIsBoundInTheClickItself} and
+ * {@link #nothingIsBoundAfterTheClick} are what hold the current shape, and
+ * {@link #pureEssenceIsBoundJustLikeRuneEssence} is the input the old code ignored entirely.
  */
 class RunecraftingTest {
 
@@ -62,8 +65,10 @@ class RunecraftingTest {
 			{ 30625, 566, 110, 90, 90 }, // soul
 	};
 
-	/** The rune essence, spelled out again so the test does not follow a rename blindly. */
+	/** Both essences, and one rune, spelled out so the test does not follow a rename blindly. */
 	private static final int ESSENCE = 1436;
+	private static final int PURE_ESSENCE = 7936;
+	private static final int AIR_RUNE = 556;
 
 	// ---------------------------------------------------------------------------------------
 	// The table.
@@ -131,40 +136,84 @@ class RunecraftingTest {
 	}
 
 	// ---------------------------------------------------------------------------------------
-	// Binding, one essence at a time.
+	// One click, the whole pack.
 	// ---------------------------------------------------------------------------------------
 
 	@Test
-	void theWholeInventoryIsNotOneTick() {
-		Client c = withEssence(3);
+	void theWholePackIsBoundInTheClickItself() {
+		Client c = withEssence(3, 0);
 		c.skills.playerLevel[Player.playerRunecrafting] = 1;
 
 		Runecrafting.craftRunes(c, RunecraftingData.AIR.getAltarId());
-		assertEquals(3, count(c, ESSENCE), "nothing is consumed before the action runs");
 
-		CycleEventHandler.process();
-		assertEquals(3, count(c, ESSENCE), "one tick in, nothing has been bound yet");
-		assertEquals(0, count(c, 556), "and no runes");
-
-		CycleEventHandler.process();
-		assertEquals(2, count(c, ESSENCE), "the second tick is when one essence is bound");
-		assertEquals(1, count(c, 556), "and makes one air rune at level 1");
+		assertEquals(0, count(c, ESSENCE), "all three are bound by the click");
+		assertEquals(3, count(c, AIR_RUNE), "one air rune each at level 1");
 	}
 
 	@Test
-	void aFullInventoryOfEssenceIsBoundOnePerAction() {
-		Client c = withEssence(28);
+	void nothingIsBoundAfterTheClick() {
+		// The altar used to start a two-cycle action. If one is ever reintroduced, this is what
+		// catches it: the essence is already gone, so there must be nothing left ticking.
+		Client c = withEssence(3, 0);
 		c.skills.playerLevel[Player.playerRunecrafting] = 1;
 
 		Runecrafting.craftRunes(c, RunecraftingData.AIR.getAltarId());
-		// Twenty-eight bindings, plus the cycle that finds the stack empty and ends the action.
-		for (int i = 0; i < 29; i++) {
-			passTwoTicks();
-		}
+		passTwoTicks();
+		passTwoTicks();
 
-		assertEquals(0, count(c, ESSENCE), "all twenty-eight are bound");
-		assertEquals(28, count(c, 556), "one rune each at level 1");
-		assertFalse(c.playerSkilling[Player.playerRunecrafting], "and the action has finished");
+		assertEquals(3, count(c, AIR_RUNE), "the pack was bound once, not once per tick");
+		assertFalse(c.playerSkilling[Player.playerRunecrafting], "and no action is running");
+	}
+
+	@Test
+	void aFullPackOfEssenceIsBoundInOneClick() {
+		Client c = withEssence(28, 0);
+		c.skills.playerLevel[Player.playerRunecrafting] = 1;
+
+		Runecrafting.craftRunes(c, RunecraftingData.AIR.getAltarId());
+
+		assertEquals(0, count(c, ESSENCE), "all twenty-eight are bound at once");
+		assertEquals(28, count(c, AIR_RUNE), "one rune each at level 1");
+	}
+
+	@Test
+	void pureEssenceIsBoundJustLikeRuneEssence() {
+		// The old code consumed only 1436, so a pack of pure essence did nothing at any altar.
+		Client c = withEssence(0, 3);
+		c.skills.playerLevel[Player.playerRunecrafting] = 1;
+
+		Runecrafting.craftRunes(c, RunecraftingData.AIR.getAltarId());
+
+		assertEquals(0, count(c, PURE_ESSENCE), "the pure essence is bound too");
+		assertEquals(3, count(c, AIR_RUNE), "and pays the same runes");
+	}
+
+	@Test
+	void aMixedPackIsBoundTogether() {
+		Client c = withEssence(2, 3);
+		c.skills.playerLevel[Player.playerRunecrafting] = 99;
+
+		Runecrafting.craftRunes(c, RunecraftingData.AIR.getAltarId());
+
+		assertEquals(0, count(c, ESSENCE), "the rune essence is spent");
+		assertEquals(0, count(c, PURE_ESSENCE), "and so is the pure essence");
+		assertEquals(50, count(c, AIR_RUNE), "five essences at x10");
+	}
+
+	@Test
+	void oneClickPaysTheWholePackNotPerRune() {
+		// Deliberate, and pinned so it reads as a decision: OSRS scales the experience with the
+		// multiplier too. It is left flat because Config.RUNECRAFTING_EXPERIENCE is already 15x,
+		// which is a balance question rather than a realism one -- see the class comment.
+		Client c = withEssence(2, 0);
+		c.skills.playerLevel[Player.playerRunecrafting] = 99;
+
+		Runecrafting.craftRunes(c, RunecraftingData.AIR.getAltarId());
+
+		assertEquals(20, count(c, AIR_RUNE), "two essences at x10");
+		assertEquals(2 * 5 * Config.RUNECRAFTING_EXPERIENCE,
+				c.skills.playerXP[Player.playerRunecrafting],
+				"the experience is per essence, not per rune");
 	}
 
 	@Test
@@ -172,11 +221,10 @@ class RunecraftingTest {
 		for (int[] row : ALTARS) {
 			int rungs = row.length - 4; // index 3 is the level, 4.. is the ladder
 			int level = row[row.length - 1];
-			Client c = withEssence(1);
+			Client c = withEssence(1, 0);
 			c.skills.playerLevel[Player.playerRunecrafting] = level;
 
 			Runecrafting.craftRunes(c, row[0]);
-			passTwoTicks();
 
 			assertEquals(0, count(c, ESSENCE), "altar " + row[0] + " must consume the essence");
 			assertEquals(rungs, count(c, row[1]),
@@ -184,60 +232,24 @@ class RunecraftingTest {
 		}
 	}
 
-	@Test
-	void theRuneCountIsMultipliedButTheExperienceIsNot() {
-		// Deliberate, and pinned so it reads as a decision: OSRS scales the experience with the
-		// multiplier too. It is left flat because Config.RUNECRAFTING_EXPERIENCE is already 15x,
-		// which is a balance question rather than a realism one -- see the class comment.
-		Client c = withEssence(2);
-		c.skills.playerLevel[Player.playerRunecrafting] = 99;
-
-		Runecrafting.craftRunes(c, RunecraftingData.AIR.getAltarId());
-		passTwoTicks();
-		passTwoTicks();
-
-		assertEquals(20, count(c, 556), "two essences at x10");
-		assertEquals(2 * 5 * Config.RUNECRAFTING_EXPERIENCE,
-				c.skills.playerXP[Player.playerRunecrafting],
-				"the experience is per essence, not per rune");
-	}
-
-	@Test
-	void theMultiplierIsReReadEveryCycle() {
-		// A level-up part-way through a batch pays out at the new rate from the next essence, which
-		// requires the multiplier to be read from the player on each cycle rather than captured once.
-		Client c = withEssence(2);
-		c.skills.playerLevel[Player.playerRunecrafting] = 10;
-
-		Runecrafting.craftRunes(c, RunecraftingData.AIR.getAltarId());
-		passTwoTicks();
-		assertEquals(1, count(c, 556), "the first essence is bound at x1");
-
-		c.skills.playerLevel[Player.playerRunecrafting] = 99;
-		passTwoTicks();
-		assertEquals(11, count(c, 556), "the second is bound at x10");
-	}
-
 	// ---------------------------------------------------------------------------------------
-	// The gates, and what ends a batch.
+	// The gates.
 	// ---------------------------------------------------------------------------------------
 
 	@Test
 	void belowTheLevelTheAltarOnlySaysSo() {
-		Client c = withEssence(1);
+		Client c = withEssence(1, 0);
 		c.skills.playerLevel[Player.playerRunecrafting] = 43;
 
 		Runecrafting.craftRunes(c, RunecraftingData.LAW.getAltarId());
-		passTwoTicks();
 
 		assertEquals(1, count(c, ESSENCE), "nothing is bound without the level");
 		assertEquals(0, count(c, 563), "not even the rune");
-		assertFalse(c.playerSkilling[Player.playerRunecrafting], "and no action is running");
 	}
 
 	@Test
 	void anAltarWithNoEssenceSaysSoAndStartsNothing() {
-		Client c = withEssence(0);
+		Client c = withEssence(0, 0);
 		c.skills.playerLevel[Player.playerRunecrafting] = 99;
 
 		// The old path was silent here, which reads as a broken altar. Asserting the branch rather
@@ -245,13 +257,13 @@ class RunecraftingTest {
 		Runecrafting.craftRunes(c, RunecraftingData.AIR.getAltarId());
 		passTwoTicks();
 
-		assertEquals(0, count(c, 556), "no essence, no runes");
+		assertEquals(0, count(c, AIR_RUNE), "no essence, no runes");
 		assertFalse(c.playerSkilling[Player.playerRunecrafting], "and no action is running");
 	}
 
 	@Test
 	void anObjectThatIsNotAnAltarDoesNothing() {
-		Client c = withEssence(1);
+		Client c = withEssence(1, 0);
 		c.skills.playerLevel[Player.playerRunecrafting] = 99;
 
 		Runecrafting.craftRunes(c, 1234);
@@ -262,82 +274,19 @@ class RunecraftingTest {
 	}
 
 	@Test
-	void theBatchStopsWhenTheEssenceRunsOut() {
-		Client c = withEssence(2);
-		c.skills.playerLevel[Player.playerRunecrafting] = 1;
-
-		Runecrafting.craftRunes(c, RunecraftingData.AIR.getAltarId());
-		passTwoTicks();
-		assertTrue(c.playerSkilling[Player.playerRunecrafting], "still binding with one left");
-
-		passTwoTicks();
-		assertEquals(0, count(c, ESSENCE), "the last one is bound");
-		passTwoTicks(); // the cycle that finds nothing left to bind
-		assertFalse(c.playerSkilling[Player.playerRunecrafting], "the stack is gone, so is the action");
-
-		// ...and a further tick cannot bind a rune out of nothing
-		passTwoTicks();
-		assertEquals(2, count(c, 556));
-	}
-
-	@Test
-	void walkingAwayEndsTheBatch() {
-		Client c = withEssence(5);
-		c.skills.playerLevel[Player.playerRunecrafting] = 1;
-
-		Runecrafting.craftRunes(c, RunecraftingData.AIR.getAltarId());
-		passTwoTicks();
-		assertEquals(1, count(c, 556));
-
-		c.getPA().resetVariables(); // what every walk step reaches
-		assertFalse(c.playerSkilling[Player.playerRunecrafting], "the walk ends the action");
-
-		passTwoTicks();
-		passTwoTicks();
-		assertEquals(1, count(c, 556), "and nothing is bound after it");
-		assertEquals(4, count(c, ESSENCE), "the rest of the stack is still there");
-	}
-
-	@Test
-	void aSecondClickDoesNotStartASecondLoop() {
-		Client c = withEssence(4);
-		c.skills.playerLevel[Player.playerRunecrafting] = 1;
-
-		Runecrafting.craftRunes(c, RunecraftingData.AIR.getAltarId());
-		passTwoTicks();
-		Runecrafting.craftRunes(c, RunecraftingData.AIR.getAltarId()); // the impatient second click
-		passTwoTicks();
-
-		assertEquals(2, count(c, 556), "two loops over one stack would have bound four");
-		assertEquals(2, count(c, ESSENCE));
-	}
-
-	@Test
-	void cancellingNothingIsHarmless() {
-		Client c = client();
-
-		Runecrafting.cancel(c);
-
-		assertFalse(c.playerSkilling[Player.playerRunecrafting]);
-	}
-
-	@Test
-	void twoPlayersBindingAtOnceDoNotShareAnything() {
-		Client a = withEssence(1);
+	void twoPlayersBindingDoNotShareAnything() {
+		Client a = withEssence(1, 0);
 		a.skills.playerLevel[Player.playerRunecrafting] = 99;
-		Client b = withEssence(1);
+		Client b = withEssence(1, 0);
 		b.skills.playerLevel[Player.playerRunecrafting] = 54;
 
 		Runecrafting.craftRunes(a, RunecraftingData.AIR.getAltarId());
 		Runecrafting.craftRunes(b, RunecraftingData.LAW.getAltarId());
-		passTwoTicks();
 
-		assertEquals(10, count(a, 556), "the air altar pays the air crafter");
+		assertEquals(10, count(a, AIR_RUNE), "the air altar pays the air crafter");
 		assertEquals(0, count(a, 563), "and never the law rune");
 		assertEquals(1, count(b, 563), "the law altar pays the law crafter");
-		assertEquals(0, count(b, 556), "and a law essence is always one rune");
-		assertTrue(a.playerSkilling[Player.playerRunecrafting]);
-		assertTrue(b.playerSkilling[Player.playerRunecrafting], "both actions are their own");
+		assertEquals(0, count(b, AIR_RUNE), "and a law essence is always one rune");
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -347,6 +296,29 @@ class RunecraftingTest {
 	private static final int SLOT = 1;
 
 	private final List<Client> clients = new ArrayList<>();
+
+	private boolean runesWereStackable;
+
+	/**
+	 * Makes the runes stackable for the duration of a test.
+	 *
+	 * <p>{@code Item}'s static block reads {@code ./Data/data/stackable.dat} from the working
+	 * directory, and the test task runs from a throwaway tree under {@code build/} that has no such
+	 * file — so every item is non-stackable in a unit test. Runes are stackable in production, and a
+	 * whole pack's worth of them has to land in one slot; without this, a pack of twenty-eight at
+	 * level 99 would be silently truncated at the twenty-eight inventory slots. Restored afterwards
+	 * because the array is static and shared with every other test in the JVM.
+	 */
+	@BeforeEach
+	void stackTheRunes() {
+		runesWereStackable = Item.itemStackable[AIR_RUNE];
+		Item.itemStackable[AIR_RUNE] = true;
+	}
+
+	@AfterEach
+	void unstackTheRunes() {
+		Item.itemStackable[AIR_RUNE] = runesWereStackable;
+	}
 
 	private static Client client() {
 		Client c = new Client(null, SLOT);
@@ -363,13 +335,20 @@ class RunecraftingTest {
 		clients.clear();
 	}
 
-	/** A client holding {@code amount} rune essence in the first slot. */
-	private Client withEssence(int amount) {
+	/**
+	 * A client holding {@code rune} rune essence in the first slot and {@code pure} pure essence in
+	 * the second, so that a mixed pack is two stacks rather than one.
+	 */
+	private Client withEssence(int rune, int pure) {
 		Client c = client();
 		clients.add(c);
-		if (amount > 0) {
+		if (rune > 0) {
 			c.playerItems[0] = ESSENCE + 1;
-			c.playerItemsN[0] = amount;
+			c.playerItemsN[0] = rune;
+		}
+		if (pure > 0) {
+			c.playerItems[1] = PURE_ESSENCE + 1;
+			c.playerItemsN[1] = pure;
 		}
 		return c;
 	}
@@ -384,7 +363,7 @@ class RunecraftingTest {
 		return total;
 	}
 
-	/** Runs the tick loop twice, which is when a two-cycle binding action does its work. */
+	/** Runs the tick loop twice, so a binding action left behind would be caught doing its work. */
 	private static void passTwoTicks() {
 		CycleEventHandler.process();
 		CycleEventHandler.process();

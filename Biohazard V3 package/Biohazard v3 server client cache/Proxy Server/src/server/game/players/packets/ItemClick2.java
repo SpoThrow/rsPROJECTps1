@@ -39,11 +39,10 @@ public class ItemClick2 implements PacketType {
 				return;
 			}
 		}
-		for (int i = 0; i < Pouches.pouchData.length; i++) {
-			if (itemId == Pouches.pouchData[i][0]) {
-				Pouches.checkPouch(c, itemId);
-			}
-		}
+		// Fill, empty and check all live in Pouches; this is the check. An item that is not a
+		// pouch falls straight through, which is why there is no table scan here any more.
+		Pouches.checkPouch(c, itemId);
+
 		if(Implings.ImpRewards.impReward.containsKey(itemId)) {
 			ImpRewards.getReward(c, itemId);
 			return;

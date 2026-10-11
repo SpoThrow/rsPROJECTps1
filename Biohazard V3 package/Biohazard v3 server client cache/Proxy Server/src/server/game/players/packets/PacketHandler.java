@@ -79,6 +79,10 @@ public class PacketHandler{
 		packetId[133] = pm;
 		packetId[135] = new BankX1();
 		packetId[208] = new BankX2();
+		// The creation chatbox's make-X. Its own opcode rather than a second meaning for 208,
+		// because a number typed at a bank and a number typed at a chisel would otherwise have to
+		// be told apart by which hidden flag happened to be set.
+		packetId[MakeXAmount.OPCODE] = new MakeXAmount();
 		Walking w = new Walking();
 		packetId[98] = w;
 		packetId[164] = w;

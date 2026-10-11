@@ -7,13 +7,17 @@ import java.util.Properties;import def.ItemDef;
 public final class AmmoOverlay {
 
 	public static boolean enabled = true;
+	/** Draw the equipped ammo's own sprite with the stack size over it, instead of a text line. */
+	public static boolean sprite = true;
 
 	public static void load(Properties props) {
 		enabled = readBool(props, "ammoOverlay", true);
+		sprite = readBool(props, "ammoOverlaySprite", true);
 	}
 
 	public static void save(Properties props) {
 		props.setProperty("ammoOverlay", Boolean.toString(enabled));
+		props.setProperty("ammoOverlaySprite", Boolean.toString(sprite));
 	}
 
 	public static void draw(TextDrawingArea font) {
@@ -41,7 +45,13 @@ public final class AmmoOverlay {
 		}
 		int amt = worn.invStackSizes != null && slot < worn.invStackSizes.length ? worn.invStackSizes[slot] : 1;
 		int color = amt <= 50 ? 0xFF3030 : amt <= 150 ? 0xFF981F : 0x33CC66;
-		InfoBoxes.draw("ammo", font, def.name + " x" + amt, color);
+		if (sprite) {
+			// The equipped ammo's own inventory sprite, with the stack size drawn over the bottom.
+			// The stacked model, not one arrow: see InfoBoxes.stackSprite.
+			InfoBoxes.icon("ammo", InfoBoxes.stackSprite(id), Integer.toString(amt), color);
+		} else {
+			InfoBoxes.draw("ammo", font, def.name + " x" + amt, color);
+		}
 	}
 
 	private static boolean isAmmoName(String name) {

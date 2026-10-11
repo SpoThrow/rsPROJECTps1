@@ -45,6 +45,12 @@ public final class OverlayManager {
 		int prefR = -1;
 		boolean visible;
 		boolean placed;
+		/** True for RuneLite-style infoboxes, the only panels that support Shift right click grouping. */
+		boolean infobox;
+		/** Group this panel is laid out in; empty means the panel docks on its own. */
+		String group = "";
+		/** The panel that carries this group's position, or null when ungrouped. */
+		Panel anchor;
 	}
 
 	private static Panel[] panels = new Panel[16];
@@ -79,6 +85,58 @@ public final class OverlayManager {
 	private static final int[] wh = new int[160];
 	private static int worldN;
 
+	/* ------------------------------------------------------- infobox groups */
+
+	/**
+	 * Infobox groups, in the RuneLite sense: a set of infoboxes that share one position and
+	 * stack along one axis.
+	 *
+	 * <p>The default group is "no group" - those panels dock individually exactly as they always
+	 * have. Detaching gives one panel a group of its own; flipping chooses whether that group
+	 * stacks vertically or horizontally; dropping one group onto another merges them.
+	 *
+	 * <p>A group owns its own position ({@link Group#fX} and friends) rather than borrowing it from
+	 * a member panel, so a group whose member list changes - a potion boost wearing off, say -
+	 * stays put instead of jumping to wherever the next survivor happens to sit.
+	 */
+	private static final int GROUP_GAP = 2;
+	/** Per-frame stacking cursor, seeded from the group's position and advanced as members place. */
+	private static final java.util.HashMap<String, int[]> groupCursor = new java.util.HashMap<>();
+	private static final java.util.HashMap<String, Group> groups = new java.util.HashMap<>();
+
+	/** A named set of infoboxes that share one position and stack along one axis. */
+	public static final class Group {
+		String id;
+		int fX = -1;
+		int fY = -1;
+		int rX = -1;
+		int rY = -1;
+		boolean horizontal;
+		/** Extent of the laid-out group, refreshed every frame for clamping and drop merging. */
+		int ew;
+		int eh;
+		/**
+		 * Extent of the last completed frame, which is the size the group is reserved at when it is
+		 * docked. Docking has to know how much corner space to claim before the group has been laid
+		 * out at all, and the previous frame's extent is the only honest estimate of this frame's -
+		 * one frame stale, and self-correcting on the next.
+		 */
+		int lastW;
+		int lastH;
+		/** This frame's origin, so extents are measured from where the group actually started. */
+		int ox;
+		int oy;
+		/**
+		 * Docked zone per mode, or {@link #UNDOCKED}. A group without one floats at its free
+		 * position exactly as before.
+		 */
+		int prefF = UNDOCKED;
+		int prefR = UNDOCKED;
+	}
+
+	/** No anchor zone: the group floats at {@link Group#fX}/{@link Group#rX} as it always did. */
+	private static final int UNDOCKED = -1;
+
 	/**
 	 * @param width above-chat / side-safe width used for corner packing
 	 * @param height above-chat height (ABOVE_CHATBOX zone sits on this)
@@ -97,6 +155,9 @@ public final class OverlayManager {
 		worldN = 0;
 		hoverZone = -1;
 		draggingKeep();
+		// Group layout is rebuilt from what is actually placed each frame, so a group whose
+		// member list changes between frames simply re-stacks instead of stranding a position.
+		groupCursor.clear();
 		for (int i = 0; i < panelCount; i++) {
 			panels[i].visible = false;
 		}
@@ -104,6 +165,11 @@ public final class OverlayManager {
 	}
 
 	public static void startHud() {
+		groupCursor.clear();
+		for (Group g : groups.values()) {
+			g.ew = 0;
+			g.eh = 0;
+		}
 		for (int i = 0; i < panelCount; i++) {
 			panels[i].placed = false;
 		}
@@ -118,6 +184,10 @@ public final class OverlayManager {
 	}
 
 	public static Panel place(String id, int defaultPreferred, int w, int h) {
+		return placeInternal(id, defaultPreferred, w, h);
+	}
+
+	private static Panel placeInternal(String id, int defaultPreferred, int w, int h) {
 		if (w < 8) {
 			w = 8;
 		}
@@ -130,6 +200,12 @@ public final class OverlayManager {
 		p.w = w;
 		p.h = h;
 		p.visible = true;
+		p.anchor = null;
+		if (p.group.length() > 0) {
+			placeInGroup(p);
+			p.placed = true;
+			return p;
+		}
 		if (p == dragging) {
 			clamp(p);
 			p.placed = true;
@@ -149,13 +225,220 @@ public final class OverlayManager {
 		return p;
 	}
 
+	/**
+	 * Positions one member of an infobox group and grows the group's recorded extent.
+	 *
+	 * <p>The first member placed each frame sits at the group's own position; every member after
+	 * it continues along the group's axis. Members therefore keep their order in the group even
+	 * when the one that happened to be placed first last frame has since expired.
+	 *
+	 * <p>A docked group takes its origin from the anchor zone rather than from {@link Group#fX}:
+	 * see {@link #groupOrigin}. Members always stack down or right from that origin, and because a
+	 * docked origin is the <em>top-left</em> of the box the zone reserved for the group, stacking
+	 * down fills exactly that box whether the zone packs from the top or the bottom.
+	 */
+	private static void placeInGroup(Panel p) {
+		Group g = group(p.group);
+		int[] cursor = groupCursor.get(p.group);
+		if (cursor == null) {
+			int[] origin = groupOrigin(g);
+			cursor = new int[] { origin[0], origin[1] };
+			groupCursor.put(p.group, cursor);
+			g.ox = origin[0];
+			g.oy = origin[1];
+			p.x = origin[0];
+			p.y = origin[1];
+			p.anchor = p;
+		} else {
+			p.x = cursor[0];
+			p.y = cursor[1];
+		}
+		if (g.horizontal) {
+			cursor[0] = p.x + p.w + GROUP_GAP;
+			cursor[1] = p.y;
+		} else {
+			cursor[0] = p.x;
+			cursor[1] = p.y + p.h + GROUP_GAP;
+		}
+		if (p.x + p.w - g.ox > g.ew) {
+			g.ew = p.x + p.w - g.ox;
+		}
+		if (p.y + p.h - g.oy > g.eh) {
+			g.eh = p.y + p.h - g.oy;
+		}
+		g.lastW = g.ew;
+		g.lastH = g.eh;
+	}
+
+	private static final Panel dockGhost = new Panel();
+	private static final int[] groupOriginOut = new int[2];
+
+	/**
+	 * Where the group starts this frame: its anchor zone if it has one, otherwise its free position.
+	 *
+	 * <p>Docking reuses {@link #dock} through a throwaway panel sized to the group, which is what
+	 * makes a docked group stack against the corner <em>with</em> the panels already there rather
+	 * than on top of them: {@code dock} advances the same zone packing cursor it advances for an
+	 * ordinary panel, so the group claims one slot in the corner's stack and everything docked
+	 * afterwards lands below it.
+	 *
+	 * <p>While the group is the one being dragged it is deliberately treated as undocked, so the
+	 * drag moves the group rather than the zone it is currently parked in, and dropping it decides
+	 * the zone afresh.
+	 */
+	private static int[] groupOrigin(Group g) {
+		if (groupPref(g) >= 0 && !isDragging(g)) {
+			dockGhost.w = g.lastW > 0 ? g.lastW : 1;
+			dockGhost.h = g.lastH > 0 ? g.lastH : 1;
+			dock(dockGhost, groupPref(g));
+			groupOriginOut[0] = dockGhost.x;
+			groupOriginOut[1] = dockGhost.y;
+			return groupOriginOut;
+		}
+		groupOriginOut[0] = groupX(g);
+		groupOriginOut[1] = groupY(g);
+		return groupOriginOut;
+	}
+
+	private static boolean isDragging(Group g) {
+		return dragging != null && dragging.group.equals(g.id);
+	}
+
+
+	/** @return true when this group stacks sideways rather than downwards. */
+	public static boolean isHorizontal(String groupId) {
+		return group(groupId).horizontal;
+	}
+
+	public static Panel panelAt(int mx, int my) {
+		return hit(mx, my);
+	}
+
+	private static Group group(String id) {
+		Group g = groups.get(id);
+		if (g == null) {
+			g = new Group();
+			g.id = id;
+			groups.put(id, g);
+		}
+		return g;
+	}
+
+	private static int groupX(Group g) {
+		int v = client.isFixed() ? g.fX : g.rX;
+		return v < 0 ? MARGIN : v;
+	}
+
+	private static int groupY(Group g) {
+		int v = client.isFixed() ? g.fY : g.rY;
+		return v < 0 ? topY : v;
+	}
+
+	private static void setGroupPos(Group g, int x, int y) {
+		if (client.isFixed()) {
+			g.fX = x;
+			g.fY = y;
+		} else {
+			g.rX = x;
+			g.rY = y;
+		}
+	}
+
+	/** The group's anchor zone for the mode in play, or {@link #UNDOCKED}. */
+	private static int groupPref(Group g) {
+		return client.isFixed() ? g.prefF : g.prefR;
+	}
+
+	private static void setGroupPref(Group g, int pref) {
+		if (client.isFixed()) {
+			g.prefF = pref;
+		} else {
+			g.prefR = pref;
+		}
+	}
+
+	/**
+	 * The group's corner, as the anchor zone names it - {@code null} when the group floats.
+	 *
+	 * <p>Read by the group outline so it is drawn where the group actually is. It used to be drawn
+	 * at {@link Group#fX}, which is the <em>undocked</em> position, so a docked group's cyan box
+	 * stayed at whatever corner it was last dragged from while its infoboxes sat somewhere else.
+	 */
+	private static int[] groupCorner(Group g) {
+		if (groupPref(g) >= 0 && !isDragging(g)) {
+			groupOriginOut[0] = g.ox;
+			groupOriginOut[1] = g.oy;
+			return groupOriginOut;
+		}
+		int x = client.isFixed() ? g.fX : g.rX;
+		int y = client.isFixed() ? g.fY : g.rY;
+		if (x < 0 || y < 0) {
+			return null;
+		}
+		groupOriginOut[0] = x;
+		groupOriginOut[1] = y;
+		return groupOriginOut;
+	}
+
+	/** Groups currently laid out, for drawing the group outline while Alt is held. */
+	public static java.util.Collection<Group> groupList() {
+		return groups.values();
+	}
+
 	public static void paint(Panel p, int alpha) {
 		if (p == null) {
 			return;
 		}
-		DrawingArea.method335(0x000000, p.y, p.w, p.h, alpha, p.x);
+		// One global colour and opacity for every plugin panel, so fixed and resizable look the
+		// same and the player can make the panels read against whatever they are standing on. The
+		// per-caller alpha is deliberately ignored: it is what made one overlay darker than another.
+		int a = boxOpacity * 256 / 100;
+		if (a < 0) {
+			a = 0;
+		}
+		if (a > 256) {
+			a = 256;
+		}
+		DrawingArea.method335(boxColor, p.y, p.w, p.h, a, p.x);
 		boolean hi = RSApplet.altIsDown || p == dragging;
 		DrawingArea.fillPixels(p.x, p.w, p.h, hi ? 0xFFE14A : 0x5A4933, p.y);
+	}
+
+	/* ------------------------------------------------- global panel appearance */
+
+	/** Background colour of every plugin overlay panel, as 0xRRGGBB. */
+	public static int boxColor = 0x000000;
+	/** Background opacity of every plugin overlay panel, as a percentage. */
+	public static int boxOpacity = 60;
+
+	private static final int[] BOX_COLORS = { 0x000000, 0x1E1E1E, 0x2B2319, 0x3A2418, 0x102030 };
+	private static final String[] BOX_COLOR_NAMES = { "Black", "Charcoal", "Brown", "Rust", "Navy" };
+
+	public static void cycleBoxOpacity() {
+		boxOpacity += 15;
+		if (boxOpacity > 100) {
+			boxOpacity = 30;
+		}
+	}
+
+	public static String boxColorName() {
+		for (int i = 0; i < BOX_COLORS.length; i++) {
+			if (BOX_COLORS[i] == boxColor) {
+				return BOX_COLOR_NAMES[i];
+			}
+		}
+		return String.format("#%06X", Integer.valueOf(boxColor & 0xFFFFFF));
+	}
+
+	public static void cycleBoxColor() {
+		int next = 0;
+		for (int i = 0; i < BOX_COLORS.length; i++) {
+			if (BOX_COLORS[i] == boxColor) {
+				next = (i + 1) % BOX_COLORS.length;
+				break;
+			}
+		}
+		boxColor = BOX_COLORS[next];
 	}
 
 	public static void drawAnchors() {
@@ -169,6 +452,19 @@ public final class OverlayManager {
 			boolean hot = hoverZone == z;
 			DrawingArea.method335(hot ? 0x00FF00 : 0x00FFFF, zoneY[z], ZONE_SIZE, ZONE_SIZE, hot ? ZONE_HOT : ZONE_IDLE, zoneX[z]);
 			DrawingArea.fillPixels(zoneX[z], ZONE_SIZE, ZONE_SIZE, hot ? 0x33FF33 : 0x33CCCC, zoneY[z]);
+		}
+		// Outline each infobox group so its members read as one unit while the player arranges
+		// them. Drawn from the extents recorded during the layout pass, at the group's own origin
+		// so a docked group's outline follows it to the corner it is anchored to.
+		for (Group g : groups.values()) {
+			if (g.ew <= 0 || g.eh <= 0) {
+				continue;
+			}
+			int[] at = groupCorner(g);
+			if (at == null) {
+				continue;
+			}
+			DrawingArea.fillPixels(at[0] - 2, g.ew + 4, g.eh + 4, 0x00FFFF, at[1] - 2);
 		}
 	}
 
@@ -204,27 +500,10 @@ public final class OverlayManager {
 		mouseY = c.mouseY - originY;
 		if (dragging != null) {
 			if (c.clickMode2 != 1 || !RSApplet.altIsDown) {
-				int zone = zoneAt(mouseX, mouseY);
-				if (zone >= 0) {
-					int current = effectivePref(dragging);
-					if (zone == current && userX(dragging) < 0) {
-						setPref(dragging, -1);
-					} else {
-						setPref(dragging, zone);
-					}
-					clearUser(dragging);
-				} else {
-					setPref(dragging, DYNAMIC);
-					setUser(dragging, dragging.x, dragging.y);
-				}
-				dragging = null;
-				hoverZone = -1;
-				c.saveClientSettings();
+				endDrag(c);
 				return false;
 			}
-			dragging.x = mouseX - grabX;
-			dragging.y = mouseY - grabY;
-			clamp(dragging);
+			moveDrag(mouseX, mouseY);
 			hoverZone = zoneAt(mouseX, mouseY);
 			c.clickMode3 = 0;
 			return true;
@@ -242,18 +521,220 @@ public final class OverlayManager {
 			return false;
 		}
 		dragging = hit;
-		grabX = sx - hit.x;
-		grabY = sy - hit.y;
-		hit.x = mouseX - grabX;
-		hit.y = mouseY - grabY;
-		clamp(hit);
+		if (hit.group.length() > 0) {
+			// Grabbing any member moves the group, so the offset is measured against the group's
+			// own origin rather than the member's, and the whole stack slides rigidly.
+			Group g = group(hit.group);
+			grabX = sx - groupX(g);
+			grabY = sy - groupY(g);
+		} else {
+			grabX = sx - hit.x;
+			grabY = sy - hit.y;
+		}
+		moveDrag(mouseX, mouseY);
 		hoverZone = zoneAt(mouseX, mouseY);
 		c.clickMode3 = 0;
 		return true;
 	}
 
+	private static void moveDrag(int mx, int my) {
+		if (dragging.group.length() > 0) {
+			Group g = group(dragging.group);
+			int gw = g.ew > 0 ? g.ew : dragging.w;
+			int gh = g.eh > 0 ? g.eh : dragging.h;
+			int nx = mx - grabX;
+			int ny = my - grabY;
+			if (nx + gw > canvasW) {
+				nx = Math.max(0, canvasW - gw);
+			}
+			if (ny + gh > canvasH) {
+				ny = Math.max(0, canvasH - gh);
+			}
+			if (nx < 0) {
+				nx = 0;
+			}
+			if (ny < 0) {
+				ny = 0;
+			}
+			setGroupPos(g, nx, ny);
+			// The members are repositioned from the group on the next layout pass; mirroring the
+			// dragged panel keeps pre-layout hit tests and the outline in step.
+			dragging.x = groupX(g);
+			dragging.y = groupY(g);
+			return;
+		}
+		dragging.x = mx - grabX;
+		dragging.y = my - grabY;
+		clamp(dragging);
+	}
+
+	private static void endDrag(client c) {
+		if (dragging.group.length() > 0) {
+			// A group is dropped like a panel: on a zone it anchors there, anywhere else it floats
+			// where it was let go. Dragging deliberately ignored the zone it was already in (see
+			// groupOrigin), so the drop is the only thing that decides it.
+			Group g = group(dragging.group);
+			dragging = null;
+			hoverZone = -1;
+			// Dropping a group on an infobox that is not already in it absorbs that infobox,
+			// which is how two loose infoboxes get merged into one group.
+			if (!mergeAt(mouseX, mouseY, g.id)) {
+				setGroupPref(g, zoneAt(mouseX, mouseY));
+			}
+			c.saveClientSettings();
+			return;
+		}
+		int zone = zoneAt(mouseX, mouseY);
+		if (zone >= 0) {
+			int current = effectivePref(dragging);
+			if (zone == current && userX(dragging) < 0) {
+				setPref(dragging, -1);
+			} else {
+				setPref(dragging, zone);
+			}
+			clearUser(dragging);
+		} else {
+			setPref(dragging, DYNAMIC);
+			setUser(dragging, dragging.x, dragging.y);
+		}
+		dragging = null;
+		hoverZone = -1;
+		c.saveClientSettings();
+	}
+
+	/* ------------------------------------------------- infobox group actions */
+
+	public static final int ACTION_DETACH = 1540;
+	public static final int ACTION_FLIP = 1541;
+	public static final int ACTION_DELETE_GROUP = 1542;
+
+	/** @return the infobox under the cursor that is not part of {@code gid}, if any. */
+	private static Panel hitOutside(int mx, int my, String gid) {
+		for (int i = panelCount - 1; i >= 0; i--) {
+			Panel p = panels[i];
+			if (!p.visible || !p.infobox || p.group.equals(gid)) {
+				continue;
+			}
+			if (mx >= p.x && my >= p.y && mx < p.x + p.w && my < p.y + p.h) {
+				return p;
+			}
+		}
+		return null;
+	}
+
+	/** @return true when {@code gid}'s members were absorbed into another group. */
+	private static boolean mergeAt(int mx, int my, String gid) {
+		Panel other = hitOutside(mx, my, gid);
+		if (other == null) {
+			return false;
+		}
+		if (other.group.length() == 0) {
+			// The docked infobox joins the group we just dropped on it.
+			other.group = gid;
+			return true;
+		}
+		String target = other.group;
+		for (int i = 0; i < panelCount; i++) {
+			if (panels[i].group.equals(gid)) {
+				panels[i].group = target;
+			}
+		}
+		groups.remove(gid);
+		return true;
+	}
+
+	/**
+	 * Adds the Shift right click entries for an infobox.
+	 *
+	 * <p>An infobox on its own can be detached into a group of its own; once it is in a group the
+	 * options become Flip (swap the group between vertical and horizontal) and Delete (return
+	 * every infobox in the group to the default, docked behaviour).
+	 */
+	public static boolean buildInfoboxMenu(client c) {
+		if (c == null || !RSApplet.shiftIsDown) {
+			return false;
+		}
+		Panel p = hit(c.mouseX - originX, c.mouseY - originY);
+		if (p == null || !p.infobox) {
+			return false;
+		}
+		if (p.group.length() == 0) {
+			c.menuActionName[c.menuActionRow] = "Detach infobox";
+			c.menuActionID[c.menuActionRow] = ACTION_DETACH;
+			c.menuActionCmd1[c.menuActionRow] = index(p);
+			c.menuActionRow++;
+			return true;
+		}
+		c.menuActionName[c.menuActionRow] = "Flip " + (isHorizontal(p.group) ? "to vertical" : "to horizontal");
+		c.menuActionID[c.menuActionRow] = ACTION_FLIP;
+		c.menuActionCmd1[c.menuActionRow] = index(p);
+		c.menuActionRow++;
+		c.menuActionName[c.menuActionRow] = "Delete group";
+		c.menuActionID[c.menuActionRow] = ACTION_DELETE_GROUP;
+		c.menuActionCmd1[c.menuActionRow] = index(p);
+		c.menuActionRow++;
+		return true;
+	}
+
+	public static boolean doAction(client c, int action, int cmd1) {
+		if (action != ACTION_DETACH && action != ACTION_FLIP && action != ACTION_DELETE_GROUP) {
+			return false;
+		}
+		if (cmd1 < 0 || cmd1 >= panelCount) {
+			return false;
+		}
+		Panel p = panels[cmd1];
+		if (action == ACTION_DETACH) {
+			p.group = p.id;
+			Group g = group(p.id);
+			// Carry the infobox's current spot into both layouts so the detached group appears
+			// where the player was looking rather than jumping to a corner.
+			g.fX = p.x;
+			g.fY = p.y;
+			g.rX = p.x;
+			g.rY = p.y;
+			// Detaching makes a floating group: it inherits the source panel's *position*, not its
+			// anchor, so it does not silently become a docked group the player never chose.
+			g.prefF = UNDOCKED;
+			g.prefR = UNDOCKED;
+		} else if (action == ACTION_FLIP) {
+			Group g = group(p.group);
+			g.horizontal = !g.horizontal;
+		} else {
+			String gid = p.group;
+			for (int i = 0; i < panelCount; i++) {
+				if (panels[i].group.equals(gid)) {
+					panels[i].group = "";
+					panels[i].anchor = null;
+				}
+			}
+			groups.remove(gid);
+		}
+		if (c != null) {
+			c.saveClientSettings();
+		}
+		return true;
+	}
+
+	private static int index(Panel p) {
+		for (int i = 0; i < panelCount; i++) {
+			if (panels[i] == p) {
+				return i;
+			}
+		}
+		return -1;
+	}
+
 	public static void load(Properties props) {
 		ensureKnown();
+		boxColor = read(props, "ov.boxColor", 0x000000);
+		boxOpacity = read(props, "ov.boxOpacity", 60);
+		if (boxOpacity < 0) {
+			boxOpacity = 0;
+		}
+		if (boxOpacity > 100) {
+			boxOpacity = 100;
+		}
 		for (int i = 0; i < panelCount; i++) {
 			Panel p = panels[i];
 			p.userFX = read(props, key("f", p.id, "x"), -1);
@@ -268,6 +749,23 @@ public final class OverlayManager {
 			if (p.prefR == -2) {
 				p.prefR = p.userRX >= 0 ? DYNAMIC : -1;
 			}
+			p.group = props.getProperty("ov.groupOf." + p.id, "");
+		}
+		// Group positions are read back from the saved panel membership, so a stale group entry
+		// with no infoboxes left in it is simply never looked up.
+		for (int i = 0; i < panelCount; i++) {
+			String gid = panels[i].group;
+			if (gid.length() == 0) {
+				continue;
+			}
+			Group g = group(gid);
+			g.fX = read(props, "ov.grp." + gid + ".fx", -1);
+			g.fY = read(props, "ov.grp." + gid + ".fy", -1);
+			g.rX = read(props, "ov.grp." + gid + ".rx", -1);
+			g.rY = read(props, "ov.grp." + gid + ".ry", -1);
+			g.horizontal = read(props, "ov.grp." + gid + ".hz", 0) != 0;
+			g.prefF = read(props, "ov.grp." + gid + ".pf", UNDOCKED);
+			g.prefR = read(props, "ov.grp." + gid + ".pr", UNDOCKED);
 		}
 		Panel xp = get("xpTracker");
 		if (xp.userFX < 0) {
@@ -292,6 +790,8 @@ public final class OverlayManager {
 
 	public static void save(Properties props) {
 		ensureKnown();
+		props.setProperty("ov.boxColor", Integer.toString(boxColor));
+		props.setProperty("ov.boxOpacity", Integer.toString(boxOpacity));
 		for (int i = 0; i < panelCount; i++) {
 			Panel p = panels[i];
 			props.setProperty(key("f", p.id, "x"), Integer.toString(p.userFX));
@@ -300,6 +800,16 @@ public final class OverlayManager {
 			props.setProperty(key("r", p.id, "y"), Integer.toString(p.userRY));
 			props.setProperty(key("f", p.id, "p"), Integer.toString(p.prefF));
 			props.setProperty(key("r", p.id, "p"), Integer.toString(p.prefR));
+			props.setProperty("ov.groupOf." + p.id, p.group);
+		}
+		for (Group g : groups.values()) {
+			props.setProperty("ov.grp." + g.id + ".fx", Integer.toString(g.fX));
+			props.setProperty("ov.grp." + g.id + ".fy", Integer.toString(g.fY));
+			props.setProperty("ov.grp." + g.id + ".rx", Integer.toString(g.rX));
+			props.setProperty("ov.grp." + g.id + ".ry", Integer.toString(g.rY));
+			props.setProperty("ov.grp." + g.id + ".hz", g.horizontal ? "1" : "0");
+			props.setProperty("ov.grp." + g.id + ".pf", Integer.toString(g.prefF));
+			props.setProperty("ov.grp." + g.id + ".pr", Integer.toString(g.prefR));
 		}
 		Panel xp = get("xpTracker");
 		props.setProperty("xpTrackerFixedX", Integer.toString(xp.userFX < 0 ? -1 : xp.userFX + 4));

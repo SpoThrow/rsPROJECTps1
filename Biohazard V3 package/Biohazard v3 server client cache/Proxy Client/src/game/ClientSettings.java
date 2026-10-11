@@ -119,6 +119,7 @@ import ui.SlayerTracker;
 import ui.Sprite;
 import ui.StatusBars;
 import ui.StatusTimers;
+import ui.StretchedMode;
 import ui.TextClass;
 import ui.TextDrawingArea;
 import ui.TextInput;
@@ -242,6 +243,7 @@ public final class ClientSettings {
 			StatusBars.save(props);
 			BarrowsPlugin.save(props);
 			OverlayManager.save(props);
+			StretchedMode.save(props);
 			LootTracker.save(props);
 			props.setProperty("pluginSidebar", Boolean.toString(PluginSidebar.open));
 			props.setProperty("pluginSidebarBar", Boolean.toString(PluginSidebar.sidebarOut));
@@ -348,6 +350,11 @@ public final class ClientSettings {
 		setSettingLine(24234, "FPS cap: " + (fpsUnlocked ? "Unlocked" : "50"));
 		setSettingLine(24434, "Zoom sensitivity: " + c.zoomSensitivityLabel());
 		setSettingLine(24435, "Reset camera zoom");
+		setSettingLine(24440, "Plugin overlay opacity: " + OverlayManager.boxOpacity + "%");
+		setSettingLine(24441, "Plugin overlay colour: " + OverlayManager.boxColorName());
+		setSettingLine(24460, "Stretched mode: " + (StretchedMode.enabled ? "On" : "Off"));
+		setSettingLine(24461, "Keep aspect ratio: " + (StretchedMode.keepAspect ? "On" : "Off"));
+		setSettingLine(24462, "Scale: " + StretchedMode.scalePercent + "%");
 		setSettingLine(24231, "Performance stats: " + (performanceStats ? "On" : "Off"));
 		setSettingLine(24232, "Show ping: " + (showPing ? "On" : "Off"));
 		setSettingLine(24225, "NPC attack: " + attackOptionLabel(npcAttackOption));
@@ -401,6 +408,7 @@ public final class ClientSettings {
 		setSettingLine(24247, "Low HP/prayer flash: " + (orbFlash ? "On" : "Off"));
 		setSettingLine(24246, "Status timers: " + (statusTimers ? "On" : "Off"));
 		setSettingLine(24263, "Ammo overlay: " + (AmmoOverlay.enabled ? "On" : "Off"));
+		setSettingLine(24450, "Ammo overlay icon: " + (AmmoOverlay.sprite ? "On" : "Off"));
 		setSettingLine(24275, "Item stats: " + (ItemStats.enabled ? "On" : "Off"));
 		setSettingLine(24269, "Mouse tooltips: " + (MouseTooltips.enabled ? "On" : "Off"));
 		setSettingLine(24243, "Chat timestamps: " + (chatTimestamps ? "On" : "Off"));
@@ -761,6 +769,11 @@ public final class ClientSettings {
 					refreshClientSettingsInterface();
 					saveClientSettings();
 					break;
+				case 24450:
+					AmmoOverlay.sprite = !AmmoOverlay.sprite;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
 				case 24275:
 					ItemStats.enabled = !ItemStats.enabled;
 					refreshClientSettingsInterface();
@@ -1045,6 +1058,61 @@ public final class ClientSettings {
 					refreshClientSettingsInterface();
 					saveClientSettings();
 					break;
+				case 24440:
+					if (pluginValueSet) {
+						OverlayManager.boxOpacity = clamp(pluginValue, 0, 100);
+						pluginValueSet = false;
+					} else {
+						OverlayManager.cycleBoxOpacity();
+					}
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24441:
+					if (pluginValueSet) {
+						OverlayManager.boxColor = pluginValue & 0xFFFFFF;
+						pluginValueSet = false;
+					} else {
+						OverlayManager.cycleBoxColor();
+					}
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24460:
+					StretchedMode.enabled = !StretchedMode.enabled;
+					if (StretchedMode.enabled) {
+						// Stretched keeps the fixed arrangement, so it has to be in fixed layout for
+						// the scale to mean anything. Switching here is friendlier than a toggle that
+						// appears to do nothing.
+						if (!c.isFixed()) {
+							c.setScreenMode(ScreenMode.FIXED);
+						}
+						c.applyWindowSize();
+						c.pushMessage("Stretched mode on. Drag the window to resize; the frame scales to fit.", 0, "");
+					} else {
+						c.applyWindowSize();
+						c.pushMessage("Stretched mode off. Fixed 765x503 restored.", 0, "");
+					}
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24461:
+					StretchedMode.keepAspect = !StretchedMode.keepAspect;
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					break;
+				case 24462:
+					if (pluginValueSet) {
+						StretchedMode.scalePercent = clamp(pluginValue, StretchedMode.percentMin(),
+								StretchedMode.percentMax());
+						pluginValueSet = false;
+					} else {
+						StretchedMode.cyclePercent();
+					}
+					refreshClientSettingsInterface();
+					saveClientSettings();
+					c.pushMessage("Stretched scale: " + StretchedMode.scalePercent + "%.", 0, "");
+					break;
 		default:
 			return KeyRemapper.handleClick(k);
 		}
@@ -1076,7 +1144,7 @@ public final class ClientSettings {
 			break;
 		case 2:
 			ids = new int[] {
-				24220, 24221, 24223, 24425, 24224, 24267, 24238, 24247, 24246, 24263, 24275, 24269,
+				24220, 24221, 24223, 24425, 24224, 24267, 24238, 24247, 24246, 24263, 24450, 24275, 24269,
 				24410, 24411, 24412, 24413, 24414, 24415, 24416, 24417, 24418, 24419,
 				24243, 24244, 24222, 24235, 24422, 24214
 			};
@@ -1086,7 +1154,8 @@ public final class ClientSettings {
 			break;
 		default:
 			ids = new int[] {
-				24210, 24248, 24245, 24431, 24432, 24211, 24212, 24213, 24215, 24216, 24217, 24233, 24234, 24434, 24435, 24231, 24232
+				24210, 24248, 24245, 24431, 24432, 24211, 24212, 24213, 24215, 24216, 24217, 24233, 24234, 24434, 24435,
+				24440, 24441, 24460, 24461, 24462, 24231, 24232
 			};
 			break;
 		}
@@ -1241,7 +1310,7 @@ public final class ClientSettings {
 				groundItemNames = readBoolProp(props, "groundItemNames", false);
 				npcHealthOverlay = readBoolProp(props, "npcHealthOverlay", false);
 				boostedStatOverlay = readBoolProp(props, "boostedStatOverlay", false);
-				xpDrops = readBoolProp(props, "xpDrops", false);
+				xpDrops = readBoolProp(props, "xpDrops", true);
 				xpDropSpeed = clamp(readIntProp(props, "xpDropSpeed", 1), 0, 4);
 				xpDropGrouped = readBoolProp(props, "xpDropGrouped", false);
 				boostedPlusDisplay = readBoolProp(props, "boostedPlusDisplay", false);
@@ -1329,6 +1398,7 @@ public final class ClientSettings {
 				StatusBars.load(props);
 				BarrowsPlugin.load(props);
 				OverlayManager.load(props);
+				StretchedMode.load(props);
 				LootTracker.load(props);
 				PluginSidebar.open = readBoolProp(props, "pluginSidebar", false);
 				PluginSidebar.sidebarOut = readBoolProp(props, "pluginSidebarBar", true);

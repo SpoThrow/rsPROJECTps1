@@ -4,13 +4,12 @@ import server.Config;
 import server.Server;
 import server.content.music.MusicTab;
 import server.content.skills.Cooking;
-import server.content.skills.CraftingData.tanningData;
+import server.content.skills.CreationMenu;
 import server.content.skills.Fletching;
 import server.content.skills.Herblore;
 import server.content.skills.LeatherMaking;
 import server.content.skills.Pottery;
 import server.content.skills.SkillMasters;
-import server.content.skills.Tanning;
 import server.event.CycleEvent;
 import server.event.CycleEventContainer;
 import server.event.CycleEventHandler;
@@ -61,10 +60,13 @@ public class ClickingButtons implements PacketType {
 		if(c.herbloreDialogue) {
 			Herblore.select(c, actionButtonId);
 		}
-		for (tanningData t : tanningData.values()) {
-			if (actionButtonId == t.getButtonId(actionButtonId)) {
-				Tanning.tanHide(c, actionButtonId);
-			}
+		// The chatbox creation menu (interface 8938) answers first and alone. Its five rows send
+		// the same four button ids whichever family opened the menu, so the id cannot say who
+		// should handle it -- only what the player has open can. Returning here is what stops one
+		// click being read twice, which is the failure the old tanning loop and the wheel's flag
+		// were each half of.
+		if (CreationMenu.route(c, actionButtonId)) {
+			return;
 		}
 		int[] spellIds = {4128,4130,4132,4134,4136,4139,4142,4145,4148,4151,4153,4157,4159,4161,4164,4165,4129,4133,4137,6006,6007,6026,6036,6046,6056,
 		4147,6003,47005,4166,4167,4168,48157,50193,50187,50101,50061,50163,50211,50119,50081,50151,50199,50111,50071,50175,50223,50129,50091};

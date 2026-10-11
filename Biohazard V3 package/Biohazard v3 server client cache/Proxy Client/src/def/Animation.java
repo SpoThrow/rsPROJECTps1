@@ -16,10 +16,71 @@ public final class Animation {
 				anims[j] = new Animation();
 			anims[j].readValues(stream);
 		}
-		ensureCapacity(9000);
+		ensureCapacity(HEAD_EMOTE_LAST + 1);
 		applyDeathlyExtraAnims();
 		applyBorkAnims();
 		applyBloodReaverAnims();
+	}
+
+	/**
+	 * The lowest chat-head animation id the server can send; see {@link #headEmote}.
+	 *
+	 * <p>{@code ensureCapacity} is raised to cover the whole range at unpack time. A slot in it
+	 * exists either way once {@code ContentRegistry} grows the array, but a slot filled by
+	 * {@code ensureCapacity} rather than by seq.dat is a frameless animation, and leaving the
+	 * question to the growth order would make "does a head id resolve" depend on which of the two
+	 * ran last.
+	 */
+	public static final int HEAD_EMOTE_FIRST = 9760;
+
+	/** The highest chat-head animation id the server can send; see {@link #headEmote}. */
+	public static final int HEAD_EMOTE_LAST = 9850;
+
+	/**
+	 * The client's own emote id for a chat-head animation id the server sent, or {@code id}
+	 * unchanged when it is not one of the server's chat-head names.
+	 *
+	 * <p><b>Why this exists.</b> Chat heads are drawn as a live model carrying an animation id, and
+	 * the server sends those ids from {@code PlayerAssistant.chatheadEmote}: every one of the
+	 * client's {@code 588..617} head emotes is folded onto one of six ids in
+	 * {@link #HEAD_EMOTE_FIRST}..{@link #HEAD_EMOTE_LAST}. seq.dat defines nothing up there, so a
+	 * head asked for one of the six had no frames at all and froze on its base model - the faces in
+	 * dialogue were still pictures, which is what "the chat heads are no longer animated" was.
+	 *
+	 * <p>The fold is many-to-one, so one representative emote per group is all the client needs to
+	 * animate the head. This is the inverse of the server's table and the two are a pair: a group
+	 * added there has to be added here, or its heads go back to being still. {@code HeadAnimProbe}
+	 * checks that each of the six lands on an emote this cache really has frames for.
+	 */
+	public static int headEmote(int id) {
+		switch (id) {
+		case 9843:
+			return 588;
+		case 9847:
+			return 589;
+		case 9850:
+			return 591;
+		case 9844:
+			return 592;
+		case 9760:
+			return 596;
+		case 9840:
+			return 605;
+		default:
+			return id;
+		}
+	}
+
+	/**
+	 * Whether this animation has frames to play.
+	 *
+	 * <p>Not the same question as "is it non-null": a slot past the end of seq.dat is filled by
+	 * {@code ensureCapacity} with a default animation whose arrays are null and whose frame count is
+	 * zero, and drawing from one is the same as drawing from no animation at all. Callers that need
+	 * to animate have to ask this rather than test for null.
+	 */
+	public boolean hasFrames() {
+		return anInt352 > 0 && anIntArray353 != null && anIntArray353.length > 0;
 	}
 
 

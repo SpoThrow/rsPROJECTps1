@@ -11,12 +11,13 @@ import server.Server;
 import server.clip.region.Region;
 import server.content.skills.Cooking;
 import server.content.skills.CraftingData;
+import server.content.skills.CreationMenu;
 import server.content.skills.Fishing;
 import server.content.skills.Fletching;
 import server.content.skills.Herblore;
 import server.content.skills.Magic;
 import server.content.skills.Mining;
-import server.content.skills.Runecrafting;
+import server.content.skills.Prayer;
 import server.content.skills.Smelting;
 import server.content.skills.Smithing;
 import server.event.CycleEvent;
@@ -1378,6 +1379,10 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 		if (c.getOutStream() != null && c != null) {
 			c.getOutStream().createFrame(219);
 			c.flushOutStream();
+			// The bank search belongs to the bank window: closing the window closes the search,
+			// so the next visit does not open onto the last player's filter and the search icon is
+			// not still lit. Called before isBanking is cleared so the refresh can clear the icon.
+			c.getBank().clearSearch();
 			c.isBanking = false;
 		}
 
@@ -1758,8 +1763,6 @@ public void sendFrame34P2(int item, int slot, int frame, int amount) {
 			c.getOutStream().writeWord(5063);
 			c.flushOutStream();
 			c.isBanking = true;
-			c.sendMessage("@red@[@cr1@@red@]@bla@To bank your inventory use: @blu@::banki@bla@.");
-			c.sendMessage("@red@[@cr1@@red@]@bla@To bank your equipment use: @blu@::banke@bla@.");
 		}
 
 	}
@@ -3362,12 +3365,13 @@ public void underWaterTele() {
 	public void resetVariables() {
 		if(c.playerIsCrafting)
 			CraftingData.resetCrafting(c);
+		// The creation chatbox is not an action, so it does not sit behind a flag like the ones
+		// below: a walk clears it here whether or not anything was running.
+		CreationMenu.close(c);
 		if(c.playerIsFletching)
 			Fletching.resetFletching(c);
 		if(c.playerSkilling[Player.playerHerblore])
 			Herblore.cancel(c);
-		if(c.playerSkilling[Player.playerRunecrafting])
-			Runecrafting.cancel(c);
 		if(c.playerSkilling[Player.playerSmithing])
 			Smithing.cancel(c);
 		if(c.playerSkilling[14])
@@ -3379,11 +3383,18 @@ public void underWaterTele() {
 		// make-X interface is open, so it is already false by the time an action is running.
 		// This is what stops the ticked action when the player walks away.
 		Fletching.cancel(c);
+		// The altar offering is a timed action too, so it ends the same way: walking away stops it
+		// rather than leaving it to offer bones from across the map.
+		Prayer.cancel(c);
 			Smelting.resetSmelting(c);
 		if(c.isBanking)
 			c.isBanking = false;
 		if(c.isShopping)
 			c.isShopping = false;
+		// The bank's search is part of the bank window, so a walk - one of the ways out of the bank
+		// - ends it. Safe and cheap with nothing to clear, which matters because this is the walk
+		// path and a refresh sends the bank's whole item list.
+		c.getBank().clearSearch();
 		if(c.inTrade)
 			c.inTrade = false;
 		if(c.openDuel)
@@ -3804,40 +3815,6 @@ public void underWaterTele() {
 			}
 		}
 		return false;
-	}
-
-	public void checkPouch(int i) {
-		if (i < 0)
-			return;
-		c.sendMessage("This pouch has " + c.pouches[i] + " rune ess in it.");
-	}
-
-	public void fillPouch(int i) {
-		if (i < 0)
-			return;
-		int toAdd = c.POUCH_SIZE[i] - c.pouches[i];
-		if (toAdd > c.getItems().getItemAmount(1436)) {
-			toAdd = c.getItems().getItemAmount(1436);
-		}
-		if (toAdd > c.POUCH_SIZE[i] - c.pouches[i])
-			toAdd = c.POUCH_SIZE[i] - c.pouches[i];
-		if (toAdd > 0) {
-			c.getItems().deleteItem(1436, toAdd);
-			c.pouches[i] += toAdd;
-		}
-	}
-
-	public void emptyPouch(int i) {
-		if (i < 0)
-			return;
-		int toAdd = c.pouches[i];
-		if (toAdd > c.getItems().freeSlots()) {
-			toAdd = c.getItems().freeSlots();
-		}
-		if (toAdd > 0) {
-			c.getItems().addItem(1436, toAdd);
-			c.pouches[i] -= toAdd;
-		}
 	}
 
 	public void fixAllBarrows() {

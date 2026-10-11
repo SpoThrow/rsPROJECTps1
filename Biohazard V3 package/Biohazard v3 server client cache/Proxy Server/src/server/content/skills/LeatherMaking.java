@@ -18,8 +18,10 @@ public class LeatherMaking extends CraftingData {
 					c.leatherType = leather;
 					c.craftDialogue = true;
 					// Interface 8938 and its four buttons per row are shared with the potter's
-					// wheel, so the two dialogue flags are mutually exclusive.
+					// wheel, the chisel's gem menu and the tanner's, so the two dialogue flags are
+					// mutually exclusive and the shared menu state is cleared with them.
 					c.potteryDialogue = false;
+					CreationMenu.close(c);
 					return;
 				}
 				String[] name = {
@@ -38,8 +40,10 @@ public class LeatherMaking extends CraftingData {
 					c.leatherType = leather;
 					c.craftDialogue = true;
 					// Interface 8938 and its four buttons per row are shared with the potter's
-					// wheel, so the two dialogue flags are mutually exclusive.
+					// wheel, the chisel's gem menu and the tanner's, so the two dialogue flags are
+					// mutually exclusive and the shared menu state is cleared with them.
 					c.potteryDialogue = false;
+					CreationMenu.close(c);
 					return;
 				}
 			}
@@ -60,8 +64,10 @@ public class LeatherMaking extends CraftingData {
 				c.leatherType = leather;
 				c.craftDialogue = true;
 				// Interface 8938 and its four buttons per row are shared with the potter's
-				// wheel, so the two dialogue flags are mutually exclusive.
+				// wheel, the chisel's gem menu and the tanner's, so the shared menu state is
+				// cleared here too even though this one opens on 8880.
 				c.potteryDialogue = false;
+				CreationMenu.close(c);
 				return;
 			}
 		}

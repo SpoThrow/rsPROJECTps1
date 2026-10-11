@@ -274,6 +274,15 @@ public class PlayerSave {
 						for (int j = 0; j < token3.length; j++) {
 							p.pouch[j] = Integer.parseInt(token3[j]);
 						}	
+					} else if (token.equals("pouch-essence")) {
+						// Absent from every save written before a pouch could hold pure essence.
+						// Left at 0 rather than defaulted to 1436 here, because "a count with no
+						// kind recorded is rune essence" is a rule about pouches and lives in
+						// Pouches.kindOf, beside the code that has to honour it.
+						int kinds = Math.min(token3.length, p.pouchEssence.length);
+						for (int j = 0; j < kinds; j++) {
+							p.pouchEssence[j] = Integer.parseInt(token3[j]);
+						}
 					} else if (token.equals("pcPoints")) {
 						p.pcPoints = Integer.parseInt(token2);
 					} else if (token.equals("slayerTask")) {
@@ -618,6 +627,10 @@ public class PlayerSave {
 			characterfile.newLine();
 			characterfile.write("pouch = ", 0, 8);
 			characterfile.write(p.pouch[0] + "\t" + p.pouch[1] + "\t" + p.pouch[2] + "\t" + p.pouch[3]);
+			characterfile.newLine();
+			characterfile.write("pouch-essence = ", 0, 16);
+			characterfile.write(p.pouchEssence[0] + "\t" + p.pouchEssence[1] + "\t"
+					+ p.pouchEssence[2] + "\t" + p.pouchEssence[3]);
 			characterfile.newLine();
 			characterfile.write("pcPoints = ", 0, 11);
 			characterfile.write(Integer.toString(p.pcPoints), 0, Integer.toString(p.pcPoints).length());

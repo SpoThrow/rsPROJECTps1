@@ -227,6 +227,10 @@ public final class Pottery {
 		}
 		c.craftDialogue = false;
 		c.potteryDialogue = true;
+		// Interface 8938 now hosts four families -- snakeskin leather, this wheel, the chisel's gem
+		// menu and the tanner's -- so the wheel clears the two flags and the shared menu state for
+		// the same reason the leather rows clear the pottery flag below.
+		CreationMenu.close(c);
 	}
 
 	/**

@@ -124,16 +124,36 @@ public final class RandomEventManager {
 	}
 
 	/**
-	 * Rolls everything a skilling action can roll. Call this once per action, from the skill.
+	 * Rolls everything a skilling action can roll, except the bird's nest.
 	 *
-	 * @return true if an event fired and the caller should stop what it was doing. A nest never
-	 *         asks for that; neither does the genie.
+	 * <p>A nest is a woodcutting bonus — it is described as falling out of a tree — and rolling it
+	 * from every skill is why offering bones on an altar handed the player a nest. Woodcutting
+	 * calls {@link #onWoodcuttingAction(Client)} instead, which rolls the nest as well.
+	 *
+	 * @return true if an event fired and the caller should stop what it was doing. The genie never
+	 *         asks for that.
 	 */
 	public static boolean onSkillAction(Client c) {
 		if (!Config.RANDOM_EVENTS_ENABLED || c.isBot) {
 			return false;
 		}
+		return countdown(c);
+	}
+
+	/**
+	 * The woodcutting roll: the countdown <em>and</em> the bird's nest, since a nest is the tree's
+	 * own drop and no other skill should be handing them out.
+	 */
+	public static boolean onWoodcuttingAction(Client c) {
+		if (!Config.RANDOM_EVENTS_ENABLED || c.isBot) {
+			return false;
+		}
 		rollNest(c);
+		return countdown(c);
+	}
+
+	/** The interrupting-NPC countdown, shared by every skill. */
+	private static boolean countdown(Client c) {
 		if (c.randomEventCounter == 0) {
 			// Not armed yet: a fresh character, or a save written before this existed. Arm the
 			// countdown and do not fire, so the first action cannot instantly produce an event.

@@ -41,6 +41,7 @@ public final class ObjectHandler {
 		SpinningWheelObjects.register();
 		PotteryWheelObjects.register();
 		WeavingLoomObjects.register();
+		CrystalChestObjects.register();
 	}
 
 	private ObjectHandler() {

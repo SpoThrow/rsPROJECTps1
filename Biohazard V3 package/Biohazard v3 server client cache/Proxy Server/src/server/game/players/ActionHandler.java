@@ -625,13 +625,22 @@ public class ActionHandler {
 			}
 			
 		case 409:
+			// "Pray at altar", the left click. It recharges and nothing else.
+			//
+			// This branch used to fall through to switchPrayerBook() whenever prayer was already
+			// full, so the same option the player spams for a recharge silently toggled their
+			// prayer book on every click once the points were topped up - the reported "spam
+			// clicking the altar switches my prayers to curses and back". Switching is a
+			// deliberate action with its own option (the second click, see secondClickObject and
+			// handleGenericObject's "switch"/"convert" branch) and must never ride along on the
+			// first one.
 			if(c.skills.playerLevel[5] < c.getPA().getLevelForXP(c.skills.playerXP[5])) {
 				c.startAnimation(645);
 				c.skills.playerLevel[5] = c.getPA().getLevelForXP(c.skills.playerXP[5]);
 				c.sendMessage("You recharge your prayer points.");
 				c.getPA().refreshSkill(5);
 			} else {
-				switchPrayerBook();
+				c.sendMessage("You already have full prayer points.");
 			}
 			break;
 			

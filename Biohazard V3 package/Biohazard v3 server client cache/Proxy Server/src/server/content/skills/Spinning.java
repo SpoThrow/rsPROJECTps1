@@ -22,9 +22,10 @@ import server.game.players.Player;
  * impling. Spinning flax is the intended source and now works.
  *
  * <p><b>No "how many would you like to make?" step, deliberately.</b> The action repeats until
- * the material runs out or the player walks, the same shape as {@code GemCutting} and the ticked
- * fletching actions, so one click is one stack. A make-X chatbox would add a click and a second
- * piece of state for no gain.
+ * the material runs out or the player walks, the same shape as the ticked fletching actions, so
+ * one click is one stack. A make-X chatbox would add a click and a second piece of state for no
+ * gain. (Gem cutting is the one crafting action that did gain one — but only because its whole
+ * stack used to go in unasked; see {@code GemCutting}.)
  *
  * <p><b>Numbers.</b> Levels come from the guide's own list, which is also the OSRS pair (wool 1,
  * flax 10) — so the promise the guide was already making is now enforced. Flax's 15 xp is

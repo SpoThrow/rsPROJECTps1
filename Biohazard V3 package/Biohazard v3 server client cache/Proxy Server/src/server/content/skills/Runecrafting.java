@@ -1,36 +1,38 @@
 package server.content.skills;
 
 import server.Config;
-import server.event.CycleEvent;
-import server.event.CycleEventContainer;
-import server.event.CycleEventHandler;
 import server.game.players.Client;
 import server.game.players.Player;
 
 /**
  * Runecrafting: binding rune essence into runes at an altar.
  *
- * <p><b>The old version was a single {@code while} loop, so the whole inventory was one tick.</b>
- * Clicking an altar played the animation and then bound every essence the player was carrying in
- * the same game cycle, which is not how the skill looks or reads anywhere: OSRS binds one essence
- * at a time, with the animation repeating for each, and a player who walks away stops. That is now
- * what happens here — one essence every {@link #ACTION_CYCLES} cycles, cancelling on a walk — using
- * the same shape as fletching, herblore and pottery.
+ * <p><b>One click at an altar binds the whole pack, in one tick.</b> That is how the skill reads:
+ * the bound animation plays once, the whole stack of essence is drawn in, and the player walks away
+ * with the runes. An earlier revision paced it one essence every two cycles, which is not that —
+ * it made a full pack a fourteen-second wait and, worse, it turned the altar into an AFK loop, so
+ * clicking once and banking mid-action kept paying out. The click is the action now; there is no
+ * action left to interrupt, so nothing here is tied into {@code resetVariables} any more.
  *
- * <p><b>Three things the loop rewrite fixed, all of them silent before.</b> The first is pacing,
- * above. The second is a real off-by-one in the multiplier: the old loop walked the level ladder
- * from index 1, so it counted at most {@code length - 1} thresholds — an air essence at level 99
- * made <b>nine</b> air runes, not ten, and every rune above it was one short of its top rung. The
- * ladder is now read as "how many thresholds has this level passed", where the first rung is the
- * level requirement itself, which is what the table has always meant. The third is that an altar
- * clicked with no essence did nothing at all and said nothing; it now says so.
+ * <p><b>Rune essence and pure essence are both essence.</b> The old code consumed only rune essence
+ * ({@code 1436}), so a pack of pure essence ({@code 7936}) — what the members' mine and the essence
+ * impling hand out — did nothing at all at an altar. Both are accepted at every altar, with rune
+ * essence drawn down first; the OSRS tiering where the higher altars insist on pure essence is not
+ * modelled, which is recorded in {@code QOL_PLAN.md} rather than guessed at.
  *
- * <p><b>Experience is deliberately unchanged.</b> It used to be, and still is, the rune's base
- * experience times {@link Config#RUNECRAFTING_EXPERIENCE} (15 here) per essence — it does
- * <em>not</em> scale with the rune multiplier. OSRS does scale it, so this is the one place the
- * skill and the real game disagree, and it is left alone on purpose: the config value is already a
- * fifteen-fold rate, and multiplying that by ten more would be a balance change rather than a
- * realism one. It is recorded in {@code QOL_PLAN.md} as an open question for the operator.
+ * <p><b>The multiplier ladder is read as "how many rungs has this level passed".</b> The first rung
+ * is the level requirement itself, so air is x1 at level 1 up to x10 at 99. The old loop walked the
+ * ladder from index 1, so it counted at most {@code length - 1} thresholds — an air essence at
+ * level 99 made <b>nine</b> air runes, not ten, and every rune above it was one short of its top
+ * rung.
+ *
+ * <p><b>Experience is deliberately unchanged.</b> It is the rune's base experience times
+ * {@link Config#RUNECRAFTING_EXPERIENCE} (15 here) per essence — it does <em>not</em> scale with the
+ * rune multiplier. OSRS does scale it, so this is the one place the skill and the real game
+ * disagree, and it is left alone on purpose: the config value is already a fifteen-fold rate, and
+ * multiplying that by ten more would be a balance change rather than a realism one. It is recorded
+ * in {@code QOL_PLAN.md} as an open question for the operator. Note the whole pack's experience is
+ * awarded as one sum, so a click that crosses more than one level announces the level it lands on.
  *
  * <p>The table itself is this revision's own: thirteen altars, the runes and levels as the guide
  * prints them. {@link #isAltar(int)} exists so the altar list is asked for rather than copied —
@@ -39,24 +41,18 @@ import server.game.players.Player;
  */
 public class Runecrafting {
 
-	/** Rune essence, the only thing an altar consumes. */
+	/** Rune essence: the free-to-play essence, and the one the old code knew about. */
 	public static final int RUNE_ESSENCE = 1436;
 
-	/** Binding, played once per essence. Both ids are the old path's, unchanged. */
+	/** Pure essence: the members' essence. Same job, and previously unusable at every altar. */
+	public static final int PURE_ESSENCE = 7936;
+
+	/** Binding. Played once per click, not once per essence. */
 	static final int BIND_ANIMATION = 791;
 	static final int BIND_GFX = 186;
 
 	/** Said when an altar is clicked with nothing to bind, rather than the old silence. */
-	static final String NO_ESSENCE = "You do not have any rune essence to bind.";
-
-	/**
-	 * Event id for the ticked binding action, non-zero for the same reason fletching's is: it is what
-	 * lets {@link #cancel} stop this action and nothing else the player is running.
-	 */
-	private static final int RUNECRAFTING_EVENT = 4620;
-
-	/** Two cycles per essence, matching fletching and herblore. */
-	private static final int ACTION_CYCLES = 2;
+	static final String NO_ESSENCE = "You do not have any rune or pure essence to bind.";
 
 	/**
 	 * Altar object id -> the rune it makes, its base experience, and the level ladder that decides
@@ -146,25 +142,19 @@ public class Runecrafting {
 	}
 
 	/**
-	 * Binds the player's essence at an altar, one essence every {@link #ACTION_CYCLES} cycles, until
-	 * the essence runs out or the player walks away.
+	 * Binds every essence the player is carrying at an altar, in one tick.
 	 *
 	 * <p>Called on every altar click, including the rifts that teleport first ({@code
 	 * RuneRiftObjects}), so an object id that is not an altar is a no-op rather than an error.
 	 *
-	 * <p>The level and the essence are checked before the action starts, and the essence again on
-	 * every cycle: a batch runs long enough for the player to bank or drop the stack, and a depleted
-	 * stack has to end the action rather than bind a rune out of nothing. The multiplier is re-read
-	 * each cycle, so a level-up part-way through a batch pays out at the new rate immediately.
+	 * <p>The level and the essence are checked before anything is spent. The rune and experience
+	 * totals are worked out from the whole pack up front, the essence is drawn down, and the runes
+	 * and the experience are handed over together — one animation, one experience drop. Rune
+	 * essence is consumed before pure essence so that a mixed pack spends the cheap essence first.
 	 */
 	public static void craftRunes(final Client c, int objectId) {
 		final RunecraftingData altar = forAltar(objectId);
 		if (altar == null) {
-			return;
-		}
-		// A batch is already running. Without this, clicking the altar again would start a second
-		// loop over the same essence.
-		if (c.playerSkilling[Player.playerRunecrafting]) {
 			return;
 		}
 		if (c.skills.playerLevel[Player.playerRunecrafting] < altar.getLevel()) {
@@ -172,57 +162,27 @@ public class Runecrafting {
 					+ " to craft this rune.");
 			return;
 		}
-		if (!c.getItems().playerHasItem(RUNE_ESSENCE, 1)) {
+
+		int runeEssence = c.getItems().getItemAmount(RUNE_ESSENCE);
+		int pureEssence = c.getItems().getItemAmount(PURE_ESSENCE);
+		int essence = runeEssence + pureEssence;
+		if (essence <= 0) {
 			c.sendMessage(NO_ESSENCE);
 			return;
 		}
 
-		// Read once here so the first essence is bound on the same tick the animation starts, rather
-		// than a cycle later; inside the loop it is re-read from the player.
-		final int xpPerEssence = (int) altar.getXp() * Config.RUNECRAFTING_EXPERIENCE;
+		int runes = essence * altar.getMultiplierForLevel(c.skills.playerLevel[Player.playerRunecrafting]);
+		int xp = essence * (int) altar.getXp() * Config.RUNECRAFTING_EXPERIENCE;
 
-		c.playerSkilling[Player.playerRunecrafting] = true;
 		c.startAnimation(BIND_ANIMATION);
 		c.gfx100(BIND_GFX);
-
-		CycleEventHandler.addEvent(RUNECRAFTING_EVENT, c, new CycleEvent() {
-			@Override
-			public void execute(CycleEventContainer container) {
-				if (!c.playerSkilling[Player.playerRunecrafting]
-						|| !c.getItems().playerHasItem(RUNE_ESSENCE, 1)) {
-					container.stop();
-					return;
-				}
-				int runes = altar.getMultiplierForLevel(c.skills.playerLevel[Player.playerRunecrafting]);
-				c.getItems().deleteItem2(RUNE_ESSENCE, 1);
-				c.getItems().addItem(altar.getRuneId(), runes);
-				c.getPA().addSkillXP(xpPerEssence, Player.playerRunecrafting);
-				// Re-armed each cycle, as herblore and pottery do: one animation lasts about one
-				// binding, so a full inventory would otherwise be silent and still after the first.
-				c.startAnimation(BIND_ANIMATION);
-				c.gfx100(BIND_GFX);
-			}
-
-			@Override
-			public void stop() {
-				cancel(c);
-			}
-		}, ACTION_CYCLES);
-	}
-
-	/**
-	 * Stops a running binding action, if one is running.
-	 *
-	 * <p>Keyed on its own event id rather than on the player: {@code stopEvents(c)} would stop every
-	 * event the player owns, and they own other skills' events too. Called from
-	 * {@code PlayerAssistant.resetVariables}, which every walk reaches, so walking away ends the
-	 * action the way it ends fletching and herblore.
-	 */
-	public static void cancel(Client c) {
-		if (c.playerSkilling[Player.playerRunecrafting]) {
-			c.playerSkilling[Player.playerRunecrafting] = false;
-			CycleEventHandler.stopEvents(c, RUNECRAFTING_EVENT);
-			c.startAnimation(65535);
+		if (runeEssence > 0) {
+			c.getItems().deleteItem2(RUNE_ESSENCE, runeEssence);
 		}
+		if (pureEssence > 0) {
+			c.getItems().deleteItem2(PURE_ESSENCE, pureEssence);
+		}
+		c.getItems().addItem(altar.getRuneId(), runes);
+		c.getPA().addSkillXP(xp, Player.playerRunecrafting);
 	}
 }

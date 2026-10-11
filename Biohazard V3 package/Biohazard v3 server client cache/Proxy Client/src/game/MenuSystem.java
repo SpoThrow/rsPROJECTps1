@@ -567,6 +567,20 @@ public final class MenuSystem {
 				j = 2;
 			if (j == 1 && owner.menuActionRow > 0)
 				owner.doAction(owner.menuActionRow - 1);
+			// A HUD control answers twice: once through doAction here and once through
+			// processHudClicks, which runs because this returns false. For the special attack orb
+			// that meant the opcode went out twice and the orb toggled itself straight back off -
+			// clicking it did nothing at all. Consuming the click once it has been acted on settles
+			// it, which is the convention the interface branch above already follows.
+			//
+			// Restricted to ids that can only be HUD actions and to a click that really is over the
+			// HUD, so an ordinary interface button keeps exactly the handling it has today.
+			if (j == 1 && owner.menuActionRow > 0) {
+				int last = owner.menuActionID[owner.menuActionRow - 1];
+				if (last >= 1000 && owner.isOverHudControls(owner.saveClickX, owner.saveClickY)) {
+					owner.clickMode3 = 0;
+				}
+			}
 			if (j == 2 && owner.menuActionRow > 0)
 				determineMenuSize();
 			return false;

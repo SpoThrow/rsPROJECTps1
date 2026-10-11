@@ -203,7 +203,11 @@ public class Client extends Player {
 	};*/
 	
 	public static final int PACKET_SIZES[] = { 
-		0, 0, 0, 1, -1, 0, 0, 0, 0, 0, // 0
+		// Index 5 is the client's make-X packet: the one opcode in this table that is ours rather
+		// than the cache protocol's. Four bytes, because it carries a row and a count. See
+		// server.game.players.packets.MakeXAmount.
+		
+		0, 0, 0, 1, -1, 4, 0, 0, 0, 0, // 0
 		0, 0, 0, 0, 4, 0, 6, 2, 2, 0, // 10
 		0, 2, 0, 6, 0, 12, 0, 0, 0, 0, // 20
 		0, 0, 0, 0, 0, 8, 4, 0, 0, 2, // 30

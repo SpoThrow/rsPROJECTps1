@@ -101,6 +101,7 @@ import ui.KeyRemapper;
 import ui.LootBeams;
 import ui.LootTracker;
 import ui.LwjglPresent;
+import ui.MakeX;
 import ui.MenuEntrySwapper;
 import ui.MouseDetection;
 import ui.MouseTooltips;
@@ -123,6 +124,7 @@ import ui.SpecialAttackOrb;
 import ui.Sprite;
 import ui.StatusBars;
 import ui.StatusTimers;
+import ui.StretchedMode;
 import ui.TextClass;
 import ui.TextDrawingArea;
 import ui.TextInput;
@@ -153,7 +155,7 @@ public class client extends RSApplet {
 	public static boolean groundItemNames = false;
 	public static boolean npcHealthOverlay = false;
 	public static boolean boostedStatOverlay = false;
-	public static boolean xpDrops = false;
+	public static boolean xpDrops = true;
 	public static boolean boostedPlusDisplay = false;
 	public static boolean boostedInfoBox = true;
 	public static boolean attackStyleOverlay = false;
@@ -167,6 +169,39 @@ public class client extends RSApplet {
 	public static boolean chatTypeFocused = true;
 	public static int xpDropSpeed = 1;
 	public static boolean xpDropGrouped = false;
+	/**
+	 * How far left of its anchor an XP drop is drawn, in pixels.
+	 *
+	 * <p>Named and kept here because it is a nudge rather than a coordinate: the drop column is
+	 * anchored to the middle of the counter bar, and centring it there in fixed mode put the numbers
+	 * under the right-hand gameframe. Twenty-four is enough to clear it without the column looking
+	 * detached from the bar it belongs to.
+	 */
+	/**
+	 * The gap between a drop's right edge and the left edge of the bar or orb it hangs off.
+	 *
+	 * <p>The drops used to be <em>centred</em> on a nudge away from the bar, which is why they
+	 * could not be moved clear of the orbs: a long number grew to the right and back over them, so
+	 * increasing the nudge only moved the middle of an overlap. They are right-aligned against the
+	 * orb column instead, so no drop can reach the orbs however many digits it has.
+	 *
+	 * <p>Ten, in both layouts, because ten was the left shift asked for and a smaller fixed-mode
+	 * gap was the reason the drops still looked untouched after the right-alignment landed.
+	 */
+	private static final int XP_DROP_GAP = 10;
+	/** The extra left shift on top of {@link #XP_DROP_GAP} that resizable mode wants. */
+	private static final int XP_DROP_NUDGE_RESIZE = 10;
+	/**
+	 * Chat heads are drawn a quarter smaller than the cache authored them.
+	 *
+	 * <p><b>Why this is 4/3 and not 3/4.</b> {@code modelZoom} is the distance the model is pushed
+	 * away from the camera, not a size - {@code Model.method482} projects every vertex as
+	 * {@code (coord << 9) / depth} and the depth is the zoom. A <em>larger</em> zoom therefore
+	 * draws a <em>smaller</em> head, so "25% smaller" is a third more distance, and the 3/4 that
+	 * stood here did the opposite: it pulled the heads closer and made them a third bigger.
+	 */
+	private static final int CHAT_HEAD_ZOOM_NUM = 4;
+	private static final int CHAT_HEAD_ZOOM_DEN = 3;
 	public static boolean performanceStats = false;
 	public static boolean showPing = false;
 	public static boolean openGlEnabled = false;
@@ -346,23 +381,52 @@ public class client extends RSApplet {
 		return sprite != null ? sprite : fallback;
 	}
 
+	/**
+	 * Loads a HUD sprite, or returns {@code null} when the file is not there.
+	 *
+	 * <p><b>Two loaders, on purpose.</b> {@code Sprite(String)} goes through
+	 * {@code Toolkit.getDefaultToolkit().getImage}, which decodes on a background thread, and then
+	 * asks an {@code ImageIcon} built from that <em>Image</em> for its size. During startup, while
+	 * several hundred of these are being asked for, that can still answer {@code -1} - and a
+	 * {@code -1} here is not a retry, it is the sprite quietly becoming {@code null} for the whole
+	 * session. That is the shape of a HUD element that is "still not there" on a client whose art
+	 * is present in the cache: the XP bar's {@code bar.png} loads a 100x18 image, sits directly
+	 * beside the orb and the orb-on art, and was reported missing while both of those drew.
+	 *
+	 * <p>The two-argument constructor reads the same file through {@code ImageIcon(path)}, which
+	 * resolves the size off a path rather than off an undecoded {@code Image}, so it is used as the
+	 * fallback. A genuinely absent file still returns {@code null}: the existence check above it is
+	 * what decides that, and it is unchanged.
+	 */
 	private Sprite loadHudSprite(String path, boolean punchMagenta) {
+		File png = new File(signlink.findcachedir() + "Sprites/" + path + ".png");
+		File pngUpper = new File(signlink.findcachedir() + "Sprites/" + path + ".PNG");
+		File file = png.exists() ? png : (pngUpper.exists() ? pngUpper : null);
+		if (file == null) {
+			return null;
+		}
+		Sprite sprite = null;
 		try {
-			File png = new File(signlink.findcachedir() + "Sprites/" + path + ".png");
-			File pngUpper = new File(signlink.findcachedir() + "Sprites/" + path + ".PNG");
-			if (!png.exists() && !pngUpper.exists()) {
-				return null;
-			}
-			Sprite sprite = new Sprite(path);
-			if (sprite.myWidth > 0) {
-				if (punchMagenta) {
-					knockoutMagenta(sprite);
-				}
-				return sprite;
-			}
+			sprite = new Sprite(path);
 		} catch (Exception ignored) {
 		}
-		return null;
+		if (sprite == null || sprite.myWidth <= 0) {
+			try {
+				sprite = new Sprite(file.getPath(), 0);
+			} catch (Exception ignored) {
+				sprite = null;
+			}
+		}
+		if (sprite == null || sprite.myWidth <= 0) {
+			// Named, so a sprite that is genuinely unreadable says so instead of presenting as
+			// "this HUD element does not exist".
+			System.out.println("HUD sprite failed to load: " + file.getPath());
+			return null;
+		}
+		if (punchMagenta) {
+			knockoutMagenta(sprite);
+		}
+		return sprite;
 	}
 
 	private void knockoutMagenta(Sprite sprite) {
@@ -865,6 +929,13 @@ public class client extends RSApplet {
 		}
 		frameMode = mode;
 		clampCameraZoom();
+		// A layer composed for one layout is not a layer for the other: resizable mode's HUD is
+		// part of the frame buffer and never retraced, so a stale layer here would be blitted from
+		// a screen that no longer exists. Through the instance, because the layer is per-session
+		// state - and possibly no instance, because this is called while one is being built.
+		if (instance != null) {
+			instance.fixedHudLayerReady = false;
+		}
 		if (mode == ScreenMode.FIXED) {
 			frameWidth = 765;
 			frameHeight = 503;
@@ -919,6 +990,28 @@ public class client extends RSApplet {
 			pendingViewW = width;
 			pendingViewH = height;
 			viewportDirty = true;
+		}
+	}
+
+	/**
+	 * Sizes the window for the current mode, honouring Stretched Mode.
+	 *
+	 * <p>The one place that decides how big the client component is, so the fixed 765x503 pair,
+	 * the resizable size, and the stretched (fixed layout, larger window) case cannot disagree.
+	 * Called when a setting changes it, not per frame - a drag is picked up by measurement, which
+	 * does not need to move the window.
+	 */
+	public void applyWindowSize() {
+		if (ui.Jframe.getFrame() == null || instance == null) {
+			return;
+		}
+		if (ui.StretchedMode.active()) {
+			ui.Jframe.setCanvasSize(Math.max(ui.StretchedMode.BASE_W, ui.StretchedMode.windowW),
+					Math.max(ui.StretchedMode.BASE_H, ui.StretchedMode.windowH), true);
+		} else if (frameMode == ScreenMode.RESIZABLE) {
+			ui.Jframe.setCanvasSize(Math.max(765, frameWidth), Math.max(503, frameHeight), true);
+		} else {
+			ui.Jframe.setCanvasSize(765, 503, false);
 		}
 	}
 
@@ -1024,12 +1117,29 @@ public class client extends RSApplet {
 	}
 
 	private void copyProducer(RSImageProducer src, int destX, int destY, boolean skipTransparent, boolean skipBlack) {
-		if (src == null || aRSImageProducer_1165 == null) {
+		copyInto(aRSImageProducer_1165, src, destX, destY, skipTransparent, skipBlack);
+	}
+
+	/**
+	 * A producer-to-producer copy that clips rather than rejecting an off-buffer destination.
+	 *
+	 * <p>{@code destY < 0} and {@code destX < 0} are ordinary here: the fixed-mode frame pieces are
+	 * positioned in the 765x503 frame and the HUD layer addresses them from the viewport's corner,
+	 * four pixels in, so the minimap's top row and the chatbox's left column legitimately start
+	 * before the layer does. Those rows and columns are simply not part of what the layer covers.
+	 */
+	private void copyInto(RSImageProducer dest, RSImageProducer src, int destX, int destY) {
+		copyInto(dest, src, destX, destY, false, false);
+	}
+
+	private void copyInto(RSImageProducer dest, RSImageProducer src, int destX, int destY, boolean skipTransparent,
+			boolean skipBlack) {
+		if (src == null || dest == null) {
 			return;
 		}
-		int[] dest = aRSImageProducer_1165.anIntArray315;
-		int dw = aRSImageProducer_1165.anInt316;
-		int dh = aRSImageProducer_1165.anInt317;
+		int[] pixels = dest.anIntArray315;
+		int dw = dest.anInt316;
+		int dh = dest.anInt317;
 		int[] source = src.anIntArray315;
 		int sw = src.anInt316;
 		int sh = src.anInt317;
@@ -1055,7 +1165,7 @@ public class client extends RSApplet {
 			int srcOff = y * sw + sx;
 			int dstOff = dy * dw + dx;
 			if (!skipTransparent) {
-				System.arraycopy(source, srcOff, dest, dstOff, copy);
+				System.arraycopy(source, srcOff, pixels, dstOff, copy);
 				continue;
 			}
 			for (int i = 0; i < copy; i++) {
@@ -1067,7 +1177,7 @@ public class client extends RSApplet {
 				if (skipBlack && rgb == 0) {
 					continue;
 				}
-				dest[dstOff + i] = pixel;
+				pixels[dstOff + i] = pixel;
 			}
 		}
 	}
@@ -1267,6 +1377,30 @@ public class client extends RSApplet {
 		int scrollX = chatScrollbarLeft ? 2 : 496;
 		return super.mouseX >= scrollX && super.mouseX < scrollX + 16
 				&& super.mouseY > chatDrawY() + 4 && super.mouseY < chatDrawY() + 125;
+	}
+
+	/**
+	 * Whether the mouse is over the dialog the chatbox is showing — which is the chatbox, because
+	 * a dialog is drawn across the whole panel (see {@code ChatArea.drawChatArea}) and is the only
+	 * thing in there.
+	 *
+	 * <p><b>Why this is not the message-area box.</b> The hitboxes of an open dialog used to be
+	 * built only while the mouse was inside {@code x < 490, y < chatDrawY() + 125}, which is the
+	 * region the <em>messages</em> occupy. A dialog is not messages: it has its own bounds, it
+	 * paints over the panel, and the two regions are not the same. The 30 pixels of panel to the
+	 * right of that box and the 17 below it were drawn but unclickable, so a button in the corner
+	 * of the panel and the name row at the bottom of a product box were decoration — the click
+	 * there built no menu at all and fell through to whatever was under the chatbox.
+	 *
+	 * <p>The bounds here are the dialog's own rect, which the 20px draw offset puts at (20, 20) —
+	 * the same pair {@code drawInterface(0, 20, menu, 20)} adds and {@code buildInterfaceMenu} is
+	 * handed. The scrollbar's strip is still excluded, because the chatbox's right-hand 16 pixels
+	 * are the scrollbar's even while a dialog is up.
+	 */
+	private boolean mouseOverChatDialog() {
+		return super.mouseX >= 20 && super.mouseX < 20 + 519
+				&& super.mouseY >= chatDrawY() + 20 && super.mouseY < chatDrawY() + 20 + 142
+				&& !mouseOverChatScrollbar();
 	}
 
 	private boolean mouseInGameWorld() {
@@ -3248,6 +3382,10 @@ public class client extends RSApplet {
 	public void resetLogout() {
 		snapshotSavedCharacter();
 		saveClientSettings();
+		// The next character's skill totals are not this character's, so the XP the client has been
+		// told about is forgotten here: without this, logging into a second account whose Woodcutting
+		// is higher than the first's would read its seed as a gain and announce it as a drop.
+		forgetSkillXp();
 		try {
 			if (socketStream != null)
 				socketStream.close();
@@ -5048,6 +5186,9 @@ public class client extends RSApplet {
 		if (ChatboxItemSearch.doAction(this, rawAction, menuActionCmd1[i])) {
 			return;
 		}
+		if (OverlayManager.doAction(this, rawAction, menuActionCmd1[i])) {
+			return;
+		}
 		if (inputDialogState != 0) {
 			inputDialogState = 0;
 			inputTaken = true;
@@ -5177,6 +5318,17 @@ public class client extends RSApplet {
 				case 18110:
 					finishQuickPrayerSetup();
 					break;
+				// The amount row of the creation chatbox. Answered here and never forwarded: an
+				// amount is a choice of how to make something, not a request to make it, so there
+				// is nothing for the server to hear until a product is clicked.
+				case MakeX.QUANTITY_FIRST:
+				case MakeX.QUANTITY_FIRST + 1:
+				case MakeX.QUANTITY_FIRST + 2:
+				case MakeX.QUANTITY_FIRST + 3: {
+					MakeX.select(k - MakeX.QUANTITY_FIRST);
+					inputTaken = true;
+					break;
+				}
 				default:
 					if (applyClientSetting(k)) {
 						break;
@@ -6499,11 +6651,15 @@ public class client extends RSApplet {
 				if (j >= 32 && j <= 122 && amountOrNameInput.length() < (openInterfaceID == 5292 ? 20 : 12)) {
 					amountOrNameInput += (char) j;
 					inputTaken = true;
+					sendBankSearch();
+					resetBankScroll();
 				}
 				if (j == 8 && amountOrNameInput.length() > 0) {
 					amountOrNameInput = amountOrNameInput.substring(0,
 							amountOrNameInput.length() - 1);
 					inputTaken = true;
+					sendBankSearch();
+					resetBankScroll();
 				}
 				if (j == 13 || j == 10) {
 					if (amountOrNameInput.length() > 0) {
@@ -7080,6 +7236,9 @@ public class client extends RSApplet {
 		new RSImageProducer(496, 50, getGameComponent());
 		new RSImageProducer(269, 37, getGameComponent());
 		aRSImageProducer_1125 = new RSImageProducer(249, 45, getGameComponent());
+		fixedHudLayer = null;
+		fixedHudLayerScanlines = null;
+		fixedHudLayerReady = false;
 		applyViewport();
 		welcomeScreenRaised = true;
 	}
@@ -7159,6 +7318,7 @@ public class client extends RSApplet {
 			return;
 		}
 		buildSplitPrivateChatMenu();
+		OverlayManager.buildInfoboxMenu(this);
 		anInt886 = 0;
 		anInt1315 = 0;
 		boolean overItemSearch = ChatboxItemSearch.open && super.mouseX > 0
@@ -7230,17 +7390,18 @@ public class client extends RSApplet {
 		anInt1315 = 0;
 		boolean chatMsgHover = super.mouseX > 0 && super.mouseY > chatDrawY() && super.mouseX < 490
 				&& super.mouseY < chatDrawY() + 125;
-		if (chatMsgHover) {
-			if (ChatboxItemSearch.open) {
+		if (ChatboxItemSearch.open) {
+			if (chatMsgHover) {
 				ChatboxItemSearch.buildMenu(this, super.mouseX, super.mouseY);
-			} else if (backDialogID != -1) {
+			}
+		} else if (backDialogID != -1) {
+			if (mouseOverChatDialog()) {
 				buildInterfaceMenu(20,
 						RSInterface.interfaceCache[backDialogID], super.mouseX,
 						chatDrawY() + 20, super.mouseY, 0);
-			} else if (!(chatClickThroughActive() && !mouseOverChatScrollbar())
-					&& super.mouseY < chatDrawY() + 125 && super.mouseX < 490) {
-				buildChatAreaMenu(super.mouseY - chatDrawY());
 			}
+		} else if (chatMsgHover && !(chatClickThroughActive() && !mouseOverChatScrollbar())) {
+			buildChatAreaMenu(super.mouseY - chatDrawY());
 		}
 		if (backDialogID != -1 && anInt886 != anInt1039) {
 			inputTaken = true;
@@ -8137,6 +8298,11 @@ public class client extends RSApplet {
 			xpBar = loadHudSprite("Gameframe/XP/bar", true);
 			specOrbIcon = loadHudSprite("Gameframe/Orbs/spec", true);
 			skillXpIcons = new Sprite[Skills.skillsCount];
+			// Indexed by the skill number the server sends (Skills.skillNames), because that is what
+			// the xp-drop packet carries: runecrafting is 20, slayer 18, farming 19. A file whose art
+			// belongs to another skill is therefore not a cosmetic slip -- it draws that skill's icon
+			// on this skill's drops. Three of these were filed wrong (see QOL_PLAN.md 4h);
+			// tools/rebuild-xp-skill-icons.ps1 re-derives them from the skill tab's art.
 			for (int skillIcon = 0; skillIcon < skillXpIcons.length; skillIcon++) {
 				skillXpIcons[skillIcon] = loadHudSprite("Gameframe/XP/skill " + skillIcon, true);
 			}
@@ -8789,6 +8955,76 @@ public class client extends RSApplet {
 		return Animation.anims[id];
 	}
 
+	/**
+	 * Streams the bank search box's current text to the server as the player types.
+	 *
+	 * <p><b>Why this is not the Enter path.</b> The box used to send nothing until Enter, so a
+	 * search only took effect once it was finished and there was no way to see it narrow. Each
+	 * letter now goes out on the same opcode the finished search uses, and the server filters on
+	 * arrival - which is why an emptied box is sent too rather than skipped: dropping the last
+	 * letter has to drop the filter with it.
+	 *
+	 * <p>Only the bank's own box reaches here. {@code inputDialogState == 2} is shared with the
+	 * other name prompts - the item spawner and the player-owned-shop searches - and those still
+	 * want their text on Enter only, so the interface id is the gate rather than the dialog state.
+	 */
+	private void sendBankSearch() {
+		if (openInterfaceID != 5292 || stream == null) {
+			return;
+		}
+		stream.createFrame(60);
+		stream.writeQWord(TextClass.longForName(amountOrNameInput));
+	}
+
+	/**
+	 * Snaps the bank list back to the top the moment the search text changes.
+	 *
+	 * <p>The search narrows the row, but the list keeps whatever position it was scrolled to, so a
+	 * player who was looking at the bottom of the bank types a name and then has to scroll up to
+	 * see the one match. Resetting on every keystroke (and on backspace) keeps the first result
+	 * under the cursor. Only the bank's own box is affected; interface {@code 5385} is its list.
+	 */
+	private void resetBankScroll() {
+		if (openInterfaceID != 5292 || RSInterface.interfaceCache == null) {
+			return;
+		}
+		RSInterface list = 5385 < RSInterface.interfaceCache.length ? RSInterface.interfaceCache[5385] : null;
+		if (list != null) {
+			list.scrollPosition = 0;
+		}
+	}
+
+	/**
+	 * The animation a widget should be drawn AND ticked with, which is not always the one it asked
+	 * for.
+	 *
+	 * <p>A chat head carries one of the server's own ids (9760..9850), which seq.dat does not
+	 * define - see {@link Animation#headEmote} for why, and for the emote it stands for. Without
+	 * this the head had no frames and froze on its base model, so dialogue faces were still
+	 * pictures. The render below and the frame ticker in {@code method119} both go through here
+	 * because they have to agree: the ticker advances {@code anInt246} against one animation and the
+	 * render reads that index out of it, and two different animations would animate the frame the
+	 * wrong one is not showing.
+	 *
+	 * <p>Frameless is treated the same as missing, because a slot past the end of seq.dat is filled
+	 * with a default animation rather than left null - so a caller that only tested for null would
+	 * take the id and animate nothing.
+	 */
+	private Animation widgetAnimation(int id) {
+		Animation animation = safeAnimation(id);
+		if (animation != null && animation.hasFrames()) {
+			return animation;
+		}
+		int emote = Animation.headEmote(id);
+		if (emote != id) {
+			Animation fallback = safeAnimation(emote);
+			if (fallback != null && fallback.hasFrames()) {
+				return fallback;
+			}
+		}
+		return animation;
+	}
+
 	private Animation safeGfxAnimation(int gfx) {
 		if (gfx < 0 || SpotAnim.cache == null || gfx >= SpotAnim.cache.length)
 			return null;
@@ -9016,12 +9252,19 @@ public class client extends RSApplet {
 					sceneFrameReady = true;
 					sceneRedrawRequired = false;
 				}
-			} else if (isFixed()) {
-				drawGameBuffer();
 			}
 			drawMinimap();
 			if (isFixed()) {
-				Renderer.blit(aRSImageProducer_1164, super.graphics, minimapDrawX(), 0);
+				// The HUD layer is composed here, not with the rest of the overlays, because its
+				// base is a copy of this frame and every piece of that frame - the chatbox, the tab
+				// panel, the minimap - has only just been rebuilt.
+				//
+				// And it is the layout's only writer to the window: the cached-scene present that
+				// used to sit above this line, and the minimap's own blit, are gone, because a frame
+				// written in pieces is a frame whose panels are missing for the length of the piece
+				// drawn under them. See presentFixedFrame.
+				drawFixedHudLayer();
+				presentFixedFrame();
 			}
 		}
 		if (!isFixed() && loadingStage == 2) {
@@ -9420,6 +9663,28 @@ public class client extends RSApplet {
 						if (i4 == 49152)
 							i4 = 0xffffff;
 					}
+					// Resizable plus transparent chat is the one combination where the cache's
+					// dialogue colours are wrong, because the panel behind the chat is the world:
+					// dark ink over a dark tree line is unreadable. Only the plain body ink (black
+					// or the 128 grey) is turned white, though - the dialogue's own accents are the
+					// point of them being coloured at all: the NPC's name stays maroon, "Click to
+					// continue" and the option rows keep the blue the panel gives them and the
+					// hover colour that goes with it, and the teleport menu's "Select an option"
+					// stays the maroon it is on the solid board. Everything keeps a one-pixel
+					// shadow so it reads over the world.
+					//
+					// Scoped to the two chat dialogs by parent id - the widgets' parentID is the
+					// interface the cache unpacked them into, which for a dialogue is the dialogue -
+					// and not applied to the creation chatbox, which draws its own solid background
+					// even in transparent mode and keeps its own inks on top of it.
+					boolean chatDialog = !isFixed() && resizableChatTransparent
+							&& DrawingArea.width == 519 && !MakeX.owns(backDialogID)
+							&& (class9_1.parentID == backDialogID
+									|| class9_1.parentID == dialogID);
+					boolean chatWhite = chatDialog && (i4 == 0 || i4 == 128);
+					if (chatWhite) {
+						i4 = 0xffffff;
+					}
 					if ((class9_1.parentID == 1151)
 							|| (class9_1.parentID == 12855)) {
 						switch (i4) {
@@ -9525,10 +9790,10 @@ public class client extends RSApplet {
 						if (class9_1.centerText) {
 							font.drawCenteredString(s1,
 									k2 + class9_1.width / 2, l6, i4,
-									class9_1.textShadow ? 0 : -1);
+									class9_1.textShadow || chatDialog ? 0 : -1);
 						} else {
 							font.drawBasicString(s1, k2, l6, i4,
-									class9_1.textShadow ? 0 : -1);
+									class9_1.textShadow || chatDialog ? 0 : -1);
 						}
 					}
 				} else if (class9_1.type == 5) {
@@ -9576,12 +9841,49 @@ public class client extends RSApplet {
 				} else if (class9_1.type == 6) {
 					int k3 = Texture.textureInt1;
 					int j4 = Texture.textureInt2;
+					// A product icon in a creation chatbox is the one widget in the client whose
+					// size the server chooses by proxy and whose box is ours: packet 246 scales the
+					// item by the zoom the server sends, so a wide or tall model is drawn over the
+					// label beneath it and over the products either side. Clipping the icon to the
+					// box it was given makes the box the size it claims to be.
+					//
+					// Gated on the widget being one of this class's product frames, NOT on the
+					// container: the containers are the dialogs, and every icon is a CHILD of one, so
+					// a gate that asked about the container answered no for every icon it was meant
+					// to move. That is why the drop below did nothing in the client while the probe,
+					// which asks iconDropY directly, said it worked. See MakeX.isProductFrame.
+					boolean iconClip = MakeX.isProductFrame(class9.id);
+					// Where the icon has to sit inside that box. The server sends every menu its own
+					// zoom and the type 6 draw below passes no y translation at all, so an item whose
+					// model is not authored around its own origin - a potion, whose whole bottle is
+					// above y 0 - is drawn above the middle of its box with the cork over the frame.
+					// The inventory's sprite has always corrected for this with half the model's
+					// height; MakeX works the same number out per item. See MakeX.iconDropY.
+					int iconDrop = iconClip ? MakeX.iconDropY(class9.id) : 0;
+					int clipTopX = DrawingArea.topX;
+					int clipTopY = DrawingArea.topY;
+					int clipRightX = DrawingArea.bottomX;
+					int clipBottomY = DrawingArea.bottomY;
+					if (iconClip) {
+						DrawingArea.setDrawingArea(l2 + class9_1.height, k2, k2 + class9_1.width, l2);
+					}
 					Texture.textureInt1 = k2 + class9_1.width / 2;
 					Texture.textureInt2 = l2 + class9_1.height / 2;
+					// The animated head in a dialogue is 25% smaller than the cache authored it.
+					// A chat head is an NPC model (anInt233 == 2, set by packet 75) parented to the
+					// open dialogue, and its size is the widget's modelZoom, so the render zoom is
+					// scaled here rather than the widget's own value - shrinking the widget itself
+					// would shrink it again on every frame it was drawn. See
+					// CHAT_HEAD_ZOOM_NUM for why the fraction is above 1.
+					boolean dialogHead = class9_1.anInt233 == 2
+							&& (class9_1.parentID == backDialogID || class9_1.parentID == dialogID);
+					int renderZoom = dialogHead
+							? class9_1.modelZoom * CHAT_HEAD_ZOOM_NUM / CHAT_HEAD_ZOOM_DEN
+							: class9_1.modelZoom;
 					int i5 = Texture.anIntArray1470[class9_1.modelRotation1]
-							* class9_1.modelZoom >> 16;
+							* renderZoom >> 16;
 					int l5 = Texture.anIntArray1471[class9_1.modelRotation1]
-							* class9_1.modelZoom >> 16;
+							* renderZoom >> 16;
 					boolean flag2 = interfaceIsSelected(class9_1);
 					int i7;
 					if (flag2)
@@ -9592,7 +9894,7 @@ public class client extends RSApplet {
 					if (i7 == -1) {
 						model = class9_1.method209(-1, -1, flag2);
 					} else {
-						Animation animation = safeAnimation(i7);
+						Animation animation = widgetAnimation(i7);
 						if (animation == null || animation.anIntArray353 == null
 								|| class9_1.anInt246 < 0
 								|| class9_1.anInt246 >= animation.anIntArray353.length) {
@@ -9610,9 +9912,12 @@ public class client extends RSApplet {
 					}
 					if (model != null)
 						model.method482(class9_1.modelRotation2, 0,
-								class9_1.modelRotation1, 0, i5, l5);
+								class9_1.modelRotation1, 0, i5 + iconDrop, l5);
 					Texture.textureInt1 = k3;
 					Texture.textureInt2 = j4;
+					if (iconClip) {
+						DrawingArea.setDrawingArea(clipBottomY, clipTopX, clipRightX, clipTopY);
+					}
 				} else if (class9_1.type == 7) {
 					TextDrawingArea textDrawingArea_1 = class9_1.textDrawingAreas;
 					int k4 = 0;
@@ -10088,11 +10393,25 @@ public class client extends RSApplet {
 		}
 		refreshFrameSize();
 		applyPendingViewport();
-		anInt1061++;
-		if (!loggedIn)
-			drawLoginScreen(false);
-		else
-			drawGameScreen();
+		// Stretched Mode scales the whole frame by one transform on the shared Graphics, so
+		// every blit below - and the handful of direct text draws - get the same scale without
+		// knowing about it. The transform is measured here because a window drag changes it and
+		// the frame that follows must already use the new size.
+		StretchedMode.measure(getWidth(), getHeight());
+		StretchedMode.remember(getWidth(), getHeight());
+		java.awt.geom.AffineTransform stretch =
+				super.graphics == null ? null : StretchedMode.beginFrame(super.graphics);
+		try {
+			anInt1061++;
+			if (!loggedIn)
+				drawLoginScreen(false);
+			else
+				drawGameScreen();
+		} finally {
+			if (super.graphics != null) {
+				StretchedMode.endFrame(super.graphics, stretch);
+			}
+		}
 		anInt1213 = 0;
 	}
 
@@ -10390,7 +10709,7 @@ public class client extends RSApplet {
 				else
 					l = class9_1.anInt257;
 				if (l != -1) {
-					Animation animation = safeAnimation(l);
+					Animation animation = widgetAnimation(l);
 					if (animation != null && animation.anInt352 > 0) {
 					for (class9_1.anInt208 += i; class9_1.anInt208 > animation
 							.method258(class9_1.anInt246);) {
@@ -11351,8 +11670,12 @@ public class client extends RSApplet {
 		if (overXpCounter(mx, my)) {
 			return true;
 		}
-		int overlayLeft = minimapDrawX() + Math.min(xpHudOffX(), Math.min(0, hud.compassX));
-		return sx >= overlayLeft && sx < frameWidth && sy >= 0 && sy < 168;
+		// There used to be a blanket rectangle here - everything right of the minimap down to y168
+		// was declared HUD - and it was the invisible thing that ate walk clicks near the XP
+		// counter: with the counter open it reached about 140 pixels into the 3D view instead of
+		// 29, in both fixed and resizable, and a click anywhere in it did nothing at all. The
+		// per-element boxes above are the whole truth; nothing else up here is ours to swallow.
+		return false;
 	}
 
 	private boolean prayersActive() {
@@ -11823,14 +12146,16 @@ public class client extends RSApplet {
 		if (sessionXp == null || skill < 0 || skill >= sessionXp.length || amount <= 0) {
 			return;
 		}
-		if (!trackingSkill[skill]) {
-			return;
-		}
+		// Gained XP is accumulated for every skill, whether or not it is one the player has ticked
+		// in the tracker panel. It used to return early for untracked skills, which is why the bar
+		// - which prints the session total - sat at zero while drops were appearing: the total only
+		// ever counted the handful of skills that had been selected by hand.
 		if (xpSessionStart == 0L) {
 			xpSessionStart = System.currentTimeMillis();
 		}
 		sessionXp[skill] += amount;
 		sessionTotalXp += amount;
+		OverlayRefresh.invalidateXp();
 	}
 
 	private void copyXpDrop(int from, int to) {
@@ -12017,8 +12342,11 @@ public class client extends RSApplet {
 		if (sessionXp == null) {
 			return;
 		}
+		// Every skill, not only the tracked ones: this is the number the bar prints, and the bar is
+		// the session's total XP rather than the total of whatever the tracker panel has ticked.
+		// The panel keeps its own tracked-only figure for its "Session" line.
 		for (int i = 0; i < sessionXp.length; i++) {
-			if (trackingSkill != null && i < trackingSkill.length && trackingSkill[i] && sessionXp[i] > 0) {
+			if (sessionXp[i] > 0) {
 				sessionTotalXp += sessionXp[i];
 			}
 		}
@@ -12063,11 +12391,19 @@ public class client extends RSApplet {
 	}
 
 	private void drawXpCounter() {
-		if (xpOrb == null) {
-			return;
-		}
-		if (xpCounterOpen && xpBar != null) {
-			xpBar.drawSprite(xpBarDrawX(), xpBarDrawY());
+		// The bar is drawn before the orb's null guard on purpose: it is its own sprite and its own
+		// piece of the HUD, and it used to be skipped entirely whenever the orb art was missing.
+		//
+		// The bar no longer needs its own art to be on screen. It is the counter's whole readout -
+		// the session total - so losing bar.png to a failed load must not lose the counter with it,
+		// and a drawn stand-in is subscribed for the artwork rather than the other way round. See
+		// loadHudSprite for the load that used to be able to fail this way.
+		if (xpCounterOpen) {
+			if (xpBar != null) {
+				xpBar.drawSprite(xpBarDrawX(), xpBarDrawY());
+			} else {
+				drawFallbackXpBar(xpBarDrawX(), xpBarDrawY(), xpBarW(), xpBarH());
+			}
 			String text = formatNumber(sessionTotalXp);
 			TextDrawingArea font = smallText != null ? smallText : aTextDrawingArea_1271;
 			if (font != null) {
@@ -12075,6 +12411,9 @@ public class client extends RSApplet {
 				int ty = xpBarDrawY() + xpBarH() / 2 + 4;
 				drawOutlinedText(font, text, tx, ty, 0xFFE14A);
 			}
+		}
+		if (xpOrb == null) {
+			return;
 		}
 		Sprite orb = xpOrb;
 		int mx = super.mouseX - minimapDrawX();
@@ -12087,17 +12426,48 @@ public class client extends RSApplet {
 		}
 	}
 
+	/**
+	 * The XP counter bar's own art when {@code Gameframe/XP/bar.png} could not be read.
+	 *
+	 * <p>Deliberately plain rather than an imitation of the sprite: a stand-in that mimics the
+	 * artwork makes a missing sprite look like a design choice, and this one has to be obviously
+	 * provisional so it is reported rather than shipped. It is the same box in the same place, so
+	 * the session total stays centred and the bar's geometry does not move when the art comes back.
+	 */
+	private void drawFallbackXpBar(int x, int y, int w, int h) {
+		if (w < 4 || h < 4) {
+			return;
+		}
+		DrawingArea.drawPixels(h, y, x, 0x2A2620, w);
+		DrawingArea.drawPixels(1, y, x, 0xC8A050, w);
+		DrawingArea.drawPixels(1, y + h - 1, x, 0xC8A050, w);
+		DrawingArea.drawPixels(h, y, x, 0xC8A050, 1);
+		DrawingArea.drawPixels(h, y, x + w - 1, 0xC8A050, 1);
+	}
+
 	private void drawXpDrops() {
 		if (!xpDrops || xpDropCount <= 0) {
 			return;
 		}
-		int x;
+		int right;
 		int yBase;
+		// Right-aligned against the bar or the orb, not centred on a nudge away from it.
+		//
+		// The old anchor was the bar's or orb's centre less a fixed nudge, so the drop was centred
+		// there and a wide number grew back over the orbs - which is why raising the nudge only
+		// moved the middle of an overlap and never got the drops clear. Anchoring the drop's right
+		// edge instead means the number cannot reach the orbs however many digits it has, and the
+		// left shift the player asked for is a margin the whole column moves by.
+		//
+		// The margins differ by mode because what is to the left of the orb column does: in fixed
+		// mode the viewport edge is a few pixels away, in resizable the drop floats over the world
+		// and needs the extra width to sit clear of the minimap's shadow.
+		int margin = XP_DROP_GAP + (isFixed() ? 0 : XP_DROP_NUDGE_RESIZE);
 		if (xpCounterOpen && xpBar != null) {
-			x = xpBarDrawX() + xpBarW() / 2;
+			right = xpBarDrawX() - margin;
 			yBase = xpBarDrawY() + xpBarH() + 16;
 		} else {
-			x = xpOrbDrawX() + xpOrbW() / 2;
+			right = xpOrbDrawX() - margin;
 			yBase = xpOrbDrawY() + xpOrbH() + 16;
 		}
 		long now = System.currentTimeMillis();
@@ -12109,19 +12479,21 @@ public class client extends RSApplet {
 		if (dt > 80) {
 			dt = 80;
 		}
-		float step = dt * xpDropPixelsPerMs(xpDropSpeed);
+			float step = dt * xpDropPixelsPerMs(xpDropSpeed);
 		TextDrawingArea font = chatTextDrawingArea != null ? chatTextDrawingArea : aTextDrawingArea_1271;
 		int iconSize = xpDropIconSize();
 		int iconGap = 1;
 		for (int i = 0; i < xpDropCount; i++) {
 			xpDropY[i] += step;
 			int y = yBase + (int) xpDropY[i];
+			// The real number with thousands separators, not an abbreviation: a drop of 1,200 XP
+			// reads as 1,200, and one that gains a comma is instantly legible as a bigger gain.
 			String text = formatNumber(xpDropAmount[i]);
 			int textW = font != null ? font.getTextWidth(text) : 0;
 			int icons = countXpDropIcons(xpDropMask[i]);
 			int iconsW = icons > 0 ? icons * (iconSize + iconGap) : 0;
 			int totalW = iconsW + (icons > 0 ? 3 : 0) + textW;
-			int cursor = x - totalW / 2;
+			int cursor = right - totalW;
 			int iconY = y - iconSize + 4;
 			if (skillXpIcons != null) {
 				for (int skill = 0; skill < skillXpIcons.length; skill++) {
@@ -12250,6 +12622,57 @@ public class client extends RSApplet {
 			return "Skill";
 		}
 		return Character.toUpperCase(name.charAt(0)) + name.substring(1);
+	}
+
+	/**
+	 * Marks every skill's XP as not yet known, which is what {@code -1} in {@link #lastExp} means.
+	 *
+	 * <p>Done once when the client starts and again on logout, because the totals belong to the
+	 * character rather than to the client: the first frame 134 the server sends for a skill is that
+	 * skill's total, and it must not be mistaken for a gain just because the previous character's
+	 * total for it was different.
+	 */
+	private void forgetSkillXp() {
+		if (lastExp == null || lastExp.length != Skills.skillsCount) {
+			lastExp = new int[Skills.skillsCount];
+		}
+		for (int i = 0; i < lastExp.length; i++) {
+			lastExp[i] = -1;
+		}
+	}
+
+	/**
+	 * A short form of a session XP figure, for the counter and the drops: {@code 1.2k}, {@code 34.5k},
+	 * {@code 1.2m}, {@code 12.3m}.
+	 *
+	 * <p>The digits under the orb are read at a glance while the player is doing something else, and
+	 * a comma-separated six-figure number is not read at a glance - it is counted. One decimal place
+	 * is kept below 100 of each unit, which is where the difference between 12.3k and 12.4k is worth
+	 * showing, and dropped above it, where 999k and 999.4k are the same thing to look at.
+	 *
+	 * <p>Values under a thousand are left alone: a drop of 4 is not "4.0".
+	 */
+	String formatKOrMil(int value) {
+		if (value < 0) {
+			value = 0;
+		}
+		if (value < 1000) {
+			return Integer.toString(value);
+		}
+		if (value < 1000000) {
+			return scaled(value, 1000) + "k";
+		}
+		return scaled(value, 1000000) + "m";
+	}
+
+	private String scaled(int value, int unit) {
+		long tenths = Math.round(value * 10.0 / unit);
+		long whole = tenths / 10L;
+		long tenth = tenths % 10L;
+		if (tenth == 0 || whole >= 100) {
+			return Long.toString(whole);
+		}
+		return whole + "." + tenth;
 	}
 
 	String formatNumber(int value) {
@@ -12454,8 +12877,11 @@ public class client extends RSApplet {
 			viewH = canvasH;
 		}
 		// viewH = above-chat viewport floor; canvasH = full client (free-drag below chat).
+		// In fixed mode the drag canvas is the whole 765x503 frame rather than the viewport, so
+		// an overlay can be parked over the chatbox or the inventory column; see drawFixedHudLayer.
 		OverlayManager.begin(viewW, viewH, gameDrawX(), gameDrawY(), overlayTopY(),
-				screenAreaWidth, canvasH, 519, chatBoxHidden && !isFixed());
+				isFixed() ? fixedHudCanvasW() : screenAreaWidth, isFixed() ? fixedHudCanvasH() : canvasH,
+				519, chatBoxHidden && !isFixed());
 		if ((NpcIndicators.active() && NpcIndicators.names) || (ImplingsPlugin.enabled && ImplingsPlugin.names)) {
 			drawNpcIndicatorNames();
 		}
@@ -12463,7 +12889,131 @@ public class client extends RSApplet {
 		if (PlayerIndicators.enabled && PlayerIndicators.names) {
 			drawPlayerIndicatorNames();
 		}
+		if (!isFixed()) {
+			drawHudOverlays();
+		}
+	}
+
+	/* ------------------------------------------------------- fixed HUD layer */
+
+	/**
+	 * The fixed layout's HUD layer, a whole 765x503 frame's worth minus the four-pixel frame offset.
+	 *
+	 * <p><b>Why fixed mode needs one.</b> The fixed layout draws the 3D scene into a 512x334 buffer
+	 * and hands that one buffer to the window; the chatbox, the tab panel and the minimap are
+	 * separate buffers blitted straight to the window. So a panel drawn into the viewport buffer
+	 * cannot be seen anywhere else, and {@code OverlayManager.clamp} used to agree with that by
+	 * refusing to let a panel leave the viewport. The player asked to park an infobox over the
+	 * inventory, so the layout canvas became the whole frame and this layer is the surface the
+	 * panels outside the viewport are actually drawn on.
+	 *
+	 * <p><b>How it stays a copy of the frame.</b> The layer starts each frame as the same pieces in
+	 * the same places the direct blits use - borders, viewport, minimap, tab panel, chatbox - so a
+	 * translucent panel blends against the pixel it would have blended against on screen. Only the
+	 * rectangles {@code OverlayManager} reports as owned by a panel are copied back, which is why
+	 * that base has to be right only where a panel sits.
+	 *
+	 * <p><b>Coordinates.</b> The layer's origin is the viewport's, not the window's: panels, the XP
+	 * counter and the orbs are all laid out from {@code gameDrawX/Y}, so nothing about their
+	 * positions changes - only how much room they are allowed to use.
+	 */
+	private void drawFixedHudLayer() {
+		int w = fixedHudCanvasW();
+		int h = fixedHudCanvasH();
+		if (fixedHudLayer == null || fixedHudLayer.anInt316 != w || fixedHudLayer.anInt317 != h) {
+			fixedHudLayer = new RSImageProducer(w, h, getGameComponent());
+			fixedHudLayerScanlines = createScanlineTable(w, h);
+		}
+		composeFixedHudBase(fixedHudLayer);
+		fixedHudLayer.initDrawingArea();
+		Texture.anIntArray1472 = fixedHudLayerScanlines;
 		drawHudOverlays();
+		fixedHudLayerReady = true;
+		// The layer was borrowed, not taken: the rest of the frame and the next frame's scene both
+		// count on the viewport buffer still being the drawing area.
+		aRSImageProducer_1165.initDrawingArea();
+		Texture.anIntArray1472 = anIntArray1182;
+	}
+
+	/** Rebuilds the layer's base from the same pieces, in the same order, the frame is built from. */
+	private void composeFixedHudBase(RSImageProducer layer) {
+		int gx = gameDrawX();
+		int gy = gameDrawY();
+		// Frame borders first, exactly as the one-off blits do, so the viewport copy goes on top of
+		// them rather than under - that is the order the window is painted in.
+		copyInto(layer, topFrame, -gx, -gy);
+		copyInto(layer, leftFrame, -gx, 4 - gy);
+		copyInto(layer, rightFrame, 516 - gx, 4 - gy);
+		copyInto(layer, mapEdgeIP, minimapDrawX() - gx, 4 - gy);
+		copyInto(layer, aRSImageProducer_1165, 0, 0);
+		copyInto(layer, aRSImageProducer_1164, minimapDrawX() - gx, -gy);
+		copyInto(layer, aRSImageProducer_1163, tabDrawX() - gx, tabDrawY() - gy);
+		copyInto(layer, aRSImageProducer_1166, chatDrawX() - gx, chatDrawY() - gy);
+	}
+
+	/**
+	 * Presents the fixed frame: the whole HUD layer, plus the two strips of the window the layer's
+	 * own canvas does not reach.
+	 *
+	 * <p><b>Why the whole layer, and not just the panels.</b> The layer is the fixed layout's frame:
+	 * the chatbox, the tab panel and the minimap are blitted into it rather than to the window, and
+	 * the panels are drawn on top of that base. Copying back only the rectangles a panel owns left
+	 * the frame's own pieces - the viewport every frame, the minimap every frame, the chatbox and the
+	 * tab panel whenever they were rebuilt - writing to the window underneath those panels, so a
+	 * panel was off screen for the length of every composition and back on the next blit. At a frame
+	 * rate that reads as a flicker, which is what was reported. One present removes it by
+	 * construction: every pixel a panel covers is written once, with the panel already in it.
+	 *
+	 * <p><b>The two strips.</b> The layer's origin is the viewport's corner, so its canvas begins
+	 * {@code gameDrawX}/{@code gameDrawY} pixels in from the window's top-left and the minimap's top
+	 * rows and the chatbox's left columns fall outside it. Those are presented from their own
+	 * buffers - a few pixels of compass and chatbox border - and they cannot be drawn over, because
+	 * every panel's own coordinates start at the layer's origin.
+	 */
+	private void presentFixedFrame() {
+		if (!fixedHudLayerReady || fixedHudLayer == null || super.graphics == null) {
+			return;
+		}
+		int gx = gameDrawX();
+		int gy = gameDrawY();
+		// The layer is the frame, so it is presented through the frame's own seam rather than by a
+		// plain blit: whatever a renderer does with a frame is the right thing to do with this.
+		Renderer.presentGameFrame(fixedHudLayer, super.graphics, gx, gy);
+		if (aRSImageProducer_1164 != null && gy > 0) {
+			Renderer.blitRegion(aRSImageProducer_1164, super.graphics, 0, 0,
+					aRSImageProducer_1164.anInt316, gy, minimapDrawX(), 0);
+		}
+		if (aRSImageProducer_1166 != null && gx > 0) {
+			Renderer.blitRegion(aRSImageProducer_1166, super.graphics, 0, 0, gx,
+					aRSImageProducer_1166.anInt317, 0, chatDrawY());
+		}
+	}
+
+	/**
+	 * Whether {@code client} is about to put this frame on screen itself, which in the fixed layout
+	 * is the HUD layer and nothing else.
+	 *
+	 * <p>A buffer that draws itself - the chatbox, the tab panel - asks this before blitting, because
+	 * its blit would be the frame's second writer: it would land on the window without the panels
+	 * that sit over it and leave them flickering until {@link #presentFixedFrame} put them back. The
+	 * layer copies those buffers in a few statements later anyway, so the blit is not merely harmful
+	 * but redundant.
+	 *
+	 * <p>Gated on the loading stage as well, because the layer is only composed once the frame is
+	 * whole: while a region is still loading the buffers still present themselves, as they have to.
+	 */
+	boolean fixedFramePresentedByLayer() {
+		return isFixed() && loadingStage == 2;
+	}
+
+	/** Width of the fixed layout's HUD canvas: the frame, addressed from the viewport's corner. */
+	private int fixedHudCanvasW() {
+		return Math.max(64, frameWidth - gameDrawX());
+	}
+
+	/** Height of the fixed layout's HUD canvas: the frame, addressed from the viewport's corner. */
+	private int fixedHudCanvasH() {
+		return Math.max(64, frameHeight - gameDrawY());
 	}
 
 	private void drawHudOverlays() {
@@ -14456,7 +15006,13 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 				int i10 = inStream.method439();
 				int l15 = inStream.readUnsignedByte();
 				if (k1 >= 0 && k1 < currentExp.length) {
-					if (lastExp[k1] > 0 && i10 > lastExp[k1]) {
+					// lastExp holds -1 until the server has named a skill's total at all, because
+					// the first frame 134 for a skill is a seed and its value is the whole total
+					// rather than a gain. The old gate tested "greater than zero", which cannot tell
+					// a skill the player has never trained (seeded at exactly 0) from one that has
+					// not been seeded yet - so the first gain in every untrained skill was swallowed
+					// and the counter and the drop for it never appeared.
+					if (lastExp[k1] >= 0 && i10 > lastExp[k1]) {
 						int gained = i10 - lastExp[k1];
 						addSessionXp(k1, gained);
 						if (xpDrops) {
@@ -15170,6 +15726,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 				int k18 = inStream.readUnsignedWord();
 				if (k18 == 65535) {
 					RSInterface.interfaceCache[i6].anInt233 = 0;
+					MakeX.onModelUpdate(i6);
 					pktType = -1;
 					return true;
 				} else {
@@ -15180,6 +15737,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 					RSInterface.interfaceCache[i6].modelRotation2 = itemDef.modelRotationX;
 					RSInterface.interfaceCache[i6].modelZoom = (itemDef.modelZoom * 100)
 							/ i13;
+					MakeX.onModelUpdate(i6);
 					pktType = -1;
 					return true;
 				}
@@ -15223,6 +15781,12 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 						launchURL(text);
 						pktType = -1;
 						return true;
+					}
+					// The five creation chatboxes keep each product's name in one of the product's
+					// own make buttons; the quantity-first layout draws it on a label instead, so
+					// the name is taken here and the button it arrived in is left blank.
+					if (MakeX.absorbName(frame, text)) {
+						text = "";
 					}
 					RSInterface.interfaceCache[frame].message = text;
 					specOrbState.onStringUpdate(frame, text);
@@ -15533,7 +16097,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 				return true;
 
 			case 164:
-				int j9 = inStream.method434();
+				int j9 = MakeX.substitute(inStream.method434());
 				method60(j9);
 				if (invOverlayInterfaceID != -1) {
 					invOverlayInterfaceID = -1;
@@ -15662,9 +16226,10 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 		method37(k2);
 		draw3dScreen();
 		drawGameOverlays();
-		if (isFixed()) {
-			drawGameBuffer();
-		}
+		// No present here: in the fixed layout the HUD layer is the frame's only writer, and it is
+		// composed from this buffer a few lines later in drawGameScreen. Presenting the viewport
+		// here would put the scene on screen without its panels for the length of that composition -
+		// which at a frame rate is the flicker the layer's own present exists to remove.
 		xCameraPos = l;
 		zCameraPos = i1;
 		yCameraPos = j1;
@@ -15728,6 +16293,7 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 		openInterfaceID = -1;
 		currentExp = new int[Skills.skillsCount];
 		lastExp = new int[Skills.skillsCount];
+		forgetSkillXp();
 		sessionXp = new int[Skills.skillsCount];
 		trackingSkill = new boolean[Skills.skillsCount];
 		aBoolean872 = false;
@@ -16316,6 +16882,15 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 	public int anInt1501;// 377
 	public int[] fullScreenTextureArray;
 
+	/**
+	 * Fixed mode's HUD layer: the whole 765x503 frame addressed from the viewport's corner, so a
+	 * panel can be drawn anywhere on the gameframe. See {@code drawFixedHudLayer}.
+	 */
+	private RSImageProducer fixedHudLayer;
+	private int[] fixedHudLayerScanlines;
+	/** True once {@link #drawFixedHudLayer} has composed the layer for the frame being drawn. */
+	private boolean fixedHudLayerReady;
+
 	public void resetAllImageProducers() {
 		if (super.fullGameScreen != null) {
 			return;
@@ -16334,6 +16909,9 @@ if(super.mouseX >= 742 && super.mouseX <= 764 && super.mouseY >= 1 && super.mous
 		aRSImageProducer_1113 = null;
 		aRSImageProducer_1114 = null;
 		aRSImageProducer_1115 = null;
+		fixedHudLayer = null;
+		fixedHudLayerScanlines = null;
+		fixedHudLayerReady = false;
 		super.fullGameScreen = new RSImageProducer(765, 503, getGameComponent());
 		welcomeScreenRaised = true;
 	}

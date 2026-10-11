@@ -983,7 +983,7 @@ public class Fletching {
 	 */
 
 	public static final int[][] boltTips = {
-	/** Uncut Gem ID || Bolt Tips ID || Animation ID */
+	/** Cut Gem ID || Bolt Tips ID || Animation ID */
 	{ 1611, 9187, 891 }, // jade bolt tips
 			{ 1613, 9188, 892 }, // topaz bolt tips
 			{ 1607, 9189, 888 }, // sapphire bolt tips
@@ -1011,34 +1011,76 @@ public class Fletching {
 	};
 
 	/**
-	 * Method to cut gems into bolt tips
-	 * 
-	 * @param c
-	 * @param itemUsed
-	 * @param useWith
+	 * The bolt-tip recipe for a <em>cut</em> gem, or {@code null} when the id has none.
+	 *
+	 * <p>The row is returned rather than its parts so a caller can read the product and the
+	 * animation together. {@code boltTips[i][0]} is the cut gem - what a player who has already cut
+	 * a gem is holding - which is why a chisel on an uncut gem cannot reach this and goes to
+	 * {@code GemCutting} instead.
 	 */
+	public static int[] boltTipRecipe(int gem) {
+		for (int i = 0; i < boltTips.length; i++) {
+			if (boltTips[i][0] == gem) {
+				return boltTips[i];
+			}
+		}
+		return null;
+	}
 
 	/**
-	 * Cuts a gem into bolt tips with a chisel.
+	 * Opens the chisel's chatbox on the cut gems in the player's pack.
 	 *
-	 * <p>Was a wall-clock throttle: a {@code System.currentTimeMillis()} gate in front of an
-	 * instant action, which lets a fast clicker through on lag and lets a slow one do nothing.
-	 * It is a ticked action now, with the same guard the other fletching actions use.
-	 *
-	 * <p>The per-gem animation is preserved — it is the one piece of data here that has always
-	 * been per-recipe, and the generic batch helper has no place for it.
+	 * <p>Chisel on a cut gem used to cut one gem into ten bolt tips the moment it was used: no
+	 * question asked and nowhere to ask it. Which of two carried gems, and how many, are the
+	 * player's to decide. Uncut gems keep their own menu, because a cut gem and an uncut one are
+	 * different products from the same family and only the second can be short of a level.
 	 */
-	public static void handleBoltTipCrafting(Client c, int itemUsed, int useWith) {
-		for (int i = 0; i < boltTips.length; i++) {
-			if ((itemUsed == boltTips[i][0] || itemUsed == CHISEL)
-					&& (useWith == boltTips[i][0] || useWith == CHISEL)) {
-				craftBoltTips(c, boltTips[i][0], boltTips[i][1], boltTips[i][2]);
-				return;
-			}
+	public static void openBoltTips(Client c) {
+		if (c.playerFletch) {
+			return;
+		}
+		int[] gems = carriedBoltTipGems(c);
+		if (gems.length == 0) {
+			c.sendMessage("You have no cut gems to make bolt tips from.");
+			return;
+		}
+		int shown = CreationMenu.open(c, CreationMenu.Kind.BOLT_TIPS, gems);
+		if (shown < gems.length) {
+			// The five-row limit is the interface's, not a rule of the skill, so the player is told
+			// where the rest of their gems went rather than left to wonder.
+			c.sendMessage("The chisel can only offer five kinds of gem at a time.");
 		}
 	}
 
-	private static void craftBoltTips(final Client c, final int gem, final int product, final int animation) {
+	/**
+	 * The cut gems in the pack that have a bolt-tip recipe, in the table's order.
+	 *
+	 * <p>Deduplicated by kind rather than by slot, like the uncut list: two stacks of rubies are one
+	 * product to make, and listing a kind twice would be two rows answering the same click.
+	 */
+	public static int[] carriedBoltTipGems(Client c) {
+		int[] found = new int[boltTips.length];
+		int n = 0;
+		for (int i = 0; i < boltTips.length; i++) {
+			if (c.getItems().playerHasItem(boltTips[i][0], 1)) {
+				found[n++] = boltTips[i][0];
+			}
+		}
+		return java.util.Arrays.copyOf(found, n);
+	}
+
+	/**
+	 * A row's worth of bolt-tip making. Called from {@link CreationMenu#route} with the row's gem
+	 * and the amount its button asked for.
+	 *
+	 * <p>Every condition is re-checked here rather than trusted from the click that opened the menu:
+	 * the pack can have changed while the menu was up, and the chisel itself can have been banked.
+	 */
+	public static void selectBoltTips(final Client c, final int gem, final int amount) {
+		int[] recipe = boltTipRecipe(gem);
+		if (recipe == null || amount <= 0) {
+			return;
+		}
 		if (c.playerFletch) {
 			return;
 		}
@@ -1051,14 +1093,34 @@ public class Fletching {
 					+ Misc.formatPlayerName(ItemAssistant.getItemName(gem)) + " gem.");
 			return;
 		}
+		CreationMenu.close(c);
+		c.getPA().removeAllWindows();
+		startBoltTips(c, gem, recipe[1], recipe[2], amount);
+	}
 
+	/**
+	 * Chisels one gem per action, up to {@code amount} times.
+	 *
+	 * <p>The same shape as the other ticked fletching actions and for the reason those have it: the
+	 * gem, the product and the count travel in the closure, so two players chiselling at once cannot
+	 * read each other's choice, and walking away ends the loop through {@code playerFletch} rather
+	 * than through a wall clock.
+	 *
+	 * <p>The per-gem animation is preserved: it is the one piece of data here that has always been
+	 * per-recipe, and the generic batch helper has no place for it.
+	 */
+	private static void startBoltTips(final Client c, final int gem, final int product,
+			final int animation, final int amount) {
 		c.playerFletch = true;
 		c.startAnimation(animation);
 
 		CycleEventHandler.addEvent(FLETCH_EVENT, c, new CycleEvent() {
+
+			private int left = amount;
+
 			@Override
 			public void execute(CycleEventContainer container) {
-				if (!c.playerFletch || !c.getItems().playerHasItem(gem, 1)) {
+				if (!c.playerFletch || left <= 0 || !c.getItems().playerHasItem(gem, 1)) {
 					container.stop();
 					return;
 				}
@@ -1067,7 +1129,7 @@ public class Fletching {
 				c.startAnimation(animation);
 				c.sendMessage("You carefully craft the " + ItemAssistant.getItemName(gem)
 						+ " into bolt tips.");
-				container.stop();
+				left--;
 			}
 
 			@Override

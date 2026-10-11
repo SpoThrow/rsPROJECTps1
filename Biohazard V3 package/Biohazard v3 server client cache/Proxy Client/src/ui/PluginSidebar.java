@@ -222,11 +222,9 @@ public final class PluginSidebar {
 
 	private static void applyFrameSize() {
 		if (Jframe.getFrame() != null && client.instance != null) {
-			if (client.frameMode == client.ScreenMode.FIXED) {
-				Jframe.setCanvasSize(765, 503, false);
-			} else {
-				Jframe.setCanvasSize(Math.max(765, client.frameWidth), Math.max(503, client.frameHeight), true);
-			}
+			// One place decides the window size so Stretched Mode's larger fixed-layout window
+			// cannot be undone by the sidebar opening or closing.
+			client.instance.applyWindowSize();
 			client.instance.saveClientSettings();
 		}
 	}
@@ -543,7 +541,9 @@ public final class PluginSidebar {
 
 	private static PluginDef[] defs() {
 		return new PluginDef[] {
-			def("Ammo Overlay", "Shows remaining ammo beside the weapon when ranging.", 24263, null, null),
+			def("Ammo Overlay", "Shows remaining ammo beside the weapon when ranging.", 24263,
+					ids(24450), names("Icon"),
+					tips("Show the equipped ammo sprite with the count over it, instead of a text line.")),
 			def("Anti Drag", "Adds a short delay before inventory items start dragging so you do not miss-click.", 24264,
 					ids(24265, 24266), names("Shift only", "Delay"),
 					tips("Only apply the delay while Shift is held.", "Click and type a delay in milliseconds (1-80).")),
@@ -566,11 +566,12 @@ public final class PluginSidebar {
 			def("Chat Timestamps", "Prefixes game chat with the time the message arrived.", 24243, null, null),
 			def("Client Display", "Window, fog, anti-aliasing, draw distance, zoom, and performance options.", 0,
 					new int[] { 24210, 24248, 24245, 24431, 24432, 24211, 24212, 24213, 24215, 24216, 24217, 24233, 24234,
-							24434, 24435, 24231, 24232 },
+							24434, 24435, 24440, 24441, 24231, 24232 },
 					new String[] { "Resizable client", "Inventory tab", "Chat box", "Chat scrollbar", "Chat click-through",
 							"Distance fog", "Anti-aliasing",
 							"Animation smoothing", "Draw distance", "Ground blending", "Hide roofs",
 							"OpenGL acceleration", "FPS cap", "Zoom sensitivity", "Reset camera zoom",
+							"Overlay opacity", "Overlay colour",
 							"Performance stats", "Show ping" },
 					new String[] { "Switch between fixed 765x503 and a resizable window.",
 							"Solid or transparent inventory panel in resizable mode.",
@@ -587,6 +588,8 @@ public final class PluginSidebar {
 							"Unlock the 50 FPS present cap. Game ticks stay at 50.",
 							"Mouse-wheel zoom speed. Default is 100%. Click and type 25-300.",
 							"Restore camera zoom to the default closeness (600). Does not change sensitivity.",
+							"Background opacity of every plugin infobox. Click and type 0-100.",
+							"Background colour of every plugin infobox. Click to open a colour picker.",
 							"Show FPS, memory, and GL stats.",
 							"Show ping to the game server." }),
 			def("Destination Tile", "Highlights the tile you clicked to walk to.", 24241, null, null),
@@ -652,6 +655,10 @@ public final class PluginSidebar {
 					ids(24418, 24419), names("Numbers", "Heal preview"),
 					tips("Draw the current value on the bar.", "Preview how much food would heal.")),
 			def("Status Timers", "Infobox timers for freeze, vengeance, teleblock, and related effects.", 24246, null, null),
+			def("Stretched Mode", "Runs the fixed layout in a larger, resizable window, scaling the frame to fit.", 24460,
+					ids(24461, 24462), names("Keep aspect ratio", "Scale"),
+					tips("Scale both axes equally so nothing is distorted.",
+							"How much of the window the frame fills (50-200%). Click and type a number.")),
 			def("Tile Markers", "Shows a hover outline on the tile under your mouse.", 24218, null, null),
 			def("True Tile", "Highlights the tile your player actually occupies.", 24242, null, null),
 			def("XP Drops", "Floating XP drops when you gain experience.", 24222, ids(24235, 24422),
@@ -920,6 +927,12 @@ public final class PluginSidebar {
 			return PlayerIndicators.ownPlayer;
 		case 24263:
 			return AmmoOverlay.enabled;
+		case 24450:
+			return AmmoOverlay.sprite;
+		case 24460:
+			return StretchedMode.enabled;
+		case 24461:
+			return StretchedMode.keepAspect;
 		case 24275:
 			return ItemStats.enabled;
 		case 24269:
@@ -978,7 +991,8 @@ public final class PluginSidebar {
 	}
 
 	private static boolean isNumber(int id) {
-		return id == 24212 || id == 24215 || id == 24266 || id == 24402 || id == 24424 || id == 24434;
+		return id == 24212 || id == 24215 || id == 24266 || id == 24402 || id == 24424 || id == 24434 || id == 24440
+				|| id == 24462;
 	}
 
 	private static boolean isDialog(int id) {
@@ -986,7 +1000,7 @@ public final class PluginSidebar {
 	}
 
 	private static boolean isColor(int id) {
-		return id == 24258;
+		return id == 24258 || id == 24441;
 	}
 
 	private static boolean isCycle(int id) {
@@ -1024,6 +1038,15 @@ public final class PluginSidebar {
 		}
 		if (id == 24435) {
 			return "Reset";
+		}
+		if (id == 24440) {
+			return "Overlay opacity: " + OverlayManager.boxOpacity + "%";
+		}
+		if (id == 24441) {
+			return "Overlay colour: " + OverlayManager.boxColorName();
+		}
+		if (id == 24462) {
+			return "Scale: " + StretchedMode.scalePercent + "%";
 		}
 		if (id == 24215) {
 			return "Draw distance: " + client.drawDistance;
@@ -1112,6 +1135,16 @@ public final class PluginSidebar {
 			max = client.ZOOM_SENSITIVITY_MAX;
 			cur = client.zoomSensitivity;
 			label = "Zoom sensitivity (%). Default is " + client.ZOOM_SENSITIVITY_DEFAULT;
+		} else if (id == 24440) {
+			min = 0;
+			max = 100;
+			cur = OverlayManager.boxOpacity;
+			label = "Plugin overlay opacity (%)";
+		} else if (id == 24462) {
+			min = StretchedMode.percentMin();
+			max = StretchedMode.percentMax();
+			cur = StretchedMode.scalePercent;
+			label = "Stretched scale (%)";
 		}
 		String in = JOptionPane.showInputDialog(east, label + "\nEnter a number from " + min + " to " + max + ".",
 				Integer.toString(cur));
@@ -1134,8 +1167,8 @@ public final class PluginSidebar {
 	}
 
 	private static void promptColor(int id) {
-		Color start = new Color(NpcIndicators.color());
-		Color chosen = JColorChooser.showDialog(east, "Highlight colour", start);
+		Color start = new Color(id == 24441 ? OverlayManager.boxColor : NpcIndicators.color());
+		Color chosen = JColorChooser.showDialog(east, id == 24441 ? "Overlay colour" : "Highlight colour", start);
 		if (chosen == null || client.instance == null) {
 			return;
 		}

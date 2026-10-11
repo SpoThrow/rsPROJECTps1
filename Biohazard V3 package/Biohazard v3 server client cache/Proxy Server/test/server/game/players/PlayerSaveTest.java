@@ -394,4 +394,54 @@ class PlayerSaveTest {
 		assertEquals(50, loaded.skills.playerLevel[1]);
 		assertEquals(995, loaded.playerItems[0]);
 	}
+
+	@Test
+	void pouchKindsRoundTripWithTheirCounts() throws IOException {
+		// The count and the kind are two keys because the count's meaning is far older than the
+		// question of which essence a pouch holds. Both must reach the file: a pouch that came back
+		// with a count and no kind would read as rune essence, which is a downgrade for anyone who
+		// pouched pure essence and a free upgrade waiting to happen the other way round.
+		Client saved = savableClient();
+		populate(saved);
+		saved.pouch[0] = 3;
+		saved.pouchEssence[0] = 7936;
+		saved.pouch[2] = 7;
+		saved.pouchEssence[2] = 1436;
+		assertTrue(PlayerSave.saveGame(saved));
+
+		String text = Files.readString(save(), StandardCharsets.UTF_8);
+		assertTrue(text.contains("pouch = 3\t0\t7\t0"), "the counts must reach the file");
+		assertTrue(text.contains("pouch-essence = 7936\t0\t1436\t0"), "and so must the kinds");
+
+		Client loaded = new Client(null, SLOT);
+		PlayerHandler.players[SLOT] = loaded;
+		assertEquals(1, PlayerSave.loadGame(loaded, NAME, PASS));
+		assertEquals(3, loaded.pouch[0]);
+		assertEquals(7936, loaded.pouchEssence[0], "a pouched pure essence must not come back as rune");
+		assertEquals(7, loaded.pouch[2]);
+		assertEquals(1436, loaded.pouchEssence[2]);
+	}
+
+	@Test
+	void aCharacterSavedBeforePouchKindsExistedStillLoadsItsPouches() throws IOException {
+		// Every character file in existence predates the key. The counts have to survive without it,
+		// and the kind has to come back as 0 -- "not recorded" -- rather than being invented here,
+		// because reading an unrecorded kind as rune essence is a rule about legacy pouches and
+		// belongs with the pouches (Pouches.kindOf), not in the loader.
+		Client c = savableClient();
+		populate(c);
+		c.pouch[0] = 2;
+		assertTrue(PlayerSave.saveGame(c));
+
+		List<String> lines = new ArrayList<>(Files.readAllLines(save(), StandardCharsets.UTF_8));
+		boolean removed = lines.removeIf(line -> line.startsWith("pouch-essence = "));
+		assertTrue(removed, "expected a pouch-essence line to remove");
+		Files.write(save(), lines, StandardCharsets.UTF_8);
+
+		Client loaded = new Client(null, SLOT);
+		PlayerHandler.players[SLOT] = loaded;
+		assertEquals(1, PlayerSave.loadGame(loaded, NAME, PASS), "an old file must still load cleanly");
+		assertEquals(2, loaded.pouch[0], "the count must survive without the new key");
+		assertEquals(0, loaded.pouchEssence[0], "and nothing may be invented for the kind");
+	}
 }

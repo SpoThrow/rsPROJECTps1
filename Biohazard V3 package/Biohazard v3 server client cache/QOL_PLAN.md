@@ -222,9 +222,9 @@ lookups and task-leak idiom; R's `Smithing.java` (897 lines of
 |---|---|---|---|
 | **Fletching** | `Fletching.java` — **instant whole inventory**; the shafts path also skipped the level check and the animation, and took its log from the table rather than from the product, so it could consume a log other than the one the interface was opened with. `handleFletchingClick` closes the window instead of looping. | **N1** (ticked, correct 1:15) | Full port of the tick loop and the `BowData`/`ArrowData`/`BoltData`/`StringingData` tables. §5. |
 | **Herblore / potions** | `Herblore.java` 8.4 KB; `Potions.java` 73 `case`s; `PotionMixing.mixPotion2` already wired (`UseItem.java:107`). | **N1** (much fuller) | `CombiningDoses`, `FinishedPotions`, `UnfinishedPotions`, `SpecialPotion` (extremes/overload), `Crushing`, `Decanting`. §6.2. |
-| **Runecrafting** | **Off the instant batch since 2026-10-10**: `craftRunes` used to bind the whole inventory in one `while`, and its multiplier ladder was one rung short of the top. See §4g. | N1 | The rune/multiplier table is ours and is now pinned by a test; little left to take. |
+| **Runecrafting** | **One click binds the whole pack since 2026-10-10**; pure essence (`7936`) was unusable at every altar *and* in every pouch, and the pouch stored `1436` only. See §4g, §4h and §4i. The damaged pouches are the one row still missing. | N1 | The rune/multiplier table is ours and is now pinned by a test; little left to take. |
 | **Smithing / Smelting** | Smelting was already ticked (`Smelting` + `SmeltingSession`); the **anvil came off the instant `while (maketimes > 0)` on 2026-10-10** (§4g). The 26.9 KB `Check*` chain and its static fields are still open. | R numbers, N1 shape | Keep our interface; port product/XP/level as a table. N1's `SmithingData` is 55 KB. |
-| **Jewellery / Tanning / Leather** | Instant batches. | N1 | `Gems`, `Jewelry`, `Tanning`/`tanningData`, `LeatherMaking`/`leatherData` tables; make ticked. |
+| **Jewellery / Tanning / Leather** | **All off the instant batch as of 2026-10-10.** Tanning and leather went into the creation chatbox (§15); jewellery is ticked with its amount in the chatbox and its onyx-ring id fixed (§4j). Amulet **stringing** is still instant — the one row left. | N1 | `Gems`, `Jewelry`, `Tanning`/`tanningData`, `LeatherMaking`/`leatherData` tables; make ticked. |
 | **Crafting** | Has `CraftingData`, `GemCutting`, `JewelryMaking`, `LeatherMaking`, `Tanning`. **Missing Pottery, Glassblowing, Spinning, Soft clay** — yet our guide advertises them (`SkillInterfaces.java:1379-1451`). | **N1** | N1's `crafting/` package (Gems, Jewelry, Flax, leather, tanning). Close the guide/behaviour mismatch. |
 | **Agility** | One 14.3 KB `Agility.java`. | **N1** — `ObstacleData.java` is 25.7 KB | Take the obstacle table; biggest single content win. |
 | **Cooking** | 5.5 KB. | N1 + R | N1 `cooking/`, R's `Potatoes`. |
@@ -520,10 +520,13 @@ pacing, and the amount not crossing between two players.
 `Smithing.doaction` hammered `maketimes` items in `while (maketimes > 0)`. Both are now one item per
 action on the fletching cadence (two cycles), with every value travelling in the event closure rather
 than through a class, and both cancel when the player walks — `PlayerAssistant.resetVariables` calls
-`Runecrafting.cancel` and `Smithing.cancel` beside the herblore and fletching ones.
+`Runecrafting.cancel` and `Smithing.cancel` beside the herblore and fletching ones. (`Runecrafting.cancel`
+is gone as of §4h: an altar takes its whole pack in one click, so there is nothing to cancel.)
 
-**Runecrafting.** One essence every two cycles, animation `791` and gfx `186` re-armed each time.
-Three silent defects went with the rewrite:
+**Runecrafting.** ~~One essence every two cycles, animation `791` and gfx `186` re-armed each time.~~
+**Superseded by §4h**: the pacing was wrong for this skill and the action is once again the click,
+with the multiplier fix and the altar-list fix kept. Three silent defects went with the first
+rewrite:
 
 - **The multiplier ladder had an off-by-one.** The old loop walked the ladder from index 1, so it
   could return at most `length - 1`: an air essence at level 99 made **nine** air runes instead of
@@ -555,7 +558,183 @@ driven through the real `readInput` entry point by a test. **Still open:** colla
 `Check*` chain into a metal/product table, which is what would let the statics go.
 
 Tests: 17 in `RunecraftingTest`, 11 in `SmithingTest`. **1148 tests, 0 failures** (992 server + 156
-workshop).
+workshop). (The runecrafting count is 15 as of §4h, which replaced the two pacing tests with the
+one-click ones.)
+
+---
+
+## 4h. Runecrafting, corrected twice over — one click, both essences, and the XP-drop icon
+
+**Landed (2026-10-10), the same session as §4g.** Three reports came back and all three were real.
+
+**The pacing was wrong for this skill.** §4g made `craftRunes` bind one essence every two cycles so
+it matched fletching. Runecrafting is the one gathering skill where that is not the shape: an altar
+takes **the whole pack in the single click**, the bind animation plays once, and there is no action
+left running. The two-cycle loop was also an AFK loop — a player who clicked once and then banked
+kept being paid. `craftRunes` now counts the pack, draws it down, hands over `essence × multiplier`
+runes and the whole pack's experience in the same tick. The event, the `RUNECRAFTING_EVENT` id, the
+`playerSkilling[playerRunecrafting]` gate and `cancel` are gone, and `PlayerAssistant.resetVariables`
+no longer calls it. The multiplier fix and the altar-list fix from §4g are kept — they were the good
+half.
+
+One consequence, recorded rather than hidden: the pack's experience is awarded as a single sum, so a
+click that crosses more than one level announces only the level it lands on.
+
+**Known gap left open:** `Pouches` still stores and returns `1436` only, so a pure-essence player has
+no pouch. It is a separate file and a separate behaviour (fill/empty/check), so it is not folded into
+this change — but it is the next thing pure essence wants.
+
+**Pure essence did nothing.** `craftRunes` drew down `1436` alone. Pure essence (`7936`) — what the
+members' essence and the essence impling give out — was invisible to every altar, so a pack of it
+crafted nothing at all. Both ids are essence now and either is accepted at any altar, rune essence
+spent first. The OSRS tiering, where the higher altars insist on pure essence, is **not** modelled;
+it is in §14 as a decision because inventing which altars gate on it would be a guess.
+
+**The XP drop drew the wrong icon.** The drop's icon is client-side: `Gameframe/XP/skill N.png` for
+the skill number the server sends (`Skills.skillNames` — runecrafting 20, slayer 18, farming 19).
+The set had been filed wrong at the top: **slayer's artwork sat in `20`**, runecrafting's in `19`,
+and there was no `18` at all — so every runecrafting drop drew a slayer skull, every farming drop a
+rune, and slayer drops drew nothing. `tools/rebuild-xp-skill-icons.ps1` re-derives an icon from the
+skill tab's own art (`Sprites/Interfaces/skillchat/skill N.png`, the set the skill tab and hiscores
+panel already use, with their documented 21/22 hunter-construction swap applied). Skills 18, 19 and
+20 are regenerated. 0-17, 21 and 22 are right where they are — they carry their own skill's art — and
+are left alone: re-deriving them shows the shipped set is the same artwork with the same hard alpha in
+the same 18px box, but not produced by this exact rule, so rewriting them would churn twenty files for
+a pixel or two. The check that the three new ones are the *right* art is the old files themselves: the
+new `20` lands on the same `17x18` box and 175 pixels as the rune art that used to sit in `19`, and the
+new `18` on the same `18x18`/220 as the slayer art that used to sit in `20`. Nearest-neighbour on
+purpose, so the alpha stays hard (0 or 255) and the colours stay the source's own. The client reads the
+icons at startup, so the **client needs a restart** to see them.
+
+Tests: 15 in `RunecraftingTest` (the two pacing tests became `theWholePackIsBoundInTheClickItself`,
+`nothingIsBoundAfterTheClick`, `pureEssenceIsBoundJustLikeRuneEssence` and `aMixedPackIsBoundTogether`).
+**990 tests, 0 failures** (990 server).
+
+---
+
+## 4i. Pouches — the two essences reach the pouch too, and the dead twin is deleted
+
+**Landed (2026-10-10), the same session as §4h.** §4h recorded this as the next thing pure essence
+wanted, and it was right: the altar accepted pure essence and the pouch did not, so half the skill
+worked with the essence and half did not.
+
+**What a pouch is for, which decides the rest.** Essence is **not stackable** — not here and not in
+OSRS — so the twenty-eight inventory slots are the real limit on a trip and a pouch holding three to
+twelve more is worth the bank walk. That is also why an altar binds only the pack and never a pouch:
+you empty them into the inventory first, as the real routine does. This was checked before it was
+changed, because marking `1436`/`7936` stackable in `stackable.dat` looked like the same bug from the
+outside. It is not, and no data file was touched.
+
+- **Both essences work, and the kind is remembered.** A pouch stores one count rather than a pair of
+  stacks, and that count has been written to character files as `pouch = a\tb\tc\td` for long enough
+  that its meaning is not negotiable. So the kind travels beside it in a new `Player.pouchEssence`,
+  saved as its own optional key. Without it, emptying a pouch would either hand a rune essence back
+  as pure essence — a free upgrade — or a pure essence back as rune, which is the same bug pointed
+  the other way. Filling takes rune essence first and pure second, matching the altar's spend order.
+- **A count with no kind recorded reads as rune essence, and that is a migration rather than a
+  guess.** Every character file in existence is in exactly that state — a count, and no kind —
+  because rune essence was the only thing a pouch could hold when they were written. Read as
+  "empty", the essence would be stranded in a pouch that reports itself empty and can never be
+  refilled (the count is still there, so filling it says "full"). `Pouches.kindOf` is the one place
+  that rule lives.
+- **A pouch holding one kind will not silently take the other.** One count cannot hold two kinds, and
+  converting either into the other is the upgrade bug again.
+- **Two messages that were not true.** A pouch said "You fill your medium pouch" when it was already
+  full or when the pack held no essence, and said "You empty your medium pouch" with nothing coming
+  out. Both read as a pouch that has eaten the essence; each now says which it is.
+- **The dead second implementation is deleted.** `PlayerAssistant.checkPouch`/`fillPouch`/`emptyPouch`,
+  `Player.pouches` and `Player.POUCH_SIZE` had no callers at all, and they hard-coded `1436` in
+  precisely the way the live code did — the identical landmine, one refactor away from being wired
+  back up. Deleted rather than left beside the live path, per §13's "don't leave two paths". The three
+  actions that are live (click = fill, item option 2 = check, wear = empty) all route through
+  `Pouches`; `ItemClick2`'s private scan of the table is now the same lookup the other two use.
+
+**Open, deliberately:** the damaged pouches (`5511`, `5513`, `5515`) are recognised by nothing, so
+clicking one still does nothing. In OSRS a damaged pouch holds less and is repaired; the reduced
+capacities are not in this revision and guessing them would be inventing content. `ClickItem` has
+carried `5511`/`5513` in its pouch case list all along, which is what a row that was never written
+looks like. Worth doing as its own slice, with the repair or the degrade trigger it implies.
+
+**The three actions live in three packet classes.** Fill is `ClickItem`, check is `ItemClick2`, empty
+is `WearItem`'s pouch branch — which is also how a pouch is *not* equippable. It works, and nothing
+here changed it, but it is three files to touch for one item's menu, and worth folding into one
+registration if the pouches are ever revisited.
+
+Tests: 13 in the new `PouchesTest` — the two essences in and out, the kind order, the refusal to mix,
+the level gate being on filling only, the two migration halves, and the slot cap on emptying — plus
+two in `PlayerSaveTest` for the new key, one of which removes the key and proves an old file still
+loads its counts. **1005 tests, 0 failures** (1005 server + 156 workshop).
+
+---
+
+## 4j. Jewellery — the interface cannot ask for "all", and one product could not be made
+
+**Landed 2026-10-10.** Interface `4161` is the jewellery mould: three rows of seven slots, a gem and
+a gold bar per slot. It is the last of the instant-batch crafting families.
+
+**Read out of the cache, not inferred.** New `Proxy Client/tools/mould-interface-probe` loads the
+real interface archive (`index0` entry 3, through `Decompressor` → `StreamLoader` → `RSInterface.unpack`,
+with the fonts built from archive 1) and dumps `4161`. That answered the question this slice turned
+on, and it is not answerable from the server source:
+
+```
+container 4233: type=2 7x1 slots=7 actions: [1=Make, 2=Make 5, 3=Make 10, 4=-, 5=-]
+container 4239: type=2 7x1 slots=7 actions: [1=Make, 2=Make 5, 3=Make 10, 4=-, 5=-]
+container 4245: type=2 7x1 slots=7 actions: [1=Make, 2=Make 5, 3=Make 10, 4=-, 5=-]
+frame 4229: type=6 32x32   frame 4230: type=4 400x14 "You need a ring mould to craft rings."
+frame 4235: type=6 32x32   frame 4236: type=4 400x14 "You need a necklace mould to craft necklaces."
+frame 4241: type=6 32x32   frame 4242: type=4 400x14 "You need an amulet mould to craft amulets."
+```
+
+**So make-all is not a click this client can send.** The containers carry three actions and two empty
+slots — there is no fourth option whose opcode the server could be missing. The chatbox is therefore
+not a stylistic choice here, it is the *only* route to "all", which is why jewellery goes onto the
+same `CreationMenu` (§15) the chisel and the tanner use, one row and 1/5/10/28. The left click — the
+interface's `Make` — opens that prompt; `Make 5` and `Make 10` are kept as the shortcuts they already
+were. Cost: left click is now two clicks. Gain: "all" exists for the first time.
+
+**A product the interface offered could not be made.** The recipe table named `6583` as the onyx ring
+while the interface's own array drew `6575`. `6583` is the **Ring of stone** — `Magic.ONYXRING(6575,
+6583, …)` enchants `6575` *into* `6583` — so clicking the onyx ring in the mould interface matched no
+recipe and returned in silence: the one product the interface offered for onyx was the one product
+that did nothing. Fixed to `6575`.
+
+**The two lists that disagreed are now one list.** That bug existed because the recipes and the
+interface rows were separate arrays that had to be kept in step by hand. The rows are now derived from
+`Product` in declaration order, so a slot and its recipe cannot drift apart, and
+`tools/mould-interface-probe` exists to check the table against the real interface rather than trust
+either.
+
+**Also fixed on the way past:**
+- **The batch is ticked** — one item every 2 cycles, animation `899` (the furnace pose smelting and
+  the pottery oven use; the old path played none), all state in the event closure, stopped by walking.
+- **A full pack no longer eats the materials.** Jewellery consumes two items for one, so a tick with
+  nowhere to put the product would have destroyed a bar and a gem and handed back nothing. The tick is
+  not spent when there is no room.
+- **The materials and the mould are re-checked on every entry point**, not only when the interface is
+  drawn: the mould and the bar are both things the player can bank with the interface open.
+- **Plain gold pieces no longer depend on a coincidence.** They have no gem, and the old code detected
+  that by asking whether `ItemAssistant.getItemName(-1)` contained the word `"unarmed"` — which it
+  does, because `getItemName` falls back to `"Unarmed"` for an unknown id. It worked, and said so
+  nowhere. `JewelryMaking.NO_GEM` says so.
+- **The amulet line** read "You need a amulet mould to craft necklaces", overwriting the correct
+  sentence the cache already had on frame `4242`.
+
+**Untouched, deliberately:**
+- **Stringing an amulet is still instant.** A ball of wool on an unstrung amulet is a two-item recipe
+  with no mould, no interface and no amount — the one part of jewellery that is not a menu question.
+  Its XP was the other oddity: `addSkillXP(4, 12)` bypassed `CRAFTING_EXPERIENCE` while every other
+  crafting award multiplies by it, so stringing paid 1/5th of what it says. Brought in line.
+  It stays instant, and is the obvious next slice if it should become a "How many would you like to
+  string?" chatbox — the screenshot set in §15 has one.
+- **Interface `4161` stays the product picker.** Twenty-one products do not fit five chatbox rows, so
+  the grid keeps the choice and the chatbox takes the amount.
+
+Tests: 33 in the new `JewelryMakingTest` — the onyx ring, the seven-slot shape, table/interface
+agreement, the cached container and frame ids, mould-gated rows, the prompt opening and refusing, the
+ticked batch and its amount caps, the full pack, the shortcut amounts, the walk cancel, and the two
+cross-checks that every gem is a *cut* gem and the necklace row cannot make a ring.
+**1092 tests, 0 failures** (1092 server + 156 workshop).
 
 ---
 
@@ -1063,7 +1242,8 @@ reviewable, revertible file per batch.
 | 0 | Registries + §2 safe accessor + validator | Everything after registers instead of editing switches, and may reference ids that do not exist yet | — — **done** |
 | 1 | Fletching realism (1-by-1, shaft fix, stringing) | Your headline; small; very visible | 0 (optional) — **done**: bows, shafts, arrows, bolts, tipping and stringing |
 | 2 | Random events, flag-driven (nest + genie on) | Cheap, visible, exact flags you asked for | 0 — **done**; further classics need their dialogue written first |
-| 3 | Skilling completeness (N1 tables: potions, gems, glass, spinning, agility, rune/smith) | The "done to full completion" goal; §8.2 dose model | 0, 1 (pattern) — **spinning + pottery + weaving + soft clay + darts/arrows/bolts + herblore + runecrafting + anvil smithing done**, glass is UI-blocked (§4e), agility **parked** (see the log entry for 2026-10-10), the `Check*` smithing table still open (§4g) |
+| 3 | Skilling completeness (N1 tables: potions, gems, glass, spinning, agility, rune/smith) | The "done to full completion" goal; §8.2 dose model | 0, 1 (pattern) — **spinning + pottery + weaving + soft clay + darts/arrows/bolts + herblore + runecrafting (altar, both essences, pouches) + anvil smithing + jewellery done + creation chatbox menus reused for gem cutting, tanning and jewellery (§15)**, glass is UI-blocked (§4e), agility **parked** (see the log entry for 2026-10-10), the `Check*` smithing table still open (§4g), the damaged pouches still open (§4i), amulet stringing still instant (§4j) |
+| 3b | Authored quantity-first creation interface (client) | The shape §15's screenshots actually show, and the only way the anvil grid (`994`) reaches the chatbox | 3, and a client rebuild — **not started**; jewellery turned out not to need it (§4j) |
 | 4 | World interactivity: fillables (R), pickables (R), searchable/climbable scenery, doors/gates | The "feels finished" layer; mostly data + registrations | 0 |
 | 5 | Shops, potions breadth, guilds, glider verify | Pure breadth, additive data; safest wins | 0 |
 | 6 | Bank PIN | One genuine client/UI decision first | 0 |
@@ -1110,26 +1290,38 @@ custom keypad (client work). Also decide the **bot interaction**: bots occupy re
    not a usable reference either.
 5. **Ticked-skilling default** — make every production skill OSRS-slow, or only fletching
    with the rest behind a flag defaulted to today's fast behaviour? This is a gameplay
-   feel decision and it is yours. **What has actually happened since:** every slice has been
-   ticked without a flag — fletching, herblore, spinning, weaving, pottery, runecrafting and the
-   anvil — so the answer in practice is trending towards "ticked by default", at two cycles an
-   action. If you want a global fast/slow switch, say so before the next skill lands.
+   feel decision and it is yours. **What has actually happened since:** the production slices have
+   been ticked without a flag — fletching, herblore, spinning, weaving, pottery, and the anvil — so
+   the answer in practice is trending towards "ticked by default", at two cycles an action.
+   **Runecrafting came back out of that on 2026-10-10 (§4h)**: an altar takes the whole pack in the
+   click, because that is the shape of the skill rather than a speed setting. If you want a global
+   fast/slow switch, say so before the next skill lands.
 6. **Definition import file** — happy with a separate `Data/cfg/item-extra.cfg` for
    imported higher-revision items, leaving `item.cfg` untouched?
 7. **Creation menus in the chatbox** — do you want the "choose what to make" menus moved from
-   the sidebar into the chatbox, as in the screenshots? Recorded as a request in §15; the
-   screenshots still need to be looked at before there is anything concrete to decide. **Partly
-   answered by doing:** herblore's two mixing steps now use the chatbox (`4429`, make 1/5/10/28) as
-   of 2026-10-10 — that is the shape, reached with an interface this client already has. The
-   families that pick a *product* (bows, jewellery, gem cutting) are still sidebar menus.
+   the sidebar into the chatbox, as in the screenshots? Recorded in §15, and **answered in
+   practice for the menus that had no chatbox form:** gem cutting and tanning now open the chatbox
+   on interface `8938` (2026-10-10), and herblore (`4429`) was already there. The remaining
+   families — the anvil's grid (`994`) and jewellery (`4161`) — are the ones that need an authored
+   interface rather than a reuse, so the open question is whether to commission that, not whether
+   the chatbox is the right place. **Jewellery answered half of this without any authored work
+   (§4j):** `4161` keeps the product choice and the chatbox took the amount, which is the only place
+   an "all" can exist because `4161` has no make-all option. The anvil grid is the one still waiting.
 8. **Runecrafting experience** — should the award scale with the rune multiplier, as it does in
    OSRS (so an air essence at 99 is 5 × 10 × the rate rather than 5 × the rate)? It is currently
    flat per essence, matching the pre-existing behaviour, because `Config.RUNECRAFTING_EXPERIENCE`
-   is already 15× and compounding it with a further ×10 is a balance decision. §4g.
+   is already 15× and compounding it with a further ×10 is a balance decision. §4g, §4h.
+9. **Rune essence vs pure essence at the high altars** — as of §4h either essence works at every
+   altar, rune essence spent first. OSRS gates the higher altars (cosmic and above, by most
+   accounts) on pure essence. Do you want that tiering modelled, and if so at which altars? It is
+   left out because the exact rung is a rule I would be guessing at, and a guess here is a player
+   standing at a nature altar being told they have the wrong essence. **Pouches mirror the same
+   order as of §4i** — either essence goes in, rune essence drawn first — so if this is ever
+   decided, the pouch should be decided with it rather than left half-answering the question.
 
 ---
 
-## 15. Wanted later — creation menus in the chatbox (requested, not designed)
+## 15. Creation menus in the chatbox (built, 2026-10-10)
 
 **Recorded on request, 2026-10-10.** The wish: when you are making things, the choices should come
 up **in the chatbox** rather than only in a sidebar interface — the pick-what-then-pick-how-many
@@ -1139,25 +1331,87 @@ about one skill.
 
 Reference for the exact look: nine screenshots in
 `C:\Users\llrbi\Desktop\inspiration on chatbox ui when making interacting with things`
-(`Screenshot 2026-10-10 1432*.jpg` through `1445*.jpg`). **They were listed but could not be read
-back in the session that recorded this**, so the paragraph above is the request as it was worded,
-not a reading of the images. Check it against them before anything is designed from it.
+(`Screenshot 2026-10-10 1432*.jpg` through `1445*.jpg`).
 
-What already matters for planning:
+**The screenshots have now been read.** They could not be read in the session that recorded this
+request, so a new `Proxy Client/tools/read-chatbox-screenshots.ps1` was written to do it with the
+Windows OCR engine (upscaled, with per-line boxes, because the quantity selector is graphics and
+the chatbox font is small). What they actually say:
 
-- The bow and arrow line already opens an OSRS-style menu — but at `8880`, a **sidebar** interface,
-  not the chatbox. So for the families that have a menu at all this is a relocation and redesign
-  question, not a from-scratch one.
-- It is **not needed for darts, arrows or bolts**: those are item-on-item recipes with no menu to
-  move — one pair is one recipe, so there is nothing to choose. A menu earns its place where one
-  material has several products (logs → bows and shafts, gems → jewellery, herbs → potions).
-- Whether the chatbox menu in the screenshots exists in this client or has to be authored is the
-  same wall §4e hit for glassblowing; its three options apply here unchanged.
-- **Partly landed, 2026-10-10:** herblore's two mixing steps now open interface `4429` — the
-  chatbox "How many would you like to make?" with 1/5/10/28 — and brew the amount while you stand
-  there (§4f). That is the shape this request describes, and it needed no new UI: the interface was
-  already in the client and this server's pre-QOL code had been using it. It is the **amount**
-  prompt, though, not the pick-a-*product* prompt the screenshots are about; a pair is one recipe,
-  so there is nothing to choose.
-- Nothing has been checked beyond the above. This entry is a request, not a design, and nothing in
-  it is scheduled in §12.
+- Eight of the nine are 601x194 — the chatbox — and they share one shape: a **per-skill question**
+  ("What would you like to make?", "How many gems would you like to cut?", "How many would you like
+  to cook?", "How many would you like to string?", "How many sets of 12 will you make?"), a **help
+  line** reading "Choose a quantity, then click an item to begin.", product icons below, and the
+  ordinary chat tabs still along the bottom.
+- The ninth is 749x488 and is the **smithing grid** — Dagger 1 bar, Sword 1 bar, Scimitar 2 bars,
+  Cannon parts 5 bars — which is the shape of interface `994`.
+
+**Correction to what this section used to claim.** It said the bow menu at `8880` is "a sidebar
+interface, not the chatbox". It is not: `sendFrame164` *is* the chatbox packet — the client's
+`case 164` sets `backDialogID`, which is the chat area. Checked family by family, most creation
+menus were already in the chatbox before this entry: herblore `4429`, fletching bows and shafts
+`8880`, leather and snakeskin `8938`/`8880`, pottery `8938`, smelting `2400`, cooking `1743`. The
+families that genuinely were not are in the table below.
+
+**What landed (2026-10-10).** One shared `server/content/skills/CreationMenu` over interface
+`8938` — five rows, four amounts a row (1/5/10/28), no client change, because the frame, the title
+and the buttons are all in the cache. The server fills each row's model, each row's label, and the
+row that was clicked; `CreationMenu.route` is the single place that decides which family a shared
+button belongs to, off the player's open menu rather than off the id, which is what stops one click
+being read twice.
+
+- **Gem cutting had no menu at all** — the chisel cut the whole stack, silently, until it ran out.
+  It now opens the chatbox on the uncut gems in the pack, and the button ends the batch.
+- **Tanning had its own overlay** (`14670`) with a price frame per row. It is now a chatbox menu.
+  The price survives on the row's label ("Green d'hide - 20 gp"), because the chatbox interface has
+  no price frame. Its rows are **products, not hides**: cowhide makes soft *and* hard leather, so a
+  menu keyed on the hide would have made that choice unreachable. The duplicate snakeskin row (same
+  hide, same leather, 15 gp and 20 gp) is gone.
+- **Both cap at five rows and say so.** 8938 holds five; a player holding more kinds than that
+  sees the first five the table lists plus a message, rather than a menu that quietly omits the
+  rest. This is the one wart of the reuse, and it is the reason the authored interface below is
+  still worth considering.
+
+**Still open, and why:**
+
+| Family | Today | Why it stayed |
+|---|---|---|
+| Smithing anvil | overlay `994` | ~30 products. A 165 px chatbox cannot show that grid legibly; it needs paging or a bigger authored interface. |
+| Glass | nothing | Blocked on the same missing interface as §4e. |
+
+**Jewellery moved off this list (2026-10-10, §4j) — and it is the clearest case for what the
+chatbox half is for.** The mould interface `4161` keeps the product choice, because 21 products do
+not fit five rows. But reading `4161` out of the cache showed its three containers carry exactly
+three actions — `Make`, `Make 5`, `Make 10` — and two empty slots, so a make-all click is not
+something this client can send and the server cannot be "missing a handler" for it. The chatbox is
+the only place an "all" can exist, so the left click opens a one-row `CreationMenu` whose whole job
+is the amount. That is a narrower use of the 8938 menu than the gem and hide cases, and it is worth
+noting as the pattern to reach for: **when an existing interface can pick the product but not the
+amount, reuse the menu for the amount rather than rebuilding the picker.**
+
+**The one thing the screenshots ask for that this does not do.** Their interaction is
+**quantity first, then item** — pick 1/5/10/X/All, then click the product. Every menu here is the
+other way round: the amount is built into the row, so one click is product and amount together.
+Matching the screenshots exactly needs a new authored chatbox interface with a quantity selector,
+which is client work and a client rebuild. Reusing `8938` was chosen instead for this slice because
+it needed no client change at all; the authored version is the natural follow-up, and smithing is
+the family still waiting on it.
+
+**One exception to "quantity first" landed with jewellery (§4j).** There the product is chosen in
+interface `4161` and the chatbox is opened afterwards just for the amount, which is the screenshots'
+order — because `4161` has no make-all option to offer and the menu does. So the second half of the
+screenshot shape is already reachable without anything being authored; only the first half needs it.
+
+**Not needed for darts, arrows or bolts**: those are item-on-item recipes with no menu to move —
+one pair is one recipe, so there is nothing to choose. A menu earns its place where one material
+has several products (logs → bows and shafts, gems → jewellery, herbs → potions).
+
+**The interface does exist in this client** — that part of the old note was the §4e wall, and it
+does not apply here. `8938` was already in the cache and this server was already using it for
+pottery, leather and snakeskin when this slice started; gem cutting and tanning were added to it
+without touching the client. Herblore's `4429` is the same story. **Only a new shape** — the
+quantity-selector-first layout the screenshots show, or a grid big enough for smithing — would be
+authored work and a client rebuild.
+
+**Scheduled:** the reuse has landed, so this is no longer an unscheduled request. What remains
+open is the authored quantity-first interface, and it belongs with the client-side work in §12.

@@ -97,6 +97,7 @@ import ui.MenuEntrySwapper;
 import ui.MouseDetection;
 import ui.MouseTooltips;
 import ui.NpcIndicators;
+import ui.MakeX;
 import ui.ObjectMarkers;
 import ui.OverlayManager;
 import ui.OverlayRefresh;
@@ -134,6 +135,16 @@ import static game.client.*;
 public final class ChatArea {
 	private final client owner;
 
+	/**
+	 * The panel drawn behind a creation chatbox, loaded once and kept.
+	 *
+	 * <p>A {@code null} here means "not looked for yet"; a sprite that failed to load is kept as
+	 * {@code null} too, so the file is not reopened on every frame the player spends choosing a
+	 * quantity - the fallback below covers the case where it is missing.
+	 */
+	private Sprite creationPanel;
+	private boolean creationPanelTried;
+
 	public ChatArea(client owner) {
 		this.owner = owner;
 	}
@@ -144,7 +155,13 @@ public final class ChatArea {
 		boolean hideChat = owner.chatBoxHidden && !isFixed() && !owner.messagePromptRaised
 				&& owner.inputDialogState == 0 && owner.aString844 == null && owner.backDialogID == -1 && owner.dialogID == -1
 				&& !ChatboxItemSearch.open;
-		boolean transparentChat = !isFixed() && resizableChatTransparent && !hideChat;
+		// A translucent chatbox is a preference about the message area, and a creation chatbox is
+		// not messages: it is a row of buttons with item icons on it, and it reads as one only
+		// against a solid background. So the one family that asks for this - MakeX - turns the
+		// background back on for as long as it is the dialog on screen, and closing it puts the
+		// player's preference back exactly as it was.
+		boolean transparentChat = !isFixed() && resizableChatTransparent && !hideChat
+				&& !MakeX.owns(owner.backDialogID);
 		if (transparentChat) {
 			copyWorldUnderHud(owner.aRSImageProducer_1166, 0, owner.chatDrawY());
 			// Frosted glass ~5–8% opacity over the message area (filter row stays solid below).
@@ -175,6 +192,8 @@ public final class ChatArea {
 				chatBg.drawSprite(0, 0);
 				DrawingArea.defaultDrawingAreaSize();
 			}
+		} else if (MakeX.owns(owner.backDialogID)) {
+			drawCreationPanel();
 		} else if (!transparentChat) {
 			Sprite chatBg = currentChatArea();
 			if (chatBg != null) {
@@ -186,7 +205,7 @@ public final class ChatArea {
 			if (owner.menuOpen && owner.menuScreenArea == 2 && isFixed()) {
 				owner.drawMenu();
 			}
-			if (isFixed()) {
+			if (isFixed() && !owner.fixedFramePresentedByLayer()) {
 				Renderer.blit(owner.aRSImageProducer_1166, owner.graphics, 0, owner.chatDrawY());
 			}
 			owner.aRSImageProducer_1165.initDrawingArea();
@@ -194,23 +213,31 @@ public final class ChatArea {
 			return;
 		}
 		TextDrawingArea textDrawingArea = owner.aTextDrawingArea_1271;
+		// The chat's own prompt lines, in the same ink the messages use and for the same reason:
+		// in resizable mode with a transparent chat there is no panel behind them, and black on the
+		// world is unreadable. The shadow comes with it - without it white text over a bright sky
+		// is the same problem in the other direction.
+		int promptInk = promptInk();
+		int promptInputInk = promptInputInk();
+		int promptShadow = chatShadow();
 		if (ChatboxItemSearch.open) {
 			ChatboxItemSearch.draw(owner);
 		} else if (owner.messagePromptRaised) {
-			owner.newBoldFont.drawCenteredString(owner.aString1121, 259, 60, 0, -1);
-			owner.newBoldFont.drawCenteredString(owner.promptInput + "*", 259, 80, 128, -1);
+			owner.newBoldFont.drawCenteredString(owner.aString1121, 259, 60, promptInk, promptShadow);
+			owner.newBoldFont.drawCenteredString(owner.promptInput + "*", 259, 80, promptInputInk,
+					promptShadow);
 		} else if (owner.inputDialogState == 1) {
-			owner.newBoldFont.drawCenteredString("Enter amount:", 259, 60, 0, -1);
+			owner.newBoldFont.drawCenteredString("Enter amount:", 259, 60, promptInk, promptShadow);
 			owner.newBoldFont.drawCenteredString(owner.amountOrNameInput + "*", 259, 80,
-					128, -1);
+					promptInputInk, promptShadow);
 		} else if (owner.inputDialogState == 2) {
-			owner.newBoldFont.drawCenteredString(openInterfaceID == 5292 ? "Enter item name:" : "Enter name:", 259, 60, 0, -1);
+			owner.newBoldFont.drawCenteredString(openInterfaceID == 5292 ? "Enter item name:" : "Enter name:", 259, 60, promptInk, promptShadow);
 			owner.newBoldFont.drawCenteredString(owner.amountOrNameInput + "*", 259, 80,
-					128, -1);
+					promptInputInk, promptShadow);
 		} else if (owner.aString844 != null) {
-			owner.newBoldFont.drawCenteredString(owner.aString844, 259, 60, 0, -1);
-			owner.newBoldFont.drawCenteredString("Click to continue", 259, 80, 128,
-					-1);
+			owner.newBoldFont.drawCenteredString(owner.aString844, 259, 60, promptInk, promptShadow);
+			owner.newBoldFont.drawCenteredString("Click to continue", 259, 80, promptInputInk,
+					promptShadow);
 		} else if (owner.backDialogID != -1) {
 			owner.drawInterface(0, 20, RSInterface.interfaceCache[owner.backDialogID], 20);
 		} else if (owner.dialogID != -1) {
@@ -573,12 +600,23 @@ public final class ChatArea {
 			else
 				s = TextClass.fixName(owner.myUsername);
 			int nameX = chatMsgX;
+			// The local player's own rank icon, in front of their name, always - not only once
+			// they have spoken. Rights 1..9 map to the icon slots the chat lines already use for
+			// the @crN@ prefixes, and a regular player (rights 0) gets no icon and no gap.
+			if (owner.modIcons != null && owner.myPrivilege >= 1 && owner.myPrivilege <= 9) {
+				Sprite rank = owner.modIcons[rankIconSlot(owner.myPrivilege)];
+				if (rank != null) {
+					rank.drawSprite(nameX + 1, 133 - 11);
+					nameX += 14;
+				}
+			}
 			textDrawingArea.method389(transparentChatActive(), nameX, chatInk(0), s + ":", 133);
 			int inputX = nameX + 1 + textDrawingArea.getTextWidth(s + ": ");
+			int hintInk = transparentChatActive() ? 0xffffff : 0x808080;
 			if (keyRemapping && !enterToChat) {
-				textDrawingArea.method385(0x808080, "Chat disabled", 133, inputX);
+				textDrawingArea.method385(hintInk, "Chat disabled", 133, inputX);
 			} else if (keyRemapping && enterToChat && !chatTypeFocused) {
-				textDrawingArea.method385(0x808080, "Press Enter to chat", 133, inputX);
+				textDrawingArea.method385(hintInk, "Press Enter to chat", 133, inputX);
 			} else {
 				textDrawingArea.drawChatInput(chatInputColor(), inputX, owner.inputString + "*", 133, transparentChatActive());
 			}
@@ -587,7 +625,7 @@ public final class ChatArea {
 		if (owner.menuOpen && owner.menuScreenArea == 2 && isFixed()) {
 			owner.drawMenu();
 		}
-		if (isFixed()) {
+		if (isFixed() && !owner.fixedFramePresentedByLayer()) {
 			Renderer.blit(owner.aRSImageProducer_1166, owner.graphics, 0, owner.chatDrawY());
 		}
 		owner.aRSImageProducer_1165.initDrawingArea();
@@ -1426,6 +1464,68 @@ public final class ChatArea {
 		owner.pushMessage("Chat history cleared.", 0, "");
 	}
 
+	/**
+	 * The panel behind a creation chatbox: its own art, drawn solid.
+	 *
+	 * <p>Solid even when the player has asked for a transparent chat. The row is read as a row of
+	 * buttons, and a button wants something behind it - which is the exception {@link MakeX#owns}
+	 * exists to declare. The sprite is the crafting interface's own background at 519x142, exactly
+	 * the region the dialog occupies, so it goes down at the origin with no arithmetic.
+	 *
+	 * <p>The filter row underneath is re-cut from the ordinary chat sprite. The filter buttons live
+	 * there and are drawn by the cache, but they were authored against the old panel, so the strip
+	 * below 142 is painted from the chat art over the new one - the same trick the transparent path
+	 * uses to keep its own filter row solid.
+	 */
+	private void drawCreationPanel() {
+		Sprite panel = creationPanel();
+		if (panel == null) {
+			Sprite fallback = currentChatArea();
+			if (fallback != null) {
+				fallback.drawSprite(0, 0);
+			}
+			return;
+		}
+		panel.drawSprite(0, 0);
+		Sprite strip = straightChatArea();
+		if (strip != null && strip.myHeight > panel.myHeight) {
+			DrawingArea.setDrawingArea(strip.myHeight, 0, strip.myWidth, panel.myHeight);
+			strip.drawSprite(0, 0);
+			DrawingArea.defaultDrawingAreaSize();
+		}
+	}
+
+	/**
+	 * The creation panel, loaded at most once.
+	 *
+	 * <p>A failed load is remembered as a failure rather than retried: the file is either in the
+	 * runtime's sprite folder or it is not, and looking again every frame the player spends choosing
+	 * a quantity is how a missing sprite becomes a stutter.
+	 */
+	private Sprite creationPanel() {
+		if (!creationPanelTried) {
+			creationPanelTried = true;
+			Sprite loaded = new Sprite("ItemCraftingChatInterface/Chatboxbackground");
+			creationPanel = loaded.myWidth > 0 && loaded.myHeight > 0 ? loaded : null;
+		}
+		return creationPanel;
+	}
+
+	/** The chat sprite whatever the mode, for the rows under the message area. */
+	private Sprite straightChatArea() {
+		return owner.chatAreaResizable != null ? owner.chatAreaResizable : owner.chatArea;
+	}
+
+	/** The ink for the chat's own prompt lines, on the same rule as {@link #chatInk}. */
+	private int promptInk() {
+		return transparentChatActive() ? 0xffffff : 0;
+	}
+
+	/** The ink for what the player is typing into one of those prompts. */
+	private int promptInputInk() {
+		return transparentChatActive() ? 0xffffff : 128;
+	}
+
 	private Sprite currentChatArea() {
 		if (isFixed()) {
 			return owner.chatArea;
@@ -1492,6 +1592,28 @@ public final class ChatArea {
 
 	private int chatInputColor() {
 		return transparentChatActive() ? 0xffffff : 255;
+	}
+
+	/**
+	 * The mod-icon slot a player-rights value draws from.
+	 *
+	 * <p>The chat line prefixes are the source of truth and they are not in order: {@code @cr1@}
+	 * is slot 0, {@code @cr2@} is slot 2 and {@code @cr3@} is slot 1 (moderator, then the two
+	 * separate artist/QA slots), and {@code @cr4@} onward run straight to slot {@code n-1}. The
+	 * prompt's own icon has to come from the same slots or a moderator's name would wear an
+	 * admin's crown.
+	 */
+	static int rankIconSlot(int rights) {
+		switch (rights) {
+		case 1:
+			return 0;
+		case 2:
+			return 2;
+		case 3:
+			return 1;
+		default:
+			return rights - 1;
+		}
 	}
 
 	private int splitPrivateMessageY(int line) {

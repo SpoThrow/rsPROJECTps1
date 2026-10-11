@@ -83,7 +83,7 @@ public class Jframe extends client implements ActionListener {
 			frame.setLayout(new BorderLayout());
 			setFocusTraversalKeysEnabled(false);
 			setFocusable(true);
-			boolean resizable = frameMode == ScreenMode.RESIZABLE;
+			boolean resizable = frameMode == ScreenMode.RESIZABLE || StretchedMode.active();
 			frame.setResizable(resizable);
 			frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 			TitleBar.install(frame);
@@ -92,8 +92,8 @@ public class Jframe extends client implements ActionListener {
 			gamePanel.setLayout(new BorderLayout());
 			gamePanel.setFocusable(false);
 			gamePanel.add(this);
-			int canvasW = resizable ? Math.max(765, savedResizeWidth) : 765;
-			int canvasH = resizable ? Math.max(503, savedResizeHeight) : 503;
+			int canvasW = resizable ? StretchedMode.canvasW(Math.max(765, savedResizeWidth)) : 765;
+			int canvasH = resizable ? StretchedMode.canvasH(Math.max(503, savedResizeHeight)) : 503;
 			gamePanel.setPreferredSize(new Dimension(canvasW, canvasH));
 			setPreferredSize(new Dimension(canvasW, canvasH));
 			frame.getContentPane().add(gamePanel, BorderLayout.CENTER);

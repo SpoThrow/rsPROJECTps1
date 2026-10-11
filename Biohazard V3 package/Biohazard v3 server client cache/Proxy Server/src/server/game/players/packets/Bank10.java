@@ -19,7 +19,7 @@ public class Bank10 implements PacketType {
 		case 4233:
 		case 4239:
 		case 4245:
-			JewelryMaking.mouldItem(c, removeId, 10);
+			JewelryMaking.makeNow(c, removeId, 10);
 			break;
 			
 			case 1688:

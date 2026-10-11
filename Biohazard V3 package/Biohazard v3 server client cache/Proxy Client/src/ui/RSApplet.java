@@ -417,6 +417,8 @@ public class RSApplet extends Applet implements Runnable, MouseListener, MouseMo
 			i -= 4;//4
 			j -= 22;//22
 		}
+		i = StretchedMode.toGameX(i);
+		j = StretchedMode.toGameY(j);
 		idleTime = 0;
 		clickX = i;
 		clickY = j;
@@ -499,6 +501,8 @@ public class RSApplet extends Applet implements Runnable, MouseListener, MouseMo
             i -= 4;
             j -= 22;
         }
+        i = StretchedMode.toGameX(i);
+        j = StretchedMode.toGameY(j);
         if (mouseWheelDown) {
             int dx = mouseWheelX - i;
             int dy = mouseWheelY - j;
@@ -532,6 +536,8 @@ public class RSApplet extends Applet implements Runnable, MouseListener, MouseMo
             i -= 4;
             j -= 22;
         }
+        i = StretchedMode.toGameX(i);
+        j = StretchedMode.toGameY(j);
       if (System.currentTimeMillis() - clickTime >= 250L
             || Math.abs(saveClickX - i) > 5 || Math.abs(saveClickY - j) > 5) {
             idleTime = 0;

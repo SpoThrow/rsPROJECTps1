@@ -21,6 +21,7 @@ import server.content.skills.Fletching.Bolts;
 import server.content.skills.Fletching.Darts;
 import server.content.skills.Fletching.Fletch;
 import server.event.CycleEventHandler;
+import server.game.items.UseItem;
 import server.game.players.Client;
 import server.game.players.Player;
 import server.game.players.actions.items.ItemUseRegistry;
@@ -705,5 +706,228 @@ class FletchingTest {
 		assertEquals(0, count(c, 841), "a cancelled action must not deliver");
 		assertEquals(10, count(c, 1777), "and must not consume");
 		assertEquals(10, count(c, 50));
+	}
+
+	// ---------------------------------------------------------------------------------------
+	// Gem bolt tips: the chisel's second chatbox.
+	//
+	// Chisel on an already-cut gem used to convert one gem on the spot with no question asked and
+	// nowhere to ask it. It now opens the same five-row menu the other families use, on the cut
+	// gems in the pack, and a row makes that gem's bolt tips ten at a time. The table below is
+	// checked by id rather than through a private field, so a row whose gem and product were
+	// swapped reads as a failure here instead of as a menu that quietly cuts the wrong thing.
+	// ---------------------------------------------------------------------------------------
+
+	private static final int CHISEL = 1755;
+	private static final int CUT_SAPPHIRE = 1607;
+	private static final int SAPPHIRE_TIPS = 9189;
+	private static final int CUT_DIAMOND = 1601;
+	private static final int DIAMOND_TIPS = 9192;
+	private static final int CUT_RUBY = 1603;
+	private static final int UNCUT_SAPPHIRE = 1623;
+	private static final int TIPS_PER_GEM = 10;
+	private static final int FLETCH_TICKS = 2;
+
+	/** The eight cut gems the table lists, in table order: boltTips must match this exactly. */
+	private static final int[] CUT_GEMS = {
+			1611, 1613, CUT_SAPPHIRE, 1605, CUT_RUBY, CUT_DIAMOND, 1615, 6573,
+	};
+
+	@Test
+	void everyBoltTipRowIsKeyedOnItsCutGemAndNotItsUncutOne() {
+		// boltTipRecipe is what sends a chisel click to the tips menu rather than to gem cutting,
+		// so an uncut id answering here would tip a gem the player had not cut yet.
+		for (int[] row : Fletching.boltTips) {
+			int[] found = Fletching.boltTipRecipe(row[0]);
+			assertNotNull(found, "no bolt-tip recipe for cut gem " + row[0]);
+			assertEquals(row[1], found[1], "product for " + row[0]);
+			assertEquals(row[2], found[2], "animation for " + row[0]);
+		}
+		assertNull(Fletching.boltTipRecipe(UNCUT_SAPPHIRE), "an uncut gem is not a bolt-tip recipe");
+		assertNull(Fletching.boltTipRecipe(CHISEL), "and neither is the chisel");
+		assertNull(Fletching.boltTipRecipe(-1));
+	}
+
+	@Test
+	void everyCutGemTheTableListsHasATipProductAndAnAnimation() {
+		// The whole point of reaching this menu from a cut gem: each row has to be able to make
+		// something, or the row is a box that does nothing when clicked.
+		assertEquals(CUT_GEMS.length, Fletching.boltTips.length,
+				"the table is the eight cut gems the guide lists, no more and no fewer");
+		for (int i = 0; i < Fletching.boltTips.length; i++) {
+			assertEquals(CUT_GEMS[i], Fletching.boltTips[i][0], "row " + i + " is out of table order");
+			assertTrue(Fletching.boltTips[i][1] > 0, "row " + i + " has no product");
+			assertTrue(Fletching.boltTips[i][2] > 0, "row " + i + " has no animation");
+		}
+	}
+
+	@Test
+	void theMenuListsTheCutGemsInTheTablesOrderNotThePacks() {
+		// Diamond was put in first and sapphire second, and sapphire is still first: the rows are
+		// the table's order, so the same gems always land on the same buttons.
+		Client c = withItems(CUT_DIAMOND, 1, CUT_SAPPHIRE, 1);
+
+		assertArrayEqualsInt(new int[] { CUT_SAPPHIRE, CUT_DIAMOND }, Fletching.carriedBoltTipGems(c));
+	}
+
+	@Test
+	void twoStacksOfOneCutGemAreOneRow() {
+		Client c = withItems(CUT_SAPPHIRE, 5, CUT_SAPPHIRE, 7);
+
+		assertArrayEqualsInt(new int[] { CUT_SAPPHIRE }, Fletching.carriedBoltTipGems(c));
+	}
+
+	@Test
+	void uncutGemsAreNotOnTheBoltTipMenu() {
+		// The two menus share the chisel, and this is what keeps a click on the wrong one honest.
+		Client c = withItems(UNCUT_SAPPHIRE, 5);
+
+		assertArrayEqualsInt(new int[0], Fletching.carriedBoltTipGems(c));
+	}
+
+	@Test
+	void theChiselOnACutGemOpensTheMenuRatherThanTipping() {
+		// The change in one assertion: the click that used to make ten tips now only asks.
+		Client c = withItems(CHISEL, 1, CUT_SAPPHIRE, 5);
+
+		UseItem.ItemonItem(c, CHISEL, CUT_SAPPHIRE);
+
+		assertEquals(CreationMenu.Kind.BOLT_TIPS, c.creationMenu, "the chatbox is up");
+		assertEquals(5, count(c, CUT_SAPPHIRE), "and no gem has been touched");
+		assertEquals(0, count(c, SAPPHIRE_TIPS));
+	}
+
+	@Test
+	void theChiselOnAnUncutGemStillOpensTheGemCuttingMenu() {
+		Client c = withItems(CHISEL, 1, UNCUT_SAPPHIRE, 5);
+		c.skills.playerLevel[Player.playerCrafting] = 99;
+
+		UseItem.ItemonItem(c, UNCUT_SAPPHIRE, CHISEL);
+
+		assertEquals(CreationMenu.Kind.GEM_CUTTING, c.creationMenu,
+				"uncut gems keep their own menu, in either argument order");
+	}
+
+	@Test
+	void theChiselWithNoCutGemsOpensNothing() {
+		Client c = withItems(CHISEL, 1);
+
+		Fletching.openBoltTips(c);
+
+		assertNull(c.creationMenu, "there is nothing to offer, so nothing is offered");
+	}
+
+	@Test
+	void theRowOnTheBoltTipMenuIsTheGemThatGetsTipped() {
+		// Two kinds in the pack, and the row decides which one: the same contract as herblore's
+		// herbs, where a button decides which potion a pair makes.
+		Client c = withItems(CHISEL, 1, CUT_SAPPHIRE, 3, CUT_DIAMOND, 3);
+		Fletching.openBoltTips(c);
+
+		assertArrayEqualsInt(new int[] { CUT_SAPPHIRE, CUT_DIAMOND, -1, -1, -1 }, c.creationRows);
+		CreationMenu.route(c, CreationMenu.BUTTONS[1][0]); // row 2 is the diamond, make 1
+		passCycles(FLETCH_TICKS);
+
+		assertEquals(TIPS_PER_GEM, count(c, DIAMOND_TIPS), "the diamond row made diamond tips");
+		assertEquals(3, count(c, CUT_SAPPHIRE), "and the sapphires were left alone");
+	}
+
+	@Test
+	void makeOneTurnsOneGemIntoTenTipsAndNotTheWholeStack() {
+		Client c = withItems(CHISEL, 1, CUT_SAPPHIRE, 10);
+		Fletching.openBoltTips(c);
+
+		CreationMenu.route(c, CreationMenu.BUTTONS[0][0]); // make 1
+		passCycles(FLETCH_TICKS * 6);
+
+		assertEquals(TIPS_PER_GEM, count(c, SAPPHIRE_TIPS), "the button asked for one gem");
+		assertEquals(9, count(c, CUT_SAPPHIRE), "and one gem is what it spent");
+	}
+
+	@Test
+	void makeTenSpendsTenGemsAndStopsThere() {
+		// The button's amount is what ends the loop, not the stack: 28 gems held and make-10 means
+		// ten actions and eighteen gems left. The tip count is not asserted because it is bounded by
+		// inventory space rather than by the action: bolt tips do not stack in this revision, so a
+		// full pack caps how many of them fit whatever the loop does.
+		Client c = withItems(CHISEL, 1, CUT_SAPPHIRE, 28);
+		Fletching.openBoltTips(c);
+
+		CreationMenu.route(c, CreationMenu.BUTTONS[0][2]); // make 10
+		passCycles(FLETCH_TICKS * 20);
+
+		assertEquals(18, count(c, CUT_SAPPHIRE), "ten gems spent, eighteen left");
+		assertTrue(count(c, SAPPHIRE_TIPS) >= TIPS_PER_GEM, "and they became bolt tips");
+	}
+
+	@Test
+	void theActionEndsWhenTheGemsRunOutBeforeTheAmount() {
+		Client c = withItems(CHISEL, 1, CUT_SAPPHIRE, 3);
+		Fletching.openBoltTips(c);
+
+		CreationMenu.route(c, CreationMenu.BUTTONS[0][3]); // make 28
+		passCycles(FLETCH_TICKS * 8);
+
+		assertEquals(0, count(c, CUT_SAPPHIRE), "three is all there was");
+		assertTrue(count(c, SAPPHIRE_TIPS) > 0, "and every one of them was offered");
+	}
+
+	@Test
+	void choosingABatchClosesTheBoltTipMenu() {
+		Client c = withItems(CHISEL, 1, CUT_SAPPHIRE, 10);
+		Fletching.openBoltTips(c);
+
+		CreationMenu.route(c, CreationMenu.BUTTONS[0][0]);
+
+		assertNull(c.creationMenu, "a running batch cannot still be taking clicks");
+	}
+
+	@Test
+	void aBankedChiselStopsTheRowRatherThanTippingWithoutOne() {
+		// The conditions are re-checked on the click, not trusted from whatever opened the menu:
+		// the pack can have changed while the menu was up.
+		Client c = withItems(CUT_SAPPHIRE, 5);
+		Fletching.selectBoltTips(c, CUT_SAPPHIRE, 1);
+		passCycles(FLETCH_TICKS * 2);
+
+		assertEquals(0, count(c, SAPPHIRE_TIPS), "no chisel, no tips");
+		assertEquals(5, count(c, CUT_SAPPHIRE), "and no gem is consumed");
+	}
+
+	@Test
+	void walkingAwayEndsBoltTippingBeforeItDelivers() {
+		Client c = withItems(CHISEL, 1, CUT_SAPPHIRE, 10);
+		Fletching.openBoltTips(c);
+
+		CreationMenu.route(c, CreationMenu.BUTTONS[0][3]);
+		c.getPA().resetVariables(); // what every walk step reaches
+		passCycles(FLETCH_TICKS * 4);
+
+		assertEquals(0, count(c, SAPPHIRE_TIPS), "a cancelled action must not deliver");
+		assertEquals(10, count(c, CUT_SAPPHIRE), "and must not consume");
+	}
+
+	@Test
+	void theBoltTipRowsAreRegisteredOnNothingElse() {
+		// The chisel pair is deliberately left in ItemonItem's legacy body, so a cut gem plus a
+		// chisel must not also be a registry pair or the click would reach both paths.
+		for (int gem : CUT_GEMS) {
+			assertFalse(ItemUseRegistry.isRegistered(CHISEL, gem),
+					"cut gem " + gem + " is a registry pair, so the legacy chisel body would also fire");
+		}
+	}
+
+	/** Runs the tick loop {@code cycles} times. */
+	private static void passCycles(int cycles) {
+		for (int i = 0; i < cycles; i++) {
+			CycleEventHandler.process();
+		}
+	}
+
+	private static void assertArrayEqualsInt(int[] expected, int[] actual) {
+		assertEquals(expected.length, actual.length);
+		for (int i = 0; i < expected.length; i++) {
+			assertEquals(expected[i], actual[i], "element " + i);
+		}
 	}
 }
