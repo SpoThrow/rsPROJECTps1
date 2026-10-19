@@ -1,5 +1,910 @@
 # Update Log
 
+## 2026-10-19 - Wilderness bandit camp: level 22 + level 130 bandits, OSRS drops, aggression
+
+**What changed:**
+- Added 16 bandit spawns around the wilderness Bandit Camp from the two position screenshots, 8 of each level, alternating so both levels are spread through the camp: 3032/3683, 3039/3683, 3036/3686, 3032/3688, 3038/3691, 3043/3690, 3042/3696, 3034/3694, 3025/3690, 3025/3695, 3032/3701, 3031/3706, 3038/3701, 3044/3696, 3052/3692, 3046/3690.
+- Level 22 is the cache's own id **195** (Bandit, 27 hp, max hit 3, attack/defence 17). The cache has no level 130 bandit at all, so id **6605** is a new client-side `EntityDef` entry: the level-74 bandit's body, combat level 130, Attack action. Server side is `npc = 6605 Bandit 130 155` (155 hp, max hit 12, attack/defence 57).
+- Both bandit tables follow the OSRS wiki, filtered to items this server has. Level 22: bones always, then iron scimitar, steel sq shield, steel axe, chaos/water/air/death/law/blood/mind/nature runes, all 11 grimy herbs, coins 1-80, coal, gems and the rare key halves/rune spear/shield half/dragon spear. Level 130: bones always, then rune full/med helm, rune scimitar, adamant scimitar, mith sq shield, mith axe, dragon longsword, the same runes in larger amounts, herbs, coins up to 250, coal x5 and the gem table at its rarer rates.
+- Omitted because they do not exist here: dark fishing bait and the looting bag (not in `item.cfg`), and the hard clue scroll (no handler on this server).
+- `NPCHandler.isAggressive` now covers both bandit ids **and fire giants (110)**; red dragons (53) were already in the switch, so the new Waterfall fire giants no longer stand still while being hit.
+- Runtime fixes that came with the custom id: 6605 has an explicit attack emote (806) and both bandits a human death emote (836), because the server's `npc.dat` has no row for 6605 and the default emotes would have been invalid.
+- Corrected the `npc.cfg` rows for 195/196 (name typo `Gaurd_Bandit`, combat 21 -> 22) to match the cache; neither had any spawns before.
+
+**Files touched:** `Proxy Server/Data/cfg/spawn-config.cfg`, `Proxy Server/Data/cfg/npc.cfg`, `Proxy Server/Data/cfg/npc_drops.cfg`, `Proxy Server/src/server/game/npcs/NPCHandler.java`, `Proxy Client/src/def/EntityDef.java`, `Proxy Server/test/server/game/npcs/BanditDropTableTest.java`, `UPDATE_LOG.md`
+
+**Status:** done - client `compileJava` + `installBin`, server `compileJava` and the full `test` task pass. A probe loading the real config through `NPCHandler` confirms 41/44 drop entries, hp 27/155, 8 + 8 spawns and `isAggressive` true for 195, 6605, 110 and 53. Not yet checked in-game (the 130 bandit's look is the level-74 body, since the cache has no 130 model).
+
+## 2026-10-19 - Red dragons added to Red Dragon Isle; OSRS drop table rebuilt
+
+**What changed:**
+- Added 11 Red Dragon spawns (id 53) on the tiles from the in-game position readouts: 3212/3846, 3210/3836, 3203/3837, 3198/3849, 3190/3834, 3202/3824, 3192/3817, 3182/3812, 3207/3810, 3214/3819, 3223/3828 (plane 0, random walk, same stats as the three existing Brimhaven red dragons).
+- Replaced the thin red dragon drop row with the real OSRS table, filtered to items this server has: always dragon bones + red dragonhide, then one rolled winner from mith 2h/axe/battleaxe, rune dart x8, mith javelin x20, mith kiteshield, adamant platebody, rune longsword, rune arrow x4, law/blood/death runes, the 11 grimy herbs, 66-690 coins, chocolate cake x3, adamantite bar, uncut sapphire/emerald/ruby/diamond, chaos/nature talisman, rune javelin x5, key halves, rune spear, shield left half and dragon spear, at their wiki rates.
+- Dragon javelin tips, ensouled dragon heads, grubby/brimstone keys, tattered pages and the hard clue scroll are omitted because this server has no item/mechanic for them.
+
+**Files touched:** `Proxy Server/Data/cfg/spawn-config.cfg`, `Proxy Server/Data/cfg/npc_drops.cfg`, `UPDATE_LOG.md`
+
+**Status:** done - server `compileJava` and the `server.game.npcs`/`server.game.bots.world` tests pass; every one of the 40 drop item ids was read back out of the cache to confirm it is a real item. Not yet checked in-game.
+
+## 2026-10-19 - Fire giants added to the Waterfall dungeon; teleport moved to 2577 9889
+
+**What changed:**
+- Added 12 Fire Giant spawns (id 110) on the tiles from the in-game position readouts: 2580/9890, 2576/9889, 2574/9894, 2577/9897, 2580/9897, 2582/9894, 2563/9884, 2564/9887, 2567/9910, 2563/9910, 2573/9874, 2577/9877 (plane 0, random walk, same stats as the existing fire giant spawns).
+- The teleporter's `Monsters > Fire Giants` destination now lands at **2577, 9889** (was 2575, 9885), still labelled "Waterfall dungeon".
+- The 6 fire giants already in Taverley dungeon are untouched.
+
+**Files touched:** `Proxy Server/Data/cfg/spawn-config.cfg`, `Proxy Server/Data/cfg/teleport-menu.cfg`, `UPDATE_LOG.md`
+
+**Status:** done - server `test` passes; not yet checked in-game. `Proxy Server/bin/cfg/*` is a stale mirror of `Data/cfg` and was deliberately left alone (it is already missing other newer entries).
+
+## 2026-10-19 - Equipment screen / Set Bonuses: fit inside the frame, green Worn, back to 15106
+
+**What changed:**
+- Both screens now fit inside the frame. Measured the background (`Equipment/CUSTOM 7` is 502x303 at (4,20), bottom border at y=316) instead of guessing: the Set Bonuses footnote moved from y=312 to 292, and on 15106 Undead/Slayer share a row (338/430, y=268) with Weapon speed and Base/Actual above the border (last row y=296). The worn slot grid stays where it was.
+- A worn set now reads **@gre@Worn** (green) on 15200 instead of plain "Worn".
+- Closing 15200 with its X returns to the equipment stats screen (15106) instead of closing everything. Handled in the client's menu-action 200 path.
+- Both interfaces declare `width = 512, height = 334`. `addTabInterface` leaves height at 700, which made them pin to the top of the view; with the real height they centre in resizable exactly like the bank, but still do not stretch with the window.
+
+**Files touched:** `Proxy Client/src/ui/Interfaces.java`, `Proxy Client/src/game/client.java`, `Proxy Server/src/server/game/players/combat/EquipmentSets.java`, `Proxy Server/src/server/game/items/ItemAssistant.java`, `docs/EQUIPMENT_TAB_DESIGN.md`, `docs/mockups/equipment-tab-layout-check.png`, `docs/mockups/set-bonus-layout-check.png`, `UPDATE_LOG.md`
+
+**Status:** done - client `installBin` and server `compileJava` pass; in-game look still worth checking.
+
+## 2026-10-19 - Worn equipment slots restored on the stats screen
+
+**What changed:**
+- Corrects the entry below: the worn equipment grid was dropped from interface **15106** when the stats screen was rewritten. It is back, using the same slot widgets (**1645-1667, 1688**) at their original coordinates, so the screen again reads bonuses left, character middle, worn slots right.
+- The new rows were re-fitted around it: Attack/Defence/Other stay in the left column (now including Ranged STR and Magic DMG), and Target-specific + Weapon speed sit under the slot grid where the old Combat block was. The Set Bonus button is bottom-left at (20, 292).
+- Client `installBin` run so `Proxy Client/bin` (what `Run.bat` launches) carries the change, not just `build/`.
+
+**Files touched:** `Proxy Client/src/ui/Interfaces.java`, `Proxy Client/bin/ui/Interfaces.class`, `docs/EQUIPMENT_TAB_DESIGN.md`, `UPDATE_LOG.md`
+
+**Status:** done - client `compileJava` and `installBin` pass; needs an in-game look to confirm spacing.
+
+## 2026-10-19 - OSRS equipment tab, Set Bonus panel and Barrows effects implemented
+
+**What changed:**
+- Reworked client interface **15106** into the OSRS layout: paperdoll left, one stats column right (Attack/Defence/Other/Target-specific/Weapon speed), plus a **Set Bonus** button `15140`. Removed the equipment-slot grid from the stats screen and deleted the client-side Combat/DPS block (`Max hit`, `DPS`, `Accuracy`, `Style`) and its `refreshEquipmentCombatStats()` hooks. No View DPS button was added.
+- Added interface **15200** ("Set Bonuses") started by `EquipmentSets.sendPanel(c)`; it lists all nine sets with a `Worn`/`-` status and effect line. `ClickingButtons` case 15140 opens it over the equipment tab (`sendFrame248(15200, 3213)`).
+- `writeBonus()` now also sends Ranged STR (from `getRangeStr` on ammo + weapon), `Magic DMG: 0.0%`, `Undead: 0%`, `Slayer task: 0%`, and base/actual weapon speed in seconds. `getAttackDelay()` was split so the speed row uses the weapon-only `getBaseAttackDelay()`.
+- New `EquipmentSets` registry is now the single source for Dharok/Guthan/Verac/Torag/Karil/Ahrim/Void set checks; `PlayerAssistant.fullVeracs/fullGuthans` and `Player.fullVoid*` delegate to it. Added Ahrim (magic, drain 5 Strength / NPC attack -5), Karil (ranged, drain 5 Agility / NPC defence -5) and Torag (melee, drain 20% energy / NPC defence -5) effects, all 25% on hit.
+
+**Files touched:** `Proxy Client/src/ui/Interfaces.java`, `Proxy Client/src/game/client.java`, `Proxy Server/src/server/game/players/combat/EquipmentSets.java`, `Proxy Server/src/server/game/players/combat/CombatAssistant.java`, `Proxy Server/src/server/game/items/ItemAssistant.java`, `Proxy Server/src/server/game/players/PlayerAssistant.java`, `Proxy Server/src/server/game/players/Player.java`, `Proxy Server/src/server/game/players/packets/ClickingButtons.java`, `docs/EQUIPMENT_TAB_DESIGN.md`, `UPDATE_LOG.md`
+
+**Status:** done - server `compileJava` and `test` pass, client `compileJava` passes. In-game visual check of 15106/15200 still to do.
+
+## 2026-10-19 - Equipment tab, set-bonus panel and DPS: design draft only
+
+**What changed:**
+- Wrote `docs/EQUIPMENT_TAB_DESIGN.md` and a rendered mockup (`docs/mockups/equipment-tab-draft.html/.png`) for the OSRS-style equipment tab, the Set Bonus panel, and the deferred DPS display.
+- No game code changed. The draft records what the server can honestly show today: 12 bonus fields, ranged strength only inside `rangeMaxHit()`, and no magic-damage/undead/slayer item stats. It also records that Ahrim, Karil and Torag have no set effect in the server while Dharok, Guthan, Verac and Void do.
+- Recommendation in the draft: keep DPS off the tab, compute it server-side against a named target later, and drive the Set Bonus panel from one `EquipmentSets` registry shared with combat.
+
+**Files touched:** `docs/EQUIPMENT_TAB_DESIGN.md`, `docs/mockups/equipment-tab-draft.html`, `docs/mockups/equipment-tab-draft.png`, `UPDATE_LOG.md`
+
+**Status:** partial - no implementation started; waiting on the four decisions at the end of the design doc (ranged STR source, magic/undead/slayer rows, missing barrows effects, DPS target model).
+
+## 2026-10-18 - Crystal key chest preview's close button now closes it
+
+**What changed:**
+- The preview's close button is really id **60502**, but packet 185 carries it as a 16-bit word (`0xEC56`) and `Misc.hexToInt` decodes that as byte0*1000+byte1, so it reached `ClickingButtons` as **236086** and matched no case. The teleport screens were already rescued by re-reading the true word for known ranges; the crystal chest block (**60500-60599**) was missing from that whitelist. Added it.
+- With the true id the existing `CrystalChestPreviewButtons` registration handles the click with `removeAllWindows()`, the same close path the teleport menu uses. No other button on the screen is clickable, so nothing else changed.
+
+**Files touched:** `Proxy Server/src/server/game/players/packets/ClickingButtons.java`, `UPDATE_LOG.md`
+
+**Status:** done - `gradlew compileJava` passes; `CrystalChestPreviewTest` 8/8 passes.
+
+## 2026-10-18 - RFD arena floor plates no longer block movement
+
+**What changed:**
+- The hatched grey floor plates in the Recipe for Disaster arena were baked into the map (region 7507) as object type 10, so the server registered them as solid scenery and the arena was full of invisible walls. The plates are ids **12366, 12367, 12368** (the same plate on each instance plane) plus the animated floor overlays **12701-12704**.
+- `Region.addObject` now asks `RFDArenaDecor.isNonBlockingFloor(...)` before adding collision; inside the arena footprint (x 1870-1919, y 5325-5375) those ids are still registered as scenery but never clip. Bounds-limited, so the ids stay solid anywhere else.
+
+**Files touched:** `Proxy Server/src/server/clip/region/Region.java`, new `Proxy Server/src/server/game/minigames/rfd/RFDArenaDecor.java`
+
+**Status:** done - `gradlew compileJava` passes. `RFDMinigame.java` was not touched and needs no hook.
+
+## 2026-10-18 - The godsword-on-the-platebody bug, closed for every god-named weapon
+
+**What changed:**
+- **The reported ZGS + SGS bug was real, and the fix that was already in was too narrow.** `Item.playerBody` decides the body slot by matching substrings of the item name, and its keyword list contains `"Saradomin"`, `"Guthix"` and `"Zamorak"` because the god platebodies and robe tops are called "Saradomin plate", "Guthix ...", "Zamorak ...". An exclusion for `"godsword"` (the fix the server's author posted) had already been applied, so the four godswords equip to slot 3 correctly. But the exclusion named **one kind of weapon**, and the same word-match was still stealing **24 other ids**: the three god staves (2415-2417), all six croziers (10440-10445), the Zamorakian spear (11716, 11717, 13454), the three god bows (19143-19151) and the three god arrows (19152-19162), which are 1h, 2h and ammunition respectively and were all equipped to the body slot.
+- **`Item.playerBody` now excludes weapons by what they are, not by name.** New `Item.isWeaponName` matches a weapon word as a whole trailing word or a whole word inside the name (`sword`, `scimitar`, `dagger`, `mace`, `spear`, `hasta`, `halberd`, `whip`, `claw`, `bow`, `staff`, `crozier`, `sceptre`, `wand`, `trident`, `scythe`, `arrow`, `bolt`, `axe`, `hammer`, `maul`, `flail`, `knife`, `dart`, `javelin`, `rapier`, `mjolnir`, `2h`), so "Saradomin bow" and "longbow" are weapons while "Fishbowl helmet" and "Swordfish gloves" are not. The god armour the keywords exist for ("Saradomin platebody", the god robe tops, Armadyl/Bandos chestplates) still matches the body slot.
+- **The 2h stance fallback was still pointing at an NPC's animations.** `CombatAssistant.getPlayerAnimIndex` applies the 2h set (stand 7047, walk 7046, run 7039, turns 7044) from the weapon name and returns, so the `switch` on godsword ids below it is unreachable for a normal item - but it carried **4300/4306/4305**, which are the Gorak's stand/walk/run (`NPCHandler` case 6218), and left the four turn indexes on the unarmed defaults. A godsword id whose name misses the "godsword" check (a renamed or custom item) would have been posed as an NPC in a rest pose. It now assigns the same 2h set as the name branch, turns included.
+- **`canLoadObjects` is gone.** The author's second instruction was to remove every `canLoadObjects` reference from `ObjectHandler`, `PlayerAssistant` and `Player`; the object-loading guards were already gone, and the last trace was an unused `public static boolean canLoadObjects` field in `Player` (referenced nowhere). Removed, so a search for it now only finds the dated note in `REFACTORING_PLAN.md`.
+- Nothing else about the posed weapons moved: `is2handed` already returned true for godswords, the Saradomin sword, spears and claws, so shield removal and the special-attack animations are unchanged.
+
+**Verification:**
+- **The 24-id scope is measured, not argued.** A probe ran the old `playerBody` predicate and the new one over the whole loaded `item.cfg` (`Config.ITEM_LIMIT` ids) and diffed the classification: **24 lost the body classification, exactly the weapon and ammunition ids above, and 0 gained one** - so no garment became unwearable.
+- `itemType` was then asked for those ids through a real `new Client(null, 1)`: the godswords, staves, croziers, Zamorakian spears and god bows report `weapon`, the god arrows `arrows`, and the controls (rune/black/mithril platebodies, Saradomin platebody, god robe tops, Armadyl and Bandos chestplates) still report `body`.
+- **The animation ids are checked against the real `seq.dat`** (this cache, 9851 sequences): 7047 = 49 frames, 7046 = 16, 7039 = 32, 7044 = 16, attacks 7042/7041/7049 = 20/19/21, block 7050 = 20, specials 7070-7074 present. The old fallback ids 4300/4306/4305 also exist (10/8/15) - they are simply the Gorak's NPC set, which is why they were wrong for a player.
+- Server suite green: **1799 tests, 0 failures** (9 new in `TwoHandedEquipmentTest`): godsword slot and stance, the other god-named weapons, god arrows, the god-armour control, all seven stance/turn indexes, a scimitar and a whip as per-weapon controls, the three swings by fight mode, the block emote, and the id-only fallback.
+- The fix is server-side only, so no client rebuild is needed; `Run.bat` compiles the server on start, and `startall.bat` already does the same for the client.
+
+**Files touched:** `Proxy Server/src/server/game/items/Item.java`, `Proxy Server/src/server/game/players/combat/CombatAssistant.java`, `Proxy Server/src/server/game/players/Player.java`, `Proxy Server/test/server/game/items/TwoHandedEquipmentTest.java`, `REFACTORING_PLAN.md`, `UPDATE_LOG.md`
+
+## 2026-10-18 - `::online`: finding the players who are actually on
+
+**What changed:**
+- **New staff command `::online` (rights 1-3).** It lists every player in the world with their name, rank and world coordinates, staff first, and accepts an optional name filter (`::online bob`). The gap it closes: `::players` reports a bare count, the only names were the console's `[ONLINE]:`/`[OFFLINE]:` lines, and `::xteleto` needs a name typed exactly — so a staff member who had not been watching the console could not discover who was online at all.
+- Bots are **counted but not listed**. They are sessionless `Client`s in the same `PlayerHandler.players` array, so `::players` (which counts them) and this listing would otherwise disagree with no explanation.
+- Output is capped at **20 lines**; the filter is what makes a larger roster work. Rank labels match the values the role commands write (1 Moderator, 2 Administrator, 3 Owner, 4+ Donator, 7 Respected, 8 Veteran, 9 Forum Moderator).
+- Registered from a new hand-written `OnlineCommands` (not the generated `*Commands` classes, which must not be edited by hand) as a whole-word predicate so the optional argument works without swallowing any other command.
+- Gated to staff on purpose: coordinates and rank are moderation information, not something every player should be able to poll. Players and donators (rights 4+) match nothing.
+
+**Verification:**
+- Server suite green: `CommandHandlerTest` gained **2 tests** (staff-only gating with a name filter, and the rank labels), and the registry assertions moved from 80 to 81 commands / 40 to 41 composite predicates.
+- Confirmed with the existing harness rather than a live login: `sendMessage` NPEs on a bare `Client`, so the tests pin the gating and labels, and the listing itself was checked by reading the dispatch path.
+
+**Files touched:** `Proxy Server/src/server/game/players/packets/commands/{OnlineCommands,CommandHandler}.java`, `Proxy Server/test/server/game/players/packets/commands/CommandHandlerTest.java`, `UPDATE_LOG.md`
+
+## 2026-10-17 - The startup "Enable Music?" window is gone
+
+**What changed:**
+- **`game.Loader` is now a two-line launcher that calls `client.main`** instead of a Swing window. The window was titled *"Enable Music?"* but actually offered "474 characters" / "634 characters" (labelled 634, passing `"667"`), and its answer went to `new Jframe(args)`, whose constructor **never reads the argument** - so both buttons launched a byte-identical client, and 667 content is always loaded anyway. It was a mandatory click that changed nothing, under a title promising a music setting that does not exist. Double-clicking the jar now goes straight to the game window.
+- The window was removed rather than wired up: making the radio buttons *do* something would change what data the client loads, which is a separate decision. `main(String[])` still forwards its argument, so a scripted `java -jar Soul-Trail.jar 474` keeps working and nothing is lost if a real revision switch is added later.
+- The jar's manifest is unchanged (`Main-Class: game.Loader`), as are `Run.bat`, `Diff.bat` and the packager, so no launch path had to change. The update check that used to run before the window now runs at the top of `client.main`, before the game window is built, so an updating player still never sees the game open and close.
+- A harness check pins the removal (`game.Loader` is not a `JFrame`, and keeps `main(String[])`), because re-adding a startup dialog is otherwise an easy "improvement" to reintroduce.
+
+**Verification:**
+- Client harness: **766 checks, 0 failures** (2 new).
+- Packaged a `--single-jar` build and ran it: the jar's manifest still says `Main-Class: game.Loader`, `javap` shows `public final class game.Loader` with only `main`, and launching it goes straight into the client (it created `~/Soul-Trail` and its cache files) with no chooser window first.
+- `gradlew installBin` clean; docs (`CLIENT_PACKAGING.md` §2 and §6a) and the refactoring plan's "dead UI" note updated to say it was removed rather than left in place.
+
+**Files touched:** `Proxy Client/src/game/Loader.java`, `Proxy Client/src/sign/ClientUpdater.java`, `Proxy Client/test/ClientHarness.java`, `docs/CLIENT_PACKAGING.md`, `CLIENT_REFACTORING_PLAN.md`, `UPDATE_LOG.md`
+
+## 2026-10-17 - One file for players, and the jar that updates itself
+
+**What changed:**
+- **Players can be given a single `Soul-Trail.jar` and nothing else.** New Build-tab checkbox **Ship one file** (`--single-jar`, `single.jar=true` in `packager.properties`) forces the fat-jar mode and stops writing `client.properties`, the two `Run*.bat` launchers, `libs/` and the distribution zip. The output folder then contains exactly one file; the settings that used to sit beside it are embedded in the jar, where they already were as the default. LWJGL extracts its bundled natives from the jar on first use, so the file works from any folder. The live `packager.properties` now has `single.jar=true`.
+- **The client updates its own jar from a `client.version` manifest.** The packager writes `client.version` (version + the jar's SHA-256) into the Upload folder beside `cache.zip`/`cache.version`. New `sign.ClientUpdater` runs before `game.Loader` shows its window (and again at the top of `client.main`, answered from a cached decision, for launches that skip the loader), compares the jar's `Implementation-Version` with the manifest, and on a difference downloads the jar from `client.jar.url`, verifies the zip signature, the SHA-256 and the downloaded jar's own version, then replaces itself and restarts. New `client.version`, `client.version.url`, `client.jar.url` and `client.update.enabled` keys (`ClientConfig`, parsed and overridable with `-D`). The release loop is now: bump **Client version**, build, upload the jar and `client.version` over the old ones - players keep the same file and the same shortcut.
+- **Replacing a running jar needed a helper, because Windows locks it.** Verified on this machine (JDK 25): `renameTo`, `Files.copy ... REPLACE_EXISTING` and `delete` on the running jar all fail with *"The process cannot access the file because it is being used by another process"*. So new `sign.ClientSwap` does the swap: the client extracts that one class file into a folder, starts it with `-cp` (a folder classpath is not locked), and exits; the helper retries for up to 60 s, moves the verified jar into place and relaunches it. A read-only folder falls back to installing `~/Soul-Trail/client/Soul-Trail-<version>.jar` and `latest-client.txt`, so the original file keeps working as a launcher.
+- **An update leaves the player's folder byte-for-byte as it was, apart from the jar.** The first version of this feature wrote `Soul-Trail.jar.old` (a backup) and `Soul-Trail.jar.log` (the relaunched game's stdout) into the game folder, which is exactly the clutter a one-file install is supposed to avoid. The backup now goes to `~/Soul-Trail/client/previous-client.jar`, the swap helper is extracted into `~/Soul-Trail/client/swap`, and the relaunched game's output goes to the null device (`NUL` / `/dev/null`, since `Redirect.DISCARD` is Java 9+ and the client targets 8). A download that cannot be installed is deleted instead of being left beside the jar, and `installBeside` no longer drops a second jar next to the first. Any `Soul-Trail.jar.old` / `Soul-Trail.jar.log` / `.swap` / `.Soul-Trail-*.download` from an earlier build is deleted at startup, before the update check, so it is cleaned up even for a player who has updates switched off.
+- **A relaunch keeps the JVM arguments it was started with.** `-Xmx` and any `-Dclient.*` override used to be lost (the replacement guessed the heap); the updater now forwards `RuntimeMXBean.getInputArguments()`, minus agents and debugger flags, so a player launched with more memory or a `-Dclient.config` keeps them.
+- **An update can never brick a client or loop.** An unreachable manifest, an HTML page, a non-zip, a SHA-256 mismatch, a jar whose own version disagrees with the manifest and a jar whose `client.properties` disagrees with it all leave the current client running. A release that fails verification is recorded as rejected (`~/Soul-Trail/client/rejected-client-version.txt`), so a bad upload is downloaded once, not on every launch; a failed download or a swap that could not happen is *not* recorded, so a transient lock is retried on the next start (the earlier code wrote the marker before the swap, which could strand a player on an old jar forever). Every decision goes to `~/Soul-Trail/client/update.log`. The updater is skipped entirely when running from `bin/` or with `-Dclient.update.skip=true`.
+- `Client version` must now be a short token (`3.1`, `2026-10-17a`); validation rejects spaces, because the comparison is against a jar manifest attribute.
+- The Guide tab gained the single-file build, the release workflow for the jar itself, why the game closes and reopens during an update, and the update log's location; `docs/CLIENT_PACKAGING.md` gained **§6 Auto-updating the client jar itself** and a renumbered tail, plus the new keys, layout and troubleshooting entries.
+
+**Verification:**
+- Client harness: **764 checks, 0 failures** (22 new: both-URL requirement, non-http URLs ignored, equality/rejected/rollback rules, a failed install staying retryable, zip-signature and HTML/JSON refusals, manifest version parsing, and a real temp jar accepted at the matching version but refused at a mismatched one, at a wrong SHA-256 and at a `client.properties` version that disagrees with its own manifest).
+- Headless `--single-jar` build into a scratch folder: the output folder held **only** `Soul-Trail.jar` (3273 KB) and nothing else; `cache-upload/` held `client.version` reading `4.2` + the jar's SHA-256. The jar's manifest says `Implementation-Version: 4.2`, contains `client.properties`, `sign/ClientUpdater`, `sign/ClientSwap` and the three LWJGL `.dll`s.
+- Swap against an **exclusively locked** target file: the helper retried, then replaced the file (`NEW-JAR-BYTES-9.9`), consumed the download and kept the backup (`OLD-JAR-BYTES`).
+- End-to-end self-update against a local HTTP host: a probe jar at `1.0` read the `2.0` manifest, downloaded, verified, swapped itself, and the relaunched process ran `2.0`; the update log has exactly two lines (no second download), and the jar on disk reports `Implementation-Version: 2.0`.
+- Same run with the output-path assertions: afterwards the game folder held **only** `Soul-Trail.jar` - no `.old`, `.log`, `.swap` or `.download` - while `~/Soul-Trail/client` held `previous-client.jar` and `update.log`. The relaunched probe reported the forwarded `-Xmx512m` (`xmxMb=512`) and a `-Dclient.foo=bar` override, and `previous-client.jar` was byte-for-byte the *old* build.
+- Bad upload, twice: a manifest saying `3.0` over a jar saying `2.0` was downloaded and refused on the first launch (`rejected: the jar is version 2.0 but the manifest says 3.0`), `rejected-client-version.txt` holds `3.0`, and the second launch did not even contact the host. The jar and the folder were untouched.
+- Legacy cleanup: a game folder seeded with `Soul-Trail.jar.old`, `Soul-Trail.jar.log`, `.swap/sign/ClientSwap.class` and `.Soul-Trail-9.9.download` was reduced to only `Soul-Trail.jar` on a start with updates **disabled**, and `~/Soul-Trail/client` was not created at all.
+- Packager recompiles; client `installBin` clean.
+
+**Files touched:** `Proxy Client/src/sign/{ClientUpdater,ClientSwap,ClientConfig}.java`, `Proxy Client/src/game/{client,Loader}.java`, `Proxy Client/tools/packager/ClientPackager.java`, `Proxy Client/tools/packager/packager.properties`, `Proxy Client/test/ClientHarness.java`, `docs/CLIENT_PACKAGING.md`, `UPDATE_LOG.md`
+
+## 2026-10-17 - Cache artifacts moved out of the client folder
+
+**What changed:**
+- `cache.zip` and `cache.version` are now written to a separate **Upload folder** (default `dist/cache-upload`, field on the Cache tab, `--cache-out` on the command line, `cache.output.dir` in `packager.properties`). The client output folder now holds only what players receive: the jar, `client.properties`, `libs/`, the two launchers and the distribution zip.
+- The distribution zip excludes the upload folder by absolute path, so it stays clean even when the upload folder is set inside the output folder, and `cache.version` is skipped by name as well as the existing `.zip` rule.
+- `--out` resets the upload folder to `<out>/cache-upload`, so a script that moves the whole output gets the split layout without a second flag; an explicit `--cache-out` after it still wins.
+- A settings file from before the split has no `cache.output.dir`; it is derived from the loaded output folder rather than left pointing at the tool directory.
+- Validation refuses an upload folder equal to the cache source folder, which would zip the zip.
+- The Guide tab's Step 3 and Step 6 now name both folders and explain why they are apart, and the docs' output-layout diagram, quick start, cache-packaging section, troubleshooting and headless flag list were updated to match.
+
+**Verification:**
+- Headless run into a scratch output folder wrote `cache.zip`/`cache.version` under `cache-upload/` and a manifest reading `9` plus the zip's SHA-256.
+- Packaged the real 70 MB cache into a scratch output, then rebuilt the client with the distribution zip: the zip has 10 entries (`client.properties`, six LWJGL jars, two launchers, the jar) and **no** `cache.zip`, `cache.version` or `cache-upload/` entry.
+- The existing `dist/cache.zip` and `dist/cache.version` were moved into `dist/cache-upload/`; the manifest still reads version `1` with SHA-256 `643e432f...`, matching the uploaded zip.
+- Packager recompiled; GUI layout check passes on every tab.
+
+**Files touched:** `Proxy Client/tools/packager/ClientPackager.java`, `Proxy Client/tools/packager/packager.properties`, `docs/CLIENT_PACKAGING.md`, `UPDATE_LOG.md`
+
+## 2026-10-17 - Soul-Trail cache rename, a readable packager, safe cache updates and a persisted Barrows run
+
+**What changed:**
+- **The cache folder is now `Soul-TrailCache`.** `CacheLocation` owns the decision (preferred name if it holds a cache, otherwise migrate `Biohazard.474`, otherwise create the new one), so `findcachedir()` is three lines and the rename is testable without owning a real home folder. A plain rename on the same volume costs nothing and keeps every file; the copy fallback is only accepted once `main_file_cache.dat` is really there, and a half copy is deleted rather than left under the new name looking installed. A `cache.directory=Biohazard.474` in an old `client.properties` is normalised to the new name, so a stale config cannot keep a second cache alive.
+- **Settings and screenshots moved out of the cache entirely.** New `PlayerStore` writes `client_settings.properties` and its `.dat`/`.pre-glgate`/`.renderer-gl.bak` siblings into `%USERPROFILE%\Soul-Trail`, and screenshots into `Soul-Trail\Screenshots`. On first run the existing `client_settings*` files and screenshots are *copied* out of the cache folder (copies, not moves), so a rename that failed - or an older client still reading the cache folder - loses nothing. `ClientSettings`, `RendererConfig`, `GlPresent` and `Jframe` all go through it.
+- **A cache update can no longer wipe a player's setup.** Two independent walls: the packager leaves `client_settings*`, `uid.dat`, `hud_layout.properties`, `Screenshots/`, `cacheVersion*.dat` and `cache.version` out of `cache.zip`, and `CacheDownloader.isPlayerOwned` refuses to extract those names even when a hand-made zip contains them (`Kept N player file(s) from the download untouched.`). Because the settings folder is not the folder being replaced, the third protection is structural.
+- **The packager GUI no longer overlaps.** The old panels numbered `gridy` by hand in two places (`addRow` used `row * 2`, the cache panel numbered its tail from 7), so labels, hints and fields landed on the same coordinates. A single `Form` cursor now gives every section, label, field and hint its own row with padding, each tab scrolls, and the window has a fixed 900x700 minimum rather than packing to the guide. The old saved `packager.properties` (which still said `Biohazard.474`) is migrated on load and on save.
+- **There is a Guide tab, and it is the first tab.** Seven numbered steps (point at the client, server tab, package the cache, upload with direct links, point the client at them, build, test on a clean PC), how to update the cache later with no new jar, what players keep and why, and a short troubleshooting list. It is HTML in `ClientPackager.java`, so it cannot drift away from the buttons it describes.
+- **A Barrows run survives a relog.** `PlayerSave` now writes `barrows-killed` (a six-bit mask), `barrows-run-count`, `barrows-hidden` and `barrows-hidden-set`; the old `barrowskillcount` is still read. `hiddenBrotherSet` exists because the hidden brother is index 0 for Ahrim, which is indistinguishable from "not chosen yet"; choosing one saves immediately. `Client.initialize` calls `Barrows.syncOverlay` on login, so the plugin overlay is correct in the first frame rather than after the walkable-interface tick.
+
+**Verification:**
+- Client harness: **742 checks, 0 failures** (new: player-owned cache entries, legacy-name config, the partial-copy recovery, a complete folder surviving beside an old one).
+- Full server suite: **1786 tests, 0 failures** (`PlayerSaveTest` covers the mask round trip, a save from before the persistence, and the six-bit bound).
+- The packager GUI was rendered headlessly at **1000x780 and its 900x700 minimum**: every tab reported no overlapping siblings and no clipped label. The live `packager.properties` (saved by the old build with `Biohazard.474`) loads as `Soul-TrailCache` with `~/Soul-TrailCache` as the source.
+- A headless packager run against a scratch cache containing `client_settings.properties`, `hud_layout.properties` and `Screenshots/shot.png` produced a zip with only `main_file_cache.dat` and `Sprites/icon.png`, and a `cache.version` holding version 7 plus the zip's SHA-256.
+- Migration was exercised against the real install: the full 70 MB cache now lives in `Soul-TrailCache`, the 13 KB settings and both screenshots in `Soul-Trail`, and nothing was re-downloaded.
+
+**Files touched:** `Proxy Client/src/sign/{CacheLocation,PlayerStore,ClientConfig,signlink}.java`, `Proxy Client/src/cache/CacheDownloader.java`, `Proxy Client/src/game/ClientSettings.java`, `Proxy Client/src/ui/{Jframe,RendererConfig,GlPresent}.java`, `Proxy Client/tools/packager/ClientPackager.java`, `Proxy Server/src/server/game/players/{Player,PlayerSave,Client}.java`, `Proxy Server/src/server/game/minigames/barrows/Barrows.java`, tests `ClientHarness.java` and `PlayerSaveTest.java`, `docs/CLIENT_PACKAGING.md`, `UPDATE_LOG.md`
+
+## 2026-10-17 - Barrows HUD, brother list, and the prayer spam
+
+**What changed:**
+- **The tombs no longer switch the HUD off.** Two paths were blacking out the minimap: `Client`'s area loop sent frame 99 state 2 every tick while `inBarrows()`, and `Barrows.teleport` sent the same state on the way down. The client's black-map branch then returned *before* drawing the HP, prayer, run and spec orbs, so the whole corner looked dead. Barrows no longer asks for the black map at all, and `Barrows.teleport` explicitly resets the state to `0`.
+- **The black-map branch no longer eats the orbs.** `drawMinimap` now clears the layer and falls through to the shared frame, compass, world-map button and orb drawing instead of returning early, so *any* map state - including Sailing's own frame 99 use - keeps the HUD. The fixed-mode blacking no longer copies `mapBack`'s mask into the 246x168 producer: the two row strides differ, which is what painted the stray bands across the fixed minimap.
+- **Barrows brothers are no longer outlined.** `drawNpcIndicatorHulls` stopped drawing a hull for the six brother NPC ids. Tagged-NPC highlighting and all other plugins are untouched.
+- **Running dry says it once.** In the tunnels the flat `0.4 + 0.15 * kc` drain was added even with no prayer active, so it walked the level to zero and `reducePrayerLevel` then fired every tick. The extra now applies only inside the `toRemove > 0` branch, and `reducePrayerLevel` returns immediately when the level is already empty. `handlePrayerDrain` is therefore a no-op once the last point is gone instead of re-sending the message.
+- **The infobox lists the brothers, RuneLite order.** New `barrowsBrotherList` setting (default **on**, toggle id `24430`) draws Ahrim, Dharok, Guthan, Karil, Torag, Verac under the KC/prayer lines. The display order maps back to the server's kill-mask order (`{0,2,5,1,4,3}`), so each name is green `0x00FF00` once that brother is dead and grey `0x808080` while they remain. It is in the settings list and the plugin sidebar, and persists through `BarrowsPlugin.save/load`.
+
+**Verification:**
+- New: `BarrowsPrayerDrainTest.theTunnelsDoNotDrainPrayerWithNothingSwitchedOn` (200 barrows ticks with no prayer active leave the level and accumulator untouched) and `runningDryAnnouncesOnceAndThenStopsTalking` (one message, then 200 more ticks add none).
+- Client compiles; headless harness **722 tests, 0 failures**; `installBin` refreshed so `bin/` carries the fix.
+- Full server suite: **1783 tests, 0 failures**.
+
+**Files touched:** `Proxy Server/src/server/game/players/Client.java`, `Proxy Server/src/server/game/minigames/barrows/Barrows.java`, `Proxy Server/src/server/game/players/combat/CombatAssistant.java`, `Proxy Client/src/game/client.java`, `Proxy Client/src/game/ClientSettings.java`, `Proxy Client/src/ui/{BarrowsPlugin,Interfaces,PluginSidebar}.java`, test `BarrowsPrayerDrainTest.java`, `UPDATE_LOG.md`
+
+## 2026-10-17 - One revive per round, and the second death in a round is final
+
+**What changed:**
+- **The rule is stated where it is spent.** A completed revive now tells the player, in two short lines, that the allowance is used: *"You have used your revive for this round."* / *"If you die again this round, nobody can revive you until the next round."* The reviver gets *"You revive X."*, the rest of the party is told the target has none left (so nobody starts a pointless walk), and the downed message gained a third line, *"You can only be revived once per round."* The chest's risk explanation was reworded to say the same: after the allowance, *a death is final until the next round*.
+- **A second fatal hit no longer kneels.** `DelveInstance.onFatalDamage` now checks `hasReviveLeft` first: if the round's allowance is spent, the player skips `DOWNED` entirely - no bleed-out bar, no 30-second window nobody can act on. They are told *"You have already used your revive this round."* / *"You die - nobody can revive you again until the next round."*, call out *"I can't be revived again!"*, lose the chest, and the party hears that they cannot be saved.
+- **The death animation is played on the body, then the ghost takes over.** `DelveVisuals.playDeath` plays anim **836**; `DelveInstance` holds the corpse for `DEATH_ANIMATION_TICKS` (5) before `becomeGhost` + `sendToLedge`. The morph is deliberately not instant: 836 is a player-skeleton animation, and human frames over the ghost's NPC mesh read as a frozen or twisted body. The same delay now applies to a bleed-out death, so the timer ending also reads as a fall rather than a pop into a ghost.
+- **A rejoiner comes back at full hitpoints.** The fatal-hit clamp leaves a corpse on 1hp so the ordinary death path cannot fire, but `DelveCombat.restore` only fills hitpoints that are at or below zero - so a player who died and rejoined was returning on 1hp. `beginSpin` now puts a rejoining corpse on 0 before the reset, where no hit splat is being written, which makes the design's "fresh start" real.
+- **Config comment.** `delves.cfg` documents that `max-revives-per-round = 1` means the second fatal hit is a real death, and that the allowance refills at the next lock.
+
+**Verification:**
+- New: `DelveMemberStateTest.aSecondDeathInTheSameRoundIsFinalAndSkipsTheKnell` (no second kneel, chest gone, anim 836, ghost after the fall, both deaths counted) and `DelveVisualsTest.aFinalDeathPlaysTheDeathAnimationAndLeavesTheGhostUntilItRuns`.
+- `aCompletedChannelRevivesTheTargetOnceAndOnlyOnce` now pins that the post-revive fatal hit is DEAD rather than DOWNED; `aRejoiningPlayerComesBackForTheNextRoundWithAnEmptyChest` asserts full hitpoints on rejoin.
+- Full server suite: **1781 tests, 0 failures**.
+- `DESIGN.md` (downing/reviving rules, the final-death path) and `delves.cfg` updated.
+
+**Files touched:** `Proxy Server/src/server/game/minigames/delves/{DelveInstance,DelveVisuals,DelveChestInterface}.java`, `Proxy Server/Data/cfg/delves/delves.cfg`, tests `{DelveMemberStateTest,DelveVisualsTest}.java`, `docs/roulette/DESIGN.md`, `UPDATE_LOG.md`
+
+## 2026-10-17 - One-click revives that walk themselves, and a rename-proof bleed-out bar
+
+**What changed:**
+- **Clicking Revive from across the arena is now the whole interaction.** The click records `DelveSession.pendingReviveTarget` and hands the walk to the delve's own pathing (`DelveInstance.routeTowards`), instead of leaving it to the base attack-follow. The follow stops at the equipped weapon's range, so a ranger or mage clicking a body eight tiles away walked to eight tiles and then heard "move closer" - the second click this removes. Every tick of the approach re-routes when the reviver is standing still (a body can be nudged by a hit, a route can open), and arrival starts the channel in the same tick, exactly as an adjacent click would.
+- **The walk cannot become a wireless revive.** Arrival, not the click, decides: `tickPendingRevives` re-checks that the target is still `DOWNED`, the reviver is still `ALIVE`, and the live tile distance is inside `revive-proximity-tiles` before it calls `beginRevive`, which enforces the same distance again. Walking away mid-channel still breaks it.
+- **A walk click cancels a queued revive.** `Walking.processPacket` calls `DelveCombat.cancelPendingRevive`, so the player's later instruction wins rather than the server dragging them back to the body. Giving up (target revived by somebody else, out of time, target dead) also stops the delve's walk instead of leaving it running; the intent's walk belongs to the intent.
+- **Name matching for the overhead bar is whitespace-proof.** `ui/DelveDowned.key` now collapses runs of spaces as well as flattening case and underscores, so a cosmetic difference in how a name is written cannot be the reason a teammate's bleed-out bar never appears.
+
+**Verification:**
+- New `DelveCombatTest.aWalkClickAbandonsTheQueuedReviveInsteadOfDraggingThePlayerBack`; `clickingADownedTeammateFromFarAwayWalksOverAndStartsTheChannelOnArrival` now asserts the delve owns the walk (`followId` cleared) and still pins the arrival-triggered channel.
+- Full server suite: **1779 tests, 0 failures**. Client compiles and `installBin` refreshed, so `bin/` (what `Run.bat` launches) carries the ghost animation fix and the bleed-out bar.
+
+**Note for the next play test:** `Run.bat` runs `bin/` as-is and does not compile. A client launched before the last `Compile.bat` keeps the old classes - which is what a ghost that slides on human animations and a missing bleed-out bar look like from the outside. `StartAll.bat` (or `Compile.bat` before `Run.bat`) after pulling these changes.
+
+**Files touched:** `Proxy Server/src/server/game/minigames/delves/{DelveCombat,DelveInstance}.java`, `Proxy Server/src/server/game/players/packets/Walking.java`, `Proxy Client/src/ui/DelveDowned.java`, tests `DelveCombatTest.java`, `UPDATE_LOG.md`
+
+## 2026-10-17 - Delve revives hold the bleed-out, 30s downing, ghost animations, and a rejoin default
+
+**What changed:**
+- **A revive channel freezes the bleed-out.** `tickDowned` skips any member with an incoming channel, so the 30-second window stops where the pickup caught it and resumes there if the channel breaks (a hit on the healer, the target dying). Before this, a revive started at two seconds left finished after the timer and the player died mid-pickup, which read as the revive having failed.
+- **Revive progress is a bar of its own, seen by the whole party.** The `downs` payload grew two fields, `name,msLeft,msTotal,reviveMsLeft,reviveMsTotal` (`DelveHud.downedPayload`); a non-zero revive total is the pause signal. `ui/DelveDowned` keeps the frozen bleed-out bar in its current colour and draws a second green bar above it that fills as the channel completes. Both are broadcast to every member, pushed immediately on down, revive, death and interrupted channel rather than waiting for the five-tick HUD beat, and `DelveInstance` exposes `reviveTicksRemaining` / `reviveTicksTotal` for the payload.
+- **A revived player calls out and comes back at 30% (never under 10hp).** `DelveVisuals.sayAlive` plays the overhead "I'm alive!" on a completed revive and on the wave-clear auto-revive. `revive-hp-percent` is now 30 with a new `revive-min-hp = 10` floor, and `DelveMath.reviveHp` pays `max(30% of max, min(10, max))` clamped to the maximum, so a 20hp player returns at 10 rather than at 6. The stat tab and orb are refreshed (`refreshSkill(3)`) so the heal is visible, not just stored.
+- **Downing lasts 30 seconds.** `downed-ticks` is now 50 (30s at the 600ms tick) instead of 25, so a teammate has a real window to cross the arena.
+- **The ghost moves like a ghost.** A morphed player keeps the seven human animation ids the appearance block writes, which played human frames over the ghost's mesh and left the spectator looking frozen. `Player.updatePlayer` now detects the morph (`desc != null`) and replaces the whole set with the cache's own NPC animations (`EntityDef.standAnim` / `walkAnim`), pointing the live idle at the new stand so the first frame after the morph is right. The next appearance block after `restoreBody` carries no `desc`, so the human set comes back on its own when the player respawns.
+- **An unanswered ledge prompt rejoins instead of leaving.** If the 20-second ledge clock runs out with no answer, the member is now recorded as `REJOIN`, their option interface is closed, and they are told they will rejoin: `expireLedgeDecisions` (and the near-unreachable chest-timeout branch) changed from `LEAVE`. An idle corpse no longer holds the party *and* no longer loses its place because the player was not looking at the screen.
+
+**Verification:**
+- New: `DelveMathTest.aReviveAlwaysPaysTheMinimumEvenWhenAShareOfALowMaximumWouldNot`; `DelveHudTest.aReviveChannelFreezesTheBleedOutAndCarriesItsProgressInTheSamePayload` and `breakingTheChannelResumesTheBleedOutAndDropsTheReviveProgress`; `DelveMemberStateTest.theBleedOutClockPausesWhileAChannelIsOnThePlayerAndResumesWhenItBreaks`.
+- Rewritten: `aDeadPlayerWhoDoesNotAnswerIsNotSilentlyRejoined` became `aDeadPlayerWhoDoesNotAnswerRejoinsTheNextRoundByDefault` (asserts the closing prompt and the rejoining party), and `theLedgeClockLetsTheNextSpinStartLongBeforeTheChestTimeout` now asserts the default is Rejoin. `aCompletedChannelRevivesTheTargetOnceAndOnlyOnce` additionally pins the "I'm alive!" call and the revived hitpoints; the default-value test pins 50 ticks, 30% and `revive-min-hp`.
+- Full server suite: **1776 tests, 0 failures**. Client compiles.
+- `DESIGN.md` (R2, downing/reviving, the ledge clock, the config table) and `PACKETS.md` (new §2.5 for the `downs` payload, the ledge default) updated; `delves.cfg` documents the paused clock and the new floor.
+
+**Files touched:** `Proxy Server/src/server/game/minigames/delves/{DelveInstance,DelveVisuals,DelveHud,DelveMath,DelveSettings,DelveChestInterface}.java`, `Proxy Server/Data/cfg/delves/delves.cfg`, `Proxy Client/src/{game/Player.java,ui/DelveDowned.java}`, tests `{DelveMathTest,DelveHudTest,DelveMemberStateTest}.java`, `docs/roulette/{DESIGN.md,PACKETS.md}`, `UPDATE_LOG.md`
+
+## 2026-10-17 - Delve downed/revived presentation and a multi-combat arena
+
+**What changed:**
+- **A dead spectator is a ghost, not a hidden player.** The `PlayerHandler.isHiddenSpectator` filter is gone (it superseded the "Spectators are invisible" note below), so an eliminated member stays in every peer's local player list. `DelveVisuals.becomeGhost` sets `isNpc`/`npcId2 = 4388` and flags an appearance update, so teammates see the cache's ghost where the player stood and still read their public chat and overhead text. `DelveVisuals.restoreBody` puts the real model back on respawn, next-round rejoin and exit.
+- **The downed have a bleed-out bar.** `DelveInstance` pushes `delve:<seq>:downs:<name>,<msLeft>,<msTotal>;…` (`DelveHud.downedPayload`) with the periodic HUD and immediately on every down/revive/death; a `;`-free name is sanitised first. The new client `ui/DelveDowned` interpolates the remaining time between pushes and draws a 30x5 bar above the player's head, narrowing as it drains and sliding from bright red `0xFF0000` to black `0x000000`, then clears it when the entry disappears. `downed-bar` in `delves.cfg` (default on) switches it off without touching the panel.
+- **The downed kneel and the revived stand.** Anim `1331` on the way down, with the last frame held by `client.method101` for as long as the bar says the player is down; anim `1332` plus GFX `247` on revive and on every next-round respawn. The healer channels anim `2244` for the duration of the revive and is released (`65535`) when the channel breaks, so a heal that is interrupted does not leave them stuck mid-animation.
+- **The downed message fits the chat box it is drawn in.** The old single line ran past the 317 chat box; it is now two short lines ("You are down!" then "A teammate must stand next to you and click Revive."), each inside the box width, so the interaction is readable without the sentence being cut off.
+- **The whole arena is multi-combat.** `DelveArena.isArenaMultiTile(x, y, plane)` covers X `2724..2752`, Y `5061..5108` on any delve plane (`plane >= 100`), and is consulted by `Player.inMulti` and `NPC.inMulti`. Parties can pile onto the same boss, and the same coordinates in the live world are left exactly as they were.
+
+**Verification:**
+- New `DelveVisualsTest` (4: the downed/stand-up animations and the revive spark, the healer's channel and its stop, the ghost morph and its reversal, and that a plain body is never rewritten).
+- `DelveHudTest` gained three (the payload carries only `DOWNED` members with their ms left and full window, an empty list is an empty field so the client clears every bar, `downed-bar = false` leaves the HUD switch alone) and `DelveArenaTest` gained two (the four quoted corners and the arena centre are multi while one tile outside and the same tiles at plane 0 are not; a spawned wave boss answers `inMulti()`).
+- Full server suite: **1772 tests, 0 failures**. Client compiles.
+
+**Files touched:** `Proxy Server/src/server/game/minigames/delves/{DelveVisuals,DelveArena,DelveInstance,DelveHud,DelveSettings}.java`, `Proxy Server/src/server/game/players/{Player,PlayerHandler}.java`, `Proxy Server/src/server/game/npcs/NPC.java`, `Proxy Server/Data/cfg/delves/delves.cfg`, `Proxy Client/src/{game/client.java,ui/DelveDowned.java,ui/DelveHud.java}`, tests `{DelveVisualsTest,DelveHudTest,DelveArenaTest}.java`, `UPDATE_LOG.md`
+
+## 2026-10-17 - Vengeance, DFS splats/timer, Kalphite Queen styles, and Delve round polish
+
+**What changed:**
+- **Vengeance Other works.** Packet 249 routes the lunar interface id `30298` to `PlayerAssistant.vengOther`: animation `4411` on the caster, GFX `725` over the target's head, refused when the target already has a Vengeance up, and charged against the same 30s clock as the self-cast. Vengeance on yourself now plays GFX `726` (the red skull) instead of the old effect.
+- **The Vengeance Other spell stays highlighted.** While `spellSelected` is that widget the client draws a one-pixel outline around it (`DrawingArea.fillPixels`, so it reads as a thin frame and not a white blob), and the existing `spellSelected = 0` reset on any menu click clears it when the player clicks a player, an NPC or the ground.
+- **Dragonfire Shield splats wear the shield.** New wire style `HitStyle.DRAGONFIRE_SHIELD = 4` is set by `handleDfs` / `handleDfsNPC`; `HitStylePlugin` draws item `11283` cropped and scaled to the same 18px icon as the skill/vengeance icons. New `hitStyleDfs` toggle (default on, persisted with the other hit-style switches).
+- **DFS cooldown infobox.** `StatusTimers` treats GFX `600` as a 30-second Dragonfire Shield cooldown and reuses the same 18px `11283` art, so the timer matches the splat icon.
+- **The Kalphite Queen protects styles, not players.** `KalphiteQueen.protectsAgainst` replaces the "full Verac's or nothing" gate: form `1158` turns away melee and ranged and lets magic through, full Verac's pierces the melee protection with the flail, and form `1160` turns away magic and takes steel and arrows. Her delve copy stays exempt. `DwarfCannon` uses the same rule, so cannon fire cannot hit form one.
+- **Leaving a delve mid-run no longer double-teleports.** Every removal path now sets `delveTeleportBypass` for the duration of the departure, so `DelveArena.exit` is skipped for a player who is teleporting out and the teleport they cast is the one that lands. `interceptTeleport` also leaves a lobby party alone, so talking to the Delve Master or leaving the party never moves the player.
+- **A 20-second grace between waves.** New `DelveState.PREPARATION` (`prep-seconds = 20` in `delves.cfg`, `0` disables it). The wave's copies are already gone, the party is restored and placed back in the arena, both the HUD and chat count down, and "ten seconds" / "five seconds" are called out. The round only advances when the clock expires.
+- **A dismissed chest menu comes back.** The chest is a chatbox interface the client closes on the next walk, so an unanswered member whose menu is no longer open is re-prompted every eight ticks with a one-line explanation. It is per-player, so a party of five cannot produce five prompts or answer for each other.
+- **Special attack is refilled every round.** `restoreSpecialAttack` writes 100 and refreshes the bar at the start of the grace and at the reel lock, next to the existing HP/prayer restore.
+- **The Delve Master answers for the run, and his menu loops correctly.** Talking to him mid-run opens the chest menu in `CHEST` (the recovery path) or the lobby menu in `LOBBY` instead of restarting the intro. Picking a difficulty returns to the lobby menu, and every `start` refusal now says why rather than looking like a dead button. Long dialogue lines were split into two short ones per page (intro gained a second page, id `9828`) because the chat box does not wrap.
+- **Downed players read as downed.** Animation `836`, the overhead call "I am down! Revive me!", and a chat line naming the interaction and the seconds left.
+- **Spectators are invisible and closer.** A delve member in `MemberState.DEAD` is filtered out of every other player's update (`PlayerHandler.isHiddenSpectator`) and put back by the ordinary add-player path when they respawn. The ledge offset is now `(5,0)` instead of `(12,0)` so the spectator actually sees the fight.
+- **The Delve HUD fits its own box.** The panel height was one line pitch short of the rows it drew, which is why "No loot banked yet" and the chest grid sat on the game view; the height is now derived from the same row count the layout uses. The grace adds a "Prepare m:ss - next wave soon" row and a "trade now" hint.
+
+**Verification:**
+- New `KalphiteQueenTest` (6: both forms, form-one melee/ranged, form-one magic, Verac's pierce, form-two magic only, other NPCs untouched).
+- New `DelvePreparationTest` (5: Continue enters the grace, the countdown runs and then rolls, the HUD carries the milliseconds, spec comes back, `prep-seconds = 0` skips).
+- `DelveChestInterfaceTest` gained two (a dismissed menu re-opens, an answered member is not prompted again) and `withdrawingAtTheChestBanksExactlyWhatTheSummaryReports` was made deterministic (a random RARE roll was priced into the chest but not into the coin count it compares against).
+- Full server suite: **1763 tests, 0 failures**. Client compiles.
+
+**Files touched:** `Proxy Server/src/server/game/npcs/KalphiteQueen.java`, `Proxy Server/src/server/game/players/{PlayerAssistant,PlayerHandler}.java`, `Proxy Server/src/server/game/players/combat/CombatAssistant.java`, `Proxy Server/src/server/game/content/DwarfCannon.java`, `Proxy Server/src/server/game/minigames/delves/{DelveInstance,DelveMaster,DelveSettings,DelveHud,DelveChestInterface,DelveLobby}.java`, `Proxy Server/src/server/game/players/packets/{AttackPlayer,ClickingButtons}.java` (earlier in the batch), `Proxy Server/src/server/game/players/actions/dialogues/DelveDialogues.java`, `Proxy Server/Data/cfg/delves/delves.cfg`, `Proxy Client/src/{game/client.java,ui/DelveHud.java,ui/StatusTimers.java,ui/HitStylePlugin.java,ui/PluginSidebar.java}`, tests `{KalphiteQueenTest,DelvePreparationTest,DelveChestInterfaceTest,DelveResultsTest,DelveTestFixtures,DelveHudTest,DialogueRegistryTest}.java`, `UPDATE_LOG.md`
+
+## 2026-10-17 - Boss Delves: roster cleanup, real bosses, and the Kalphite Queen's second phase
+
+**What changed:**
+- **Three non-bosses left the reel.** The `Black dragon` (54), `Dagannoth` (1344) and `Kalphite Guardian` (1155) rows are gone from `bosses.cfg` and `drops.cfg`. None of them is a boss or demi-boss on this base, so they were filling the COMMON pool with ordinary monsters.
+- **Six real bosses joined it.** `Mutant Tarn` (5421) replaces the Dagannoth, with `Slash Bash` (2060) and `Sea Troll Queen` (3847) filling the two remaining COMMON slots; `Giant Roc` (4972) and `Barrelchest` (5666) join the RARE pool and `The Inadequacy` (5902) joins LEGENDARY. Each has its own `drops.cfg` table (coins ALWAYS, a MAIN roll, tier-appropriate RAREs, and a UNIQUE for the legendary), and all six already have hardcoded attack/block/death emotes in `NPCHandler`, so no `npc_anims.cfg` rows were needed.
+- **The Queen could not be attacked in her own arena.** `CombatAssistant.runNpcAttack` applied the open-world lore gate - "only full Verac's, never magic" - to every `KalphiteQueen.KQnpc` target. Nobody is in Barrows gear inside a delve, so every swing was reset with "Your attacks have no effect on the Queen." The gate is now skipped for a `DelveNpc` instance boss; the world boss is unchanged.
+- **Her second phase never existed in the delve.** `NPCHandler` intercepts a delve copy's death in `DelveCombat.onInstanceBossKilled` before `killedKQ` can run, so killing form one cleared the wave and paid the loot with a full-health queen still standing. New `Data/cfg/delves/forms.cfg` links `1158 -> 1160`, and `DelveInstance.onBossKilled` now spawns the next form at the same tile on the same `bossIndex` and leaves the wave (and the loot) unresolved; only the last form's death clears the round. `1160` is authored in `bosses.cfg` with `enabled` = `false`, so it is a phase and never a roll of its own.
+- **A form link cannot become an unclearable wave.** A self-link, a cycle, a parent that is not a boss, or a follow-up with no `bosses.cfg` row is reported at load and the row is dropped, leaving the boss a single kill. If the follow-up cannot be spawned at all (no free NPC slot, or no definition) the kill resolves the wave rather than guaranteeing a timeout wipe.
+- **The corpse slot cannot eat the new form.** The next form is spawned while the dead copy still occupies its slot, so the spawner hands back a different slot; `onInstanceBossKilled` re-checks that the slot still holds the corpse before clearing it and its registration, instead of blindly nulling a slot that may now carry the live second phase.
+
+**Verification:**
+- New `DelveFormsTest` (8 tests): config parsing (a link, a self-link, a cycle, an unlisted follow-up, an unlisted parent, a missing file) and the shipped tables (the `1158 -> 1160` link, `1160` disabled, the removed ids absent, the six new ids present), plus an instance-level two-phase kill that keeps `FIGHTING` and pays nothing after the first form, spawns the second on a new slot with the same `bossIndex`, and clears the round and pays the loot on the second.
+- `DelveShippedConfigTest` still passes: every tier has an enabled boss and every enabled boss has a drop table.
+- Full server suite: **1749 tests, 0 failures**.
+
+**Files touched:** `Proxy Server/Data/cfg/delves/{bosses.cfg,drops.cfg,forms.cfg (new)}`, `Proxy Server/src/server/game/minigames/delves/{DelveConfig,DelveArena,DelveInstance,DelveCombat}.java`, `Proxy Server/src/server/game/players/combat/CombatAssistant.java`, `Proxy Server/src/server/game/content/DwarfCannon.java`, `Proxy Server/test/server/game/minigames/delves/DelveFormsTest.java`, `docs/roulette/DESIGN.md`, `UPDATE_LOG.md`
+
+## 2026-10-17 - Boss Delves phase 7: wave map, run results, `::delveaudit`, `PACKETS.md`
+
+**What changed:**
+- **The wave map is derived, not stored.** `DelveWaveMap` builds one stop per authored `waves.cfg` round, priced with the same `DelveMath.roundMultiplier` and `DelveMath.dangerRating` the reels and the chest preview use. A missing round is skipped rather than invented; `::delveaudit` is what reports the hole. `DelveWaveMap.lines` renders the road as chat lines and marks the next stop.
+- **Players can read the road ahead.** New `::delveplan` (rights 0) prints the whole road from the round that is actually next. The chest's **"What am I risking?"** row now prints the next three stops underneath the stakes, weighted for the current party size.
+- **Every run ends with a summary.** New `DelveResults` reports the depth reached, bosses felled, chest value banked or lost, the run's best single drop, and the party's downings/revives. The numbers come from new per-run counters on `DelveInstance` (`deathsThisRun`, `revivesThisRun`, `bossesKilledThisRun`), not from the CSV, so a disabled or unwritable log cannot turn the summary into zeros. It is sent at `finish`, on a voluntary withdraw, on a ledge Leave, and on an unanswered chest's auto-withdraw; a disconnected member's outcome still travels to their next login.
+- **Paths that share a `RunOutcome` read differently.** A voluntary withdraw, a completed capstone and a server teardown are all `WITHDRAW`; `DelveResults.defaultReason` names which one happened from the cleared-round count, without adding a second state field.
+- **`::delveaudit [strict]`** audits the authored data and the live registry: wave-road contiguity and the single capstone, a checkpoint before the end, every tier with an enabled boss, boss hitpoints/max hit, drop-table presence and MAIN/ALWAYS + RARE coverage, ranges and weights, resolvable item ids (when the item table is loaded), orphan tables, timer/cap/danger-band/multiplier sanity, the chest window versus the Continue lock, the ledge clock versus the chest window, distinct log paths and their headers, and every live instance (registry identity, phase never past its timer, members still pointing at it, no `LEFT` member on a roster, chest value inside the cap). Like `::delvebosscheck`, it is report-only; `strict` is the gate.
+- **`docs/roulette/PACKETS.md`** documents the whole wire surface: the `delve:` text-frame tunnel (opcode 126, frame 24491, the sequence counter that defeats `sendFrame126`'s dedupe), the three payloads field by field, the chest/lobby/Continue interfaces with their frames, buttons and `dialogueAction` ids, the Delve Master's dialogue chain, the command surface, and the rule that a new feature never adds an opcode.
+
+**Verification:**
+- 33 new tests: `DelveWaveMapTest` (10 - derived plan, multiplier/danger parity, checkpoint/capstone flags, next-stop marker and limit, past-the-end, gaps, null config, party floor), `DelveResultsTest` (8 - every outcome wording, banked/lost/empty chest lines, best drop, withdrawal banking, run counters), `DelveAuditTest` (15 - shipped tables pass, a healthy live instance passes, and one broken thing at a time is named: disabled tier, missing round, no capstone, absent/unrollable drop tables, inverted range, narrow chest window, long ledge clock, shared log path, foreign header, mismatched member, ended instance).
+- Full server suite: **1664 tests, 0 failures**.
+- `CommandHandlerTest` counts updated (76 → 78 commands, 36 → 38 composites).
+
+**Files touched:** `Proxy Server/src/server/game/minigames/delves/{DelveWaveMap (new),DelveResults (new),DelveAudit (new),DelveInstance,DelveChestInterface,DelveConfig,DelveCsv}.java`, `Proxy Server/src/server/game/players/packets/commands/DelveCommands.java`, `Proxy Server/test/server/game/minigames/delves/{DelveWaveMapTest,DelveResultsTest,DelveAuditTest}.java`, `Proxy Server/test/server/game/players/packets/commands/CommandHandlerTest.java`, `docs/roulette/{DESIGN.md,PACKETS.md}`, `UPDATE_LOG.md`
+
+**Still manual:** the ledge tile's walkability/clipping/camera check with `::ledgetp` remains open from phase 5. It is the only item left open in the phase plan.
+
+## 2026-10-17 - Boss Delves phase 6: chest interface, reconnects and restarts
+
+**What changed:**
+- **The chest gate is now visible.** `openChest()` shows every member their own menu through the new `DelveChestInterface`: living players get `Withdraw` / `Continue` / `Show chest` / `What am I risking?` (option interface 2480, `dialogueAction` 9840); a DEAD player gets the ledge prompt `Rejoin next round - empty chest` / `Leave the party` (option interface 2460). The menu is presentation only — every click is re-checked by `DelveInstance` for phase, membership, lock and whether the member already answered.
+- **Continue takes two clicks.** The first click only arms the decision and draws `Yes - risk N gp` / `No - go back` (`dialogueAction` 9841); only Yes commits. An empty chest skips the warning. The row reads "unlocks in a moment" until `chest-lock-millis` has passed, and the lock itself is still enforced by the instance.
+- **Both clocks are live.** `DelveChestInterface.tick` rewrites the option title frame every chest tick with the seconds left — the 60 s chest window for the living, and for a DEAD member the shorter of that and their 20 s ledge window.
+- **Checkpoints skip the absent.** `applyCheckpoint()` banks `checkpoint-percent` of each stackable stack but now leaves a disconnected member's stacks whole, so a reconnect does not find half a chest.
+- **Reconnects are matched by account, not object.** A real socket drop destroys the `Client`; the returning player logs in as a new object in a possibly different slot. `DelveManager.handleLogin` tries `reattachIfPossible` before writing the run off: `DelveInstance.acceptsReconnect` matches the account (case-insensitive), and `reattach` copies the live session (`copyPersistedFrom`), swaps the member reference, moves the leader ring and re-keys `decisions`, `ledgeDecisions`, `armedContinue`, `damageByPlayer`, `supportByPlayer`, `settledPayouts` and revive channels. Loot paid during the window is neither lost nor duplicated. A DEAD member is refused, per the design.
+- **A grace expiry outlives the object.** When the window closes and the socket really is gone, the bank on that client will never be saved, so the outcome is recorded against the account in `DelveManager.PENDING_SETTLEMENT` — forfeited mid-round, kept at an open chest — and consumed by the next login. The record is removed on use, so it cannot be replayed.
+- **A server restart banks instead of forfeiting.** `Server.requestStop` calls `DelveManager.get().clearInstances()` before `PlayerHandler.saveAllPlayers()`, so every live chest is settled while the character file is still writable.
+- **`::collectrewards` is player-facing.** It runs at rights 0-3 and goes through `DelveMaster.tryCollect`, which refuses in an instance, in combat, while trading or duelling, and inside an 8-tick cooldown. The Delve Master's "Collect Delve rewards" option takes the same gate. A refusal is always free — the command only ever moves items the player already owns.
+- **A small bug found by the new test:** `lastClaimTick` used `0` both as "never claimed" and as a real clock value. It now initialises to `-1` and the cooldown test compares `>= 0`.
+
+**Verification:**
+- 18 new tests: `DelveChestInterfaceTest` (11 — menu contents and exact gp/stacks, lock, arm/confirm/No/Yes, empty-chest shortcut, withdraw, teardown close, ledge rejoin/leave, and the claim gate for combat, cooldown and in-instance) and `DelveReconnectTest` (7 — fresh-login reattach across a slot change, loot earned while away, a non-matching account, the DEAD refusal, both pending-settlement outcomes and their one-shot consumption).
+- Full server suite: **1631 tests, 0 failures**.
+
+**Files touched:** `Proxy Server/src/server/game/minigames/delves/{DelveChestInterface (new),DelveInstance,DelveManager,DelveMaster,DelveSession}.java`, `Proxy Server/src/server/game/players/packets/commands/DelveCommands.java`, `Proxy Server/src/server/game/players/packets/ClickingButtons.java`, `Proxy Server/src/server/game/players/actions/dialogues/DelveDialogues.java`, `Proxy Server/src/server/Server.java`, `Proxy Server/test/server/game/minigames/delves/{DelveChestInterfaceTest,DelveReconnectTest}.java`, `docs/roulette/DESIGN.md`
+
+**Still manual:** the ledge tile's walkability/clipping/camera check with `::ledgetp` remains open from phase 5. Phase 7 (wave map, results, `::delveaudit`, `PACKETS.md`) is next.
+
+## 2026-10-17 - Boss Delves phase 5: arena, boss spawner, combat wiring
+
+**What changed:**
+- **The arena is real.** `DelveArena` places the party at `arena-start-x`/`-y` on the instance's own height plane when the run starts, teleports a rejoiner back at the next reel lock, and sends a member to `exit-x`/`-y`/`exit-plane` when they leave a chest or the run ends. Two parties share the tiles but never the plane, so they cannot see or hit each other.
+- **Bosses are spawned copies.** Each wave creates one `NPC` per rolled boss via `NPCHandler.spawnInstanceNpc`, scaled with the frozen party size and the round. The copy is registered in `DelveNpc` by array slot with its owning instance and boss index; the 3-boss tile ring is `boss-spawn-radius`. `clearBosses` removes the copies and their registrations on wave end and teardown, and a kill skips the ordinary corpse/respawn/ground-drop path.
+- **Fatal damage downs, it does not kill.** `DelveCombat.onDamageTaken` is called from both the player damage path (`Player.dealDamage`) and the NPC melee/range/magic path in `NPCHandler`. A delve member at zero becomes `DOWNED`, their hitpoints are held at 1 so the engine's `isDead` path never fires, and their chest survives. A downed member cannot walk or click.
+- **Targeting and contribution are party-scoped.** `NPCHandler.getClosePlayer`, `getCloseRandomPlayer`, `attackPlayer` and `multiAttackDamage` admit only a living member of the boss's own party. `CombatAssistant.consumeNpcPending` (plus the DFS and godsword special paths) books damage against the attacker, and an outsider's damage is ignored. The revive click is handled on the fourth player option `Revive` through `FollowPlayer`/`AttackPlayer`; it walks the reviver closer when needed and starts the existing channel.
+- **The round closes properly.** Killing the last boss pays that boss's own drop table (not always the first), removes the copy, auto-revives the downed, applies the between-round 50% hitpoint/prayer recovery, and opens the chest gate on a non-final wave.
+- **AOE is covered.** `multiAttackDamage` now asks the same `canNpcTarget` filter, so a boss blast cannot hit a downed, dead or foreign-party player.
+
+**Verification:**
+- 19 new tests: `DelveArenaTest` (arrival/exit tiles, the real spawned copy's type/plane/HP/max hit, single/double/triple placement, clearing, rejoin restore) and `DelveCombatTest` (downing, target filters, contribution, boss kill/gate, revive click + channel interruption, between-round recovery).
+- Full server suite: **1613 tests, 0 failures**. `Proxy Client` compiles (`gradlew compileJava`, Java 8 release).
+
+**Files touched:** `Proxy Server/src/server/game/minigames/delves/{DelveArena,DelveCombat,DelveInstance,DelveNpc}.java`, `Proxy Server/src/server/game/{npcs/NPCHandler.java,players/Client.java,players/Player.java,players/combat/CombatAssistant.java,players/packets/{AttackPlayer,ClickNPC,FollowPlayer,Walking}.java}`, `Proxy Server/test/server/game/minigames/delves/{DelveArenaTest,DelveCombatTest}.java`, `docs/roulette/DESIGN.md`
+
+**Still manual:** the ledge tile's walkability, clipping and camera view need one in-game check with `::ledgetp` (the target/AOE rules are automated). Phase 6 (chest interface, checkpoints, reconnect/restart) is next.
+
+## 2026-10-17 - Boss Delves phase 4: reel overlay and result
+
+**What changed:**
+- **The reel is now visible.** A HUD panel spins on every member's screen while a wave is rolled and holds the answer through the countdown. `DelveInstance.beginSpin()` rolls the wave and then calls `DelveReel.spinning(this)`, so the overlay animates towards a result the server has already decided — the client never rolls anything.
+- **Three messages, one contract.** `spin` carries the round, wave, animation timings, multiplier, danger band, the rolled tiers/bosses and the enabled roster the client cycles; `land` carries the result; `clear` takes the panel down when the fight starts, when a member leaves and on teardown. Fields are `:`-separated and the list fields use `;`/`,`, so an authored boss name can never shift a column (`sanitise` flattens any that would).
+- **No new opcode.** The payloads ride on text frame `126` (dummy widget `24491`) with a `delve:` prefix, the same tunnel `cannon:`/`poison:`/`barrows:` use. A client that does not know the prefix ignores it instead of logging out on an unknown opcode.
+- **A per-player sequence number** (`DelveSession.reelSeq`, transient) is stamped on every payload because `sendFrame126` drops a body identical to the last one on the same widget — a repeated `clear` would otherwise be swallowed and leave a stale panel.
+- **`reel-overlay` (default `true`)** is a display switch in `DelveSettings`/`delves.cfg`. With it off the run rolls and starts exactly as before; only the closing `clear` is still sent.
+- **The danger band on the reel is the round being spun**, from the same `DelveMath.dangerRating` the chest preview uses — a DOUBLE round on a Medium band with three players reads Extreme.
+
+**Verification:**
+- 10 new tests in `DelveReelTest`: both payload formats, the roster excludes a disabled boss, separator flattening, the spin → land → clear → teardown sequence, the switch, the party-wide broadcast, leaving mid-spin, and round 4's Extreme danger + double-wave reels at three players.
+- `Proxy Client` compiles (`gradlew compileJava`, Java 8 release, no new warnings). Full server suite run below.
+
+**Files touched:** `Proxy Server/src/server/game/minigames/delves/{DelveReel,DelveInstance,DelveSession,DelveSettings}.java`, `Proxy Server/Data/cfg/delves/delves.cfg`, `Proxy Server/test/server/game/minigames/delves/DelveReelTest.java`, `Proxy Client/src/ui/DelveReel.java`, `Proxy Client/src/game/client.java`, `docs/roulette/DESIGN.md`
+
+**Status:** done - phase 5 (arena map and combat wiring) is next; the reel still shows the result over the arena the players are standing in until then.
+
+## 2026-10-17 - Boss Delves phase 3: party lobby and party-request invites
+
+**What changed:**
+- **The Delve Master's second option is now a working party lobby.** "Join a delve party" forms a party (the clicker becomes leader) or opens the five-option lobby menu: Start, Invite, Party roster, Leave, Close. The menu shows the live party count and marks leader-only rows; it is redrawn for members who have it open when the roster or leadership changes.
+- **Party-request invites are implemented from scratch.** The leader types a name into the client's existing name prompt (frame 187); the target gets an Accept/Decline prompt. Invitations expire on the tick (`invite-expiry-ticks`, 50 = 30 s), are rate-limited per inviter+target pair (`invite-rate-limit-ticks`, 17 = ~10 s), and are re-validated on accept (party full, started, disbanded, target already in a party).
+- **Lobby lifecycle:** leaving costs nothing and writes no run row; leadership passes through the existing succession rule; the last member leaving ends the lobby; starting the run withdraws every pending offer and closes every prompt; logout/login clears invitations and rate history. The phase-2 arena placeholder (`ARENA_DIALOGUE`) is removed.
+- **New dev tools:** `::delveparty` and `::delveinvite <name>`.
+
+**Verification:**
+- 23 new tests in `DelveLobbyTest` (offer/accept/decline, expiry, both rate-limit rules, cap on send and on accept, leader-only actions, succession, menu text, prompt lifecycle). Full suite: 1584 tests, 0 failures; `compileJava` clean.
+
+**Files touched:** `Proxy Server/src/server/game/minigames/delves/{DelveLobby,DelveInvite,DelveInstance,DelveManager,DelveMaster}.java`, `Proxy Server/src/server/game/players/{Client,packets/JoinChat,packets/ClickingButtons,packets/commands/DelveCommands,actions/dialogues/DelveDialogues}.java`, `Proxy Server/test/server/game/minigames/delves/{DelveLobbyTest,DelveMasterTest}.java`, `Proxy Server/test/server/game/players/{actions/dialogues/DialogueRegistryTest,packets/commands/CommandHandlerTest}.java`, `docs/roulette/DESIGN.md`
+
+**Status:** done - phase 4 (reel overlay + result) is next; the arena teleport still belongs to phase 5.
+
+## 2026-10-13 - Re-applied the doors.cfg partner rows now that the guard makes them safe
+
+**What changed:**
+- **Re-applied the data change that was reverted earlier.** 10 doors had only a shut row and no row on the tile they swing to, so nothing could ever close them: `doorHandling` finds a door's open state purely by coordinate match. Added the 10 missing open-state rows (duel arena gates, cow gate, Al Kharid gates, the two Edgeville doors at `3101,3510`/`3101,3509`, `2816,3438`, `2949,3450`, `2952,3452`).
+- **Moved the duplicate row.** `doors.cfg` had both `door = 3079 3497 0 -2 0` and `door = 3079 3497 0 -1 1` on the same tile. `doorHandling` walks the whole table and applies every coordinate match, so that door was moved twice per click. The open row now sits at `3080,3497`, which is where the shut row actually swings to. 42 active rows, `MAX_DOORS` is 50.
+- **Why this is safe now when it was not before.** The earlier revert was because a `State 1` row on a normally-empty tile could be fired by a stray click, running `doorId--` and spawning a door on the shut tile with a drifted id. The state guard added just before this removes exactly that path: a close row only applies if `openDoors` already holds that door's shut tile.
+
+**Verification:**
+- New `DoorsConfigTest` reads the real committed `Data/cfg/doors.cfg` (via the `serverCfgDir` property, the same convention `RealCharacterFilesTest` uses) and asserts every open row resolves to a shut row, that no tile carries two rows, and that the count fits `MAX_DOORS`. All three would have failed against the previous file - the pairing one on 10 doors and the duplicate one on `3079,3497`.
+- 1228 tests pass (was 1217 before this door work), `compileJava` clean.
+
+**Files touched:** `Proxy Server/Data/cfg/doors.cfg`, `Proxy Server/test/server/world/DoorsConfigTest.java`
+
+**Status:** done - still needs an in-game click on a door to confirm the doorway is passable and that it closes again.
+
+## 2026-10-13 - Doors could not be closed: doorHandling had no idea what state a door was in
+
+**What changed:**
+- **`doorHandling` acted on every click, regardless of the door's state.** It matches rows on `(x, y, height)` alone and runs `doorId++` on any `State 0` row, so a second click on the shut tile ran the open branch again and walked the id one step further from its pair each time. Once the id left the pair, closing it was impossible because the id the close row expects no longer existed. The row table records positions; nothing recorded state.
+- **Added the missing state, plus the guard.** `ObjectHandler.openDoors` holds the shut tile of every door currently standing open. A `State 0` row only applies if its tile is not already in that set; a `State 1` row only applies if it is, and removes it. Either way a repeat click is a no-op instead of an id drift.
+- **Both states now agree on which tile "the door" is.** A `State 1` row names the *open* tile, so `closedTileOf` translates it back through `OPEN_OFFSET` before the guard can ask anything. That table mirrors the `State 1` branch offsets, so `(3079, 3497, -2, 0)` and its open row resolve to the same key.
+- **Side effect worth knowing:** a duplicated row now harmless-instead-of-harmful. `doors.cfg` has `door = 3079 3497 0 -2 0` followed by `door = 3079 3497 0 -1 1` on the same tile; the guard makes the second row a no-op rather than a second move. That door still cannot close, and can't be fixed by the guard alone - it needs its open row moved to `(3080, 3497)`, which is the `doors.cfg` change that was reverted earlier and is safe to re-apply now.
+
+**Still open / notes:**
+- Doors whose rows only describe the shut state (11 in `doors.cfg`) have no row on their open tile, so nothing can close them. The guard does not create that row.
+- The guard is in-memory only: a server restart with a door left open re-reads the config as shut, which matches the config's own `0 closed` convention.
+- 4 new tests in `DoorStateGuardTest` pin `closedTileOf` against the branch literals and against real `doors.cfg` pairs. 1225 tests pass, `compileJava` clean.
+
+**Files touched:** `Proxy Server/src/server/world/ObjectHandler.java`, `Proxy Server/test/server/world/DoorStateGuardTest.java`
+
+**Status:** done for the drift half; the 11 rows with no open-state partner are still outstanding.
+
+## 2026-10-13 - Doors blocked their own doorway: collision had no way to be removed
+
+**What changed:**
+- **A door never unblocked the tile it swung off, so the doorway stayed shut to path finding.** Player walking is decided server-side (`Walking` -> `PathFinder.findRoute` -> `Region.getClipping`), and collision was only ever *added*: the single mutation was `clips[..] |= shift`. So opening a door removed the graphic but not the collision, the BFS stopped on the last reachable tile, and the player appeared stuck "one tile away" behind an invisible barrier.
+- **Added the missing half.** `Region.removeClip` mirrors `addClip`, and `Region.setDoorBlocked(objectId, x, y, height, type, face, blocked)` blocks or clears exactly the bits a door's own shape contributes - type 0 walls via two new lookup tables, type 9 diagonals via the solid footprint, both mirroring `addClippingForVariableObject`/`addClippingForSolidObject`. Nothing else on those tiles is touched, so this cannot open a neighbouring wall.
+- **Wired into both door paths.** `Doors.handleDoor` (doors.txt) now clears the tile it vacates, captured *before* the move because `getNextFace` mutates the face in place. `ObjectHandler.doorHandling` (doors.cfg) clears the entry tile. Opening clears; closing clears the other tile, so the two are symmetric and leave no residue.
+
+**Correction to my own earlier pitch:** I described this option as "stop the door moving and turn it in place, like `Doors.java` already does". That was wrong - **`Doors.java` moves the door too** (`d.doorX += xAdjustment`), and so does `DoorUtil.translate` in the forum thread the user linked, and so does `doors.cfg`. All three agree the open door relocates one tile, so relocating is the 317 convention and it was left alone. The bug was never the move - it was that collision did not follow the move.
+
+**Still open / notes:**
+- **`doorHandling` still has no state check** - it matches on `(x, y, height)` alone and increments `doorId` on every click of a `State 0` tile, so clicking the original tile again drifts the id instead of closing. This is the "cannot close" half of the report and is *not* fixed here.
+- The open door's placement still goes through the generic clip path, so it may leave a clip on the tile it lands on. Watch for that in game.
+- `MAX_DOORS` (50) still has no bounds check against `loadDoorConfig`.
+- 4 new tests in `DoorClippingTest` pin the bit tables against the literals they were transcribed from (region data is not loaded under the test task, so the arithmetic itself cannot be exercised there). 1221 tests pass, `compileJava` clean.
+
+**Files touched:** `Proxy Server/src/server/clip/region/Region.java`, `server/game/objects/doors/Doors.java`, `server/world/ObjectHandler.java`, `Proxy Server/test/server/clip/region/DoorClippingTest.java`
+
+**Status:** partial - needs an in-game click on a door to confirm the doorway is passable.
+
+## 2026-10-13 - Reverted the doors.cfg patch: it fed a system that moves doors and cannot unclip
+
+**Correction to the entry below.** That entry is left as written, but its `doors.cfg` change has been **reverted**. Editing the data was the wrong layer - the problem is in `doorHandling` itself, and adding entries there is actively unsafe.
+
+**Why the revert:**
+- **`doorHandling` matches on `(x, y, height)` alone - no state check, no `break`.** So a `State 1` entry is not "this door is open"; it is "clicking here will run the close branch". The 11 entries the patch added sit on the *open* tiles, which are **empty tiles when the door is closed**. Any object on one of those tiles that survives `ClickObject`'s `Region.objectExists` guard would fire the handler, run `doorId--`, and spawn a door on the closed tile with a **drifted id** - a visible door turning into a different object or vanishing. That is a worse failure than the one it fixed.
+- **The invisible barrier is a server-side pathfinding problem, not a data problem.** `Walking` routes with `PathFinder.findRoute`, which reads `Region.getClipping`. Clipping is mutated in exactly one place - `Region.addClip`, `clips[..] |= shift` - and **nothing anywhere clears a bit**. So opening a door *removes the graphic* (client-side packet 101) but never the collision. The BFS therefore stops on the tile before the door: the "always 1 tile away" and "invisible barrier" are the same bug.
+- **`doorHandling` also moves the door to a neighbouring tile** (`x-1`/`y+1`/etc.) rather than turning it in place, and `clipSpawnedObject` then adds a *permanent* clip on that new tile. So each door opened leaves an extra blocked tile behind it, forever.
+
+**Kept from the reverted entry:**
+- `DoubleDoors.handleDoor` now returns `false` when `getDoor` matched nothing (was `true`, which made `Doors.handleDoor` claim success for every object in the game). Harmless today and still correct.
+
+**Still true, still worth doing:**
+- `doorHandling` has no state check - whichever way doors are fixed, this needs one.
+- `MAX_DOORS` is 50 with no bounds check on `loadDoorConfig`.
+
+**Status:** reverted - awaiting a decision on the real fix (unclip on open, and stop moving the door).
+
+## 2026-10-13 - Gates could open but never close: doors.cfg was missing half of each door
+
+**What changed:**
+- **`ObjectHandler.doorHandling` is stateless by design, and `doors.cfg` has to supply both ends of every door.** It matches an entry on tile alone and picks "open" or "close" from that entry's **State** column - but that column is only ever read, never written, so clicking the same door twice just replays the same move. The swing only reverses because the door's *open* tile is itself a separate entry with `State 1`. 10 of the 32 entries had that partner; **11 did not, so those gates opened and could never be closed again.**
+- Added the missing partner entry for each of those 11, derived from the two face tables `doors.cfg` already documents in its own comments (the first block is the closed branch, the block after "the door starts as opened" is the open branch). Every door now round-trips: open, then close, back to the original tile and face.
+- **`(3079,3497)` was listed twice** with different faces. `doorHandling` takes the *first* match, so the second was unreachable - and it was wrong anyway: that face (`-1`, State 1) is the door's *open* position, which is one tile east. Moved to `(3080,3497)`, which is what makes the Edgeville diagonal door closable.
+- **`DoubleDoors.handleDoor` returned `true` when `getDoor` matched nothing**, so `Doors.handleDoor` reported success for *every* object in the game. Now `false`. Nothing reads that result today, but it is what made "use the result" unsafe.
+
+**Not bugs (checked and dismissed):**
+- `ClickObject`'s `if (Doors.handleDoor(...)) { }` really does discard the result, but it is harmless: `handleGenericObject` opens with `if (act.equals("open") || act.equals("close")) return false;`, so every door is already carved out of the generic path. Left alone - suppressing the dispatch would cost the turn-to-face, door 2558's distance/offset case, and the 1516/1519 `y == 9698` walk-around, for no gain.
+- `doubledoors.txt`'s 5th column is **height**, not a state - the 10 rows showing `2` are upstairs doors, and they load correctly.
+
+**Notes / follow-ups:**
+- `doors.cfg` went 32 entries -> **42**. `MAX_DOORS` is 50 and `loadDoorConfig` has **no bounds check**, so headroom is now 8 door lines before startup throws `ArrayIndexOutOfBoundsException`. Worth guarding, and it wants a test: nothing validates that a door has a partner, which is exactly why 11 were silently broken.
+- `DoubleDoors.getNextLeftFace`/`getNextRightFace` look like they each have one drifted row in the open branch (left maps `2->1` and `3->2`, both landing on 2). Left unchanged - needs a double door checked in game first, since guessing would break the ones that work.
+- 1217 server tests pass, `compileJava` clean. Client untouched.
+
+**Status:** done, pending one in-game click on a newly closable gate.
+
+## 2026-10-12 - Dummies faced south: the cache sets their turn speed to 0
+
+**What changed:**
+- **The dummies now actually face east.** The server was already sending the right facing every tick; it was being thrown away on the client. `EntityDef`'s turn speed (`anInt79`) is **0** for NPC ids 1488/1489 in the cache, and it is copied into `Entity.anInt1504`. `client.method100` - the only code that applies a direction to an entity - opens with `if (entity.anInt1504 == 0) return;`, so no facing was ever applied and the dummy sat at the model's authored orientation (south) while every layer above it worked perfectly. The client override now sets `anInt79 = 1024`.
+- **1024 rather than the usual 32** (what every normal NPC has): a turn is applied in whole steps of `anInt1504`, so any value >= 1024 lands the turn in a single tick. A dummy is a fixture, not a person - it should already be facing east the moment it comes into view, not pivot towards it over the ~10 seconds 32 would take. Only turning reads this field.
+
+**Where the facing is actually set (for future edits):**
+- The direction is the server's, in `TrainingDummy.faceEast`: `npc.turnNpc(npc.absX + 1, npc.absY)` - "look at the tile to the east". West would be `absX - 1`, north `absY + 1`, south `absY - 1` (in this world larger Y is north). It is re-sent every tick on purpose: the client clears the focus tile after applying it, and a player only learns an NPC's facing while that NPC is in their local list.
+- ⚠ **The spawn config cannot set this.** `NPCHandler.loadAutoSpawn` parses only `type x y height walkingType maxHit attack defence` into `newNPC`, which takes no direction - unlike object spawns, which do have one. NPC rotation is only ever the `turnNpc` call.
+- The rotation is applied client-side as a geometric Y rotation of the model by `Model.method443` (sine/cosine tables), so it works on a model with no animation frames - which is what the dummies have.
+
+**Notes / follow-ups:**
+- This was the "⚠️ still not seen on-screen" caveat from the entry below, now root-caused: the failing layer was the client's turn speed, not the model or the server's facing.
+- `installBin` run, so `bin/` carries the fix. Three new harness checks pin the non-zero turn speed and the Attack action/combat level, so this cannot silently regress again - an unguarded guard is one refactor away from being deleted. 706 client checks pass.
+- Still no on-screen confirmation of the model's exact height/orientation; the swivel question is settled (there is none), but whether the object model sits at the right height is not.
+
+**Status:** done, pending an on-screen look.
+
+**Files touched:** `Proxy Client/src/def/EntityDef.java`, `Proxy Client/test/ClientHarness.java`.
+
+## 2026-10-12 - Dummies reskinned to object 23921's model, and they no longer pay XP
+
+**What changed:**
+- **Both dummies now wear the model of object 23921** (`25177`) instead of the cache's NPC-side dummy art, so they look like the world's own "Dummy" object. This corrects the previous entry's claim that NPC model 14035 was "the same art as the training dummies already in the world" - it was the cache's *NPC* dummy art, which is not the object a player recognises as a training dummy. Object 23921 is the real thing: name `Dummy`, action `Attack`, model `25177`, 1x1, with object animation 6481 (not used - an NPC has no hit animation to drive here, so the dummy stays a still target).
+- **Hitting a dummy now pays no combat XP at all** (melee, ranged, magic, hitpoints). A target that cannot be killed, never misses and never becomes "in combat" would otherwise be the best XP rate in the game at no cost or risk, which is exactly the abuse the pair would have invited.
+- **The rule lives in one place:** new `TrainingDummy.paysCombatXp(npc)`, which every NPC combat XP payout site now consults - the swing award (`awardCombatXpOnSwingNpc`), the three "hit landed" fallbacks in `delayedHit` (ranged + magic) and `applyNpcMeleeDamage`, the barrage path in `appendMultiBarrageNpc`, and `DwarfCannon.applyHit`. PvP XP is untouched, and the cannon still dims/brightens splats exactly as before.
+
+**Notes / follow-ups:**
+- In `awardCombatXpOnSwingNpc` the `swingXpAwarded` flag is still set for a dummy even though nothing is paid - it is what stops the hit path paying the same damage out a second time, so skipping it would have *created* a double-XP bug rather than removed a payout.
+- Clients need `installBin` (or `Compile.bat`) for the reskin to show; the server needs its usual rebuild. `bin/` was reinstalled here.
+- New harness checks `Dummy: 1488/1489 wears object 23921's model (25177)` and `the two share a model and are told apart by name` (client, 703 checks pass). `TrainingDummyTest.aDummyPaysNoCombatXpAndEveryOtherNpcStillDoes` covers the XP rule.
+- ⚠️ **Still not seen on-screen.** Wearing an *object* model on an NPC is a real rendering case rather than a config change - the model's origin and ground offset are authored for world placement, so the dummy could sit slightly high, low or the wrong way round. Worth a look in game; the facing is applied server-side every tick (`TrainingDummy.tick`), which is what a screenshot should confirm.
+- Full server suite: 1216 of 1217 pass. The one failure is the pre-existing flaky `PrayerAltarTest > aSecondClickWhileOfferingIsNotASecondOffering`, which passes 3/3 in isolation and involves neither dummies nor combat XP.
+
+**Status:** done, pending an on-screen look at the model.
+
+**Files touched:** `Proxy Client/src/def/EntityDef.java`, `Proxy Client/test/ClientHarness.java`, `Proxy Server/src/server/game/npcs/TrainingDummy.java`, `Proxy Server/src/server/game/players/combat/CombatAssistant.java`, `Proxy Server/src/server/game/content/DwarfCannon.java`, `Proxy Server/test/server/game/npcs/TrainingDummyTest.java`.
+
+## 2026-10-12 - Two training dummies: "0 Defence Dummy" and "Max Hit Dummy"
+
+**What changed:**
+- **Added two attackable NPCs at `3084,3495` and `3084,3493`, both facing east**, using the cache's own "Dummy" NPC (ids 1488/1489, model 14035 - the same art as the training dummies already in the world). Ids 1488-1507 are all named "Dummy" in the cache and carry no actions, no combat level and no stand animation, so on their own they are unclickable scenery. `def.EntityDef` gives 1488/1489 a name, an "Attack" action and combat level 1; 1490 upwards are deliberately left alone.
+- **New `server.game.npcs.TrainingDummy`** holds the whole rule set: effectively infinite hitpoints, zero defence, no attack of its own, never walks, never retaliates, and re-faces east every tick (a client only learns an NPC's facing while it is in that player's local list, so setting it once at spawn would leave anyone who walks up later looking at a dummy facing nowhere).
+- **The max-hit dummy always takes the attacker's ceiling**, so every splat on it is a maximum roll - including on a spell that rolled a miss, which is why `dummyMissed` also clears the failure flag (otherwise the client would draw the splash gfx *and* a max hit on top of it, and a barrage would discard the damage behind its own splash early-return).
+- **Everyone can attack a dummy at once, in single or multi combat.** Both single-combat gates in `runNpcAttack` and the cannon's equivalent stand aside for a dummy, and `TrainingDummy.tick` clears `underAttackBy` every tick so the lock can never be left set by an attack packet that arrives after the tick.
+- **Dummies skip the entire generic NPC tick** in `NPCHandler.process()`, the same shape the world-adventurer NPC already uses. That is what keeps them out of the death/respawn path; the damage itself still lands, because player hits are applied from the player's own tick.
+- **Zero defence is load-bearing, not cosmetic**: the accuracy checks roll `Misc.random(defence)`, so 0 can never beat the attacker's roll and every attack lands on either dummy.
+
+**Notes / follow-ups:**
+- The max-hit dummy gives its ceiling on *every* attack, misses included, since "always hit your max hit" is not much of a read-out if it splats zero half the time. Say the word if accuracy should be respected instead.
+- `CombatAssistant.dummyDamage` / `dummyMissed` are no-ops for every NPC but 1489, which is what makes them safe to sit in the middle of a damage roll; the dwarf cannon reads the same rule.
+- New `TrainingDummyTest` (6 tests) pins the restraint: only 1488/1489 are affected, an ordinary NPC keeps its roll, and a tick restores health, drops the combat locks and faces east.
+- `PrayerAltarTest` is pre-existing flaky and unrelated: it fails ~1 run in 6 on its own (`--tests '*PrayerAltarTest'`, no dummy code involved), with a different bone count each time. Left alone.
+- Not yet validated on-screen.
+
+**Status:** done. Both projects compile; the full server suite passes apart from the flaky `PrayerAltarTest` above.
+
+**Files touched:** `Proxy Server/src/server/game/npcs/TrainingDummy.java` (new), `Proxy Server/test/server/game/npcs/TrainingDummyTest.java` (new), `Proxy Server/src/server/game/npcs/NPCHandler.java`, `Proxy Server/src/server/game/players/combat/CombatAssistant.java`, `Proxy Server/src/server/game/content/DwarfCannon.java`, `Proxy Server/Data/cfg/spawn-config.cfg`, `Proxy Client/src/def/EntityDef.java`.
+
+## 2026-10-12 - Max hits pop: optional "Max hit pulse" under Hitsplat Style Icons
+
+**What changed:**
+- **New "Max hit pulse" setting** (widget 24473, on by default). Your own max hits now swell to **145%** of the splat's size and brighten from 170% to 215% over their first **10 cycles**, then settle back to the size and colour an ordinary hit has. The tint says *whose* hit a splat was and holds for its whole life; the pulse is a burst of motion meaning "that one was your best roll", which is why it is its own toggle rather than folded into "Your hit tint".
+- **The pulse is driven off the splat's remaining cycles**, not a stored start time: `elapsed = HITSPLAT_CYCLES - cyclesRemaining`, linear decay to zero by `PULSE_CYCLES`. The client books a splat with the cycle it *expires* on and keeps no birth time, so counting backwards from expiry is the only stateless way to do it - and it makes `pulseScalePercent` safe to call per frame.
+- **`Sprite.drawScaledTint(x, y, w, h, tintPercent)` is new, and `drawScaled` now delegates to it with 100.** Scaling and brightening have to happen together, and the existing `drawScaled` had no colour scaling. Delegating keeps one copy of the sampler instead of two; a 100 tint is arithmetically identical to the old body, so existing `drawScaled` callers are unaffected. Nearest-neighbour sampling, so the enlarged splat stays blocky like the rest of the client's scaling rather than going soft.
+- **Scaled from the splat's centre**, so the pop swells in place instead of sliding down-right (which a naive top-left scale would do).
+- **`PluginSidebar`'s `ids`/`names`/`tips` overload ladders had a gap at 5 arguments** - they went 4 straight to 6. Added the missing 5-argument overloads, which is why the new sub-setting fits the existing style rather than needing a flattened layout.
+
+**Notes / follow-ups:**
+- The pulse is scale + brightness only; the damage number is not scaled or recoloured with it, so the number stays legible and stays put while the art pops around it.
+- `maxHitPulse` is independent of `yourHitTint`: with the tint off and the pulse on you get a normal-coloured splat that still pops, and with the pulse off a max hit is just the brighter 170% art.
+- The three tuning constants (`PULSE_SCALE` 45, `PULSE_CYCLES` 10, `PULSE_TINT` 45) are the whole tuning surface and are only judged by eye.
+- Client-only; the max bit already rides the hit-source byte, so the server needs no rebuild and nothing about the wire changed.
+- Still not validated on-screen.
+
+**Status:** done.
+
+**Files touched:** `Proxy Client/src/ui/HitStylePlugin.java`, `Proxy Client/src/ui/Sprite.java`, `Proxy Client/src/game/client.java`, `Proxy Client/src/ui/PluginSidebar.java`, `Proxy Client/src/game/ClientSettings.java`, `Proxy Client/src/ui/Interfaces.java`.
+
+## 2026-10-12 - Cannon hits count as the owner's, so they are not dimmed for them
+
+**What changed:**
+- **Dwarf multicannon splats are now attributed to the owner.** `DwarfCannon.applyHit` had the owner `Client` in hand all along (`fire(player, cannon)` where `player` is resolved from `cannon.owner` each cycle), so it now passes `c.playerId` to `handleHitMask`. For the owner the cannon's splats read exactly like hits they swung themselves - undimmed, and bright on a max roll; for everyone else they dim like any other player's damage. This closes the gap noted in the previous entry, which had left cannon hits deliberately unattributed.
+- **`isMaxRoll` moved from `CombatAssistant` to `HitMarker`** as a public static, with the 15 `CombatAssistant` call sites updated to `HitMarker.isMaxRoll`. The cannon rolls its own damage and needs the same "was that a max?" answer, and one definition of max hit beats two that can drift. Same behaviour, no logic change.
+- **`rollDamage`'s ceiling extracted as `cannonMaxHit(Client)`** so `applyHit` can judge a max hit against the exact ceiling the damage was rolled from rather than re-deriving the formula. The clamp to `n.HP` still happens in `rollDamage` only, which is what makes a 40 against a monster on 3 hitpoints correctly *not* a max hit.
+
+**Notes / follow-ups:**
+- The owner lookup is per-cycle and already guarded (`player == null` stops the fire event), so `cannonMaxHit(c)` cannot be reached with a null owner. `applyHit` keeps its own null check regardless.
+- Cannonballs only ever hit NPCs (`validTarget`/`findTarget` take `NPC`), so there is no PvP cannon path to attribute.
+- Client needs no change: it already reads the hit-source byte off the NPC update block, so the server-side attribution is the whole fix.
+- Still not validated on-screen.
+
+**Status:** done.
+
+**Files touched:** `Proxy Server/src/server/game/content/DwarfCannon.java`, `Proxy Server/src/server/game/players/combat/HitMarker.java`, `Proxy Server/src/server/game/players/combat/CombatAssistant.java`.
+
+## 2026-10-12 - "Your hit" tints the splat instead of boxing it
+
+**What changed:**
+- **The gold/white box outline is gone.** Replaced with tinting, which is how OSRS reads: splats somebody else dealt are drawn at **62%** of their normal colour, and a splat that was **your own maximum is drawn at 170%** - lifted towards white so the one roll worth noticing is the loudest thing on screen. Numbers dim with the art (grey `0xB4B4B4` instead of white), because a dimmed splat still carrying a full-bright white number would read as half-done.
+- **A translucent overlay could not do this.** The splat art is a shape on a transparent field, so blending a rectangle over its 24x24 bounding square would tint the scene behind it into a visible box. New `Sprite.drawSpriteTint(x, y, tintPercent)` therefore scales each opaque pixel per channel, clamped at 255 so brightening cannot wrap back round to dark, and filters on the same `!= 0 && != -1` transparency test as plain `drawSprite` so a 100% tint is pixel-identical to before.
+- **The setting is now "Your hit tint"** (widget 24472, renamed from "Your hit outline"; field `yourHitOutline` -> `yourHitTint`). The persisted key `hitStyleYourHit` was left alone, so an existing on/off choice carries over.
+- **Splats on your own character are never dimmed.** That is damage coming at you, so it is the last thing that should recede; `isMuted` takes an `onOwnCharacter` flag and the render site passes `obj == myPlayer`. Consequence: NPC hits on you and PvP hits on you stay full strength, while other players' hits on a shared target dim.
+- **No server change.** This reuses the per-viewer hit-source byte added earlier today exactly as it was - `HitMarker` decides "mine" and "my max" while the block is serialised, and the client just renders it differently.
+
+**Notes / follow-ups:**
+- The two percentages (`OTHER_HIT_TINT`, `MAX_HIT_TINT` in `HitStylePlugin`) are the whole tuning surface and are only judged by eye; 62 and 170 are a first guess, not measured against OSRS.
+- The damage number cannot brighten on a max hit - it is already drawn in white, so only the art has headroom, which is why the max hit reads as a brighter splat rather than a brighter number.
+- Not validated on-screen. Client compiles; nothing about the wire protocol changed since the previous entry, so the server does not need rebuilding.
+
+**Status:** done.
+
+**Files touched:** `Proxy Client/src/ui/Sprite.java`, `Proxy Client/src/ui/HitStylePlugin.java`, `Proxy Client/src/game/client.java`, `Proxy Client/src/game/ClientSettings.java`, `Proxy Client/src/ui/PluginSidebar.java`, `Proxy Client/src/ui/Interfaces.java`.
+
+## 2026-10-12 - "Your hit" splat outline, with a gold box for a max hit
+
+**What changed:**
+- **New "Your hit" setting under Hitsplat Style Icons, on by default** (widget 24472). Splats the local player dealt are outlined in white; one that was also their maximum gets a gold double box. Damage alone cannot show this: a 24 and a 28 look identical whether the ceiling is 30 or 40.
+- **The server answers "was this mine?" per viewer.** A hitsplat is written into every nearby player's update stream, so the answer differs per recipient and only the server knows whose stream it is writing into. `Player`/`NPC` `appendHitUpdate`/`appendHitUpdate2` now append one byte after the style byte, from new `HitMarker.pack(attackerId, viewerId, wasMax)`, and `appendPlayerUpdateBlock`/`appendNPCUpdateBlock` gained a `viewerId` (5 call sites, all in `PlayerHandler`/`Player`). The max bit is withheld from anyone but the attacker.
+- **Attribution is recorded where hits are booked**, mirroring the style byte exactly. `CombatAssistant` tags NPC melee/ranged/magic, PvP melee/ranged/magic, and the gmaul and DFS specs. `Player`/`NPC` gained `attributeHit(slot, attacker, wasMax)` for the longer list of paths that still write `hitDiff` directly, plus a four-argument `handleHitMask` for the ones that go through it. Splats nobody claims - recoil, poison, an NPC's own blow, a heal - keep `NO_ATTACKER` and reach the client as "not yours".
+- **Max detection is `damage >= ceiling`,** with the ceiling being `calculateMeleeMaxHit()`, `rangeMaxHit()` or the spell's max recomputed at the splat. `Misc.random(n)` rolls `0..n` inclusive, so equality is the best roll; a ceiling of 0 (no spell selected) never counts, so anything unjudgeable stays unmarked rather than being called a max. Recomputing rather than carrying the ceiling from the roll site is safe because these are pure functions of stats, prayer and gear.
+- Outline drawn as a border only (`DrawingArea.method335` at opacity 256), before the damage number so the text sits on top. `HitStylePlugin` holds the colours, the `WIRE_MINE`/`WIRE_MAX` bits and the predicates the renderer asks.
+
+**Notes / follow-ups:**
+- **Wire break:** the hit block gained a byte on both sides, so client and server must be rebuilt together. An old client against the new server would desync on the first hit.
+- **Dwarf cannon hits are deliberately not attributed** - it would mean threading the owner through `DwarfCannon`. Cannon splats therefore have no outline even though they are yours; worth adding if it looks wrong in game.
+- Not validated on-screen. Both sides compile; the outline placement and the max-hit threshold are the parts only play can confirm.
+
+**Status:** done.
+
+**Files touched:** `Proxy Server/src/server/game/players/combat/HitMarker.java` (new), `Proxy Server/src/server/game/players/HitUpdate.java`, `Proxy Server/src/server/game/players/Player.java`, `Proxy Server/src/server/game/players/PlayerHandler.java`, `Proxy Server/src/server/game/npcs/NPC.java`, `Proxy Server/src/server/game/players/combat/CombatAssistant.java`, `Proxy Client/src/game/Entity.java`, `Proxy Client/src/game/client.java`, `Proxy Client/src/ui/HitStylePlugin.java`, `Proxy Client/src/ui/PluginSidebar.java`, `Proxy Client/src/ui/Interfaces.java`, `Proxy Client/src/game/ClientSettings.java`.
+
+## 2026-10-12 - Boost boxes drop the "/max"; Vengeance rebounds get a red skull beside the splat
+
+**What changed:**
+- **Boosted stats, "+N" off, now shows the boosted level alone.** It read "107/99" and now reads "107", in both forms of the plugin (the potion-icon infobox and the text overlay) since the setting drives both. The base level was noise: a boosted player is looking at the number their skill is actually at, and the extra "/max" only made the label long enough to fight the infobox for width. Tooltips updated to match ("+15 instead of 114/99" -> "instead of the boosted level").
+- **New "Vengeance skull" setting under Hitsplat Style Icons, on by default** (widget 24471). A splat from Vengeance recoil now wears the red Vengeance skull beside it. Recoil is the one splat whose source is not a combat style, so the style table had no icon for it and a rebounded hit looked exactly like a hit the server had not labelled.
+- **How the skull gets there.** `HitStyle.VENGEANCE = 3` is a new wire value; `CombatAssistant.appendVengeanceNPC` (NPC attackers, added earlier today) now tags the NPC's splat with it, and `appendVengeance` (PvP) tags the attacker's slot-2 splat via the new `Player.setHitStyle2`. The client resolves it in `drawHitStyleIcon` before the skill lookup, which is what keeps it off the skill table - 3 is inside the byte's range, so the decoder needs no special casing.
+- **Transparency and size.** The art is the Vengeance spell's own icon (widget 30306, the same sprite `StatusTimers` uses), read back from the widget because `imageLoader` is unpack-time only. Two new `Sprite` helpers do the rest: `withoutBackground()` strips the spellbook's opaque plate off a copy, `trimmed()` crops the transparent canvas margin, and the new `scaled()` resamples to `HitStylePlugin.ICON_SIZE`. The XP skill icons are exactly 18x18 with no padding (verified against `Sprites/Gameframe/XP/skill *.png`), so 18 makes the skull match them rather than dwarfing a melee hit's sword; it fades with its splat through the existing opacity path.
+- **Drive-by, needed for the above to be trustworthy.** `applyRecoil` booked the ring/deflect splat with `setHitDiff`/`setHitDiff2` and no style, so it inherited whatever the slot held earlier in the tick - which with the new tag could have put a Vengeance skull on a ring-of-recoil splat. Both branches now set the style to `NONE` explicitly, via a new `Player.setHitStyle`, mirroring what `applyRecoilNPC` already did on the NPC side.
+
+**Notes / follow-ups:**
+- `HitUpdate.clearUpdateFlags` and `NPC.clearUpdateFlags` both reset the style bytes every tick, so a splat only inherits a style from an earlier writer in the *same* tick - which is why the `applyRecoil` fix was the only one that mattered. The other direct splat writers (thieving stun, wall safes, prayer drain, gmaul spec) inherit within a tick too, but nothing sets VENGEANCE on those paths.
+- Not validated on-screen. The skull is the one piece that can only be judged in game: if widget 30306 is not the skull art on this cache, the icon silently does not draw rather than drawing something wrong.
+- `Sprite.trimmed()`/`scaled()` are general helpers and currently have one caller.
+
+**Files touched:** `Proxy Client/src/ui/HitStylePlugin.java`, `Proxy Client/src/ui/Sprite.java`, `Proxy Client/src/game/client.java`, `Proxy Client/src/ui/PluginSidebar.java`, `Proxy Client/src/ui/Interfaces.java`, `Proxy Client/src/game/ClientSettings.java`, `Proxy Server/src/server/game/players/combat/HitStyle.java`, `Proxy Server/src/server/game/players/combat/CombatAssistant.java`, `Proxy Server/src/server/game/players/Player.java`.
+
+## 2026-10-12 - Double-hit tile borders made whole; NPCs now take vengeance recoil too
+
+**What changed:**
+- **Why the ring looked uneven.** A tile's floor quad covers the tile boundary its neighbour drew a moment earlier, and because the scene pass walks far to near the covering tile is always the nearer one. A tile that plotted its outline only at its own seam therefore kept its far edges and had its near edges shaved thin or wiped out - the "some boards thicker, others thinner or missing" in the screenshot.
+- **Every edge is now plotted twice** in `WorldController.drawFloorTileMarker`: once by the marked tile and once by the neighbour across that edge, whose floor is the one that covers it. Whichever of the two seams comes last wins, so no edge on the ring can stay shaved. Only the border is repeated, never the fill - a second fill pass would compound the 70/256 blend and darken - and `plotPixel` writes solid, so a repeat re-plots the same pixels instead of thickening them. Still drawn at the tile's floor seam, so the whole marker stays under the cannon and the monsters standing in it.
+- **`CannonOverlay`'s accessor split again**, this time into a predicate rather than a colour: `doubleHitActive(plane)` gates the per-tile work (so nothing is paid while the feature is off) and `doubleHitAt(localX, localY, plane)` answers for a single tile. `doubleHitColor` and the now-unused `tileColor` are gone; the fill takes the colour from the new public `DOUBLE_HIT_COLOR`. Spots are untouched and still deferred.
+- **NPC melee/range/magic vengeance.** `appendVengeance` could not be reused: it takes the attacker's *player* index and writes the recoil to `PlayerHandler.players[attacker]`, which is only correct in PvP - an NPC has no player index to pass. New `CombatAssistant.appendVengeanceNPC(damage, npcIndex)` mirrors it with the roles reversed, and `NPCHandler` calls it on both NPC-to-player paths: the melee/range/magic tail of `applyDamage` and the multi-combat `multiAttackDamage`. It is called before the hit is subtracted (the lethal-blow guard reads pre-hit hitpoints) and on the final post-prayer damage, matching the PvP path.
+
+**Notes / follow-ups:**
+- Kept the PvP quirk that a lethal blow spends the buff and shows "Taste Vengeance!" but deals no recoil, rather than diverging the two paths.
+- The border repair can re-plot an edge over a model that was drawn at a seam in between (a monster standing on a marked tile with a nearer marked neighbour). The lines are tile boundaries, so the overlap is at the monster's feet edge, but it is the one place where a marker pixel can land on a model - worth watching in game.
+- Not validated on-screen; server change only compiles, and neither path has a test.
+
+**Files touched:** `Proxy Client/src/scene/WorldController.java`, `Proxy Client/src/ui/CannonOverlay.java`, `Proxy Server/src/server/game/players/combat/CombatAssistant.java`, `Proxy Server/src/server/game/npcs/NPCHandler.java`.
+
+## 2026-10-12 - Cannon double-hit tiles now sit on the floor instead of over the cannon and the players standing in them
+
+**What changed:**
+- **Why they were on top.** Every tile marker (hover, destination, ground/object markers, player indicators, boss timers, cannon) is *collected* as its floor tile goes past and then *painted* from `finishScene()` - after all ground and every model. That is deliberate: those markers are meant to stay legible over whatever stands in them. It is exactly wrong for the cannon's double-hit squares, which are supposed to read as ground, so they covered the cannon and any player or NPC on the tile and looked like floating red quads.
+- **The double-hit marker is now painted at the floor seam.** `WorldController.method314` draws a tile's floor (`method315`/`method316`) and then submits that tile's models, so a marker painted between the two lands under everything submitted later - the cannon on the neighbouring tile included - and on top of the floor it tints. That is the new `WorldController.drawFloorTileMarker`, called from the one point where both of a tile's ground meshes are down and `flag1` says the floor was actually drawn. There is no depth buffer in this renderer: models composite in submission order, far to near, which is what makes the seam work.
+- **Split the overlay's one colour accessor into two.** `CannonOverlay.doubleHitColor` (painted with the floor) and `CannonOverlay.spotColor` (still deferred, unchanged), with `tileColor` kept as the combined convenience. `tileNeedsOverlay` and `paintTileOverlays` now ask for `spotColor`, so a tile carrying only a double-hit marker no longer drags the deferred path along and paints itself twice.
+- Everything else - hover, destination tile, ground markers, object markers, player indicators, boss timers, agility, cannon *spots* - is untouched and still draws on top.
+
+**Notes / follow-ups:**
+- The one deliberate imprecision: on the rare tile that owns a linked ground (`aClass30_Sub3_1329`), the linked mesh's own objects are submitted before the floor marker, so the marker lands over them. Left as-is - it is a floor tint and that configuration is essentially the stacked-roof case.
+- Not validated on-screen yet; worth a look at a cannon in both a grassy and a dirt/path spot to confirm the squares tint the path rather than vanishing under it.
+
+**Files touched:** `Proxy Client/src/scene/WorldController.java`, `Proxy Client/src/ui/CannonOverlay.java`.
+
+## 2026-10-12 - Client crashed on login: the status timers were loading lunar spell art after the media loader had been torn down
+
+**What changed:**
+- **The crash.** `StatusTimers.ensureSprites` called `RSInterface.imageLoader(35, "Lunar/LUNARON")` on every HUD frame, which NPE'd on the first login (`aMRUNodes_238` null) and killed the render thread. `RSInterface.unpack` *creates* the media cache, loads every interface through it, and then **nulls it on the way out** (`RSInterface.java:268`) - so `imageLoader` is usable only during unpack. `mediaCacheAvailable()` already existed for exactly this distinction and I did not use it. My own fault, and the previous batch's entry was premature in calling it verified.
+- **The art now comes from the spellbook widgets**, which hold the sprites that were loaded at unpack time and keep them for the session: `30306` for the Vengeance spell (its `sprite2` is `LUNARON 36`) and `30298` for "Vengeance Other" (`sprite2` is `LUNARON 35`). No loader call, so nothing to tear down. `withoutBackground()` still strips the plate off a copy, leaving the shared widget sprite the spellbook draws untouched.
+- **Removed the latching flag.** `triedVengLoad` was set on the *attempt*, not the success, so a single early failure would have disabled the icons for the whole session even once the widgets existed. Each sprite now latches on its own success (`if (vengSpell == null) ...`), and a draw before the interfaces load returns early instead of committing to the fallback art.
+- **Hardened `imageLoader` itself**: it now returns `null` when the media cache is gone, rather than dereferencing it. That is the same thing it already returns on a load failure, and it means a future caller that forgets `mediaCacheAvailable()` loses a sprite instead of the whole client. Audited every other caller - they are all interface-construction code running inside `unpack`, and `MakeX` already guards its two with `mediaCacheAvailable()`; the only offender was mine.
+
+**Notes / follow-ups:**
+- Neither the harness nor any test touches `RSInterface` (it cannot: `unpack` needs a real cache), so this one has no test and the login itself is the gate.
+
+**Files touched:** `Proxy Client/src/ui/StatusTimers.java`, `Proxy Client/src/ui/RSInterface.java`.
+
+**Status:** done and built - `clean check installBin` green, harness **700/700**, now with the lunar art read from the widgets. **Needs one login to confirm.**
+
+## 2026-10-12 - TokHaar-Kal install fully reverted; hitsplat icon fade, cannon ranged tag, fixed-size infoboxes, and a transparent Vengeance icon with a primed indicator
+
+**What changed:**
+- **TokHaar-Kal is out completely, and the spawn ceiling stays.** `ItemDef`'s `case 24500` and the `item = 24500` row in `Data/cfg/item.cfg` are gone, and the four cape meshes added for it (`62592`, `62575`, `62582`, `90500`) are deleted from the cache's `Raw`. `item.cfg` was restored byte-for-byte from HEAD, which also undid the re-encoding the earlier edit had accidentally left on 13 accented item names. The raised id ceiling is kept, as asked - `ItemDef.MAX_ITEM_ID = 65534` and the `streamIndices` floor, with the server's `Config.MAX_ITEM_ID` already matching. The pre-existing `item = 19111 TokHaar-Kal` placeholder row is untouched (it was there before this work and is unrelated to the install).
+- **Hitsplat style icons fade out.** New `Hitsplat icon fade: On/Off` setting (default On) under the hitsplat style icons group. The style icon holds its configured opacity for the first three quarters of the splat's life, then ramps to nothing over the last quarter, so it leaves *with* the splat instead of blanking a frame early. Only the icon fades; the damage number is unchanged. Off restores the old behaviour exactly.
+- **Dwarf multicannon damage is now tagged ranged**, so its hitsplats carry the Ranged icon like every other ranged hit.
+- **Infoboxes are now strictly square, and text shrinks to fit them.** The panel was widened to fit a wide value (`max(size, textWidth + 6)`), which made one box in a column wider than the rest; that is gone. The value now picks the widest of the four client fonts that still fits the box, keeping the player's chosen font whenever it fits and falling back only when it cannot. Default size is now **32px**; the size setting is unchanged and still overrides it.
+- **The Vengeance infobox icon is transparent, and a primed effect gets its own white skull.** The lunar spell art is an opaque white plate with the skull drawn on it, and the button path had been hiding that by treating pure white as transparent - the infobox path did not. A new `Sprite.withoutBackground()` flood-fills the plate away from the four corners on a *copy*, leaving the shared widget sprite (and therefore the spellbook) drawing exactly what it drew before. Verified against the real PNGs: it removes the 84 plate pixels and leaves the skull silhouette intact.
+- **The white skull is "Vengeance is cast and primed", which is not the same as the cooldown.** `vengUntil` is the 30-second recast cooldown; the server's `vengOn` instead runs from the cast until the first *damaging* hit spends it, and can therefore outlive the cooldown. The two are now tracked separately: the white skull (the "Vengeance Other" art, `LUNARON 35`) appears on the cast graphic and comes down on the first splat of type damage-or-poison with `damage > 0`. A zero splat (blocked/missed) and a heal deliberately do not spend it, matching the server, which only rebounds for `damage > 0`. It also clears on death, which is where the server resets `vengOn` and `lastVeng` together.
+- **The primed skull clears on the hit, not on the cooldown - and that is a fix, not a preference.** The old code cleared the *cooldown* display on the "Taste Vengeance!" overhead. That text is overhead chat, not a chatbox message, so it never reached the client's message hook; and clearing the cooldown there would have been wrong anyway, since the server keeps refusing recasts for the full 30s from the cast whether or not the effect was spent.
+
+**Notes / follow-ups:**
+- `Sprite.drawScaled` skips only `0`, while `Sprite.method349` (the unscaled path) skips `0` *and* `-1`. So a sprite with a pure-white plate looks right at 1:1 and shows a white square when scaled - which is exactly how this bug hid for so long, and it is a latent trap for the next icon. Left alone here on purpose: fixing it changes a shared draw path, and the one shipped case is fixed at the source instead.
+- The `VENG_PRIMED_MAX` backstop is 5 minutes. Every real way the effect ends clears the flag directly, so this only exists so that a world hop or server restart - a fresh player server-side that the client sees no event for - cannot leave the skull up for the rest of the session.
+
+**Verified:** client `clean check installBin` green, harness **700/700**; server `check` green. The sprite strip was simulated pixel-for-pixel against `LUNARON 35/36.PNG` before wiring it in.
+
+**Files touched:** `Proxy Client/src/ui/{StatusTimers,Sprite,InfoBoxes,HitStylePlugin,PluginSidebar,Interfaces}.java`, `Proxy Client/src/game/{client,ClientSettings,Entity}.java`, `Proxy Client/src/def/ItemDef.java`, `Proxy Server/src/server/game/content/DwarfCannon.java`, `Proxy Server/Data/cfg/item.cfg`, cache `C:\Users\llrbi\Biohazard.474\Raw\{62592,62575,62582,90500}.dat` (deleted).
+
+**Status:** done and built. **Not confirmed in game** - the four visible things to check in one live run are: the fade ramps in the last quarter of a splat, the cannon's splats carry the bow, a six-figure infobox value stays inside a square box, and the Vengeance icon is a bare red skull with a white skull beneath it while primed that goes out when you are hit.
+
+## 2026-10-11 - Correction: the TokHaar-Kal worn cape was never oversized, and the "fix" for that was reverted
+
+**What changed:**
+- **The previous entry's scale conclusion was wrong, and the change it justified was reverted.** I then added a per-item worn scale (`wornScale`) plus a vertical offset, shrinking the mesh to 75/128 (0.59) and shifting it -55. That is gone: `anInt165`/`anInt200` are back to `62582` used exactly as authored, and `setDefaults`, the new field and the `method196` transform block were all removed. Net effect of this entry is **no behaviour change** - only corrected comments and one reworded diagnostic.
+- **Why the earlier numbers were wrong: `Model.method465` drops orphan vertices.** A worn item is drawn through the player composite, and `method465` carries over only vertices a face actually REFERENCES (it de-duplicates on position). 54 of `62582`'s 516 vertices are orphans, and they held the extreme coordinates. So:
+  - raw vertex box (what I measured before): `115 x 229 x 72`, y`[-186,43]`
+  - **what actually renders: `52 x 153 x 28`, y`[-173,-20]`**
+  - for comparison, the worn capes that already work here: `9639` Obsidian `54x139x39` y`[-165,-26]`, `9638` Fire `76x135x38`, `323` Sara `54x128x39`, `18920` Attack `64x159x41` y`[-177,-18]`.
+  So `62582` was always in the right envelope, and scaling it made a correct cape 40% too small and too low.
+- **The `62575` rejection still stands, for the right reason.** Measured the same way so it is not an orphan artefact, its drawn mesh is `507 x 689 x 469` - genuinely boss-scale, so it stays unused and was correctly the cause of the invisibility.
+- **`Model.java` diagnostic reworded** so it no longer asserts the empty catch was what made the player vanish (that was never proven; the GL path is the likelier mechanism). It now just says an undrawable model used to leave no trace at all, which is accurate.
+- **Tooling:** `tools/item-probe` gained a `rendered` line (and a `-worn <itemId>` mode) that builds the model through the player composite and prints the size the renderer is actually handed. Reading the raw vertex box is what caused this mistake, so the probe now reports both.
+
+**Verified:** `installBin check` green, harness **700/700**; probe confirms `62582` renders at `52x153x28` with no transform applied.
+
+**Files touched:** `Proxy Client/src/def/ItemDef.java`, `Proxy Client/src/model/Model.java`, `Proxy Client/tools/item-probe/ItemProbe.java`.
+
+**Status:** done and built. **Still needs one live look** - the cape is geometrically correct, so if it is still wrong on screen the cause is something other than size, and the client's own `skipping MODEL uid ... Reason: ...` line is the next thing to read.
+
+## 2026-10-11 - Wearing TokHaar-Kal made the player invisible: the male worn model is 5x oversized, and the GL path was dropping the whole actor over it
+
+**What changed:**
+- **The cause is scale, not the wiring.** `62575` decodes as 2322 verts / 3354 faces spanning **576 x 709 x 469**; a worn cape is about 54 x 139 x 39 (Obsidian) and the female mesh below is 115 x 229 x 72. The source declares it as the male worn model, but it is 5x the player's height - a boss/NPC-scale asset - so it was the wrong article to trust.
+- **Why that costs the whole character.** `GlSceneRenderer.drawModel` undoes the ENTIRE model when any one of its faces is unrepresentable (`allRepresentable()` -> `batch.rewind`), and the software body it runs underneath is then replaced by that GL frame, so a dropped model is an actor MISSING from the finished image. The user's own overlay confirms GL is on. A cape far outside the range a worn model occupies is exactly the kind of geometry that trips this.
+- **`ItemDef` case `24500` now uses `62582` (the correctly scaled mesh) for both `anInt165`/`anInt200`**, with the reason recorded at the case rather than here.
+- **One-shot abort report.** The bare `catch` around `method483` in `Model.method443` used to swallow a mid-draw failure silently - which is why this showed up as nothing at all in the log. It now prints once per process, naming vertices/faces/rows, so an undrawable model is identifiable from a log. The temporary per-frame `M483 ...` spam was removed.
+
+**Verified:** cape sizes measured by decoding the real files through this client's `Model.method460`/`method462`; `clean check installBin` green, harness **700/700**.
+
+**Files touched:** `Proxy Client/src/def/ItemDef.java`, `Proxy Client/src/model/Model.java`. Scratch probe folder `_capeprobe/` removed.
+
+**Status:** done and built, but **not yet confirmed in game** - needs one live equip. If the player is still missing, the client already logs `skipping MODEL uid ... Reason: ...` per distinct actor, and that line names the exact decline. Swapping in an authentic male mesh is a one-line change if one is found decoding near the female's size; `62717`/`62743`/`62746` in `Raw/` were checked and are not it (`62717` is oversized too).
+
+## 2026-10-11 - Item spawn failed because of a hardcoded 20000, not the item table; id ceiling raised to the 16-bit maximum
+
+**What changed:**
+- **The bug was not the item table.** Something was capping spawns at 20000 in three separate places: `Commands.handleItemSpawnCommand` and both `ItemSpawnSearch.handleSelect` and `handleAmount`. Item 24500 was above it, so `::item 24500 1` answered "Could not complete spawn request." and - because the `return` sits after the if/else - never even reached the name-search fallback. `Config.ITEM_LIMIT` was never consulted, which is why the cape looked broken while the limit looked fine.
+- **The three bounds are now one method**, `ItemSpawnSearch.isSpawnableId`, with a test that fails if the cape is refused again.
+- **Ceiling raised 25000 -> 65535 (`Config.MAX_ITEM_ID = 65534`).** 100k is not reachable: item ids are an unsigned 16-bit word on the wire (`writeWordBigEndianA(itemId + 1)` out, two-byte read into `RSInterface.inv` in), so 65534 is the last id that survives the round trip and 65535 would wrap to -1. Going higher means changing the protocol, which the client/server compatibility rule rules out.
+- **Client headroom widened to match.** `ItemDef.streamIndices` was `totalItems + 50000` (61812 here), so `forID` discarded any id from 61812 up before the custom switch could run. It is now at least `MAX_ITEM_ID + 1`, so the whole server-reachable range resolves.
+- **No existing item changes.** `item.cfg`'s highest row is 24500 and nothing sits at or above 25000, so raising the ceiling only lifts the bound for future customs - the set of loaded items is identical.
+
+**Verified:** `ItemProbe 24500` still resolves to the real cape models; `ItemProbe 63000` (previously past the client guard) now resolves; `65535` is still refused. Server `check` green with 5 new `ItemSpawnSearchTest` cases; client `clean check installBin` green, harness 700/700, warnings at the 100 baseline.
+
+**Files touched:** `Proxy Server/src/server/Config.java`, `.../game/players/packets/Commands.java`, `.../game/content/ItemSpawnSearch.java`, `Proxy Server/test/server/game/content/ItemSpawnSearchTest.java` (new), `Proxy Client/src/def/ItemDef.java`.
+
+**Status:** done and built, but **not confirmed in game** - `::item 24500 1` needs one live run. One thing deliberately left alone: `ItemAssistant.getItemName` and the two `ShopAssistant.getItemShopValue` overloads scan all of `ITEM_LIMIT` for an id that indexes the array directly, so their linear scans are now 2.6x longer. That is a few hundred microseconds and only on shop/examine paths, so it was not worth the churn - noted here in case a shop ever feels slow.
+
+## 2026-10-11 - TokHaar-Kal: the authentic worn models are now wired in (completes the entry below)
+
+**What changed:**
+- `ItemDef` case `24500` no longer borrows the Obsidian cape. It now points at the real models: inventory/ground `62592`, male worn `62575`, female worn `62582`, with the source's own zoom `1616`, rotations `339`/`192` and offset `-4`.
+- The three files were copied into the cache's `Raw/` folder, which is where `client.preloadModels()` picks loose models up (`Raw/<id>.dat` -> `Model.method460`).
+- Rotation and offset were mapped **by opcode, not by name**. The source's `modelRotation1`/`modelRotation2` are opcodes 5/6, which this client reads into `modelRotationY`/`modelRotationX`; both clients feed the same two arguments into the same rotation call, so the numbers carry over unchanged.
+- Verified both ends: each file decodes through this client's own `Model.method460`/`method462` (`tools/item-probe`), and `ItemProbe 24500` reports `modelID 62592 ... equip male 62575 female 62582`.
+
+**Files touched:** `Proxy Client/src/def/ItemDef.java`; cache `C:\Users\llrbi\Biohazard.474\Raw\{62592,62575,62582}.dat` (added only - `90500.dat` is left in place).
+
+**Status:** done - `clean check installBin` green, harness 700/700. **Not yet seen in game**, and that is the one thing left: the source cache is a much later revision, so the cape wants a look for scale on the back and for whether the worn model's animation frames line up with this client's skeletons. Swapping the inventory model back to the supplied `90500` is a one-line change if preferred.
+
+## 2026-10-11 - TokHaar-Kal: the worn models exist after all, extracted from a downloaded cache (no code change yet)
+
+**What changed:** Nothing in the client - this is the answer to "can the worn model be got from somewhere", and the answer is yes, with the files now sitting on disk.
+
+- **The item definition was recovered from a downloaded client.** `F:\Download Archive\Necrotic-Client-1.1.0\...\cache\definition\ItemDefinition.java:1266` has `case 19111` for `TokHaar-Kal` with the ids the report was missing: inventory/ground model `62592`, male worn `62575`, female worn `62582`, plus zoom `1616`, rotation `339`/`192`, offset `-4`, and `Wear`/`Drop`. Note `19111` is the same id the previous batch already used for the placeholder name, so the upgrade path needs no id change.
+- **The models were pulled out of a cache, not a loose file.** `F:\Download Archive\New folder (2)` is a **new-format** cache (`main_file_cache.dat2` + ~37 index files) - a completely different container from this client's `main_file_cache.dat` + `idx0..4`. Its sector layout was resolved by brute force rather than assumed (520-byte sectors, 8-byte header `fileId:2 part:2 next:3 type:1`, 99% of index-7 chains validating end to end), and each model entry turned out to be `[type:1][stored u32][plain u32][gzip stream]` - the declared plain size is what confirms a clean unpack.
+- **All three decode through THIS client's own loader.** `tools/item-probe` `ItemProbe -model` runs the real `Model.method460`/`method462`: all three return `ITEM_PROBE_MODEL_OK`. `62592` 271 verts / 288 tris (bbox 120x27x191, centred, i.e. the inventory article), `62575` 2322 / 3354 (bbox 576x709x469, authored around the shoulders, i.e. the male worn article), `62582` 516 / 790. The `FF FF` footer that made them look foreign is the client's own format switch, not an incompatibility - `Model.method460` picks the header offset from exactly those two bytes.
+- **Extracted files:** `_cape_models/62592.dat`, `62575.dat`, `62582.dat` (3920 / 46392 / 11577 bytes). `_capeextract2.py` reproduces them.
+
+**Files touched:** none in the client or server - three extracted `.dat` files under `_cape_models/` plus `_capeextract2.py`. Read-only against `F:\Download Archive\New folder (2)` and `Necrotic-Client-1.1.0`.
+
+**Status:** done for the models, **not wired in**. `ItemDef` still borrows the Obsidian cape's worn models (`9639`/`9641`), so the cape still looks wrong on the back. Worth knowing before wiring: the download is a much later revision, so the worn model should be checked in game for scale and for whether its animation frames line up with this client's skeletons.
+
+## 2026-10-11 - Tropical tree 14: the palm canopy is now culled behind the ridge that hides it
+
+**What changed:** Report 14 is fixed from the coordinates, and the two entries below were aimed at the wrong tree.
+
+- **The tree the report points at is a four-plane stack in map square 43,42** (world 2752-2815 x 2688-2751), not one of the 4845/4846 pairs the earlier sweep found in 38,44 and 38,45. At world (2753, 2709) it is trunk `4845` on plane 0, stems `4846` / `4847` on planes 1 and 2, and the leaves **`4848` on plane 3**, its base 720 units up the stack and its 368-vertex model (1706) topping out 98 units above that.
+- **Nothing in the vanilla renderer can cull it.** `method323` is the only terrain test scenery gets, and the occluder walls feeding it are 360 units tall; the ridge in front of the reporter (world 2763, 2727, plane 0) stands **1056 units above the eye**, and the canopy top 754. So the plane 3 pass drew the canopy over ground that had already been painted - the painter-order limit the entry below named, but reachable without a depth buffer because the ground that hides it is a *height*, not a wall.
+- **New: a sight-line terrain cull.** `WorldController.terrainHidesSightLine` walks the tiles under the line from the camera eye to the object's own model top (two samples a tile) and culls when the base plane's blended ground sits more than `TERRAIN_OCCLUSION_SLACK` (16) above it. Applied at both scenery passes, and only for scenery **above the base plane** (`l <= anInt442 ||`), so ordinary ground scenery never pays for it. The top vertex alone is the right test, not a shortcut: anything whose highest point projects behind a ridge is behind it whole.
+- **It degrades toward drawing, never toward hiding.** Off-map samples return `MIN_VALUE` and are skipped, a null plane or a map too small to hold the line culls nothing, and objects within 128 units of the camera are never culled. The maths is a pure static helper so the harness can pin it: 13 new assertions including the reporter's own geometry (culled with the ridge, drawn without it, drawn from the ridge top looking down), the slack boundary from both sides, and terrain **behind** the canopy.
+
+**Files touched:** `Proxy Client/src/scene/WorldController.java` (predicate + both call sites), `Proxy Client/test/ClientHarness.java` (13 assertions).
+
+**Status:** done - client `gradlew check` **700/700**, `installBin` synced. Verified offline against the real map data (`_occl3.py`: the ridge clears the sight line by 353 units at the worst sample, so the 16-unit slack is nowhere near it), but **not yet seen in game**: worth a look from (2776, 2750) facing south-west. Side effect to watch for: canopy that peeks past the *edge* of a ridge is culled with the rest of the object, so a narrow ridge in front of a wide canopy could now hide too much.
+
+## 2026-10-11 - Tropical tree 4845: found the two-plane placement that causes the leaf clash (no code change yet)
+
+**What changed:** Nothing in the client or server - this is the reconnaissance for report 14 and it corrects the guess in the entry below.
+
+- **Where the trees are, read out of the map rather than guessed.** A scan of all 1226 region entries in `Data/world/map_index` finds **340 placements of object 4845, every one of them in four adjacent regions** - map squares 38,44 / 38,45 / 39,44 / 39,45, i.e. **x 2432-2560, y 2816-2944** (one jungle area, not the whole world). All are `type 10` scenery, `orientation` 0-3.
+- **The same tiles carry a second copy of the tree one plane up, as object 4846.** Region 38,44 holds 2696 objects on plane 0 and exactly 2 on each of planes 1-3; the two plane-1 objects are 4846 at the same (x,y) as two of the 4845s. Region 38,45 is the same shape: 1349 on plane 0, 11 on plane 1, and those 11 are 4846 at the same coordinates as 11 of the 4845s. So **4845 is the plane-0 tropical tree and 4846 is its plane-1 twin, placed deliberately on both levels.**
+- **That is the mechanism behind the report.** `WorldController.method313` draws the scene **one whole plane at a time** (`for(k = anInt442; k < anInt437; k++)`, planes 0 then 1 then 2 then 3), and the client has no depth buffer anywhere, so **submission order is occlusion**. Every plane-1 tile - including a tree canopy - is therefore submitted after every plane-0 tile, so a canopy on plane 1 paints over a cliff face nearer to the camera whose ground is on plane 0. Nothing about this is recent: `method313`/`method314`/`method319` are byte-identical to `_client-backup-20261004-145741` (verified by diff of the whole file - the only changes are the `SceneRasterizer.dispatchGroundTriangle` seam, the `tileHoverAllowed()` gates, the Agility overlay and the package/import header).
+- **The vanilla mechanism that is supposed to prevent it is the plane shift, and it is map-driven.** `ObjectManager` calls `WorldController.method276(x, y)` for every tile whose **plane-1 settings bit 2 is set** (`(aByteArrayArrayArray149[1][y][x] & 2) == 2`), which shifts that whole column down a plane so the upper level is drawn in the base pass - this is how bridges and tree platforms stay behind the terrain. A plane-1 tree on a tile where that flag is **not** set is drawn in the late plane-1 pass and has nothing to hold it back. The tile the reporter is standing on decides which of the two they are seeing, which is why the coordinates are the missing piece.
+- **The occlusion test is also asymmetric, and that is the one code-level candidate.** Ordinary scenery is drawn at `method314:1470` behind `!method323(...)` - the test that skips a tall model whose top is hidden by terrain. Objects belonging to a shifted column's under-ground are drawn at `method314:1216` with **only** the roof check and **no** `method323` call at all, so they can never be culled by terrain in front of them.
+
+**Files touched:** none - read-only reconnaissance (`Data/world/map_index`, `Data/world/map/*.gz`, `Proxy Client/src/scene/WorldController.java`, `Proxy Client/src/scene/ObjectManager.java`).
+
+**Status:** blocked on one fact from the reporter, not on code. The attached screenshot could not be inspected (images cannot be read in this session - verified with a control image), so the remaining unknowns are the exact tile and the camera direction. Asked for coordinates or a screenshot with the minimap visible. Two candidate fixes are on the table and the choice matters: (a) give the shifted-column object path the same `method323` terrain test that ordinary scenery gets - small, but it changes multi-level draw behaviour and wants an in-game check on a bridge; (b) restore `renderer=gl`, whose depth buffer and per-corner ground depths are the real fix for painter-order occlusion, though that path is parked and unverified.
+
+## 2026-10-11 - QOL batch: short infobox numbers, green Vengeance timer, bank drag delay, 1k/1m/1b prompts, tile hover rules, alt-drag, agility overlay, TokHaar-kal, hit-style icons, one-action-a-tick fletching and pickpocketing, Izzy labels
+
+**What changed:**
+
+- **Infobox values above 999 are shortened** (`999`, `1k`, `1.1k`, `12.5k`, `3m`) so a counter can no longer widen its box. One decimal is kept below 100 of a unit; under a thousand is untouched.
+- **The Vengeance cooldown reads green on the opaque red skull.** The icon is fully opaque again and the countdown is drawn in green (`StatusTimers`), which is what the report asked for - red on the red icon was unreadable.
+- **Bank drag: auto-scroll waits a second.** Holding an item near the top or bottom of the bank used to scroll the instant the cursor entered the band; `client.dragScrollHold`/`DRAG_SCROLL_DELAY` now require the cursor to stay in the band (~1s) before each scroll step.
+- **Enter-amount prompts accept `1k`/`1m`/`1b`.** `client.parseAmountInput` reads a trailing multiplier, so bank Withdraw-X/Deposit-X, shop Buy-X and trade offer counts all take shorthand. A bare suffix means one (`k` = 1000); anything unreadable is still 0.
+- **Status bars sit closer to the panel edge** so each bar covers the stone pillar whole, instead of leaving a sliver of pillar showing outside it.
+- **Tile Markers hover obeys two new rules.** Middle mouse held suppresses the hover until release, and the hover is dropped over the inventory/chatbox HUD (transparent mode made the tile sit behind the pack). Both are one predicate, `client.tileHoverAllowed()`, used by the ground hover and re-checked when the scene finishes so a stale tile cannot outlive the cursor.
+- **Holding Alt to move an overlay can no longer walk the character.** `MenuSystem` swallows the world click while Alt is down over the game area, so dragging an infobox no longer fires the click underneath.
+- **New Agility overlay plugin** (`ui/AgilityPlugin`, on by default): outlines the clickbox of every agility obstacle in the scene, RuneLite style, read straight off the tile's objects so multi-tile obstacles are found without knowing their shape. Coloured `0x00C8FF` with a light fill.
+- **TokHaar-kal is in the game**: item `24500`, model `90500` moved into the cache's `Raw`, stats and metadata from the report's screenshot (attack `+4/+4/+4/+1/+1`, defence `+12` all, strength `+8`, value 10m, weight 1.814 kg, Wear/Drop). The earlier placeholder id `19111` keeps the old name only.
+- **New hit-style icon plugin** (`ui/HitStylePlugin`, on by default, opacity configurable 0-100% in steps of 25, default 100%): the XP-drop sword/bow/rune sprites are drawn to the left of a hitsplat to show whether melee, ranged or magic dealt the damage, for both players and NPCs. The style is tagged server-side (`HitStyle`, `HitUpdate`, `CombatAssistant`, `NPCHandler`) and travels with the hitsplat.
+- **Fletching arrows/bolts/darts is one action a tick when clicking fast.** A click queues one batch and the ticked action runs at most one per tick, instead of the old wall-clock throttle that ate clicks and made fast clicking useless.
+- **Pickpocketing is one roll a tick, and never from a stun or a fight.** `CycleEventHandler.getTick()` stamps the roll so a second click in the same tick cannot pay out twice; a failed attempt stamps the stun immediately, so the clicking-while-stunned trick no longer banks XP; and an NPC that is in combat (under attack, has a killer, dead, or dying) refuses the attempt outright.
+- **Cap'n Izzy No-Beard's course menu marks the unfinished courses.** Barbarian Outpost, Brimhaven Arena and Agility Pyramid read `(Not Complete)` on the right of the option while `Agility.courseIsComplete` says so.
+
+**Files touched:** `Proxy Client/src/ui/{InfoBoxes,StatusTimers,StatusBars,AgilityPlugin,HitStylePlugin,Sprite,MenuSystem,PluginSidebar,Interfaces}.java`; `Proxy Client/src/game/{client,Entity,ClientSettings}.java`; `Proxy Client/src/scene/WorldController.java`; `Proxy Client/src/def/ItemDef.java`; `Proxy Server/src/server/content/skills/{Fletching,Thieving,Agility,AgilityCourseMenu}.java`; `Proxy Server/src/server/game/players/{ActionHandler,NpcInteraction}.java`; `Proxy Server/src/server/event/CycleEventHandler.java`; `Proxy Server/src/server/game/players/combat/{HitStyle,CombatAssistant}.java`; `Proxy Server/Data/cfg/item.cfg`; cache `Raw/90500.dat`; tests `ThievingTest` (new), `AgilityTest`, `FletchingTest`.
+
+**Status:** done for 13 of the 14 reports - client `gradlew check` **687/0** with `installBin` synced, server `gradlew check` green at **1205 tests, 0 failures** (`ThievingTest` 12/12, `AgilityTest` 41/41, `FletchingTest` 61/61). One pre-existing flaky test, `PrayerAltarTest.offeringAgainAfterAWalkDoesNotRunTwoLoops`, failed on the first run and passed on re-run and in the full suite afterwards; it is wall-clock/tick alignment, not this batch. **Report 14 (tropical tree `4845` leaves showing through terrain) is NOT fixed and needs one more thing from the reporter.** What I established instead of guessing: `ObjectDef 4845` is a plain 1x1 scenery object (model `1676`, three recolours, no flags), and the scene walk itself is untouched - `WorldController.method313`/`method314`/`method319` are **byte-identical** to the pre-OpenGL backup (`_client-backup-20261004-145741`), the only scene differences being the `SceneRasterizer.dispatchGroundTriangle` seam, the `tileHoverAllowed()` gates and the new agility overlay. So this is either the vanilla 317 per-tile painter order (a tall model on a near tile is painted over terrain in front of its canopy, which only a depth buffer fixes - that is the parked GL path) or a placement/map artefact at the tile the reporter is standing on. Both need the spot: **a screenshot with the minimap visible, or the coordinates**, and the answer to "is the tree behind the mountain or the mountain in front of the tree".
+
+## 2026-10-11 - Agility: rope swings face the right way, stones keep a beat, Barbarian roof and Pyramid landings fixed
+
+**What changed:**
+
+- **Wilderness rope swing `2283` now turns the player north before the swing**, so the animation no longer plays back the way they came (the client draws it facing whatever direction the player last walked). New `Obstacle.face(x, y)` turns them to the row's landing tile; the Barbarian swing uses it too.
+- **Stepping stones `2311` now jump, land and stand for a tick before the next jump.** Each hop draws the 741 jump and moves the player onto the stone in the same tick, then spends the next tick standing on it - six hops in twelve ticks. Running them back to back put the player on stone six while the first jump was still playing, which read as one long slide.
+- **Barbarian rope swing `2282` now starts from the southern bank** (`2548..2553, 3553..3558` - the bank a player running up from the crumbling walls stands on) and ends on `(2551, 3549)`, the platform tile the rope hangs from, which the map connects to the log balance's start. It was previously pinned to tiles either side of the rope and timed out doing nothing.
+- **Barbarian roof: the ledge and ladder are now start areas with absolute ends.** The probe showed plane 1 above the net is a set of small walk-pockets, one per obstacle, and a pocket cannot be walked out of - which is what "stuck on the first floor" was. The net's landing pocket reaches the ledge's start, and the ledge's end is now always `(2532, 3547)` (one tile from the ladder) rather than four tiles west of wherever the player happened to be standing. The ladder `3205` matches both roof pockets the course puts the player down in and comes back down to `(2532, 3546, 0)`, so getting off the roof is always one click.
+- **Pyramid gap `10882` and cross ledge `10886` now end on fixed tiles:** `(3368, 2832)` and `(3360, 2831)`. They were offsets from the player, so the same crossing from a tile either side landed on the gap itself - a tile nobody can stand on - and the player arrived stuck and unable to click the ledge. The gap's start also reaches back to `(3375, 2840)`, where the plank before it ends, because the walkway between the two does not walk in both directions. The probe confirms both landing tiles are standable on h1, that the gap's landing pocket reaches the ledge's start tile `(3364, 2831)`, and that the ledge's landing pocket reaches the stair start `(3357, 2832)` that climbs to the summit, so the whole tier is walkable end to end.
+
+**Files touched:** `Proxy Server/src/server/content/skills/Agility.java`; `Proxy Server/test/server/content/skills/AgilityTest.java`.
+
+**Status:** done - `gradlew check` green (1345 tests), `AgilityTest` 39/39 (new tests pin the Wilderness swing's facing, the stone jump-land-stand pacing, the Barbarian rope/ledge/ladder landings, and the Pyramid gap and ledge landings including from the plank's landing tile). Coordinates were checked against the real map with `gradlew agilityProbe` (`server/tools/AgilityProbe.java`), not guessed. Still wants the in-game look the user was already doing: the Barbarian roof and parts of the Pyramid tier are genuine pocket collision - tiles that do not walk between each other - so if a click still does not take, the report to bring back is which tile the player was standing on.
+
+## 2026-10-11 - Agility: crossings walk their own line (the "runs around the log" fix)
+
+**What changed:**
+
+- **A `WALK` obstacle now walks a straight line instead of asking the path finder for a route, which is the actual cause of all three in-game symptoms.** A log over water, a tightrope over a drop and a ledge over nothing are tiles the map marks unwalkable - on purpose, or anyone could cross them without the obstacle - so the route the path finder returned went *around* the obstacle (the wide pink loop, animation playing the whole way), and when the far side was unwalkable too it returned nothing and the obstacle moved the player (the "emote in place then teleport", which was the stall fallback firing). `Agility.queueLine` now fills the walking queue by hand, one waypoint per tile along the line the obstacle defines, and a new `Player.forceWalk` tells the walk loop to take those tiles as given. Logs, tightropes, planks and ledges all cross visibly, animation playing while walking. A crossing is also pinned to **walk** speed - the player runs by default, so a seven tile log was being crossed in three and a half ticks.
+- **Nothing can leave the player frozen any more.** `busy` is what the walking packet refuses on, so a crossing that ended without clearing it froze the player on the spot with no way out but a relog - the "I can't move in that building" report. Every exit now goes through one `Agility.release()`: arrival, the stall fallback, a cancellation, and the event *throwing* (the cycle-event handler funnels an exception through `stop()` too, which the events now override). An event that stops itself on purpose marks itself first, so an obstacle that hands over to a second event stays busy across the join instead of freeing the player a tick early.
+- **Stepping stones draw the jump before they move the player**, which is what the Wilderness run was missing - the lead-in is on the first hop only, so a six stone crossing is seven ticks rather than twelve.
+- **Barbarian rope swing `2282` and other platform obstacles now match an area, not one tile.** Pinned to a single tile, a click from a tile either side walked the player somewhere else, or - when that tile was not reachable - quietly timed out after 30 ticks having done nothing at all, which is the "clicking it does nothing" report. Widened for the Barbarian rope swing, net and ladder, and the Pyramid gap `10882` (the reported `(3370, 2831)`).
+- **Ape Atoll's default teleport is `(2760, 2750, 0)`,** the course gatehouse, not the old glide drop-off.
+
+**Files touched:** `Proxy Server/src/server/content/skills/Agility.java`; `Proxy Server/src/server/game/players/Player.java`; `Proxy Server/test/server/content/skills/AgilityTest.java`.
+
+**Status:** done - server `gradlew check` green, `AgilityTest` 33/33 including new coverage for the line `WALK` walks (one tile a tick, no sideways drift), clipping being suspended only for the crossing, walk-not-run speed, the hop lead-in and its pacing, and that `busy`/`forceWalk` are cleared on all three ways a crossing can end. Still wants an in-game look: the **Pyramid gap `10882` landing tile** (currently 5 tiles west of wherever the player stands - wide start box, but the direction and distance are a guess), the **Barbarian ladder `3205`** destination, and the **Pyramid heights**, none of which can be checked from the server code alone. Brimhaven is unchanged and still parked by request.
+
+## 2026-10-11 - Agility: one obstacle table, six courses, course-locations menu
+
+**What changed:**
+
+- **`Agility` is now a single data-driven table, one row per obstacle, and the animation plays while the player crosses.** Three behaviours cover all of them: `WALK` writes the obstacle animation over the player's stand/walk/run/turn renders and puts them back on arrival (logs, ropes, planks, ledges); `HOP` jumps one tile per animation (stepping stones); `JUMP` starts the animation and relocates part way through it (nets, branches, swings, walls, gaps, pipes, ladders). The old handlers played a one-shot emote and *then* walked, so the emote finished on the spot - and the nets, branches and pipes teleported first, so the whole animation played at the far end. All six courses are in the table (Gnome Stronghold, Barbarian Outpost, Brimhaven Arena, Agility Pyramid, Ape Atoll, Wilderness) with their levels, per-obstacle XP, lap bonus XP, agility points and teleport tiles.
+- **A click away from the start tile now walks the player there first** instead of silently doing nothing, and a second click during a crossing is swallowed rather than paying out twice. `Walking` returns early while `isBusy()`, so a click cannot fight a crossing, and death and teleportation both call `cancel()` (which restores the renders).
+- **Cap'n Izzy No-Beard's option 2 is now "Agility Course Locations"**, opening a two-page menu (options 1-4 = Gnome/Barbarian/Brimhaven/Pyramid + "More courses...", then Ape Atoll/Wilderness/Back) that level-checks before teleporting. `agilityPoints` is persisted in `PlayerSave`.
+- **Two bugs found while testing the wiring, both of which would have made the feature dead in game.** (1) `ClickingButtons`' option cases end by resetting `dialogueAction = -1`, so opening the menu with a plain `break` wiped the very marker the menu claims its own option buttons with - the menu would draw and then answer nothing. It now returns, like the neighbouring `case 420`. (2) `Player.getHeightLevel()` returned a dead field that nothing ever wrote, so it answered `0` for every player on every plane: the height-gated obstacles (Gnome tree branch, Barbarian ledge) were unreachable, and `withinDistance(x, y, h)` (used to broadcast still graphics) was silently disabled. It now reads `position.heightLevel` and the stale field is gone; nothing read it.
+
+**Files touched:** `Proxy Server/src/server/content/skills/{Agility,AgilityCourseMenu}.java` (new); `Proxy Server/src/server/game/players/{ActionHandler,Player,PlayerSave}.java`; `Proxy Server/src/server/game/players/packets/{ClickingButtons,Walking}.java`; `Proxy Server/src/server/game/players/actions/dialogues/OptionDialogues.java`; `Proxy Server/src/server/game/players/PlayerAssistant.java`; `Proxy Server/test/server/content/skills/AgilityTest.java` (new).
+
+**Status:** done - server `gradlew check` green, new `AgilityTest` 25/25 (tick-by-tick crossings, render swap/restore, lap bonus + points, spam-click, level gate, walk-to-start, cancel on death/teleport, menu routing and teleports, and a real click through `ClickingButtons` for the dialogue option itself). Wants an in-game look: the animation ids marked `(?)` in `Agility`'s constants block (827, 1115, 840) and the Pyramid/Brimhaven coordinates are the weakest, and the heights now actually apply, so the Barbarian ledge and the Gnome branch ladder are the ones to try. Brimhaven has **no server-side object spawns** - `ObjectManager.loadCustomSpawns` has none and `Data/cfg/global-objects.cfg` is an empty template - so the arena has to come from the map cache; if the objects are not there in game, that is where they belong.
+
+## 2026-10-11 - Infobox groups persist, size/font settings, dual-ammo box, bolt enchanting balanced
+
+**What changed:**
+
+- **Grouped infoboxes survive a restart.** `OverlayManager.load` now materialises panels from every saved `ov.groupOf.*` key before it restores groups, because a status-timer or boost infobox has no panel at load time and its membership was silently dropped. **Singular infoboxes no longer offer "Detach"** (they were never attached); the menu is Detach / Flip / Delete only for a grouped box, and Detach now pulls that one box back out. Attaching is done by holding Alt and dropping an infobox onto another one, which is now wired in `endDrag` via `attachAt` - the old flow only merged groups, so "Detach" had been the only way in.
+- **Infobox size and font settings, RuneLite style.** New Client Display options: **Infobox font** (Small/Regular/Bold/Fancy), **Infobox size** (16-48px, default 32), and **Outline infobox text**. Every icon infobox is now a square of that size with its sprite scaled to fit, so a spell icon, a potion, and a bundle of arrows all land in the same box - which also fixes the oversized Vengeance box.
+- **Two ammunition infoboxes.** `AmmoOverlay` draws the ammo slot *and* the weapon slot when both hold ammunition (darts in hand plus bolts quivered), under separate ids `ammo`/`ammoHand` so each can be moved and grouped. Thrown names (darts, knives, javelins, throwing, toktz) count for the hand slot.
+- **Bolt enchanting is OSRS-faithful and no longer absurd.** One cast converts **10 bolts**, spends **one set of runes**, plays that tier's animation/graphic (719/720/721 with 114/115/116/452), and pays the per-cast experience from `boltData` **once** - the old code multiplied it by the batch size *and* the 550x rate, so a click was worth over a million XP. A cast also refuses when the pack is full and has nowhere for the enchanted bolts to stack. `magicOnItems` now decides once between bolt and jewellery instead of running the whole table per click.
+
+**Files touched:** `Proxy Client/src/ui/{OverlayManager,InfoBoxes,AmmoOverlay,PluginSidebar,Interfaces}.java`; `Proxy Client/src/game/ClientSettings.java`; `Proxy Server/src/server/content/skills/Magic.java`; `Proxy Server/src/server/game/players/PlayerAssistant.java`; `Proxy Server/test/server/content/skills/BoltEnchantTest.java`.
+
+**Status:** done - client `gradlew check` 687/0 and `installBin` synced; server `gradlew check` green with the new `BoltEnchantTest` 14/14 (XP, batch, runes, free slot, animation). One earlier server run had a single unrelated flaky failure in the bot tests; three re-runs passed. Wants an in-game look at the infobox size/font at each setting and at both ammo boxes at once.
+
 ## 2026-10-11 - Potions sit down in their box (and the gate that stopped them)
 
 **What changed:**
@@ -1028,3 +1933,54 @@ So the change runs **towards more walkability**, not more blocking — the direc
 - `UPDATE_LOG.md` (new)
 
 **Status:** done. No source code changed - design/plan only. Next: implement step 1 (sessionless `flushOutStream` guard) when approved.
+
+## 2026-10-17 - Stage D: persistent HUD, leaving the delve, difficulty tiers
+
+**What changed:**
+
+- **Persistent HUD.** `DelveHud` sends `hud` and `chest` payloads every 5 ticks from arrival ("Awaiting spin") until exit/forfeit/run end, then `hudclear`. The client draws it as a settings-panel checkbox **Delve HUD** (default on, persisted as `delveHud`; `::delvehud` flips it) with the +/− chest grid persisted as `delveHudExpanded`. While off, the client still tracks state so re-enabling is immediate, and it hides the panel after 1.5 s on another plane as a backstop.
+- **One departure path.** Teleports, involuntary disconnects and voluntary logouts all resolve through idempotent `DelveInstance.forfeitAndLeave(member, reason)`: chest forfeited/cleared, member removed and leader promoted at once, body removed, contribution kept in the denominator, next login message "You left the delve. Your chest of X gp was forfeited." Outer teleports show a stock 2-option prompt before any rune/charge is spent; forced teleports still forfeit; internal movement (`::ledgetp`, ledge, rejoin) does not. Servers shutting down route to `refundAndLeave` (`RESTART_REFUND`) and never forfeit.
+- **Config:** `disconnect-grace-seconds` (default **0** = immediate), `chest-phase-disconnect-policy` (**FORFEIT**|`AUTO_WITHDRAW`). CSV outcomes gained `LOGOUT_FORFEIT` and `TELEPORT_FORFEIT`.
+- **Difficulty tiers.** New `difficulties.cfg` (Easy/Regular/Hard factors, levels, danger shift, legendary weight) and optional `boss-difficulty.cfg` overrides; `bosses.cfg` gained a trailing `difficulties` column and `waves.cfg` a difficulty column (Easy 6 rounds, Hard 10). Regular is numerically unchanged (all 1.0, original table). Combat applies each factor once and caps the whole product at `absolute-max-hp-multiplier` 7.0 / `absolute-max-hit-multiplier` 1.6. Loot uses `loot-factor` (sqrt on UNCOMMON, RARE quantities untouched), `rare-chance-factor` (75% cap) and probabilistic rounding, with `chest-cap-factor`. Danger shifts clamp Low..Extreme.
+- **Levels, unlock and lobby.** Recommended is soft (leader confirmation), minimum is hard (blocks ready/start, names the players). Hard is locked until an account reaches Regular round `hard-unlock-regular-round` (default 6); `::delveunlock` grants it. The leader's Difficulty row opens a 3-option dialogue (`dialogueAction` 9832, buttons 9167–9169) and changing the tier clears ready flags.
+- **Persistence v4.** Difficulty, per-tier rare pity (old scalar migrates to Regular), highest round per tier, and the Hard unlock flag; v1–v3 files load with defaults and lose nothing.
+- **Telemetry.** `difficulty` is the last CSV column (old rows = Regular). `::delvestats [runs] [tier]` filters and prints tier targets; `::delvesim` and the new `::delvedrops` accept a tier; the per-tier loot/hour and rares/hour table is relative to Regular.
+- **Docs:** `docs/roulette/DESIGN.md` (new tier section, revised cap table, §6 departure rules, HUD, roadmap) and `docs/roulette/PACKETS.md` (spin/chest/hud grammar, `hudclear`, lobby dialogues, persist v4).
+
+**Files touched:** `DelveInstance`, `DelveManager`, `DelveLobby`, `DelveMath`, `DelveConfig`, `DelveSettings`, `DelvePersist`, `DelveSession`, `DelveHud`, `DelveReel`, `DelveSim`, `DelveStats`, `DelveCsv`, `DelveChestInterface`, `DelveCommands`, `PlayerAssistant`, `DialogueHandler`, `Client`/logout wiring; client `DelveHud`, `DelveReel`, `ClientSettings`, `Interfaces`, `PluginSidebar`, `client`; configs `difficulties.cfg`, `boss-difficulty.cfg`, `bosses.cfg`, `waves.cfg`, `delves.cfg`; tests `DelveDifficultyTest`, `DelveLeavingTest`, `DelveLobbyTest`, `DelvePersistTest`, `DelveSimTest`, `DelveStatsTest`, `DelveCsvTest`, `DelveReelTest`, `CommandHandlerTest`.
+
+**Status:** done. Full server suite green; client compiles.
+
+## 2026-10-17 - Stage D follow-up: the delve HUD now fits its panel and is clickable
+
+**What changed:**
+
+- **The text fits.** `TextDrawingArea.drawText` centres a string on the x it is given (it passes `x - width/2` to `method385`), so every HUD line was drawn half its own width to the left and ran out of the panel - the same latent bug in `DelveReel`. Both now use `method385`, the left-aligned entry point the XP tracker uses.
+- **One layout, one size.** `DelveHud.layout()` builds the exact lines that will be drawn and `measure()` sizes the box from them (first baseline, row pitch, last descender, padding), so the chest grid can no longer fall outside the box. Lines that would exceed the panel are clipped with an ellipsis instead of overhanging it, and the title is measured against the room the +/− button leaves.
+- **The panel is no longer click-through.** The +/− is now a drawn 12x12 button (4px of slop around it) with a hover highlight; a left click anywhere on the panel is swallowed by the HUD and a click on the button toggles the chest grid.
+- **The click is claimed before the menu.** The handler used to run inside `processHudClicks`, i.e. *after* `processMenuClick` had already fired the menu's permanent "Cancel" entry, so the button never saw the click. `DelveHud.handleClick` is now tested first in `processGameLoop`'s click block, before any menu processing, which also stops a click on the panel walking the player. As a second, independent path, the button also publishes a `Show/Hide delve loot list` menu entry (`ACTION_TOGGLE` 1650) from `processRightClick`, and `client.doAction` routes it - the same mechanism every other overlay uses.
+- **Expanding an empty chest is visible.** Collapsed shows `No loot yet - click +` (or `N stacks - click + to show`), expanded with nothing banked shows `No loot banked yet.`, so the +/− toggle always produces a visible change.
+- **Fixed-mode offset.** `OverlayManager.layerOriginX/Y` expose the HUD layer's origin: panel coordinates are relative to it (4,4 in fixed), which the old `checkClick` ignored, so the button's hotspot did not line up with the drawn button.
+- **The panel's position persists.** `delveHud` joined `OverlayManager.ensureKnown`, so an Alt-drag position is written by `save` and read back by `load` (the panel used to be created after `load` ran).
+- Collapsed now reads "N stacks - click + to show" instead of showing nothing where the grid was.
+
+**Files touched:** client `src/ui/DelveHud.java`, `src/ui/DelveReel.java`, `src/ui/OverlayManager.java`, `src/game/client.java`, `UPDATE_LOG.md`.
+
+**Status:** done. Client builds; 706 client harness checks pass; `installBin` refreshed `bin/`.
+
+## 2026-10-17 - Client packaging: GUI, configurable server address, cache auto-update
+
+**What changed:**
+
+- **One jar-friendly configuration path.** New `sign/ClientConfig.java` reads server host/port and the cache URL/version from `client.properties`, layered lowest-first: jar-embedded defaults, working directory, jar folder, `-Dclient.config=...`, then per-key `-Dclient.*` overrides. No file means the previous behaviour exactly (`localhost`, `43594`, `~/Biohazard.474`, no download), so development from `bin/` is untouched.
+- **The server address is no longer compiled in.** `client.main` loads the config before `signlink` (which opens the cache files), sets `server`/`portOff`, and `client()` uses the configured host. `signlink.findcachedir()` uses the configured cache folder (keeping the old `Documents/GitHub` and `.pre-deathly` fallbacks for a bare folder name).
+- **The cache updater actually works.** `cache/CacheDownloader` was a stub: empty link, hardcoded version, no update path. Rewritten to fetch a version manifest (`cache.version.url`) or use the baked `cache.version`, compare it with `<cache>/cache.version`, download with progress, verify ZIP magic, optionally verify SHA-256, extract with parent-folder creation and zip-slip refusal, and record the new version. A failed check keeps the installed cache instead of re-downloading or downgrading; a failed install leaves the old version marker so the next launch retries. Stale temp files are removed, and install progress repaints per percent rather than per file.
+- **Manifest parsing accepts both spellings** (`7` / `7 <sha>` / two lines) and refuses HTML or nonsense rather than treating it as a version.
+- **Unresolvable host no longer blocks the window.** `ui/Jframe` resolves the host best-effort and logs a clear message; previously `UnknownHostException` aborted `initUI()`.
+- **The packager.** New `tools/packager/ClientPackager.java` + `PackageClient.bat`: a Swing GUI (Server / Cache / Build / Preview / Log tabs) that runs `gradlew installBin`, jars `build/classes/java/main` (not the stale-class-ridden `bin/`) with `Main-Class: game.Loader`, writes `client.properties` both embedded and external, emits `Run.bat` / `Run (console).bat`, optionally bundles LWJGL as a fat jar or a `libs/` folder, and produces a distribution zip. It also packages the cache for upload (`cache.zip` + `cache.version` with SHA-256), excluding player state. `--headless` mode exposes the same build to scripts.
+- **Docs:** `docs/CLIENT_PACKAGING.md` covers the jar mechanics, `client.properties` keys, Dropbox/GitHub/self-host direct-link formats, the zip layout, the update workflow, and troubleshooting.
+- **Harness:** 16 new checks pin the config defaults/precedence/port fallback and the manifest parser (722 total).
+
+**Files touched:** client `src/sign/ClientConfig.java` (new), `src/sign/signlink.java`, `src/game/client.java`, `src/ui/Jframe.java`, `src/cache/CacheDownloader.java`, `test/ClientHarness.java`, `tools/packager/ClientPackager.java` (new), `PackageClient.bat` (new), `.gitignore`, `docs/CLIENT_PACKAGING.md` (new), `UPDATE_LOG.md`.
+
+**Status:** done. `gradlew check` green (722 harness checks, collision table in sync); `PackageClient.bat --headless` builds and zips the client; a local HTTP test verified first install, up-to-date skip, checksum mismatch rejection, HTML-manifest fallback, and a full pack-cache -> download -> install cycle.

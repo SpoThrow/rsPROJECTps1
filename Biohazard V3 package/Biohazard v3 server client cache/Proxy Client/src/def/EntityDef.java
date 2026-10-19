@@ -25,6 +25,13 @@ public final class EntityDef {
 		entityDef.interfaceType = id;
 		entityDef.readValues(stream);
 		switch (id) {
+	       case 742:
+	       case 6087:
+	           // Elvarg, the Dragon Slayer boss. The server files carry her HP and damage; the
+	           // level shown on the right-click menu comes from here, so it has to match.
+	           entityDef.name = "Elvarg";
+	           entityDef.combatLevel = 118;
+	           break;
 	       case 1625:
 	           entityDef.name = "Smoke devil";
 	           entityDef.combatLevel = 160;
@@ -159,6 +166,33 @@ public final class EntityDef {
 	           entityDef.actions[1] = "Attack";
 	           entityDef.description = "A blood-thirsty servant of Nex.".getBytes();
 	           break;
+	       case 6605:
+	           // Wilderness bandit, level 130. This cache stops at the 474-era bandits (id 1926 is the
+	           // highest, level 74), so the OSRS id 6605 is declared here as a head over that body:
+	           // same model, same stand/walk, but the level the right-click menu reads and the
+	           // "Attack" option a wilderness outlaw should have. The server side lives in
+	           // npc.cfg (130 combat, 155 hp) and npc_drops.cfg; see NPCHandler.isAggressive.
+	           EntityDef bandit = forID(1926);
+	           entityDef.name = "Bandit";
+	           entityDef.combatLevel = 130;
+	           entityDef.anIntArray94 = bandit.anIntArray94.clone();
+	           entityDef.anIntArray73 = bandit.anIntArray73 == null ? null : bandit.anIntArray73.clone();
+	           entityDef.anIntArray70 = bandit.anIntArray70 == null ? null : bandit.anIntArray70.clone();
+	           entityDef.anIntArray76 = bandit.anIntArray76 == null ? null : bandit.anIntArray76.clone();
+	           entityDef.standAnim = bandit.standAnim;
+	           entityDef.walkAnim = bandit.walkAnim;
+	           entityDef.anInt58 = bandit.anInt58;
+	           entityDef.anInt83 = bandit.anInt83;
+	           entityDef.anInt55 = bandit.anInt55;
+	           entityDef.anInt79 = bandit.anInt79;
+	           entityDef.anInt86 = bandit.anInt86;
+	           entityDef.anInt91 = bandit.anInt91;
+	           entityDef.anInt75 = bandit.anInt75;
+	           entityDef.aByte68 = bandit.aByte68;
+	           entityDef.actions = new String[5];
+	           entityDef.actions[1] = "Attack";
+	           entityDef.description = "A wilderness outlaw.".getBytes();
+	           break;
 	       case 7133:
 	           // Bork (667) - models/anims from CursePack-era 667 Data
 	           entityDef.name = "Bork";
@@ -174,7 +208,74 @@ public final class EntityDef {
 	           entityDef.actions[1] = "Attack";
 	           entityDef.description = "A huge ork warbeast.".getBytes();
 	           break;
-		}
+	       case 1488:
+	       case 1489:
+	           // Training dummies. The cache already has these as "Dummy" (model 14035, size 1) but
+	           // with no actions, no combat level and no stand animation - so on their own they are
+	           // scenery a player can neither click nor recognise. Three things are added here:
+	           //
+	           //   * the model of object 23921 - the world's own "Dummy" object, model 25177 - so the
+	           //     two targets look exactly like the training dummies already in the game rather
+	           //     than like whatever the cache's NPC-side dummy art happens to be;
+	           //   * an "Attack" action, which is what makes the NPC clickable at all;
+	           //   * a combat level, which is what the menu treats as "this is attackable" and what
+	           //     decides whether Attack is the left-click or sits behind right-click.
+	           //
+	           // The name is what tells the two apart in-game, since they share a model. What each
+	           // one actually does to a damage roll - and the fact that neither pays XP - is decided
+	           // server-side in TrainingDummy.
+	           //
+	           // anInt79 is the turn speed the client copies into Entity.anInt1504, and it is the one
+	           // field here that is not cosmetic. The cache sets it to 0 for these two, which is
+	           // deliberate on its part - they are meant to be scenery - but it also silently
+	           // disables facing: method100, the only code that applies a direction to an entity,
+	           // returns immediately when anInt1504 is 0. That is why the dummies sat at the model's
+	           // authored orientation (south) no matter what the server told them to look at.
+	           //
+	           // 1024 rather than the usual 32: a turn is applied in whole steps of anInt1504, and
+	           // every turn is smaller than 1024, so one tick lands it. A dummy is a fixture, not a
+	           // person - it should already be facing east the moment it comes into view, not pivot
+	           // towards it over the ~10 seconds 32 would take. Only turning reads this field.
+	           //
+	           // The absent stand animation is deliberate: both are stationary targets, so a still
+	           // model is the correct look, and EntityDef.method164 renders a model with no frame
+	           // rather than skipping it.
+	           entityDef.name = id == 1488 ? "0 Defence Dummy" : "Max Hit Dummy";
+	           entityDef.combatLevel = 1;
+	           entityDef.anIntArray94 = new int[] { 25177 };
+	           entityDef.anInt79 = 1024;
+	           entityDef.actions = new String[5];
+	           entityDef.actions[1] = "Attack";
+	           entityDef.description = (id == 1488
+	                   ? "A training dummy with no defence at all - every hit lands."
+	                   : "A training dummy that always takes your maximum hit.").getBytes();
+	           break;
+	       case 8019:
+	           // The home teleport portal (667 revision). The 667 def carries this one model and a
+	           // stand animation and nothing else, so everything below is stated here rather than
+	           // read from npc.dat, whose 474 entry for this id is unrelated.
+	           //
+	           // Model 41508 is NOT in the packed 474 model archive; it is loaded from the cache's
+	           // Raw folder by client.preloadModels, the same path the Nex and CursePack models use.
+	           // "Teleport" is the FIRST action, which is what makes it the left-click option.
+	           // menuColor is cyan so the name in the menu is drawn like an object's, not an NPC's.
+	           entityDef.name = "Portal";
+	           entityDef.combatLevel = 0;
+	           entityDef.anIntArray94 = new int[] { 41508 };
+	           entityDef.standAnim = 10176;
+	           // The 474 entry for this id (if there is one) may name a walk/turn animation for a
+	           // different NPC; a portal never walks, so all four are cleared rather than inherited.
+	           entityDef.walkAnim = -1;
+	           entityDef.anInt58 = -1;
+	           entityDef.anInt83 = -1;
+	           entityDef.anInt55 = -1;
+	           entityDef.aByte68 = 1;
+	           entityDef.menuColor = "@cya@";
+	           entityDef.actions = new String[5];
+	           entityDef.actions[0] = "Teleport";
+	           entityDef.description = "A shimmering gateway to distant places.".getBytes();
+	           break;
+	}
 		return entityDef;
 	}
 
@@ -476,6 +577,15 @@ public final class EntityDef {
 	public int anInt92;
 	public boolean aBoolean93;
 	public int[] anIntArray94;
+	/**
+	 * Colour tag the menu draws this NPC's name in, or {@code null} for the ordinary NPC yellow.
+	 *
+	 * <p>Objects have always had their names in cyan ({@code @cya@}) while NPCs use
+	 * {@code @yel@}, so a definition that should read like scenery - the home teleport portal
+	 * is the case this exists for - would otherwise be indistinguishable from a person in the
+	 * right-click menu. {@link #name} is still the plain text; this is presentation only.
+	 */
+	public String menuColor;
 	public static MRUNodes mruNodes = new MRUNodes(30);
 
 }

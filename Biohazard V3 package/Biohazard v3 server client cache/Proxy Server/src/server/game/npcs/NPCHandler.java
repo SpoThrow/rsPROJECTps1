@@ -16,15 +16,20 @@ import server.event.CycleEvent;
 import server.event.CycleEventContainer;
 import server.event.CycleEventHandler;
 import server.game.minigames.castlewars.CastleWars;
+import server.game.minigames.delves.DelveMaster;
+import server.game.minigames.delves.DelveCombat;
+import server.game.minigames.delves.DelveNpc;
 import server.game.content.AchievementBroadcast;
 import server.game.minigames.randomevents.RiverTroll;
 import server.game.minigames.randomevents.RockGolem;
 import server.game.minigames.randomevents.SpiritTree;
 import server.game.minigames.randomevents.Zombie;
+import server.game.minigames.rfd.RFDMinigame;
 import server.game.players.Client;
 import server.game.players.PathFinder;
 import server.game.players.Player;
 import server.game.players.PlayerHandler;
+import server.game.players.combat.HitStyle;
 import server.world.definitions.EntityDef;
 import core.util.Misc;
 
@@ -54,40 +59,62 @@ public class NPCHandler {
 		NpcAnim667.load();
 	}
 
+	/**
+	 * Chance of one entry dropping, as a percentage (0-100).
+	 *
+	 * <p>The named tiers are "1 in N" rates: {@code 1 / x} must be floating point, because the
+	 * original wrote {@code 1 / x} with an {@code int} x, which is always 0 - every named tier
+	 * therefore returned 0% and behaved like a flat ~1% roll against the old ceiling. The ranges
+	 * below follow the intent documented beside each tier.
+	 */
 	public float getRarity(String value) {
-		float dropRarity = 0.0f;
 		if (value.equalsIgnoreCase("ALWAYS")) {
-			dropRarity = 100.0f;
-		} else if (value.equalsIgnoreCase("VERY_COMMON")) {
-			dropRarity = 75.0f;
-		} else if (value.equalsIgnoreCase("COMMON")) {
-			int x = Misc.random(51, 100); // 1 in 2 through 50 kills will give
-										// this item
-			dropRarity = (float) (1 - (1 - (1 / x))) * 100;
-		} else if (value.equalsIgnoreCase("UNCOMMON")) {
-			int x = Misc.random(84, 152); // 1 in 51 through 100 kills will give
-											// this item
-			dropRarity = (float) (1 - (1 - (1 / x))) * 100;
-		} else if (value.equalsIgnoreCase("RARE")) {
-			int x = Misc.random(101, 412); // 1 in 101 through 512 kills will
-											// give this item
-			dropRarity = (float) (1 - (1 - (1 / x))) * 100;
-		} else if (value.equalsIgnoreCase("VERY_RARE")) {
-			int x = Misc.random(513, 850); // 1 in 513 through 1024 kills will
-											// give this item
-			dropRarity = (float) (1 - (1 - (1 / x))) * 100;
-		} else if (value.equalsIgnoreCase("SUPER_RARE")) {
-			int x = Misc.random(1025, 3096); // 1 in 1025 through 4096 kills
-												// will give this item
-			dropRarity = (float) (1 - (1 - (1 / x))) * 100;
-		} else if (value.equalsIgnoreCase("EXTREMELY_RARE")) {
-			int x = Misc.random(4097, 6192); // 1 in 4097 through 8192 kills
-												// will give this item
-			dropRarity = (float) (1 - (1 - (1 / x))) * 100;
-		} else {
-			dropRarity = Float.parseFloat(value);
+			return 100.0f;
 		}
-		return dropRarity;
+		if (value.equalsIgnoreCase("VERY_COMMON")) {
+			return 75.0f;
+		}
+		if (value.equalsIgnoreCase("COMMON")) {
+			return 100.0f / Misc.random(2, 50);
+		}
+		if (value.equalsIgnoreCase("UNCOMMON")) {
+			return 100.0f / Misc.random(51, 100);
+		}
+		if (value.equalsIgnoreCase("RARE")) {
+			return 100.0f / Misc.random(101, 512);
+		}
+		if (value.equalsIgnoreCase("VERY_RARE")) {
+			return 100.0f / Misc.random(513, 1024);
+		}
+		if (value.equalsIgnoreCase("SUPER_RARE")) {
+			return 100.0f / Misc.random(1025, 4096);
+		}
+		if (value.equalsIgnoreCase("EXTREMELY_RARE")) {
+			return 100.0f / Misc.random(4097, 8192);
+		}
+		return Float.parseFloat(value);
+	}
+
+	/**
+	 * Reads an explicit "1 in N kills" token: {@code 1_IN_2000}, {@code 1_in_5000}.
+	 *
+	 * <p>The named tiers cannot express a rate rarer than roughly 1 in 20. They return a percentage
+	 * that {@link #dropItems(int)} compares against {@code Misc.random(rareChance)}, which is an
+	 * integer, so every percentage below 1 rounds down to "the roll must be exactly zero". That
+	 * floors COMMON, RARE and EXTREMELY_RARE alike near 5% - fine for cheap flavour drops, wrong
+	 * for a 200,000 gp gem. This token is rolled independently and exactly instead, and returns 0
+	 * for anything that is not of this form so the tier logic keeps handling it.
+	 */
+	static int exactOneIn(String value) {
+		if (value == null || !value.regionMatches(true, 0, "1_IN_", 0, 5)) {
+			return 0;
+		}
+		try {
+			int n = Integer.parseInt(value.substring(5).trim());
+			return n > 1 ? n : 0;
+		} catch (NumberFormatException e) {
+			return 0;
+		}
 	}
 
 	/**
@@ -156,6 +183,17 @@ public class NPCHandler {
 							for (int i = 1; i <= token3.length - 1; i++) {
 								String[] token4 = token3[i].trim().split(":");
 								NPCDrop npcDrop = null;
+								if (token4.length == 2) {
+									// item:rarity - amount defaults to one. These rows used to be
+									// dropped entirely by the parser, so the items they name could
+									// never drop (the abyssal whip row on the sire table was one).
+									npcDrop = new NPCDrop(slot,
+											Integer.parseInt(token4[0].trim()), 1,
+											token4[1].trim());
+									if (npcDrop != null) {
+										newNpcDrops.add(npcDrop);
+									}
+								}
 								if (token4.length == 3) {
 									String amounts = token4[1].trim();
 									if (amounts.indexOf("&") > -1) {
@@ -187,11 +225,15 @@ public class NPCHandler {
 									}
 								}
 								if (token4.length == 4) {
+									// item:min:max:rarity -- the fourth field is the rarity tier.
+									// This used to pass token4[2] (the max amount), which made every
+									// ranged entry roll at 1-in-max instead of its real tier rate and
+									// was why goblins dropped half their table on one kill.
 									npcDrop = new NPCDrop(slot,
 											Integer.parseInt(token4[0].trim()),
 											Integer.parseInt(token4[1].trim()),
 											Integer.parseInt(token4[2].trim()),
-											token4[2].trim());
+											token4[3].trim());
 									if (npcDrop != null) {
 										newNpcDrops.add(npcDrop);
 									}
@@ -284,6 +326,10 @@ public class NPCHandler {
 				Client c = (Client) PlayerHandler.players[j];
 				if (c.isDead || c.position.heightLevel != npcs[i].heightLevel)
 					continue;
+				// DELVES: an AOE boss blast skips downed/spectating players and other parties, exactly
+				// like its single-target path does.
+				if (!DelveCombat.canNpcTarget(i, c))
+					continue;
 				if (PlayerHandler.players[j].goodDistance(c.position.absX, c.position.absY,
 						npcs[i].absX, npcs[i].absY, 15)) {
 					if (npcs[i].attackType == 2) {
@@ -291,30 +337,34 @@ public class NPCHandler {
 							if (Misc.random(500) + 200 > Misc.random(c
 									.getCombat().mageDef())) {
 								int dam = Misc.random(max);
+								if (c.vengOn && dam > 0)
+									c.getCombat().appendVengeanceNPC(dam, i);
 								c.dealDamage(dam);
-								c.handleHitMask(dam);
+								c.handleHitMask(dam, HitStyle.MAGIC);
 							} else {
 								c.dealDamage(0);
-								c.handleHitMask(0);
+								c.handleHitMask(0, HitStyle.MAGIC);
 							}
 						} else {
 							c.dealDamage(0);
-							c.handleHitMask(0);
+							c.handleHitMask(0, HitStyle.MAGIC);
 						}
 					} else if (npcs[i].attackType == 1) {
 						if (!c.prayers.prayerActive[17] && !c.prayers.curseActive[8]) {
 							int dam = Misc.random(max);
 							if (Misc.random(500) + 200 > Misc.random(c
 									.getCombat().calculateRangeDefence())) {
+								if (c.vengOn && dam > 0)
+									c.getCombat().appendVengeanceNPC(dam, i);
 								c.dealDamage(dam);
-								c.handleHitMask(dam);
+								c.handleHitMask(dam, HitStyle.RANGED);
 							} else {
 								c.dealDamage(0);
-								c.handleHitMask(0);
+								c.handleHitMask(0, HitStyle.RANGED);
 							}
 						} else {
 							c.dealDamage(0);
-							c.handleHitMask(0);
+							c.handleHitMask(0, HitStyle.RANGED);
 						}
 					}
 					if (npcs[i].endGfx > 0) {
@@ -329,6 +379,11 @@ public class NPCHandler {
 	public int getClosePlayer(int i) {
 		for (int j = 0; j < PlayerHandler.players.length; j++) {
 			if (PlayerHandler.players[j] != null) {
+				// DELVES: a boss only ever targets a living member of its own party.
+				if (PlayerHandler.players[j] instanceof Client
+						&& !DelveCombat.canNpcTarget(i, (Client) PlayerHandler.players[j])) {
+					continue;
+				}
 				if (j == npcs[i].spawnedBy)
 					return j;
 				if (goodDistance(PlayerHandler.players[j].position.absX,
@@ -348,12 +403,20 @@ public class NPCHandler {
 
 	public int getCloseRandomPlayer(int i) {
 		ArrayList<Integer> players = new ArrayList<Integer>();
+		// Elvarg is a lair boss, not a wandering monster: she notices anyone who steps into
+		// the arena, so the teleport tile at the entrance is already inside her aggro range.
+		int aggroRange = npcs[i].npcType == 742 || npcs[i].npcType == 6087 ? 24
+				: 2 + distanceRequired(i) + followDistance(i);
 		for (int j = 0; j < PlayerHandler.players.length; j++) {
 			if (PlayerHandler.players[j] != null) {
+				// DELVES: the random-target path needs the same party/state filter.
+				if (PlayerHandler.players[j] instanceof Client
+						&& !DelveCombat.canNpcTarget(i, (Client) PlayerHandler.players[j])) {
+					continue;
+				}
 				if (goodDistance(PlayerHandler.players[j].position.absX,
 						PlayerHandler.players[j].position.absY, npcs[i].absX,
-						npcs[i].absY, 2 + distanceRequired(i)
-								+ followDistance(i))
+						npcs[i].absY, aggroRange)
 						|| isFightCaveNpc(i)) {
 					if ((PlayerHandler.players[j].targeting.underAttackBy <= 0 && PlayerHandler.players[j].targeting.underAttackBy2 <= 0)
 							|| PlayerHandler.players[j].inMulti())
@@ -411,6 +474,40 @@ public class NPCHandler {
 		int ny = npcs[i].absY;
 		return playerX >= nx && playerX <= nx + size - 1
 				&& playerY >= ny && playerY <= ny + size - 1;
+	}
+
+	/** Chebyshev distance from a player tile to the closest tile of the NPC's footprint. */
+	public int distanceToNpc(int i, int playerX, int playerY) {
+		if (npcs[i] == null) {
+			return Integer.MAX_VALUE;
+		}
+		int size = npcSize(i);
+		if (size < 1) {
+			size = 1;
+		}
+		int nx = npcs[i].absX;
+		int ny = npcs[i].absY;
+		int closestX = playerX < nx ? nx : (playerX > nx + size - 1 ? nx + size - 1 : playerX);
+		int closestY = playerY < ny ? ny : (playerY > ny + size - 1 ? ny + size - 1 : playerY);
+		return Math.max(Math.abs(playerX - closestX), Math.abs(playerY - closestY));
+	}
+
+	/**
+	 * OSRS has no diagonal melee: standing corner-to-corner with the player is not contact.
+	 * Footprint-aware, so a large monster counts as touching when any of its tiles shares an
+	 * edge with the player's tile. Ranged and magic are unaffected - callers only consult this
+	 * for melee range.
+	 */
+	public boolean diagonalMeleeBlocked(int i, int playerX, int playerY) {
+		if (npcs[i] == null) {
+			return false;
+		}
+		int size = npcSize(i);
+		if (size < 1) {
+			size = 1;
+		}
+		return SmartPathFinder.cornerOnlyContact(npcs[i].absX, npcs[i].absY, size, size,
+				playerX, playerY, 1, 1);
 	}
 
 	/**
@@ -496,6 +593,12 @@ public class NPCHandler {
 		case 941:
 		case 54:
 		case 53:
+		// Fire giants (110) share the dragon's "attack on sight" behaviour; the new Waterfall
+		// spawns were placed on the assumption that they do.
+		case 110:
+		// Wilderness bandit camp bandits: the level 22 cache ids and the custom level 130 id.
+		case 195:
+		case 6605:
 		case 396:
 		case 186:
 		case 282:
@@ -512,6 +615,9 @@ public class NPCHandler {
 		case 13450:
 		case 13451:
 		case 13458:
+		// Elvarg hunts anyone who steps into her lair (both ids the drop/combat code uses).
+		case 742:
+		case 6087:
 			return true;
 		}
 		/*
@@ -729,6 +835,41 @@ public class NPCHandler {
 	}
 
 	/**
+	 * Adds a world NPC with no spawn line behind it and hands back the copy, or null when the array is
+	 * full. Used by minigame spawners (Boss Delves today) that own the NPC's whole lifetime: nothing
+	 * is registered in {@code NpcList}, no drop table is attached, and the caller is responsible for
+	 * removing it. Static so a package that must not drag in {@code Server} can spawn from the tick.
+	 */
+	public static NPC spawnInstanceNpc(int npcType, int x, int y, int heightLevel,
+			int HP, int maxHit, int attack, int defence) {
+		int slot = -1;
+		for (int i = 1; i < maxNPCs; i++) {
+			if (npcs[i] == null) {
+				slot = i;
+				break;
+			}
+		}
+		if (slot == -1) {
+			return null;
+		}
+		NPC npc = new NPC(slot, npcType);
+		npc.absX = x;
+		npc.absY = y;
+		npc.makeX = x;
+		npc.makeY = y;
+		npc.heightLevel = heightLevel;
+		npc.walkingType = 0;
+		npc.HP = HP;
+		npc.MaxHP = HP;
+		npc.maxHit = maxHit;
+		npc.attack = attack;
+		npc.defence = defence;
+		npc.spawnedBy = 0;
+		npcs[slot] = npc;
+		return npc;
+	}
+
+	/**
 	 * Emotes
 	 **/
 
@@ -736,6 +877,12 @@ public class NPCHandler {
 		int packed = NpcAnim667.attack(npcs[i].npcType);
 		if (packed > 0) {
 			return packed;
+		}
+		if (npcs[i].npcType == 6605) {
+			// Custom level 130 bandit. Its definition only exists client-side (EntityDef), so the
+			// default below reads standAnim 0 from the server's npc.dat and returns animation 2.
+			// 806 is the punch every 808/819 humanoid NPC in this cache uses.
+			return 806;
 		}
 		if (npcs[i].npcType == 3761)
 			return 3880;
@@ -1303,6 +1450,7 @@ public class NPCHandler {
 
 		case 1766:
 		case 1767:
+		case 1768:
 		case 81: // cow
 			return 5849;
 		case 3065:
@@ -1917,6 +2065,9 @@ public class NPCHandler {
 			return 2860;
 		case 81: // cow
 		case 397:
+		case 1766:
+		case 1767:
+		case 1768:
 			return 5850;
 
 		case 708: // imp
@@ -1973,6 +2124,14 @@ public class NPCHandler {
 			return 3922;
 
 		switch (npcs[i].npcType) {
+		case 12: // Barbarian (Barbarian Village, level 7)
+		case 17: // Barbarian woman
+		case 197: // Barbarian guard
+		case 384: // Barbarian guard
+		case 195: // Bandit (level 22)
+		case 6605: // Bandit (level 130, custom id)
+			return 836; // human death
+
 		case 3247: // Hobgoblin
 			return 6182;
 
@@ -2492,7 +2651,11 @@ public class NPCHandler {
 
 		case 1766:
 		case 1767:
-			return 0x03E;
+		case 1768: // cow calf
+			// Same cow death animation as ids 81/397. 0x03E was a leftover placeholder that
+			// played an unrelated emote, which is what made one of the Lumbridge cows look
+			// broken while the others died correctly.
+			return 5851;
 
 		case 1017:
 		case 2693:
@@ -2576,6 +2739,17 @@ public class NPCHandler {
 			// saradomin gw boss
 		case 2562:
 			return 2;
+
+		// RFD: the Culinaromancer is the fast caster the fight is built around; the earlier
+		// wave bosses swing at a normal boss speed.
+		case 3491:
+			return 3;
+		case 3493:
+		case 3494:
+		case 3495:
+		case 3496:
+		case 3497:
+			return 4;
 
 		default:
 			return 5;
@@ -2683,6 +2857,11 @@ public class NPCHandler {
 		newNPC.maxHit = maxHit;
 		newNPC.attack = attack;
 		newNPC.defence = defence;
+		if (TrainingDummy.isDummy(npcType)) {
+			// Ids 1488/1489 carry no usable stats of their own: a spawn line cannot give them the
+			// hitpoints they need, and they must never be told to fight back. See TrainingDummy.
+			TrainingDummy.applyDefaults(newNPC);
+		}
 		npcs[slot] = newNPC;
 	}
 
@@ -2815,6 +2994,25 @@ public class NPCHandler {
 					continue;
 				}
 
+				if (npcs[i].delveMaster) {
+					// The Delve Master is a temporary, unkillable herald. Same shape as the
+					// world-adventurer branch above: he sits out the generic NPC AI entirely and is
+					// ticked in one place. He must never die, retaliate or leave his authored tile,
+					// because a despawn is the only exit.
+					DelveMaster.tick(npcs[i]);
+					continue;
+				}
+				// RFD: Gelatinnoth Mother's colour clock. A no-op for every other NPC.
+				RFDMinigame.tick(npcs[i]);
+
+				if (TrainingDummy.isDummy(npcs[i])) {
+					// A dummy sits out the whole generic NPC AI - no aggression, no retaliation, no
+					// walking, no death - the same shape as the world-adventurer branch above.
+					// Everything it needs to hold that state is re-applied in one place.
+					TrainingDummy.tick(npcs[i]);
+					continue;
+				}
+
 				if (npcs[i].hitDelayTimer > 0) {
 					npcs[i].hitDelayTimer--;
 				}
@@ -2888,6 +3086,13 @@ public class NPCHandler {
 							if(npcs[i].npcType == 1532)
 								return;
 							Client c = (Client) PlayerHandler.players[p];
+							if (!DelveCombat.canNpcTarget(i, c)) {
+								// DELVES: the target went down, left the instance or was never in it.
+								npcs[i].killerId = 0;
+								npcs[i].underAttack = false;
+								npcs[i].facePlayer(0);
+								continue;
+							}
 							if (npcs[i].freezeTimer > 0) {
 								npcs[i].moveX = 0;
 								npcs[i].moveY = 0;
@@ -3015,6 +3220,15 @@ public class NPCHandler {
 						npcs[i].updateRequired = true;
 						npcs[i].facePlayer(0);
 						npcs[i].killedBy = getNpcKillerId(i);
+						// RFD: a wave boss is removed outright and the winner returns to the portal.
+						if (RFDMinigame.onBossKilled(i)) {
+							continue;
+						}
+						// DELVES: an instance boss pays into the party's chests and is removed here;
+						// the ordinary corpse, respawn and ground-drop path must not also run.
+						if (DelveCombat.onInstanceBossKilled(i)) {
+							continue;
+						}
 						npcs[i].animNumber = getDeadEmote(i); // dead emote
 						npcs[i].animUpdateRequired = true;
 						npcs[i].freezeTimer = 0;
@@ -3248,62 +3462,93 @@ public class NPCHandler {
 	 * Dropping Items!
 	 **/
 
-	public void dropItems(int i) {
-		boolean ringS = false;
-		@SuppressWarnings("unused")
-		int npc = 0;
-		Client c = (Client) PlayerHandler.players[npcs[i].killedBy];
-		if (c != null) {
-			if (npcs[i].npcType == 912 || npcs[i].npcType == 913
-					|| npcs[i].npcType == 914)
-				c.magePoints += 1;
+	/**
+	 * Rolls one drop table entry. "1 in N" notation is honoured exactly; named tiers and raw
+	 * percentages are adjusted by the player's exp mode and the ring of wealth.
+	 */
+	private boolean rollDrop(NPCDrop drop, Client c) {
+		int exact = exactOneIn(drop.rarity);
+		if (exact > 0) {
+			// Misc.random(n) is inclusive, so n-1 is the whole range and this is an honest
+			// 1 in exact.
+			return Misc.random(exact - 1) == 0;
+		}
+		float chance = getRarity(drop.rarity);
+		if (c.expModifier == c.EASY) {
+			chance *= 1.5f;
+		} else if (c.expModifier == c.HARD) {
+			chance *= 0.95f;
+		} else if (c.expModifier == c.EXTREME) {
+			chance *= 0.85f;
+		}
+		if (c.playerEquipment[c.playerRing] == 2572) {
+			chance *= 1.1f;
+		}
+		if (chance > 100.0f) {
+			chance = 100.0f;
+		}
+		return Misc.random(100.0f) < chance;
+	}
 
-			if (npcDropList[NPCHandler.npcs[i].npcType] != null) {
-				for (NPCDrop drop : npcDropList[NPCHandler.npcs[i].npcType]) {
-					if (NPCHandler.npcs[i].npcType == drop.npcId) {
-						float dropRarity = getRarity(drop.rarity);
-						int rareChance = Misc.random(100.0f);
-						if(c.expModifier == c.EASY)
-							rareChance *= 1.5;
-						if(c.expModifier == c.HARD)
-							rareChance *= 0.95;
-						if(c.expModifier == c.EXTREME)
-							rareChance *= 0.85;
-					    if(c.playerEquipment[c.playerRing] == 2572) {
-					    	rareChance = (rareChance/2);
-					    	if(!ringS)
-					    		c.sendMessage("@whi@Your ring glows brightly.");
-					    	ringS = true;
-					    }
-						if (Misc.random(rareChance) <= dropRarity) {
-							if (drop.itemAmount2 != -1) {
-								int itemAmount = drop.itemAmount;
-								int itemAmount2 = drop.itemAmount2;
-								if (drop.itemAmount > drop.itemAmount2) {
-									itemAmount2 = drop.itemAmount;
-									itemAmount = drop.itemAmount2;
-								}
-								int amount = Misc.random(itemAmount,
-										itemAmount2);
-								Server.itemHandler.createGroundItem(c,
-										drop.itemId, NPCHandler.npcs[i].absX,
-										NPCHandler.npcs[i].absY, amount,
-										c.playerId);
-								AchievementBroadcast.rareDrop(c, drop.itemId, NPCHandler.npcs[i].npcType);
-							} else {
-								Server.itemHandler.createGroundItem(c,
-										drop.itemId, NPCHandler.npcs[i].absX,
-										NPCHandler.npcs[i].absY,
-										drop.itemAmount, c.playerId);
-								AchievementBroadcast.rareDrop(c, drop.itemId, NPCHandler.npcs[i].npcType);
-							}
-						}
-					}
+	private void dropOneItem(Client c, int i, NPCDrop drop) {
+		int amount = drop.itemAmount;
+		if (drop.itemAmount2 != -1) {
+			int low = Math.min(drop.itemAmount, drop.itemAmount2);
+			int high = Math.max(drop.itemAmount, drop.itemAmount2);
+			amount = Misc.random(low, high);
+		}
+		Server.itemHandler.createGroundItem(c, drop.itemId, npcs[i].absX,
+				npcs[i].absY, amount, c.playerId);
+		AchievementBroadcast.rareDrop(c, drop.itemId, npcs[i].npcType);
+	}
+
+	public void dropItems(int i) {
+		Client c = (Client) PlayerHandler.players[npcs[i].killedBy];
+		if (c == null) {
+			return;
+		}
+		if (npcs[i].npcType == 912 || npcs[i].npcType == 913
+				|| npcs[i].npcType == 914) {
+			c.magePoints += 1;
+		}
+
+		NPCDrop[] table = npcDropList[npcs[i].npcType];
+		if (table != null) {
+			// ALWAYS entries (bones, ashes) are not rolled. Every other row is rolled
+			// independently, and at most one winner is dropped: rolling all forty-odd rows of
+			// the goblin table and dropping every hit was how one kill produced six items.
+			List<NPCDrop> winners = new ArrayList<NPCDrop>(2);
+			for (NPCDrop drop : table) {
+				if (npcs[i].npcType != drop.npcId) {
+					continue;
 				}
-				ringS = false;
+				if (drop.rarity.equalsIgnoreCase("ALWAYS")) {
+					dropOneItem(c, i, drop);
+					continue;
+				}
+				if (rollDrop(drop, c)) {
+					winners.add(drop);
+				}
 			}
+			if (!winners.isEmpty()) {
+				NPCDrop chosen = winners.get(Misc.random(winners.size() - 1));
+				if (c.playerEquipment[c.playerRing] == 2572) {
+					c.sendMessage("@whi@Your ring glows brightly.");
+				}
+				dropOneItem(c, i, chosen);
+			}
+		}
+		// Elvarg: the OSRS green dragon boss also leaves noted dragon bones and the odd herb
+		// or crystal key beyond the single rolled table entry.
+		if (npcs[i].npcType == 742 || npcs[i].npcType == 6087) {
+			dropElvargExtras(c, i);
+		}
 			if (Misc.random(500) == 0) {
-				Server.itemHandler.createGroundItem(c, Misc.random(1) == 0 ? 985 : 987,
+				// Key halves always drop as a matched pair (tooth + loop).
+				Server.itemHandler.createGroundItem(c, 985,
+						NPCHandler.npcs[i].absX, NPCHandler.npcs[i].absY, 1,
+						c.playerId);
+				Server.itemHandler.createGroundItem(c, 987,
 						NPCHandler.npcs[i].absX, NPCHandler.npcs[i].absY, 1,
 						c.playerId);
 			}
@@ -3325,6 +3570,40 @@ public class NPCHandler {
 						NPCHandler.npcs[i].absX, NPCHandler.npcs[i].absY, 1,
 						c.playerId);
 			}
+	}
+
+	/**
+	 * Elvarg's extra rolls: a guaranteed base bone is already in the table, so this adds the
+	 * noted stack, a herb and a rare crystal key without competing with the single table winner.
+	 */
+	private static final int[] ELVARG_HERBS = { 199, 201, 203, 205, 207, 209, 211, 213, 215,
+			217, 2485, 3049, 3051 };
+
+	/** Dragon equipment Elvarg can leave behind. One of these rolls on its own, like the bones. */
+	private static final int[] ELVARG_DRAGON_DROPS = { 1149, 1305, 4587, 1215, 1249, 1377, 1434 };
+
+	private void dropElvargExtras(Client c, int i) {
+		int x = npcs[i].absX;
+		int y = npcs[i].absY;
+		// A coin-flip for the noted stack keeps dragon bones the headline drop without
+		// making every single kill hand out up to 60 of them.
+		if (Misc.random(1) == 0) {
+			Server.itemHandler.createGroundItem(c, 537, x, y, 20 + Misc.random(40), c.playerId);
+		}
+		// One herb from the real herb table, not "id 199 plus a random offset": the gaps in
+		// that range are not herbs and were dropping unrelated items.
+		if (Misc.random(2) == 0) {
+			Server.itemHandler.createGroundItem(c, ELVARG_HERBS[Misc.random(
+					ELVARG_HERBS.length - 1)], x, y, 1, c.playerId);
+		}
+		if (Misc.random(49) == 0) {
+			Server.itemHandler.createGroundItem(c, 989, x, y, 1, c.playerId);
+		}
+		// Dragon equipment: a 1 in 34 roll for one piece, picked at random from the seven
+		// drops, independent of the table winner and the extras above.
+		if (Misc.random(33) == 0) {
+			Server.itemHandler.createGroundItem(c, ELVARG_DRAGON_DROPS[Misc.random(
+					ELVARG_DRAGON_DROPS.length - 1)], x, y, 1, c.playerId);
 		}
 	}
 
@@ -3651,8 +3930,14 @@ public class NPCHandler {
 		// Stay next to the player — never stop while sharing any of its tiles.
 		int stopAt = Nex.isBloodReaver(npcs[i].npcType) ? 1 : distanceRequired(i);
 		boolean insideFootprint = isPlayerInsideNpc(playerX, playerY, i);
-		if (!insideFootprint && goodDistance(npcs[i].getX(), npcs[i].getY(), playerX, playerY,
-				stopAt))
+		boolean inRange = !insideFootprint && distanceToNpc(i, playerX, playerY) <= stopAt;
+		// A melee NPC standing corner-to-corner can never swing, so that is not a hold: keep
+		// stepping until it shares an edge with the player. Without this an aggressive monster
+		// parked diagonally would stand still and the fight would never start.
+		if (inRange && stopAt == 1 && diagonalMeleeBlocked(i, playerX, playerY)) {
+			inRange = false;
+		}
+		if (inRange)
 			return;
 		if ((npcs[i].spawnedBy > 0)
 				|| ((npcs[i].absX < npcs[i].makeX + Config.NPC_FOLLOW_DISTANCE)
@@ -3671,10 +3956,16 @@ public class NPCHandler {
 						npcs[i].updateRequired = true;
 						return;
 					} else {
-						// Approach beside the player (not onto their tile).
+						// Approach beside the player (not onto their tile). Corner-to-corner is
+						// never a valid stand: pick a cardinal neighbour, preferring the axis the
+						// NPC is already offset on and skipping tiles it cannot step to.
+						int[] approach = meleeApproachTile(i, playerX, playerY);
 						int approachX = playerX;
 						int approachY = playerY;
-						if (npcs[i].absX < playerX) {
+						if (approach != null) {
+							approachX = approach[0];
+							approachY = approach[1];
+						} else if (npcs[i].absX < playerX) {
 							approachX = playerX - 1;
 						} else if (npcs[i].absX > playerX) {
 							approachX = playerX + 1;
@@ -3720,6 +4011,43 @@ public class NPCHandler {
 	}
 
 	/**
+	 * The tile beside the player a melee NPC should stand on: always a cardinal neighbour, never
+	 * the player's own tile and never a corner. The axis the NPC is already offset on is tried
+	 * first so it sidesteps into contact instead of backtracking, and adjacent candidates that
+	 * cannot be stepped to are skipped so a fence or wall does not pin the approach to one tile.
+	 *
+	 * @return the destination tile, or {@code null} when no cardinal neighbour is viable
+	 */
+	private int[] meleeApproachTile(int i, int playerX, int playerY) {
+		NPC n = npcs[i];
+		int size = Math.max(npcSize(i), 1);
+		if (SmartPathFinder.touchesFootprint(n.absX, n.absY, size, size, playerX, playerY, 1, 1)) {
+			return new int[] { n.absX, n.absY }; // already beside them: stay put
+		}
+		int dx = Integer.compare(n.absX, playerX);
+		int dy = Integer.compare(n.absY, playerY);
+		int[][] candidates = {
+				{ playerX + dx, playerY },
+				{ playerX, playerY + dy },
+				{ playerX - dx, playerY },
+				{ playerX, playerY - dy },
+		};
+		for (int[] tile : candidates) {
+			if (tile[0] == playerX && tile[1] == playerY) {
+				continue;
+			}
+			int stepX = tile[0] - n.absX;
+			int stepY = tile[1] - n.absY;
+			if (Math.abs(stepX) <= 1 && Math.abs(stepY) <= 1
+					&& !SmartPathFinder.canStep(n.absX, n.absY, stepX, stepY, n.heightLevel)) {
+				continue;
+			}
+			return tile;
+		}
+		return null;
+	}
+
+	/**
 	 * load spell
 	 **/
 	public void loadSpell2(int i) {
@@ -3752,6 +4080,84 @@ public class NPCHandler {
 		@SuppressWarnings("unused")
 		Client c = (Client) PlayerHandler.players[npcs[i].oldIndex];
 		switch (npcs[i].npcType) {
+		// Elvarg: roughly a third of her attacks are dragonfire, the rest are melee. The
+		// damage itself is decided in applyDamage's fire-breath branch, which already reads
+		// the player's anti-dragon protection.
+		case 742:
+		case 6087:
+			if (Misc.random(2) == 0) {
+				npcs[i].attackType = 3;
+				npcs[i].projectileId = -1;
+				npcs[i].endGfx = 430;
+			} else {
+				npcs[i].attackType = 0;
+				npcs[i].projectileId = -1;
+				npcs[i].endGfx = -1;
+			}
+			break;
+		// Recipe for Disaster bosses.
+		case 3493: // Agrith-Na-Na: melee with a magic special.
+			if (Misc.random(2) == 0) {
+				npcs[i].attackType = 2;
+				npcs[i].projectileId = 94;
+				npcs[i].endGfx = 95;
+			} else {
+				npcs[i].attackType = 0;
+				npcs[i].projectileId = -1;
+				npcs[i].endGfx = -1;
+			}
+			break;
+		case 3494: // Flambeed: melee, occasional fire spell.
+			if (Misc.random(3) == 0) {
+				npcs[i].attackType = 2;
+				npcs[i].projectileId = 130;
+				npcs[i].endGfx = 131;
+			} else {
+				npcs[i].attackType = 0;
+				npcs[i].projectileId = -1;
+				npcs[i].endGfx = -1;
+			}
+			break;
+		case 3495: // Karamel: always water magic.
+			npcs[i].attackType = 2;
+			npcs[i].projectileId = 94;
+			npcs[i].endGfx = 95;
+			break;
+		case 3496: // Dessourt: dual magic/melee.
+			if (Misc.random(1) == 0) {
+				npcs[i].attackType = 2;
+				npcs[i].projectileId = 94;
+				npcs[i].endGfx = 95;
+			} else {
+				npcs[i].attackType = 0;
+				npcs[i].projectileId = -1;
+				npcs[i].endGfx = -1;
+			}
+			break;
+		case 3497: { // Gelatinnoth Mother: melee up close, ranged/magic at range.
+			boolean adjacent = c != null && goodDistance(npcs[i].getX(), npcs[i].getY(),
+					c.getX(), c.getY(), 1);
+			int pick = adjacent ? Misc.random(2) : 1 + Misc.random(1);
+			if (pick == 0) {
+				npcs[i].attackType = 0;
+				npcs[i].projectileId = -1;
+				npcs[i].endGfx = -1;
+			} else if (pick == 1) {
+				npcs[i].attackType = 1;
+				npcs[i].projectileId = 426;
+				npcs[i].endGfx = 428;
+			} else {
+				npcs[i].attackType = 2;
+				npcs[i].projectileId = 94;
+				npcs[i].endGfx = 95;
+			}
+			break;
+		}
+		case 3491: // Culinaromancer: fast, hard-hitting magic.
+			npcs[i].attackType = 2;
+			npcs[i].projectileId = 94;
+			npcs[i].endGfx = 95;
+			break;
 		case 13447:
 		case 13448:
 		case 13449:
@@ -4104,6 +4510,14 @@ public class NPCHandler {
 			return npcs[i].attackType == 0 ? 1 : 8;
 		case 13458: // Blood reaver — mage
 			return 8;
+		// Recipe for Disaster: magic/hybrid bosses hold a spell range of eight.
+		// Flambeed (3494) is deliberately absent - he is a melee boss.
+		case 3493:
+		case 3495:
+		case 3496:
+		case 3497:
+		case 3491:
+			return 8;
 		default:
 			return 1;
 		}
@@ -4180,6 +4594,11 @@ public class NPCHandler {
 				npcs[i].killerId = 0;
 				return;
 			}
+			// DELVES: never swing at a downed, dead or foreign-party player.
+			if (!DelveCombat.canNpcTarget(i, c)) {
+				npcs[i].killerId = 0;
+				return;
+			}
 			// Step-under: cannot attack while the player occupies any NPC tile.
 			if (isPlayerInsideNpc(c.getX(), c.getY(), i)) {
 				npcs[i].facePlayer(c.playerId);
@@ -4187,8 +4606,14 @@ public class NPCHandler {
 			}
 			npcs[i].facePlayer(c.playerId);
 			boolean special = false;// specialCase(c,i);
-			if (goodDistance(npcs[i].getX(), npcs[i].getY(), c.getX(),
-					c.getY(), distanceRequired(i)) || special) {
+			// No corner-to-corner melee. Melee-range NPCs must be orthogonally in contact.
+			if (distanceRequired(i) == 1 && diagonalMeleeBlocked(i, c.getX(), c.getY())) {
+				return;
+			}
+			// Range is measured against the whole footprint, not the origin tile: a player
+			// standing beside the side of a large monster is in range of it even though the
+			// origin tile is several steps away.
+			if (distanceToNpc(i, c.getX(), c.getY()) <= distanceRequired(i) || special) {
 				int nSize = npcSize(i);
 				if (!PathFinder.hasLineOfSight(npcs[i].absX, npcs[i].absY, nSize, c.position.absX, c.position.absY, 1, c.position.heightLevel)) {
 					return;
@@ -4203,6 +4628,13 @@ public class NPCHandler {
 					else
 						loadSpell(i);
 					NpcAnim667.applyStyle(npcs[i]);
+					// A hybrid that rolled melee must actually be in melee contact (no diagonal,
+					// no spell-range swing). Cancel the cycle so it re-rolls next tick.
+					if (npcs[i].attackType == 0 && (distanceToNpc(i, c.getX(), c.getY()) > 1
+							|| diagonalMeleeBlocked(i, c.getX(), c.getY()))) {
+						npcs[i].attackTimer = 0;
+						return;
+					}
 					if (npcs[i].attackType == 3)
 						npcs[i].hitDelayTimer += 2;
 					if (multiAttacks(i)) {
@@ -4257,6 +4689,9 @@ public class NPCHandler {
 	}
 
 	public boolean retaliates(int npcType) {
+		if (TrainingDummy.isDummy(npcType)) {
+			return false; // a dummy is something to hit, never something that hits back
+		}
 		return npcType < 6142 || npcType > 6145
 				&& !(npcType >= 2440 && npcType <= 2446);
 	}
@@ -4346,6 +4781,12 @@ public class NPCHandler {
 			if (npcs[i].isDead)
 				return;
 			Client c = (Client) PlayerHandler.players[npcs[i].oldIndex];
+			// DELVES: the swing may have been launched before the target went down, died or left the
+			// instance. Re-check at impact so a delayed blow cannot kill somebody who is already DOWNED.
+			if (!DelveCombat.canNpcTarget(i, c)) {
+				npcs[i].oldIndex = 0;
+				return;
+			}
 			if (multiAttacks(i)) {
 				multiAttackDamage(i);
 				return;
@@ -4359,6 +4800,9 @@ public class NPCHandler {
 			}
 			if (c.timers.respawnTimer <= 0) {
 				int damage = 0;
+				// Elvarg's blows are never fully stopped by a protection prayer: the matching
+				// prayer shaves off 75% of the hit and the remaining quarter still lands.
+				boolean elvarg = npcs[i].npcType == 742 || npcs[i].npcType == 6087;
 				if (npcs[i].attackType == 0) {
 					damage = Misc.random(npcs[i].maxHit);
 					if (damage > 0)
@@ -4370,7 +4814,9 @@ public class NPCHandler {
 					if (c.prayers.prayerActive[18] || c.prayers.curseActive[9]) { // protect
 																	// from
 																	// melee
-						if (npcs[i].npcType == 2030 || npcs[i].npcType == 1158
+						if (elvarg)
+							damage = damage / 4;
+						else if (npcs[i].npcType == 2030 || npcs[i].npcType == 1158
 								|| npcs[i].npcType == 1160 || Nex.isNex(npcs[i].npcType))
 							damage = (damage / 2);
 						else
@@ -4390,7 +4836,9 @@ public class NPCHandler {
 						damage = 0;
 					}
 					if (c.prayers.prayerActive[17] || c.prayers.curseActive[8]) { // protect from range
-						if (Nex.isNex(npcs[i].npcType))
+						if (elvarg)
+							damage = damage / 4;
+						else if (Nex.isNex(npcs[i].npcType))
 							damage = (damage / 2);
 						else
 							damage = 0;
@@ -4411,7 +4859,9 @@ public class NPCHandler {
 						magicFailed = true;
 					}
 					if (c.prayers.prayerActive[16] || c.prayers.curseActive[7]) { // protect from magic
-						if (Nex.isNex(npcs[i].npcType))
+						if (elvarg) {
+							damage = damage / 4;
+						} else if (Nex.isNex(npcs[i].npcType))
 							damage = (damage / 2);
 						else
 							damage = 0;
@@ -4430,7 +4880,19 @@ public class NPCHandler {
 
 				if (npcs[i].attackType == 3) { // fire breath
 					int anti = c.getPA().antiFire();
-					if (anti == 0) {
+					if (elvarg) {
+						// Elvarg's breath is weaker than the King Black Dragon's: OSRS players
+						// survive it with an anti-dragon shield, and it is punishing without one.
+						// Values are the old 9-14 / 2-6 / 0-2 rolls scaled by 75%.
+						if (anti == 0) {
+							damage = 16 + Misc.random(9);
+							c.sendMessage("You are badly burnt by Elvarg's fire!");
+						} else if (anti == 1) {
+							damage = 4 + Misc.random(7);
+						} else {
+							damage = Misc.random(5);
+						}
+					} else if (anti == 0) {
 						damage = Misc.random(30) + 10;
 						c.sendMessage("You are badly burnt by the dragon's fire!");
 					} else if (anti == 1)
@@ -4440,6 +4902,11 @@ public class NPCHandler {
 					if (c.skills.playerLevel[3] - damage < 0)
 						damage = c.skills.playerLevel[3];
 					c.gfx100(npcs[i].endGfx);
+				}
+				// RFD: Dessourt's rot ticks on its own clock (RFDMinigame.tick); Karamel's
+				// water spell binds and drains on a successful cast.
+				if (npcs[i].npcType == 3495 && npcs[i].attackType == 2 && damage > 0) {
+					RFDMinigame.karamelFreeze(c);
 				}
 				handleSpecialEffects(c, i, damage);
 				if (Nex.isNex(npcs[i].npcType)) {
@@ -4458,8 +4925,18 @@ public class NPCHandler {
 				}
 				c.timers.logoutDelay = System.currentTimeMillis(); // logout delay
 				// c.setHitDiff(damage);
-				c.handleHitMask(damage);
+				// Vengeance is spent before the hit lands, and on the final post-prayer damage - the
+				// same figure the player actually loses, matching the PvP path in CombatAssistant.
+				if (c.vengOn && damage > 0)
+					c.getCombat().appendVengeanceNPC(damage, i);
+				// Tag the splat with the style that produced it so the client's hit-style icon matches.
+				c.handleHitMask(damage, HitStyle.fromAttackType(npcs[i].attackType));
 				c.skills.playerLevel[3] -= damage;
+				// DELVES: the NPC melee/range/magic path writes hitpoints directly rather than going
+				// through Player.dealDamage, so the downing hook has to be repeated here.
+				if (damage > 0) {
+					DelveCombat.onDamageTaken(c, damage);
+				}
 				c.getPA().refreshSkill(3);
 				c.updateRequired = true;
 				// c.setHitUpdateRequired(true);
@@ -4496,6 +4973,13 @@ public class NPCHandler {
 	}
 
 	public int getMaxHit(int i) {
+		// DELVES: an instance boss carries its own party-scaled max hit. The hardcoded cases below
+		// would otherwise discard it for exactly the bosses the delve uses, because they are the
+		// ones with an entry here. No-op for every NPC that is not a delve instance boss, which is
+		// every NPC unless a delve run has spawned one into that slot.
+		if (DelveNpc.isInstanceBoss(i)) {
+			return DelveNpc.instanceMaxHit(i);
+		}
 		switch (npcs[i].npcType) {
 		case 6222:
 			if (npcs[i].attackType == 2)
